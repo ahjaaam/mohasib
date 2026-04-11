@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { Invoice, Transaction } from "@/types";
+import DashboardNews from "./DashboardNews";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -39,60 +40,51 @@ export default async function DashboardPage() {
   const pendingInvs = invoices.filter((i) => i.status === "sent" || i.status === "overdue");
   const pendingTotal = pendingInvs.reduce((s, i) => s + Number(i.total), 0);
 
-  // TVA estimate: sum of tax_amount on sent/paid invoices this month
   const tvaEstimate = invoices
     .filter((i) => i.status === "paid" || i.status === "sent")
     .reduce((s, i) => s + Number(i.tax_amount), 0);
 
-  // Next TVA deadline: 20th of next month
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 20);
-  const tvaDeadline = nextMonth.toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" });
 
   return (
     <div>
-      {/* Deadline bar */}
-      <div className="deadline-bar">
-        ⏰ <strong>Déclaration TVA due le {tvaDeadline}</strong>
-        {tvaEstimate > 0 && <> — TVA estimée : ~{fmt(Math.round(tvaEstimate / 100) * 100)}</>}
-      </div>
-
       {/* Quick Actions */}
       <div className="mb-5">
         <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5">Actions rapides</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-          <Link href="/invoices/new" className="qa-card block">
-            <div className="flex items-start justify-between">
-              <div className="text-xl">🧾</div>
-              <ArrowUpRight size={13} className="text-[#C8924A]/40 mt-0.5" />
+          <Link href="/invoices/new" className="qa-card">
+            <div className="text-2xl flex-shrink-0">🧾</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Créer une facture</div>
+              <div className="text-[11px] text-[#6B7280] leading-snug">ICE, TVA et WhatsApp intégrés</div>
             </div>
-            <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Créer une facture</div>
-            <div className="text-[11px] text-[#6B7280] leading-snug">ICE, TVA et WhatsApp intégrés</div>
+            <ArrowUpRight size={13} className="text-[#C8924A]/50 flex-shrink-0" />
           </Link>
-          <Link href="/transactions" className="qa-card block">
-            <div className="flex items-start justify-between">
-              <div className="text-xl">💸</div>
-              <ArrowUpRight size={13} className="text-[#C8924A]/40 mt-0.5" />
+          <Link href="/transactions" className="qa-card">
+            <div className="text-2xl flex-shrink-0">💸</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Enregistrer une dépense</div>
+              <div className="text-[11px] text-[#6B7280] leading-snug">Ajout rapide au journal</div>
             </div>
-            <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Enregistrer une dépense</div>
-            <div className="text-[11px] text-[#6B7280] leading-snug">Ajout rapide au journal</div>
+            <ArrowUpRight size={13} className="text-[#C8924A]/50 flex-shrink-0" />
           </Link>
-          <Link href="/chat" className="qa-card block">
-            <div className="flex items-start justify-between">
-              <div className="text-xl">💬</div>
-              <ArrowUpRight size={13} className="text-[#C8924A]/40 mt-0.5" />
+          <Link href="/chat" className="qa-card">
+            <div className="text-2xl flex-shrink-0">💬</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Demander à Mohasib AI</div>
+              <div className="text-[11px] text-[#6B7280] leading-snug">Votre comptable 24h/24</div>
             </div>
-            <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Demander à Mohasib AI</div>
-            <div className="text-[11px] text-[#6B7280] leading-snug">Votre comptable 24h/24</div>
+            <ArrowUpRight size={13} className="text-[#C8924A]/50 flex-shrink-0" />
           </Link>
-          <Link href="/invoices" className="qa-card block">
-            <div className="flex items-start justify-between">
-              <div className="text-xl">📋</div>
-              <ArrowUpRight size={13} className="text-[#C8924A]/40 mt-0.5" />
+          <Link href="/invoices" className="qa-card">
+            <div className="text-2xl flex-shrink-0">📋</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Voir les factures</div>
+              <div className="text-[11px] text-[#6B7280] leading-snug">
+                {pendingInvs.length > 0 ? `${pendingInvs.length} en attente de paiement` : "Toutes à jour"}
+              </div>
             </div>
-            <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Voir les factures</div>
-            <div className="text-[11px] text-[#6B7280] leading-snug">
-              {pendingInvs.length > 0 ? `${pendingInvs.length} en attente de paiement` : "Toutes à jour"}
-            </div>
+            <ArrowUpRight size={13} className="text-[#C8924A]/50 flex-shrink-0" />
           </Link>
         </div>
       </div>
@@ -128,8 +120,8 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Two-column */}
-      <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-3">
+      {/* Two-column tables */}
+      <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-3 mb-4">
         {/* Invoices */}
         <div className="tbl">
           <div className="tbl-header">
@@ -194,6 +186,9 @@ export default async function DashboardPage() {
           </table>
         </div>
       </div>
+
+      {/* Actualités fiscales */}
+      <DashboardNews />
     </div>
   );
 }

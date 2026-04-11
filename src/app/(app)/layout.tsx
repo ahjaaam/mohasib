@@ -17,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <AppShell
+      userId={user.id}
       userEmail={user.email}
       userName={profile?.full_name}
       userCompany={profile?.company}>

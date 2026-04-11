@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
@@ -33,11 +34,13 @@ const PAGE_TITLES: Record<string, string> = {
   "/transactions": "Transactions",
   "/export": "Export Fiduciaire",
   "/chat": "Mohasib AI",
+  "/notifications": "Notifications",
   "/settings": "Paramètres",
 };
 
 interface Props {
   children: React.ReactNode;
+  userId?: string | null;
   userEmail?: string | null;
   userName?: string | null;
   userCompany?: string | null;
@@ -73,8 +76,8 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
     <>
       {/* Logo */}
       <div className="px-[18px] pt-5 pb-[15px] border-b border-white/[0.07]">
-        <div className="text-[19px] font-bold text-[#C8924A] tracking-[-0.2px] leading-tight">Mohasib</div>
-        <div className="text-[10.5px] text-white/[0.28] mt-0.5">AI accounting for Moroccan SMEs</div>
+        <Image src="/logo.png" alt="Mohasib" width={120} height={32} className="object-contain" />
+        <div className="text-[10.5px] text-white/[0.28] mt-1.5">AI accounting for Moroccan SMEs</div>
       </div>
 
       {/* Nav */}
@@ -163,39 +166,41 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
             </button>
             <span className="text-[14px] font-semibold text-[#1A1A2E]">{pageTitle}</span>
           </div>
-          {pathname === "/inbox" && (
-            <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("inbox-upload"))}>
-              <Plus size={13} /> Importer un reçu
-            </button>
-          )}
-          {pathname === "/invoices" && (
-            <Link href="/invoices/new" className="btn btn-gold">
-              <Plus size={13} /> Nouvelle Facture
-            </Link>
-          )}
-          {pathname === "/invoices/new" && (
-            <Link href="/invoices" className="btn btn-outline">
-              ← Annuler
-            </Link>
-          )}
-          {pathname === "/clients" && (
-            <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("open-add-client"))}>
-              <Plus size={13} /> Nouveau client
-            </button>
-          )}
-          {pathname === "/transactions" && (
-            <div className="flex items-center gap-2">
-              <button
-                className="btn btn-outline text-[12px]"
-                onClick={() => document.dispatchEvent(new CustomEvent("bank-import-open"))}
-              >
-                📄 Importer un relevé
+          <div className="flex items-center gap-2">
+            {pathname === "/inbox" && (
+              <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("inbox-upload"))}>
+                <Plus size={13} /> Importer un reçu
               </button>
-              <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("focus-tx-form"))}>
-                <Plus size={13} /> Transaction
+            )}
+            {pathname === "/invoices" && (
+              <Link href="/invoices/new" className="btn btn-gold">
+                <Plus size={13} /> Nouvelle Facture
+              </Link>
+            )}
+            {pathname === "/invoices/new" && (
+              <Link href="/invoices" className="btn btn-outline">
+                ← Annuler
+              </Link>
+            )}
+            {pathname === "/clients" && (
+              <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("open-add-client"))}>
+                <Plus size={13} /> Nouveau client
               </button>
-            </div>
-          )}
+            )}
+            {pathname === "/transactions" && (
+              <>
+                <button
+                  className="btn btn-outline text-[12px]"
+                  onClick={() => document.dispatchEvent(new CustomEvent("bank-import-open"))}
+                >
+                  📄 Importer un relevé
+                </button>
+                <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("focus-tx-form"))}>
+                  <Plus size={13} /> Transaction
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Page content */}
