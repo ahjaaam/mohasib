@@ -57,9 +57,11 @@ export interface Invoice {
   currency: string;
   notes: string | null;
   items: InvoiceItem[];
+  whatsapp_sent_at?: string | null;
+  whatsapp_sent_count?: number;
   created_at: string;
   updated_at: string;
-  clients?: Pick<Client, "id" | "name" | "email">;
+  clients?: Pick<Client, "id" | "name" | "email" | "phone">;
 }
 
 export type ReceiptStatus = "pending" | "matched" | "ignored";

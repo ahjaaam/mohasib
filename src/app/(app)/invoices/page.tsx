@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import toast from "react-hot-toast";
+import { Loader2, Send } from "lucide-react";
 import type { Invoice, InvoiceStatus } from "@/types";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
@@ -24,10 +26,13 @@ const BADGE: Record<InvoiceStatus, [string, string]> = {
   cancelled: ["b-draft",   "Annulée"],
 };
 
+type WaSending = Record<string, "loading" | "success" | "error">;
+
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filter, setFilter] = useState<"all" | InvoiceStatus>("all");
   const [loading, setLoading] = useState(true);
+  const [waSending, setWaSending] = useState<WaSending>({});
   const supabase = createClient();
 
   useEffect(() => {
@@ -35,7 +40,7 @@ export default function InvoicesPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const { data } = await supabase
         .from("invoices")
-        .select("*, clients(id, name, email)")
+        .select("*, clients(id, name, email, phone)")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       setInvoices(data ?? []);
@@ -43,6 +48,28 @@ export default function InvoicesPage() {
     }
     load();
   }, []);
+
+  async function sendWhatsApp(invoiceId: string, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setWaSending((s) => ({ ...s, [invoiceId]: "loading" }));
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/pdf`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `HTTP ${res.status}`);
+      }
+      const { whatsappUrl } = await res.json();
+      window.open(whatsappUrl, "_blank");
+      setWaSending((s) => ({ ...s, [invoiceId]: "success" }));
+      toast.success("WhatsApp ouvert 📲");
+      setTimeout(() => setWaSending((s) => { const n = { ...s }; delete n[invoiceId]; return n; }), 2000);
+    } catch (err: any) {
+      setWaSending((s) => ({ ...s, [invoiceId]: "error" }));
+      toast.error(err.message || "Erreur WhatsApp", { duration: 5000 });
+      setTimeout(() => setWaSending((s) => { const n = { ...s }; delete n[invoiceId]; return n; }), 2000);
+    }
+  }
 
   const filtered = filter === "all" ? invoices : invoices.filter((i) => i.status === filter);
 
@@ -73,15 +100,16 @@ export default function InvoicesPage() {
               <th>Date</th>
               <th>Échéance</th>
               <th>Statut</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={8} className="text-center py-8 text-[#6B7280] text-[12px]">Chargement...</td></tr>
+              <tr><td colSpan={9} className="text-center py-8 text-[#6B7280] text-[12px]">Chargement...</td></tr>
             )}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center py-10">
+                <td colSpan={9} className="text-center py-10">
                   <p className="text-[#6B7280] text-[12.5px] mb-3">Aucune facture</p>
                   <Link href="/invoices/new" className="btn btn-gold">+ Nouvelle Facture</Link>
                 </td>
@@ -89,6 +117,7 @@ export default function InvoicesPage() {
             )}
             {filtered.map((inv) => {
               const [cls, label] = BADGE[inv.status] ?? ["b-draft", inv.status];
+              const waStatus = waSending[inv.id];
               return (
                 <tr key={inv.id}>
                   <td>
@@ -105,6 +134,29 @@ export default function InvoicesPage() {
                     {inv.due_date ? fmtDate(inv.due_date) : "—"}
                   </td>
                   <td><span className={`badge ${cls}`}>{label}</span></td>
+                  <td>
+                    <button
+                      onClick={(e) => sendWhatsApp(inv.id, e)}
+                      disabled={waStatus === "loading"}
+                      title="Envoyer par WhatsApp"
+                      className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all ${
+                        waStatus === "success"
+                          ? "bg-[#D1FAE5] text-[#059669]"
+                          : waStatus === "error"
+                          ? "bg-[#FEE2E2] text-[#DC2626]"
+                          : "bg-[#F3F4F6] hover:bg-[rgba(200,146,74,0.12)] text-[#6B7280] hover:text-[#C8924A]"
+                      }`}
+                    >
+                      {waStatus === "loading"
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : waStatus === "success"
+                        ? <span className="text-[11px]">✓</span>
+                        : waStatus === "error"
+                        ? <span className="text-[11px]">✕</span>
+                        : <Send size={12} />
+                      }
+                    </button>
+                  </td>
                 </tr>
               );
             })}

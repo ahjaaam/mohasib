@@ -92,6 +92,14 @@ export async function GET(
   }
 }
 
+function formatMoroccanPhone(raw: string): string {
+  const clean = raw.replace(/[\s\-().+]/g, "");
+  if (clean.startsWith("00212")) return "+212" + clean.slice(5);
+  if (clean.startsWith("212")) return "+" + clean;
+  if (clean.startsWith("0")) return "+212" + clean.slice(1);
+  return "+" + clean;
+}
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -121,7 +129,7 @@ export async function POST(
     const { input, client } = await buildInput(inv, company);
     const arrayBuffer = generateInvoicePDF(input);
 
-    const storagePath = `${user.id}/${inv.invoice_number}-${Date.now()}.pdf`;
+    const storagePath = `${user.id}/${inv.invoice_number}.pdf`;
     const { error: uploadError } = await supabase.storage
       .from("invoices-pdf")
       .upload(storagePath, new Uint8Array(arrayBuffer), {
@@ -135,12 +143,47 @@ export async function POST(
       .from("invoices-pdf")
       .getPublicUrl(storagePath);
 
+    // Build message
     const ttc = Number(inv.total).toLocaleString("fr-MA", { minimumFractionDigits: 2 });
-    const clientPhone = client?.phone ? client.phone.replace(/\D/g, "") : null;
-    const message = `Bonjour, veuillez trouver ci-joint votre facture ${inv.invoice_number} d'un montant de ${ttc} MAD.\nLien PDF : ${publicUrl}`;
-    const whatsappUrl = clientPhone
-      ? `https://wa.me/${clientPhone}?text=${encodeURIComponent(message)}`
+    const clientName = client?.name ?? "";
+    const companyName = company?.raison_sociale ?? "";
+    const companyPhone = company?.phone ?? "";
+    const dueDate = inv.due_date
+      ? new Date(inv.due_date).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "numeric" })
+      : null;
+
+    const lines = [
+      `Bonjour ${clientName},`,
+      "",
+      `Veuillez trouver ci-joint votre facture *${inv.invoice_number}* d'un montant de *${ttc} MAD*.`,
+      "",
+      `📄 Télécharger la facture :`,
+      publicUrl,
+      ...(dueDate ? ["", `Date d'échéance : ${dueDate}`] : []),
+      "",
+      "Merci pour votre confiance.",
+      ...(companyName ? [companyName] : []),
+      ...(companyPhone ? [companyPhone] : []),
+    ];
+    const message = lines.join("\n");
+
+    // Format phone number (prefer whatsapp field, fall back to phone)
+    const rawPhone = (client as any)?.whatsapp || client?.phone || null;
+    const formattedPhone = rawPhone ? formatMoroccanPhone(rawPhone) : null;
+    const whatsappUrl = formattedPhone
+      ? `https://wa.me/${formattedPhone.replace("+", "")}?text=${encodeURIComponent(message)}`
       : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+    // Track send (graceful — columns may not exist yet)
+    try {
+      await supabase
+        .from("invoices")
+        .update({
+          whatsapp_sent_at: new Date().toISOString(),
+          whatsapp_sent_count: (Number(inv.whatsapp_sent_count ?? 0) + 1),
+        })
+        .eq("id", id);
+    } catch { /* columns may not exist yet */ }
 
     return NextResponse.json({ whatsappUrl, publicUrl });
   } catch (err: any) {

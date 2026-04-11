@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { formatCurrency, formatDate, INVOICE_STATUS_LABELS } from "@/lib/utils";
+import { formatDate, INVOICE_STATUS_LABELS } from "@/lib/utils";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -122,7 +122,14 @@ export default async function InvoiceDetailPage({
             <div className="text-[26px] font-bold text-[#C8924A] leading-none mb-1">{fmt(Number(inv.total))}</div>
             <div className="text-[11.5px] text-[#9CA3AF]">dont TVA {fmt(Number(inv.tax_amount))}</div>
           </div>
-          <InvoiceActions invoiceId={inv.id} status={inv.status} />
+          <InvoiceActions
+            invoiceId={inv.id}
+            status={inv.status}
+            clientPhone={client?.phone ?? null}
+            clientId={client?.id ?? null}
+            whatsappSentAt={(inv as any).whatsapp_sent_at ?? null}
+            whatsappSentCount={(inv as any).whatsapp_sent_count ?? 0}
+          />
         </div>
       </div>
     </div>

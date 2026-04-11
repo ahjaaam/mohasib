@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Trash2, Plus } from "lucide-react";
+import toast from "react-hot-toast";
+import { Trash2, Plus, Loader2, Send } from "lucide-react";
 import type { Client } from "@/types";
 
 interface LineItem {
@@ -32,6 +33,8 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
   const supabase = createClient();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ id: string; number: string } | null>(null);
+  const [waState, setWaState] = useState<"idle" | "loading" | "success" | "error">("idle");
 
   const today = new Date().toISOString().split("T")[0];
   const due30 = new Date(Date.now() + 30 * 864e5).toISOString().split("T")[0];
@@ -73,24 +76,94 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
     // Use weighted avg TVA rate for the record
     const avgTVA = totalHT > 0 ? (totalTVA / totalHT) * 100 : 20;
 
-    const { error: err } = await supabase.from("invoices").insert({
-      user_id: userId,
-      client_id: form.client_id || null,
-      invoice_number: form.num,
-      status,
-      issue_date: form.date,
-      due_date: form.due || null,
-      subtotal: totalHT,
-      tax_rate: Math.round(avgTVA * 100) / 100,
-      tax_amount: totalTVA,
-      total: totalTTC,
-      currency: "MAD",
-      items,
-    });
+    const { data: row, error: err } = await supabase
+      .from("invoices")
+      .insert({
+        user_id: userId,
+        client_id: form.client_id || null,
+        invoice_number: form.num,
+        status,
+        issue_date: form.date,
+        due_date: form.due || null,
+        subtotal: totalHT,
+        tax_rate: Math.round(avgTVA * 100) / 100,
+        tax_amount: totalTVA,
+        total: totalTTC,
+        currency: "MAD",
+        items,
+      })
+      .select("id, invoice_number")
+      .single();
 
     setSaving(false);
     if (err) { setError(err.message); }
-    else { router.push("/invoices"); router.refresh(); }
+    else { setCreated({ id: row.id, number: row.invoice_number }); }
+  }
+
+  async function sendWhatsApp(invoiceId: string) {
+    setWaState("loading");
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/pdf`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `HTTP ${res.status}`);
+      }
+      const { whatsappUrl } = await res.json();
+      window.open(whatsappUrl, "_blank");
+      setWaState("success");
+      toast.success("WhatsApp ouvert avec la facture 📲");
+      setTimeout(() => { router.push("/invoices"); router.refresh(); }, 1500);
+    } catch (e: any) {
+      setWaState("error");
+      toast.error(e.message || "Erreur WhatsApp", { duration: 5000 });
+      setTimeout(() => setWaState("idle"), 2500);
+    }
+  }
+
+  // Success screen shown after invoice is created
+  if (created) {
+    return (
+      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-8 flex flex-col items-center text-center gap-4">
+        <div className="text-4xl">🎉</div>
+        <div>
+          <p className="text-[15px] font-semibold text-[#1A1A2E]">Facture créée !</p>
+          <p className="text-[12.5px] text-[#6B7280] mt-0.5">
+            Facture <span className="font-medium text-[#1A1A2E]">{created.number}</span> enregistrée avec succès.
+          </p>
+        </div>
+        <p className="text-[12px] text-[#6B7280]">Envoyer maintenant par WhatsApp ?</p>
+        <div className="flex flex-col sm:flex-row gap-2 w-full max-w-xs">
+          <button
+            onClick={() => sendWhatsApp(created.id)}
+            disabled={waState === "loading" || waState === "success"}
+            className={`btn flex-1 justify-center flex items-center gap-1.5 ${
+              waState === "success"
+                ? "bg-[#059669] text-white border-[#059669]"
+                : waState === "error"
+                ? "bg-[#DC2626] text-white border-[#DC2626]"
+                : "btn-gold"
+            }`}
+          >
+            {waState === "loading" && <><Loader2 size={13} className="animate-spin" /> Préparation...</>}
+            {waState === "success" && <>✓ WhatsApp ouvert</>}
+            {waState === "error" && <>❌ Réessayer</>}
+            {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
+          </button>
+          <button
+            onClick={() => { router.push(`/invoices/${created.id}`); router.refresh(); }}
+            className="btn btn-outline flex-1 justify-center"
+          >
+            Voir la facture
+          </button>
+        </div>
+        <button
+          onClick={() => { router.push("/invoices"); router.refresh(); }}
+          className="text-[11.5px] text-[#6B7280] hover:text-[#1A1A2E] underline"
+        >
+          Retour aux factures
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -170,16 +243,10 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
       {/* Actions */}
       <div className="flex gap-2 mt-4 flex-wrap">
         <button onClick={() => save("draft")} disabled={saving} className="btn btn-outline">
-          💾 {saving ? "..." : "Enregistrer"}
+          💾 {saving ? "..." : "Enregistrer brouillon"}
         </button>
         <button onClick={() => save("sent")} disabled={saving} className="btn btn-gold">
-          {saving ? "..." : "✓ Marquer comme envoyée"}
-        </button>
-        <button type="button" className="btn btn-outline" onClick={() => alert("📲 Envoyé via WhatsApp !")}>
-          📲 WhatsApp
-        </button>
-        <button type="button" className="btn btn-outline" onClick={() => alert("📄 PDF téléchargé !")}>
-          📄 PDF
+          {saving ? "..." : "✓ Créer et envoyer"}
         </button>
       </div>
     </div>
