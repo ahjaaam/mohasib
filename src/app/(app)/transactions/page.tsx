@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Transaction } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { Paperclip, X, Loader2 } from "lucide-react";
+import BankImportModal from "./BankImportModal";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
@@ -17,6 +18,7 @@ export default function TransactionsPage() {
   const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bankImportOpen, setBankImportOpen] = useState(false);
   const supabase = createClient();
 
   const [form, setForm] = useState({
@@ -48,12 +50,19 @@ export default function TransactionsPage() {
 
   useEffect(() => { load(); }, []);
 
-  // Focus form when topbar button clicked
+  // Focus form when topbar "+ Transaction" clicked
   const amtRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const handler = () => amtRef.current?.focus();
     document.addEventListener("focus-tx-form", handler);
     return () => document.removeEventListener("focus-tx-form", handler);
+  }, []);
+
+  // Open bank import modal from topbar button
+  useEffect(() => {
+    const handler = () => setBankImportOpen(true);
+    document.addEventListener("bank-import-open", handler);
+    return () => document.removeEventListener("bank-import-open", handler);
   }, []);
 
   async function handleReceiptUpload(file: File) {
@@ -135,6 +144,12 @@ export default function TransactionsPage() {
 
   return (
     <div>
+      <BankImportModal
+        open={bankImportOpen}
+        onClose={() => setBankImportOpen(false)}
+        userId={userId}
+        onImported={load}
+      />
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-2.5 mb-3.5">
         <div className="kpi">

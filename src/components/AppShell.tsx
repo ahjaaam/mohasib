@@ -184,9 +184,17 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
             </button>
           )}
           {pathname === "/transactions" && (
-            <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("focus-tx-form"))}>
-              <Plus size={13} /> Transaction
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="btn btn-outline text-[12px]"
+                onClick={() => document.dispatchEvent(new CustomEvent("bank-import-open"))}
+              >
+                📄 Importer un relevé
+              </button>
+              <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("focus-tx-form"))}>
+                <Plus size={13} /> Transaction
+              </button>
+            </div>
           )}
         </div>
 
