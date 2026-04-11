@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
-  MessageSquare, LogOut, Menu, X, Plus, Inbox,
+  MessageSquare, LogOut, Menu, X, Plus, Inbox, Download, Settings,
 } from "lucide-react";
 
 const NAV = [
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/invoices", icon: FileText, label: "Factures", key: "invoices" },
   { href: "/clients", icon: Users, label: "Clients", key: "clients" },
   { href: "/transactions", icon: ArrowLeftRight, label: "Transactions", key: "transactions" },
+  { href: "/export", icon: Download, label: "Export Fiduciaire", key: "export" },
 ];
 
 const NAV_AI = [
@@ -26,9 +27,12 @@ const PAGE_TITLES: Record<string, string> = {
   "/inbox": "Boîte de réception",
   "/invoices": "Factures",
   "/invoices/new": "Nouvelle Facture",
+  "/invoices/edit": "Modifier la Facture",
   "/clients": "Clients",
   "/transactions": "Transactions",
+  "/export": "Export Fiduciaire",
   "/chat": "Mohasib AI",
+  "/settings": "Paramètres",
 };
 
 interface Props {
@@ -99,6 +103,19 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
           </Link>
         ))}
       </nav>
+
+      {/* Settings */}
+      <div className="px-[18px] py-2.5 border-t border-white/[0.07]">
+        <Link href="/settings"
+          className={`flex items-center gap-2.5 px-0 py-[7px] text-[13px] transition-all ${
+            pathname === "/settings"
+              ? "text-[#C8924A]"
+              : "text-white/40 hover:text-white/75"
+          }`}>
+          <Settings size={15} />
+          Paramètres
+        </Link>
+      </div>
 
       {/* User footer */}
       <div className="px-[18px] py-3 border-t border-white/[0.07] flex items-center gap-2.5">

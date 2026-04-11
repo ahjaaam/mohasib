@@ -3,6 +3,7 @@ import { formatCurrency, formatDate, INVOICE_STATUS_LABELS } from "@/lib/utils";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
+import InvoiceActions from "./InvoiceActions";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD"; }
 
@@ -121,12 +122,7 @@ export default async function InvoiceDetailPage({
             <div className="text-[26px] font-bold text-[#C8924A] leading-none mb-1">{fmt(Number(inv.total))}</div>
             <div className="text-[11.5px] text-[#9CA3AF]">dont TVA {fmt(Number(inv.tax_amount))}</div>
           </div>
-          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 flex flex-col gap-2">
-            <div className="text-[10.5px] text-[#6B7280] uppercase tracking-[0.5px] mb-1">Actions</div>
-            <button className="btn btn-gold justify-center w-full">✓ Marquer comme payée</button>
-            <button className="btn btn-outline justify-center w-full">📄 Télécharger PDF</button>
-            <button className="btn btn-outline justify-center w-full">📲 Envoyer WhatsApp</button>
-          </div>
+          <InvoiceActions invoiceId={inv.id} status={inv.status} />
         </div>
       </div>
     </div>
