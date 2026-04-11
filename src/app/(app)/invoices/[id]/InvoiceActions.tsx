@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import toast from "react-hot-toast";
+import { Download, Loader2, Send } from "lucide-react";
 
 export default function InvoiceActions({ invoiceId, status }: { invoiceId: string; status: string }) {
   const [loading, setLoading] = useState<string | null>(null);
@@ -15,6 +17,47 @@ export default function InvoiceActions({ invoiceId, status }: { invoiceId: strin
     await supabase.from("invoices").update({ status: newStatus }).eq("id", invoiceId);
     router.refresh();
     setLoading(null);
+  }
+
+  async function downloadPDF() {
+    setLoading("pdf");
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/pdf`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      a.href = url;
+      a.download = match ? match[1] : "facture.pdf";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la génération du PDF", { duration: 8000 });
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function sendWhatsApp() {
+    setLoading("whatsapp");
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/pdf`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Erreur serveur");
+      const { whatsappUrl } = await res.json();
+      window.open(whatsappUrl, "_blank");
+    } catch {
+      toast.error("Erreur lors de l'envoi WhatsApp");
+    } finally {
+      setLoading(null);
+    }
   }
 
   return (
@@ -57,8 +100,37 @@ export default function InvoiceActions({ invoiceId, status }: { invoiceId: strin
         <div className="text-[12px] text-[#059669] text-center py-1 font-medium">✓ Facture payée</div>
       )}
 
-      <button className="btn btn-outline justify-center w-full">📄 Télécharger PDF</button>
-      <button className="btn btn-outline justify-center w-full">📲 Envoyer WhatsApp</button>
+      <button
+        onClick={downloadPDF}
+        disabled={!!loading}
+        className="btn btn-outline justify-center w-full disabled:opacity-60 flex items-center gap-1.5"
+      >
+        {loading === "pdf" ? (
+          <>
+            <Loader2 size={13} className="animate-spin" /> Génération...
+          </>
+        ) : (
+          <>
+            <Download size={13} /> Télécharger PDF
+          </>
+        )}
+      </button>
+
+      <button
+        onClick={sendWhatsApp}
+        disabled={!!loading}
+        className="btn btn-outline justify-center w-full disabled:opacity-60 flex items-center gap-1.5"
+      >
+        {loading === "whatsapp" ? (
+          <>
+            <Loader2 size={13} className="animate-spin" /> Préparation...
+          </>
+        ) : (
+          <>
+            <Send size={13} /> Envoyer par WhatsApp
+          </>
+        )}
+      </button>
     </div>
   );
 }

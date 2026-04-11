@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
   MessageSquare, LogOut, Menu, X, Plus, Inbox, Download, Settings,
@@ -134,6 +135,8 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
   );
 
   return (
+    <>
+    <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
     <div className="flex h-screen overflow-hidden bg-[#FAFAF6]">
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -195,5 +198,6 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
         </main>
       </div>
     </div>
+    </>
   );
 }

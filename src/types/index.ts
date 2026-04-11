@@ -20,9 +20,13 @@ export interface Client {
   name: string;
   email: string | null;
   phone: string | null;
+  whatsapp?: string | null;
   address: string | null;
   city: string | null;
+  postal_code?: string | null;
+  country?: string | null;
   ice: string | null;
+  if_number?: string | null;
   rc: string | null;
   notes: string | null;
   created_at: string;
