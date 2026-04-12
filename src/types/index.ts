@@ -68,13 +68,19 @@ export type ReceiptStatus = "pending" | "matched" | "ignored";
 
 export interface OcrData {
   date?: string | null;
-  amount?: number | null;
+  amount?: number | null;       // signed: negative = expense
   currency?: string | null;
   vendor?: string | null;
+  vendor_name?: string | null;  // alias used by new prompt
   description?: string | null;
   category?: string | null;
   type?: "income" | "expense" | null;
   tax_amount?: number | null;
+  tva_amount?: number | null;
+  tva_rate?: number | null;
+  payment_method?: string | null;
+  receipt_number?: string | null;
+  confidence?: number | null;
 }
 
 export interface Receipt {

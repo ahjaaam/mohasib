@@ -112,8 +112,8 @@ export async function POST(req: NextRequest) {
       | "image/png"
       | "image/webp";
     contentBlock = {
-      type: "image",
-      source: { type: "base64", media_type: mimeType, data: base64 },
+      type: "image" as const,
+      source: { type: "base64" as const, media_type: mimeType, data: base64 },
     };
   }
 
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: [contentBlock, { type: "text", text: EXTRACTION_PROMPT }],
+          content: [contentBlock, { type: "text" as const, text: EXTRACTION_PROMPT }] as Anthropic.ContentBlockParam[],
         },
       ],
     });

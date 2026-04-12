@@ -4,18 +4,29 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
 
-const OCR_PROMPT = `Tu es un assistant spécialisé dans l'extraction de données de reçus et factures marocains.
-Extrait les informations suivantes de cette image et retourne UNIQUEMENT du JSON valide (sans markdown, sans explication):
+const OCR_PROMPT = `You are a Moroccan receipt/invoice parser. Extract data from this document.
+
+Return ONLY a valid JSON object — no markdown, no explanation:
 {
-  "date": "YYYY-MM-DD ou null",
-  "amount": nombre ou null (montant total),
+  "vendor_name": "exact vendor name from document",
+  "date": "YYYY-MM-DD or null",
+  "amount": -32.96,
   "currency": "MAD",
-  "vendor": "nom du vendeur/fournisseur ou null",
-  "description": "description courte de l'achat",
-  "category": "une seule valeur parmi: Achats, Loyer, Transport, Fournitures, Communication, Fiscalité, Salaires, Services, Ventes, Remboursement, Autre dépense, Autre revenu",
-  "type": "income ou expense",
-  "tax_amount": montant TVA ou null
-}`;
+  "category": "one of: Achats|Salaires|Loyer|Fournitures|Transport|Communication|Fiscalité|Autre dépense|Ventes|Services|Remboursement|Autre revenu",
+  "tva_amount": 5.49,
+  "tva_rate": 20,
+  "description": "brief description in French",
+  "payment_method": "cash|card|virement|cheque or null",
+  "receipt_number": "reference number or null",
+  "confidence": 0.95
+}
+
+Rules:
+- amount: negative number for expenses/purchases, positive for income/sales
+- tva_rate: only 7, 10, 14, or 20 — use null if not visible
+- confidence: 1.0 = very clear receipt, 0.5 = partially readable, 0.1 = very hard to read
+- Always use null for fields that cannot be determined
+- Respond with JSON only`;
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -26,18 +37,21 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
   if (!allowedTypes.includes(file.type)) {
-    return NextResponse.json({ error: "Type de fichier non supporté. Utilisez JPG, PNG ou WebP." }, { status: 400 });
+    return NextResponse.json({ error: "Type de fichier non supporté. Utilisez JPG, PNG, WebP ou PDF." }, { status: 400 });
   }
 
-  // Convert to base64 for Claude Vision
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+  if (file.size > MAX_SIZE) {
+    return NextResponse.json({ error: "Fichier trop volumineux (max 10 MB)." }, { status: 400 });
+  }
+
   const bytes = await file.arrayBuffer();
   const base64 = Buffer.from(bytes).toString("base64");
-  const mimeType = file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
   // Upload to Supabase Storage
-  const ext = file.name.split(".").pop() ?? "jpg";
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
   const storagePath = `${user.id}/${Date.now()}.${ext}`;
   let finalStoragePath: string | null = null;
 
@@ -45,38 +59,35 @@ export async function POST(req: NextRequest) {
     .from("receipts")
     .upload(storagePath, bytes, { contentType: file.type, upsert: false });
 
-  if (!uploadErr) {
-    finalStoragePath = storagePath;
-  }
-  // If upload fails (e.g. bucket not created yet), we still proceed with OCR
+  if (!uploadErr) finalStoragePath = storagePath;
 
-  // Claude Vision OCR
+  // Claude Vision / Document OCR
   let ocrData: Record<string, unknown> = {};
   try {
+    const isPdf = file.type === "application/pdf";
+    const fileBlock = isPdf
+      ? { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: base64 } }
+      : { type: "image" as const, source: { type: "base64" as const, media_type: file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp", data: base64 } };
+
     const message = await anthropic.messages.create({
       model: "claude-opus-4-6",
-      max_tokens: 512,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: mimeType, data: base64 },
-          },
-          { type: "text", text: OCR_PROMPT },
-        ],
-      }],
+      max_tokens: 600,
+      messages: [{ role: "user", content: [fileBlock, { type: "text" as const, text: OCR_PROMPT }] }],
     });
 
     const text = message.content[0].type === "text" ? message.content[0].text.trim() : "";
-    // Strip markdown fences if present
-    const cleaned = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    const cleaned = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
     ocrData = JSON.parse(cleaned);
+
+    // Normalise: keep both vendor and vendor_name, derive type from amount sign
+    if (ocrData.vendor_name && !ocrData.vendor) ocrData.vendor = ocrData.vendor_name;
+    if (typeof ocrData.amount === "number") {
+      ocrData.type = ocrData.amount >= 0 ? "income" : "expense";
+    }
   } catch {
-    // OCR parsing failed — return empty data, user fills manually
+    // OCR failed — user fills manually
   }
 
-  // Insert receipt record
   const { data: receipt, error: dbErr } = await supabase
     .from("receipts")
     .insert({

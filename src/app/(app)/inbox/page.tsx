@@ -1,381 +1,714 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Receipt } from "@/types";
+import type { Receipt, OcrData } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
-import { Upload, CheckCircle, X, Loader2, Paperclip, MailOpen } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, Mail, FileText, Eye } from "lucide-react";
+import toast from "react-hot-toast";
 
-function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmt(n: number) {
+  return Math.abs(n).toLocaleString("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 function fmtDate(d: string) {
-  try { return new Date(d).toLocaleDateString("fr-MA"); } catch { return d; }
+  try { return new Date(d).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "numeric" }); }
+  catch { return d; }
 }
 
-const today = new Date().toISOString().split("T")[0];
-const allCats = [...TRANSACTION_CATEGORIES.income, ...TRANSACTION_CATEGORIES.expense];
+const ALL_CATS = [...TRANSACTION_CATEGORIES.expense, ...TRANSACTION_CATEGORIES.income];
+const TVA_OPTIONS = [
+  { label: "Aucune TVA", value: "" },
+  { label: "7%", value: "7" },
+  { label: "10%", value: "10" },
+  { label: "14%", value: "14" },
+  { label: "20%", value: "20" },
+];
 
-interface ReceiptWithUrl extends Receipt {
-  signedUrl?: string;
-}
+type Tab = "pending" | "matched" | "ignored";
 
-interface InlineForm {
-  date: string;
-  desc: string;
-  cat: string;
+interface ReceiptWithUrl extends Receipt { signedUrl?: string; }
+
+interface CardForm {
   amount: string;
+  category: string;
+  description: string;
+  date: string;
+  tva_rate: string;
 }
+
+interface UploadingFile {
+  tempId: string;
+  name: string;
+  state: "uploading" | "processing" | "done" | "error";
+  error?: string;
+}
+
+function initForm(ocr: OcrData): CardForm {
+  const vendor = ocr.vendor_name ?? ocr.vendor ?? "";
+  const desc = ocr.description ?? "";
+  const signedAmt = typeof ocr.amount === "number"
+    ? String(ocr.amount)
+    : ocr.type === "expense" && ocr.amount != null
+      ? String(-Math.abs(ocr.amount))
+      : String(ocr.amount ?? "");
+  return {
+    amount: signedAmt,
+    category: ocr.category ?? "Autre dépense",
+    description: vendor ? (desc ? `${vendor} — ${desc}` : vendor) : desc,
+    date: ocr.date ?? new Date().toISOString().split("T")[0],
+    tva_rate: String(ocr.tva_rate ?? ""),
+  };
+}
+
+function ConfidenceBadge({ confidence }: { confidence?: number | null }) {
+  if (confidence == null) return null;
+  if (confidence >= 0.8)
+    return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#D1FAE5] text-[#065F46]">IA sûre</span>;
+  if (confidence >= 0.5)
+    return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">Vérifiez</span>;
+  return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#991B1B]">À vérifier</span>;
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function InboxPage() {
   const supabase = createClient();
   const [userId, setUserId] = useState("");
-  const [pending, setPending] = useState<ReceiptWithUrl[]>([]);
-  const [matched, setMatched] = useState<ReceiptWithUrl[]>([]);
+  const [receipts, setReceipts] = useState<ReceiptWithUrl[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [forms, setForms] = useState<Record<string, InlineForm>>({});
-  const dropRef = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<Tab>("pending");
+  const [forms, setForms] = useState<Record<string, CardForm>>({});
+  const [saving, setSaving] = useState<Set<string>>(new Set());
+  const [dismissing, setDismissing] = useState<Set<string>>(new Set());
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const [batchModal, setBatchModal] = useState(false);
+  const [batchSaving, setBatchSaving] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [previewReceipt, setPreviewReceipt] = useState<ReceiptWithUrl | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
-
     const { data } = await supabase
-      .from("receipts")
-      .select("*")
+      .from("receipts").select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-
-    const receipts: Receipt[] = data ?? [];
-
-    // Get signed URLs for receipts with storage_path
-    const withUrls: ReceiptWithUrl[] = await Promise.all(
-      receipts.map(async (r) => {
-        if (!r.storage_path) return r;
-        const { data: urlData } = await supabase.storage
-          .from("receipts")
-          .createSignedUrl(r.storage_path, 3600);
-        return { ...r, signedUrl: urlData?.signedUrl };
-      })
-    );
-
-    setPending(withUrls.filter((r) => r.status === "pending"));
-    setMatched(withUrls.filter((r) => r.status !== "pending"));
+    const list: Receipt[] = data ?? [];
+    const withUrls: ReceiptWithUrl[] = await Promise.all(list.map(async (r) => {
+      if (!r.storage_path) return r;
+      const { data: urlData } = await supabase.storage
+        .from("receipts").createSignedUrl(r.storage_path, 3600);
+      return { ...r, signedUrl: urlData?.signedUrl };
+    }));
+    setReceipts(withUrls);
+    setForms((prev) => {
+      const next = { ...prev };
+      withUrls.filter((r) => r.status === "pending").forEach((r) => {
+        if (!next[r.id]) next[r.id] = initForm(r.ocr_data);
+      });
+      return next;
+    });
     setLoading(false);
-  }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
-  // Topbar "Importer" button
   useEffect(() => {
     const handler = () => fileInputRef.current?.click();
     document.addEventListener("inbox-upload", handler);
     return () => document.removeEventListener("inbox-upload", handler);
   }, []);
 
-  function initForm(r: ReceiptWithUrl): InlineForm {
-    const ocr = r.ocr_data;
-    return {
-      date: ocr.date ?? today,
-      desc: ocr.vendor
-        ? `${ocr.vendor}${ocr.description ? " — " + ocr.description : ""}`
-        : ocr.description ?? "",
-      cat: ocr.category ?? "Autre dépense",
-      amount: ocr.amount != null
-        ? (ocr.type === "expense" ? `-${ocr.amount}` : String(ocr.amount))
-        : "",
-    };
-  }
+  // Keep preview in sync when receipts reload (signed URL refreshed)
+  useEffect(() => {
+    if (!previewReceipt) return;
+    const updated = receipts.find((r) => r.id === previewReceipt.id);
+    if (updated) setPreviewReceipt(updated);
+  }, [receipts]);
 
-  function toggleExpand(r: ReceiptWithUrl) {
-    if (expandedId === r.id) {
-      setExpandedId(null);
-    } else {
-      setExpandedId(r.id);
-      if (!forms[r.id]) setForms((f) => ({ ...f, [r.id]: initForm(r) }));
+  // ── Upload ────────────────────────────────────────────────────────────────
+
+  async function handleFiles(files: FileList | File[]) {
+    const arr = Array.from(files);
+    for (const file of arr) {
+      const tempId = crypto.randomUUID();
+      setUploadingFiles((prev) => [...prev, { tempId, name: file.name, state: "uploading" }]);
+      try {
+        setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "processing" } : f));
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/ocr", { method: "POST", body: fd });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Erreur");
+        setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "done" } : f));
+        await load();
+        setTab("pending");
+        setTimeout(() => setUploadingFiles((prev) => prev.filter((f) => f.tempId !== tempId)), 1200);
+      } catch (err: any) {
+        setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "error", error: err.message } : f));
+        setTimeout(() => setUploadingFiles((prev) => prev.filter((f) => f.tempId !== tempId)), 4000);
+      }
     }
   }
 
-  async function createTransaction(receiptId: string) {
-    const form = forms[receiptId];
-    if (!form?.desc || !form?.amount) return;
-    setSavingId(receiptId);
+  // ── Confirm / Ignore ──────────────────────────────────────────────────────
 
+  async function confirmReceipt(id: string) {
+    const form = forms[id];
+    if (!form) return;
+    setSaving((s) => new Set([...s, id]));
     const amt = parseFloat(form.amount);
-    const type = amt >= 0 ? "income" : "expense";
-
+    if (isNaN(amt)) {
+      toast.error("Montant invalide");
+      setSaving((s) => { s.delete(id); return new Set(s); });
+      return;
+    }
     const { error } = await supabase.from("transactions").insert({
       user_id: userId,
-      type,
-      description: form.desc,
+      type: amt >= 0 ? "income" : "expense",
+      description: form.description || "Dépense",
       amount: Math.abs(amt),
       date: form.date,
-      category: form.cat || null,
+      category: form.category || null,
       currency: "MAD",
-      ...(receiptId ? { receipt_id: receiptId } : {}),
+      receipt_id: id,
     });
-
-    if (!error) {
-      await supabase.from("receipts").update({ status: "matched" }).eq("id", receiptId);
+    if (error) {
+      toast.error("Erreur lors de la création");
+      setSaving((s) => { s.delete(id); return new Set(s); });
+      return;
     }
-    setSavingId(null);
-    setExpandedId(null);
-    load();
+    await supabase.from("receipts").update({ status: "matched" }).eq("id", id);
+    setSaving((s) => { s.delete(id); return new Set(s); });
+    if (previewReceipt?.id === id) setPreviewReceipt(null);
+    dismissCard(id, "right");
+    toast.success("Transaction créée !");
   }
 
   async function ignoreReceipt(id: string) {
     await supabase.from("receipts").update({ status: "ignored" }).eq("id", id);
-    load();
+    if (previewReceipt?.id === id) setPreviewReceipt(null);
+    dismissCard(id, "left");
   }
 
-  async function handleUpload(file: File) {
-    setUploading(true);
-    setUploadError(null);
-    const fd = new FormData();
-    fd.append("file", file);
+  async function recoverReceipt(id: string) {
+    await supabase.from("receipts").update({ status: "pending" }).eq("id", id);
+    await load();
+    setTab("pending");
+  }
 
-    try {
-      const res = await fetch("/api/ocr", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!res.ok) { setUploadError(json.error ?? "Erreur d'upload"); return; }
+  function dismissCard(id: string, _dir: "left" | "right") {
+    setDismissing((s) => new Set([...s, id]));
+    setTimeout(async () => {
+      setDismissing((s) => { s.delete(id); return new Set(s); });
       await load();
-    } catch {
-      setUploadError("Impossible d'uploader le fichier.");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    }, 320);
   }
 
-  // Drag & drop
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleUpload(file);
+  // ── Batch confirm ─────────────────────────────────────────────────────────
+
+  async function confirmAll() {
+    setBatchSaving(true);
+    const pend = receipts.filter((r) => r.status === "pending");
+    const rows = pend.map((r) => {
+      const form = forms[r.id] ?? initForm(r.ocr_data);
+      const amt = parseFloat(form.amount);
+      return {
+        user_id: userId,
+        type: isNaN(amt) || amt >= 0 ? "income" : "expense" as const,
+        description: form.description || "Dépense",
+        amount: isNaN(amt) ? 0 : Math.abs(amt),
+        date: form.date,
+        category: form.category || null,
+        currency: "MAD",
+        receipt_id: r.id,
+      };
+    });
+    await supabase.from("transactions").insert(rows);
+    await supabase.from("receipts").update({ status: "matched" }).eq("user_id", userId).eq("status", "pending");
+    setBatchSaving(false);
+    setBatchModal(false);
+    setPreviewReceipt(null);
+    toast.success(`${rows.length} transactions créées !`);
+    await load();
   }
+
+  function updateForm(id: string, field: keyof CardForm, val: string) {
+    setForms((f) => ({ ...f, [id]: { ...f[id], [field]: val } }));
+  }
+
+  // ── Derived state ─────────────────────────────────────────────────────────
+
+  const pending = receipts.filter((r) => r.status === "pending");
+  const matched = receipts.filter((r) => r.status === "matched");
+  const ignored = receipts.filter((r) => r.status === "ignored");
+  const tabItems = tab === "pending" ? pending : tab === "matched" ? matched : ignored;
 
   return (
-    <div>
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
-        <div className="kpi">
-          <div className="kpi-label">En attente</div>
-          <div className="kpi-value text-[#C8924A]">{loading ? "—" : pending.length}</div>
+    <div className="max-w-2xl">
+
+      {/* ─── Upload zone ─────────────────────────────────────────────────── */}
+      <div
+        className={`bg-white border-2 rounded-xl p-5 mb-4 transition-all ${dragOver ? "border-[#C8924A] bg-[rgba(200,146,74,0.04)]" : "border-dashed border-[rgba(200,146,74,0.35)]"}`}
+        style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
+      >
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple className="hidden"
+          onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }} />
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+          onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }} />
+
+        <div className="text-center mb-4">
+          <div className="text-[13.5px] font-semibold text-[#1A1A2E] mb-0.5">Ajoutez vos reçus et factures</div>
+          <div className="text-[11.5px] text-[#9CA3AF]">L&apos;IA extrait automatiquement toutes les informations</div>
         </div>
-        <div className="kpi">
-          <div className="kpi-label">Traités</div>
-          <div className="kpi-value text-[#059669]">{loading ? "—" : matched.filter((r) => r.status === "matched").length}</div>
+
+        <div className="flex gap-2 justify-center flex-wrap">
+          <button onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+            <Upload size={13} /> Importer un fichier
+          </button>
+          <button onClick={() => cameraInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+            <Camera size={13} /> Prendre une photo
+          </button>
+          <button disabled
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-dashed border-[rgba(0,0,0,0.08)] text-[12px] text-[#9CA3AF] cursor-not-allowed">
+            <Mail size={13} /> Email bientôt
+          </button>
         </div>
-        <div className="kpi">
-          <div className="kpi-label">Ignorés</div>
-          <div className="kpi-value text-[#6B7280]">{loading ? "—" : matched.filter((r) => r.status === "ignored").length}</div>
+
+        <div className="text-center mt-3 text-[10.5px] text-[#9CA3AF]">
+          JPG · PNG · PDF · WebP — max 10 MB · Plusieurs fichiers à la fois
         </div>
       </div>
 
-      {/* Upload zone */}
-      <div
-        ref={dropRef}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={onDrop}
-        onClick={() => !uploading && fileInputRef.current?.click()}
-        className="border-2 border-dashed border-[rgba(200,146,74,0.35)] rounded-xl p-6 mb-4 text-center cursor-pointer hover:border-[#C8924A] hover:bg-[rgba(200,146,74,0.03)] transition-all bg-white"
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,application/pdf"
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
-        />
-        {uploading ? (
-          <div className="flex flex-col items-center gap-2 text-[#C8924A]">
-            <Loader2 size={24} className="animate-spin" />
-            <span className="text-[12.5px] font-medium">Analyse OCR en cours...</span>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-[#6B7280]">
-            <Upload size={22} className="text-[#C8924A]" />
-            <span className="text-[13px] font-medium text-[#1A1A2E]">Déposez un reçu ou une facture ici</span>
-            <span className="text-[11.5px]">JPG, PNG, WebP · Extraction automatique par IA</span>
-          </div>
-        )}
-      </div>
-      {uploadError && (
-        <p className="text-[12px] text-[#DC2626] bg-[#FEE2E2] rounded-lg px-3 py-2 mb-3">{uploadError}</p>
+      {/* ─── In-progress uploads ─────────────────────────────────────────── */}
+      {uploadingFiles.length > 0 && (
+        <div className="flex flex-col gap-1.5 mb-3">
+          {uploadingFiles.map((f) => (
+            <div key={f.tempId} className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-4 py-3 flex items-center gap-3" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center flex-shrink-0">
+                {f.state === "error"
+                  ? <X size={16} className="text-[#DC2626]" />
+                  : f.state === "done"
+                    ? <CheckCircle size={16} className="text-[#059669]" />
+                    : <Loader2 size={16} className="animate-spin text-[#C8924A]" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-medium text-[#1A1A2E] truncate">{f.name}</div>
+                <div className={`text-[11px] mt-0.5 ${f.state === "error" ? "text-[#DC2626]" : f.state === "done" ? "text-[#059669]" : "text-[#C8924A]"}`}>
+                  {f.state === "uploading" && "📤 Envoi en cours..."}
+                  {f.state === "processing" && "🔍 Extraction IA..."}
+                  {f.state === "done" && "✓ Extrait !"}
+                  {f.state === "error" && `❌ ${f.error ?? "Erreur"}`}
+                </div>
+              </div>
+              {f.state === "processing" && (
+                <div className="w-24 h-1 bg-[#F3F4F6] rounded-full overflow-hidden flex-shrink-0">
+                  <div className="h-full bg-[#C8924A] rounded-full animate-pulse" style={{ width: "65%" }} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* Email integration teaser */}
-      <div className="alert-blue flex items-center gap-2 mb-4">
-        <MailOpen size={14} className="text-[#1D4ED8] flex-shrink-0" />
-        <span>
-          <strong>Intégration e-mail bientôt disponible</strong> — vos factures et reçus seront importés automatiquement depuis votre boîte mail.
-        </span>
+      {/* ─── Batch confirm bar ───────────────────────────────────────────── */}
+      {pending.length >= 3 && tab === "pending" && (
+        <div className="flex items-center justify-between bg-[#FEF3C7] border border-[rgba(217,119,6,0.2)] rounded-xl px-4 py-3 mb-4">
+          <span className="text-[12.5px] font-semibold text-[#92400E]">
+            {pending.length} reçus en attente
+          </span>
+          <button onClick={() => setBatchModal(true)} className="btn btn-gold text-[12px]">
+            <CheckCircle size={12} /> Tout confirmer en un clic
+          </button>
+        </div>
+      )}
+
+      {/* ─── Tabs ────────────────────────────────────────────────────────── */}
+      <div className="flex gap-0 border-b border-[rgba(0,0,0,0.08)] mb-4">
+        {([
+          ["pending", "À traiter", pending.length],
+          ["matched", "Traités", matched.length],
+          ["ignored", "Ignorés", ignored.length],
+        ] as const).map(([key, label, count]) => (
+          <button key={key} onClick={() => setTab(key)}
+            className={`px-4 py-2.5 text-[12.5px] border-b-2 transition-all select-none ${
+              tab === key
+                ? "text-[#C8924A] border-[#C8924A] font-medium"
+                : "text-[#6B7280] border-transparent hover:text-[#1A1A2E]"
+            }`}>
+            {label}
+            {count > 0 && (
+              <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                tab === key ? "bg-[#C8924A] text-white" : "bg-[#F3F4F6] text-[#6B7280]"
+              }`}>{count}</span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Pending receipts */}
-      {loading ? (
-        <div className="text-center py-10 text-[#6B7280] text-[12.5px]">Chargement...</div>
-      ) : pending.length === 0 ? (
-        <div className="flex flex-col items-center py-12 text-center">
-          <div className="text-4xl mb-3">📥</div>
-          <p className="text-[#6B7280] font-medium text-[13px]">Boîte de réception vide</p>
-          <p className="text-[11.5px] text-[#9CA3AF] mt-1">Importez un reçu ci-dessus pour le traiter.</p>
+      {/* ─── Loading ─────────────────────────────────────────────────────── */}
+      {loading && (
+        <div className="flex flex-col gap-2">
+          {[1, 2].map((i) => <div key={i} className="h-36 bg-white rounded-xl border border-[rgba(0,0,0,0.07)] animate-pulse" />)}
         </div>
-      ) : (
-        <div>
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.6px] text-[#6B7280] mb-2">
-            À traiter — {pending.length}
-          </div>
-          <div className="flex flex-col gap-2">
-            {pending.map((r) => (
+      )}
+
+      {/* ─── Empty states ────────────────────────────────────────────────── */}
+      {!loading && tabItems.length === 0 && (
+        <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-12 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <div className="text-4xl mb-3">{tab === "pending" ? "📥" : tab === "matched" ? "✅" : "🗂️"}</div>
+          <p className="text-[13px] font-medium text-[#6B7280]">
+            {tab === "pending" ? "Boîte de réception vide" : tab === "matched" ? "Aucun reçu traité" : "Aucun reçu ignoré"}
+          </p>
+          <p className="text-[11.5px] text-[#9CA3AF] mt-1">
+            {tab === "pending" ? "Tous vos reçus ont été traités !" : tab === "matched" ? "Importez vos reçus pour les traiter." : "Les reçus ignorés apparaissent ici."}
+          </p>
+          {tab === "pending" && (
+            <button onClick={() => fileInputRef.current?.click()} className="btn btn-gold mt-4 text-[12px]">
+              <Upload size={12} /> Importer un reçu
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ─── Cards ───────────────────────────────────────────────────────── */}
+      {!loading && tabItems.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {tabItems.map((r) =>
+            tab === "pending" ? (
               <ReceiptCard
                 key={r.id}
                 receipt={r}
-                expanded={expandedId === r.id}
-                form={forms[r.id]}
-                saving={savingId === r.id}
-                onToggle={() => toggleExpand(r)}
-                onFormChange={(field, val) =>
-                  setForms((f) => ({ ...f, [r.id]: { ...f[r.id], [field]: val } }))
-                }
-                onCreate={() => createTransaction(r.id)}
+                form={forms[r.id] ?? initForm(r.ocr_data)}
+                saving={saving.has(r.id)}
+                dismissing={dismissing.has(r.id)}
+                previewing={previewReceipt?.id === r.id}
+                onFormChange={(field, val) => updateForm(r.id, field, val)}
+                onConfirm={() => confirmReceipt(r.id)}
                 onIgnore={() => ignoreReceipt(r.id)}
+                onPreview={() => setPreviewReceipt(previewReceipt?.id === r.id ? null : r)}
               />
-            ))}
+            ) : (
+              <ProcessedCard
+                key={r.id}
+                receipt={r}
+                previewing={previewReceipt?.id === r.id}
+                onRecover={r.status === "ignored" ? () => recoverReceipt(r.id) : undefined}
+                onPreview={() => setPreviewReceipt(previewReceipt?.id === r.id ? null : r)}
+              />
+            )
+          )}
+        </div>
+      )}
+
+      {/* ─── Batch confirm modal ─────────────────────────────────────────── */}
+      {batchModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
+            <h3 className="text-[14px] font-bold text-[#1A1A2E] mb-4">
+              Confirmer {pending.length} transactions ?
+            </h3>
+            <div className="flex flex-col gap-1.5 mb-4 max-h-48 overflow-y-auto">
+              {pending.map((r) => {
+                const form = forms[r.id] ?? initForm(r.ocr_data);
+                const amt = parseFloat(form.amount);
+                return (
+                  <div key={r.id} className="flex items-center justify-between text-[12px] py-1 border-b border-[rgba(0,0,0,0.05)] last:border-0">
+                    <span className="text-[#374151] truncate flex-1 mr-2">
+                      {form.description || (r.ocr_data.vendor_name ?? r.ocr_data.vendor) || "Reçu"}
+                    </span>
+                    <span className={`font-semibold flex-shrink-0 ${isNaN(amt) || amt >= 0 ? "text-[#059669]" : "text-[#DC2626]"}`}>
+                      {isNaN(amt) ? "—" : `${amt >= 0 ? "+" : ""}${fmt(amt)} MAD`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between py-2 border-t border-[rgba(0,0,0,0.08)] mb-4">
+              <span className="text-[12.5px] font-semibold text-[#1A1A2E]">Total dépenses</span>
+              <span className="text-[13px] font-bold text-[#DC2626]">
+                −{pending.reduce((s, r) => {
+                  const f = forms[r.id] ?? initForm(r.ocr_data);
+                  const a = parseFloat(f.amount);
+                  return s + (isNaN(a) || a >= 0 ? 0 : Math.abs(a));
+                }, 0).toLocaleString("fr-MA", { minimumFractionDigits: 2 })} MAD
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setBatchModal(false)} className="btn btn-outline flex-1">Annuler</button>
+              <button onClick={confirmAll} disabled={batchSaving} className="btn btn-gold flex-1">
+                {batchSaving
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <><CheckCircle size={13} /> Tout confirmer</>}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Matched receipts */}
-      {matched.length > 0 && (
-        <div className="mt-5">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.6px] text-[#6B7280] mb-2">
-            Traités — {matched.length}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            {matched.map((r) => (
-              <div key={r.id} className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-4 py-3 flex items-center gap-3 opacity-60">
-                <Paperclip size={13} className="text-[#9CA3AF] flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="text-[12.5px] text-[#1A1A2E]">
-                    {r.ocr_data.vendor ?? r.file_name ?? "Reçu"}
-                  </span>
-                  {r.ocr_data.amount != null && (
-                    <span className="text-[11.5px] text-[#6B7280] ml-2">{fmt(r.ocr_data.amount)}</span>
-                  )}
-                </div>
-                <span className={`badge ${r.status === "matched" ? "b-paid" : "b-draft"}`}>
-                  {r.status === "matched" ? "Associé" : "Ignoré"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* ─── Preview panel ───────────────────────────────────────────────── */}
+      {previewReceipt && (
+        <PreviewPanel
+          receipt={previewReceipt}
+          onClose={() => setPreviewReceipt(null)}
+        />
       )}
     </div>
   );
 }
 
-interface CardProps {
-  receipt: ReceiptWithUrl;
-  expanded: boolean;
-  form?: InlineForm;
-  saving: boolean;
-  onToggle: () => void;
-  onFormChange: (field: keyof InlineForm, val: string) => void;
-  onCreate: () => void;
-  onIgnore: () => void;
-}
+// ─── Preview panel (fixed right) ──────────────────────────────────────────────
 
-function ReceiptCard({ receipt: r, expanded, form, saving, onToggle, onFormChange, onCreate, onIgnore }: CardProps) {
+function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClose: () => void }) {
   const ocr = r.ocr_data;
+  const isPdf = r.mime_type === "application/pdf";
 
   return (
-    <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
-      {/* Summary row */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        {/* Thumbnail */}
-        <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center flex-shrink-0 overflow-hidden">
-          {r.signedUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={r.signedUrl} alt="reçu" className="w-full h-full object-cover" />
+    <>
+      {/* Backdrop (mobile only) */}
+      <div
+        className="fixed inset-0 bg-black/30 z-30 md:hidden"
+        onClick={onClose}
+      />
+
+      <div className="fixed top-[52px] right-0 bottom-0 z-40 w-full md:w-[420px] lg:w-[480px] bg-white border-l border-[rgba(0,0,0,0.09)] flex flex-col"
+        style={{ boxShadow: "-4px 0 24px rgba(0,0,0,0.08)" }}>
+
+        {/* Panel header */}
+        <div className="flex items-start gap-3 px-4 py-3.5 border-b border-[rgba(0,0,0,0.08)] flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-semibold text-[#1A1A2E] truncate">
+              {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Document"}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[#9CA3AF] flex-wrap">
+              {ocr.date && <span>📅 {fmtDate(ocr.date)}</span>}
+              {ocr.receipt_number && <span>#{ocr.receipt_number}</span>}
+              {r.file_name && <span className="truncate max-w-[180px]">{r.file_name}</span>}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#9CA3AF] hover:text-[#374151] hover:bg-[#F3F4F6] transition-colors flex-shrink-0"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Document */}
+        <div className="flex-1 overflow-auto bg-[#F3F4F6] flex items-start justify-center">
+          {!r.signedUrl ? (
+            <div className="flex flex-col items-center justify-center h-full w-full text-center p-8">
+              <FileText size={40} className="text-[#D1D5DB] mb-3" />
+              <p className="text-[12.5px] text-[#9CA3AF]">Aucun aperçu disponible</p>
+            </div>
+          ) : isPdf ? (
+            <iframe
+              src={r.signedUrl}
+              className="w-full h-full"
+              style={{ minHeight: "100%" }}
+              title="Document PDF"
+            />
           ) : (
-            <Paperclip size={16} className="text-[#9CA3AF]" />
+            <div className="p-4 w-full flex items-start justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={r.signedUrl}
+                alt="document"
+                className="max-w-full rounded-lg shadow-md"
+              />
+            </div>
           )}
         </div>
+      </div>
+    </>
+  );
+}
 
-        {/* Meta */}
+// ─── Pending Receipt Card ─────────────────────────────────────────────────────
+
+interface CardProps {
+  receipt: ReceiptWithUrl;
+  form: CardForm;
+  saving: boolean;
+  dismissing: boolean;
+  previewing: boolean;
+  onFormChange: (field: keyof CardForm, val: string) => void;
+  onConfirm: () => void;
+  onIgnore: () => void;
+  onPreview: () => void;
+}
+
+function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormChange, onConfirm, onIgnore, onPreview }: CardProps) {
+  const ocr = r.ocr_data;
+  const amt = parseFloat(form.amount);
+  const isExpense = isNaN(amt) ? true : amt < 0;
+
+  return (
+    <div
+      className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden transition-all duration-300"
+      style={{
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+        transform: dismissing ? `translateX(${isExpense ? "-100%" : "100%"})` : "translateX(0)",
+        opacity: dismissing ? 0 : 1,
+      }}
+    >
+      {/* Card header */}
+      <div className="flex items-start gap-3 px-4 pt-4 pb-3">
         <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-semibold text-[#1A1A2E] truncate">
-            {ocr.vendor ?? r.file_name ?? "Reçu sans titre"}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[13.5px] font-bold text-[#1A1A2E] truncate">
+              {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Reçu sans titre"}
+            </span>
+            <ConfidenceBadge confidence={ocr.confidence} />
           </div>
-          <div className="text-[11.5px] text-[#6B7280] flex gap-2 mt-0.5 flex-wrap">
-            {ocr.date && <span>{fmtDate(ocr.date)}</span>}
-            {ocr.category && <span className="badge b-draft">{ocr.category}</span>}
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            {ocr.date && <span className="text-[11px] text-[#9CA3AF]">📅 {fmtDate(ocr.date)}</span>}
+            {ocr.receipt_number && <span className="text-[11px] text-[#9CA3AF]">#{ocr.receipt_number}</span>}
           </div>
         </div>
 
-        {/* Amount */}
-        {ocr.amount != null && (
-          <div className={`text-[14px] font-bold flex-shrink-0 ${ocr.type === "income" ? "text-[#059669]" : "text-[#DC2626]"}`}>
-            {ocr.type === "income" ? "+" : "-"}{fmt(ocr.amount)}
-          </div>
+        {/* Preview button */}
+        {r.signedUrl && (
+          <button
+            onClick={onPreview}
+            title="Aperçu du document"
+            className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-colors ${
+              previewing
+                ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A]"
+                : "text-[#9CA3AF] hover:text-[#C8924A] hover:bg-[rgba(200,146,74,0.08)]"
+            }`}
+          >
+            <Eye size={13} />
+            Aperçu
+          </button>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-1.5 flex-shrink-0">
-          <button
-            onClick={onToggle}
-            className={`btn text-[11.5px] py-1 px-2.5 ${expanded ? "btn-outline" : "btn-gold"}`}
-          >
-            {expanded ? "Fermer" : "Créer transaction"}
-          </button>
-          <button
-            onClick={onIgnore}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2] transition-colors"
-          >
-            <X size={13} />
-          </button>
+        {/* Dismiss */}
+        <button onClick={onIgnore}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2] transition-colors">
+          <X size={13} />
+        </button>
+      </div>
+
+      {/* Editable fields */}
+      <div className="px-4 pb-4 grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant (MAD)</label>
+          <div className="relative">
+            <input
+              type="number" step="0.01"
+              className={`input pr-8 font-semibold ${isExpense ? "text-[#DC2626]" : "text-[#059669]"}`}
+              value={form.amount}
+              onChange={(e) => onFormChange("amount", e.target.value)}
+            />
+            <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold ${isExpense ? "text-[#DC2626]" : "text-[#059669]"}`}>
+              {isExpense ? "−" : "+"}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Date</label>
+          <input type="date" className="input" value={form.date} onChange={(e) => onFormChange("date", e.target.value)} />
+        </div>
+
+        <div className="col-span-2">
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Description</label>
+          <input className="input" value={form.description} onChange={(e) => onFormChange("description", e.target.value)} placeholder="Description de la dépense" />
+        </div>
+
+        <div>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Catégorie</label>
+          <select className="input" value={form.category} onChange={(e) => onFormChange("category", e.target.value)}>
+            {ALL_CATS.map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">TVA</label>
+          <select className="input" value={form.tva_rate} onChange={(e) => onFormChange("tva_rate", e.target.value)}>
+            {TVA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         </div>
       </div>
 
-      {/* Expanded inline form */}
-      {expanded && form && (
-        <div className="border-t border-[rgba(0,0,0,0.06)] px-4 py-3 bg-[#FAFAF6]">
-          <div className="grid gap-2" style={{ gridTemplateColumns: "110px 1fr 130px 120px auto" }}>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10.5px] font-medium text-[#6B7280]">Date</label>
-              <input type="date" className="input" value={form.date}
-                onChange={(e) => onFormChange("date", e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10.5px] font-medium text-[#6B7280]">Description</label>
-              <input className="input" value={form.desc}
-                onChange={(e) => onFormChange("desc", e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10.5px] font-medium text-[#6B7280]">Catégorie</label>
-              <select className="input" value={form.cat}
-                onChange={(e) => onFormChange("cat", e.target.value)}>
-                {allCats.map((c) => <option key={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10.5px] font-medium text-[#6B7280]">Montant (MAD)</label>
-              <input type="number" step="0.01" className="input" value={form.amount}
-                onChange={(e) => onFormChange("amount", e.target.value)} />
-            </div>
-            <div className="flex flex-col justify-end">
-              <button onClick={onCreate} disabled={saving || !form.desc || !form.amount} className="btn btn-gold whitespace-nowrap">
-                {saving ? <Loader2 size={12} className="animate-spin" /> : <><CheckCircle size={12} /> Valider</>}
-              </button>
-            </div>
-          </div>
+      {/* Actions */}
+      <div className="flex gap-2 px-4 pb-4">
+        <button onClick={onIgnore} className="btn btn-outline flex-shrink-0">Ignorer</button>
+        <button onClick={onConfirm} disabled={saving || !form.description || !form.amount} className="btn btn-gold flex-1">
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <><CheckCircle size={13} /> Confirmer →</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Processed / Ignored Card ─────────────────────────────────────────────────
+
+function ProcessedCard({
+  receipt: r,
+  previewing,
+  onRecover,
+  onPreview,
+}: {
+  receipt: ReceiptWithUrl;
+  previewing: boolean;
+  onRecover?: () => void;
+  onPreview: () => void;
+}) {
+  const ocr = r.ocr_data;
+  const amt = typeof ocr.amount === "number" ? ocr.amount : null;
+
+  return (
+    <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-4 py-3 flex items-center gap-3" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+      <div className="flex-1 min-w-0">
+        <span className="text-[12.5px] font-medium text-[#1A1A2E] truncate block">
+          {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Reçu"}
+        </span>
+        <div className="flex items-center gap-2 mt-0.5">
+          {ocr.date && <span className="text-[10.5px] text-[#9CA3AF]">{fmtDate(ocr.date)}</span>}
+          {ocr.category && <span className="text-[10.5px] text-[#9CA3AF]">{ocr.category}</span>}
         </div>
+      </div>
+
+      {amt != null && (
+        <span className={`text-[12.5px] font-bold flex-shrink-0 ${amt < 0 ? "text-[#DC2626]" : "text-[#059669]"}`}>
+          {amt < 0 ? "−" : "+"}{fmt(amt)} MAD
+        </span>
+      )}
+
+      <span className={`badge flex-shrink-0 ${r.status === "matched" ? "b-paid" : "b-draft"}`}>
+        {r.status === "matched" ? "✓ Traité" : "Ignoré"}
+      </span>
+
+      {r.signedUrl && (
+        <button
+          onClick={onPreview}
+          title="Aperçu du document"
+          className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+            previewing
+              ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A]"
+              : "text-[#9CA3AF] hover:text-[#C8924A] hover:bg-[rgba(200,146,74,0.08)]"
+          }`}
+        >
+          <Eye size={13} />
+        </button>
+      )}
+
+      {onRecover && (
+        <button onClick={onRecover} className="text-[11px] text-[#C8924A] hover:underline flex-shrink-0">
+          Récupérer
+        </button>
       )}
     </div>
   );
