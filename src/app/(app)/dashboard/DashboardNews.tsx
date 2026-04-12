@@ -115,12 +115,7 @@ export default function DashboardNews() {
 
   return (
     <div>
-      <div className="mb-2.5">
-        <span className="text-[13px] font-semibold text-[#1A1A2E]">Actualités fiscales</span>
-        <div className="text-[10.5px] text-[#9CA3AF] mt-0.5">Maroc 🇲🇦 — DGI & comptabilité</div>
-      </div>
-
-      <div className="text-[9.5px] uppercase tracking-[0.8px] text-[#9CA3AF] font-semibold mb-1.5">
+      <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5 pl-2.5 border-l-[3px] border-[#C8924A]">
         Prochaines échéances
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -137,6 +132,7 @@ export default function DashboardNews() {
               target="_blank"
               rel="noopener noreferrer"
               className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-3 py-2.5 block hover:border-[rgba(0,0,0,0.13)] transition-colors no-underline"
+              style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">

@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
-  MessageSquare, LogOut, Menu, X, Plus, Inbox, Download, Settings,
+  MessageSquare, LogOut, Menu, X, Plus, Inbox, Download, Settings, Receipt,
 } from "lucide-react";
 
 const NAV = [
@@ -17,6 +17,7 @@ const NAV = [
   { href: "/invoices", icon: FileText, label: "Factures", key: "invoices" },
   { href: "/clients", icon: Users, label: "Clients", key: "clients" },
   { href: "/transactions", icon: ArrowLeftRight, label: "Transactions", key: "transactions" },
+  { href: "/tva", icon: Receipt, label: "Déclarations TVA", key: "tva" },
   { href: "/export", icon: Download, label: "Export Fiduciaire", key: "export" },
 ];
 
@@ -32,6 +33,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/invoices/edit": "Modifier la Facture",
   "/clients": "Clients",
   "/transactions": "Transactions",
+  "/tva": "Déclarations TVA",
   "/export": "Export Fiduciaire",
   "/chat": "Mohasib AI",
   "/notifications": "Notifications",
@@ -82,7 +84,7 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
 
       {/* Nav */}
       <nav className="flex-1 py-2 overflow-y-auto">
-        <div className="text-[9.5px] uppercase tracking-[1px] text-white/[0.22] px-[18px] pt-2.5 pb-1">Principal</div>
+        <div className="text-[10px] uppercase tracking-[1px] text-white/[0.22] px-[18px] pt-2.5 pb-1">Principal</div>
         {NAV.map(({ href, icon: Icon, label }) => (
           <Link key={href} href={href}
             className={`flex items-center gap-2.5 px-[18px] py-[9px] text-[13px] transition-all border-r-2 ${
@@ -94,7 +96,7 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
             {label}
           </Link>
         ))}
-        <div className="text-[9.5px] uppercase tracking-[1px] text-white/[0.22] px-[18px] pt-3 pb-1">IA</div>
+        <div className="text-[10px] uppercase tracking-[1px] text-white/[0.22] px-[18px] pt-[20px] pb-1">IA</div>
         {NAV_AI.map(({ href, icon: Icon, label }) => (
           <Link key={href} href={href}
             className={`flex items-center gap-2.5 px-[18px] py-[9px] text-[13px] transition-all border-r-2 ${

@@ -48,9 +48,14 @@ export default async function DashboardPage() {
 
   return (
     <div>
+      {/* Prochaines échéances */}
+      <div className="mb-5">
+        <DashboardNews />
+      </div>
+
       {/* Quick Actions */}
       <div className="mb-5">
-        <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5">Actions rapides</div>
+        <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5 pl-2.5 border-l-[3px] border-[#C8924A]">Actions rapides</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
           <Link href="/invoices/new" className="qa-card">
             <div className="text-2xl flex-shrink-0">🧾</div>
@@ -90,7 +95,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPIs */}
-      <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5">Vue d&apos;ensemble</div>
+      <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5 pl-2.5 border-l-[3px] border-[#C8924A] mt-7">Vue d&apos;ensemble</div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
         <div className="kpi">
           <div className="kpi-label">CA ce mois</div>
@@ -121,7 +126,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Two-column tables */}
-      <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-3 mb-4 mt-7">
         {/* Invoices */}
         <div className="tbl">
           <div className="tbl-header">
@@ -187,8 +192,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Actualités fiscales */}
-      <DashboardNews />
     </div>
   );
 }

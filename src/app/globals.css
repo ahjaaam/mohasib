@@ -32,15 +32,15 @@
   .btn-sm { @apply px-2.5 py-1 text-[11.5px]; }
 
   /* Cards */
-  .card { @apply bg-white border border-[rgba(0,0,0,0.08)] rounded-xl; }
+  .card { @apply bg-white border border-[rgba(0,0,0,0.08)] rounded-xl; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 
   /* KPI */
-  .kpi { @apply bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4; }
-  .kpi-label { @apply text-[10.5px] text-[#6B7280] uppercase tracking-[0.5px] mb-1; }
-  .kpi-value { @apply text-[20px] font-bold tracking-tight text-[#1A1A2E] mb-1 leading-none; }
+  .kpi { @apply bg-white border border-[rgba(0,0,0,0.08)] rounded-xl; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .kpi-label { @apply text-[10.5px] text-[#6B7280] uppercase tracking-[0.5px] mb-2.5; }
+  .kpi-value { @apply font-bold text-[#1A1A2E] mb-1 leading-none; font-size: 26px; letter-spacing: -0.5px; font-weight: 700; }
 
   /* Table container */
-  .tbl { @apply bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden mb-3.5; }
+  .tbl { @apply bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden mb-3.5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
   .tbl-header { @apply flex items-center justify-between px-4 py-3 border-b border-[rgba(0,0,0,0.08)]; }
   .tbl-title { @apply text-[13.5px] font-semibold text-[#1A1A2E]; }
 
@@ -88,7 +88,7 @@
   .qa-card.primary:hover { background: var(--navy2); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(13,21,38,0.25); }
 
   /* Client card */
-  .client-card { @apply bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 cursor-pointer transition-all duration-150; }
+  .client-card { @apply bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 cursor-pointer transition-all duration-150; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
   .client-card:hover { @apply border-[#C8924A] shadow-[0_2px_8px_rgba(200,146,74,0.1)]; }
 
   /* Totals box */
