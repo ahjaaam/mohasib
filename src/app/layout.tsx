@@ -2,18 +2,27 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Mohasib — Comptabilité pour PME Marocaines",
+  title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
   description:
-    "Logiciel de comptabilité intelligent pour les PME marocaines. Gérez vos factures, clients et transactions avec l'IA.",
+    "Créez vos factures, gérez votre TVA et accédez à un comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
+  openGraph: {
+    title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
+    description:
+      "Créez vos factures, gérez votre TVA et accédez à un comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
+    type: "website",
+    locale: "fr_MA",
+    siteName: "Mohasib",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
+    description: "Créez vos factures, gérez votre TVA. Dès 199 MAD/mois.",
+  },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr">
+    <html lang="fr" style={{ scrollBehavior: "smooth" }}>
       <body suppressHydrationWarning>{children}</body>
     </html>
   );
