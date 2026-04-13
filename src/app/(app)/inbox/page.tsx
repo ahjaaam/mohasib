@@ -62,6 +62,10 @@ function initForm(ocr: OcrData): CardForm {
   };
 }
 
+// Module-level map — survives component unmount/remount during client-side navigation.
+// Keys are receipt IDs, values are blob object URLs created at upload time.
+const sessionLocalUrls: Record<string, string> = {};
+
 function ConfidenceBadge({ confidence }: { confidence?: number | null }) {
   if (confidence == null) return null;
   if (confidence >= 0.8)
@@ -100,10 +104,15 @@ export default function InboxPage() {
       .order("created_at", { ascending: false });
     const list: Receipt[] = data ?? [];
     const withUrls: ReceiptWithUrl[] = await Promise.all(list.map(async (r) => {
-      if (!r.storage_path) return r;
-      const { data: urlData } = await supabase.storage
-        .from("receipts").createSignedUrl(r.storage_path, 3600);
-      return { ...r, signedUrl: urlData?.signedUrl };
+      // Try signed URL first (Supabase Storage)
+      let signedUrl: string | undefined;
+      if (r.storage_path) {
+        const { data: urlData } = await supabase.storage
+          .from("receipts").createSignedUrl(r.storage_path, 3600);
+        signedUrl = urlData?.signedUrl ?? undefined;
+      }
+      // Fall back to local object URL captured at upload time
+      return { ...r, signedUrl: signedUrl ?? sessionLocalUrls[r.id] };
     }));
     setReceipts(withUrls);
     setForms((prev) => {
@@ -137,6 +146,8 @@ export default function InboxPage() {
     const arr = Array.from(files);
     for (const file of arr) {
       const tempId = crypto.randomUUID();
+      // Capture a local URL immediately so preview works even without Storage
+      const objectUrl = URL.createObjectURL(file);
       setUploadingFiles((prev) => [...prev, { tempId, name: file.name, state: "uploading" }]);
       try {
         setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "processing" } : f));
@@ -145,6 +156,10 @@ export default function InboxPage() {
         const res = await fetch("/api/ocr", { method: "POST", body: fd });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Erreur");
+        // Persist the object URL keyed by the new receipt ID
+        if (json.receipt?.id) {
+          sessionLocalUrls[json.receipt.id] = objectUrl;
+        }
         setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "done" } : f));
         await load();
         setTab("pending");
@@ -578,20 +593,18 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
         </div>
 
         {/* Preview button */}
-        {r.signedUrl && (
-          <button
-            onClick={onPreview}
-            title="Aperçu du document"
-            className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-colors ${
-              previewing
-                ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A]"
-                : "text-[#9CA3AF] hover:text-[#C8924A] hover:bg-[rgba(200,146,74,0.08)]"
-            }`}
-          >
-            <Eye size={13} />
-            Aperçu
-          </button>
-        )}
+        <button
+          onClick={onPreview}
+          title="Aperçu du document"
+          className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium border transition-colors ${
+            previewing
+              ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A] border-[rgba(200,146,74,0.3)]"
+              : "text-[#6B7280] border-[rgba(0,0,0,0.1)] hover:text-[#C8924A] hover:border-[#C8924A] hover:bg-[rgba(200,146,74,0.06)]"
+          }`}
+        >
+          <Eye size={13} />
+          Aperçu
+        </button>
 
         {/* Dismiss */}
         <button onClick={onIgnore}
@@ -691,19 +704,17 @@ function ProcessedCard({
         {r.status === "matched" ? "✓ Traité" : "Ignoré"}
       </span>
 
-      {r.signedUrl && (
-        <button
-          onClick={onPreview}
-          title="Aperçu du document"
-          className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
-            previewing
-              ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A]"
-              : "text-[#9CA3AF] hover:text-[#C8924A] hover:bg-[rgba(200,146,74,0.08)]"
-          }`}
-        >
-          <Eye size={13} />
-        </button>
-      )}
+      <button
+        onClick={onPreview}
+        title="Aperçu du document"
+        className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border transition-colors ${
+          previewing
+            ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A] border-[rgba(200,146,74,0.3)]"
+            : "text-[#6B7280] border-[rgba(0,0,0,0.1)] hover:text-[#C8924A] hover:border-[#C8924A] hover:bg-[rgba(200,146,74,0.06)]"
+        }`}
+      >
+        <Eye size={13} />
+      </button>
 
       {onRecover && (
         <button onClick={onRecover} className="text-[11px] text-[#C8924A] hover:underline flex-shrink-0">
