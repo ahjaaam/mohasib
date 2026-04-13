@@ -114,52 +114,46 @@ export default function DashboardNews() {
   const deadlines = computeDeadlines(now);
 
   return (
-    <div>
-      <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5 pl-2.5 border-l-[3px] border-[#C8924A]">
-        Prochaines échéances
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        {deadlines.map((d) => {
-          const days = d.daysUntil;
-          const barColor = days < 7 ? "#DC2626" : days < 20 ? "#F59E0B" : days < 30 ? "#C8924A" : "#059669";
-          const textColor = days < 7 ? "text-[#DC2626]" : days < 20 ? "text-[#F59E0B]" : days < 30 ? "text-[#C8924A]" : "text-[#059669]";
-          const pct = Math.max(3, Math.min(95, (1 - days / 60) * 100));
+    <div className="grid grid-cols-2 gap-2">
+      {deadlines.map((d) => {
+        const days = d.daysUntil;
+        const barColor = days < 7 ? "#DC2626" : days < 20 ? "#F59E0B" : days < 30 ? "#C8924A" : "#059669";
+        const textColor = days < 7 ? "text-[#DC2626]" : days < 20 ? "text-[#F59E0B]" : days < 30 ? "text-[#C8924A]" : "text-[#059669]";
+        const pct = Math.max(3, Math.min(95, (1 - days / 60) * 100));
 
-          return (
-            <a
-              key={d.id}
-              href={d.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-3 py-2.5 block hover:border-[rgba(0,0,0,0.13)] transition-colors no-underline"
-              style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm flex-shrink-0">{d.icon}</span>
-                  <div className="min-w-0">
-                    <div className="text-[12px] font-semibold text-[#1A1A2E] leading-snug">
-                      {d.title}
-                    </div>
-                    <div className="text-[10.5px] text-[#6B7280]">
-                      {fmtDate(d.dueDate)}
-                    </div>
+        return (
+          <a
+            key={d.id}
+            href={d.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-3 py-2.5 block hover:border-[rgba(0,0,0,0.13)] transition-colors no-underline"
+            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+<div className="min-w-0">
+                  <div className="text-[12px] font-semibold text-[#1A1A2E] leading-snug">
+                    {d.title}
+                  </div>
+                  <div className="text-[10.5px] text-[#6B7280]">
+                    {fmtDate(d.dueDate)}
                   </div>
                 </div>
-                <span className={`flex-shrink-0 text-[11px] font-bold ${textColor} whitespace-nowrap`}>
-                  {days}j
-                </span>
               </div>
-              <div className="mt-2 h-[3px] bg-[#F3F4F6] rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${pct}%`, backgroundColor: barColor }}
-                />
-              </div>
-            </a>
-          );
-        })}
-      </div>
+              <span className={`flex-shrink-0 text-[11px] font-bold ${textColor} whitespace-nowrap`}>
+                {days}j
+              </span>
+            </div>
+            <div className="mt-2 h-[5px] bg-[#E5E7EB] rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${pct}%`, backgroundColor: barColor }}
+              />
+            </div>
+          </a>
+        );
+      })}
     </div>
   );
 }

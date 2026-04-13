@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Loader2, Send } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { Invoice, InvoiceStatus } from "@/types";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
@@ -26,15 +26,183 @@ const BADGE: Record<InvoiceStatus, [string, string]> = {
   cancelled: ["b-draft",   "Annulée"],
 };
 
-type WaSending = Record<string, "loading" | "success" | "error">;
+type MenuItem = { label: string; href?: string; action?: () => void; red?: boolean };
+
+function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
+  inv: Invoice;
+  onMarkPaid: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, openUp: false });
+  const [waLoading, setWaLoading] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+          btnRef.current && !btnRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  function toggle(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (open) { setOpen(false); return; }
+    const rect = btnRef.current!.getBoundingClientRect();
+    const DROPDOWN_H = 220;
+    const DROPDOWN_W = 200;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < DROPDOWN_H;
+    setPos({
+      top: openUp ? rect.top - DROPDOWN_H : rect.bottom + 4,
+      left: Math.max(8, rect.right - DROPDOWN_W),
+      openUp,
+    });
+    setOpen(true);
+  }
+
+  async function handleWhatsApp() {
+    setOpen(false);
+    setWaLoading(true);
+    try {
+      const res = await fetch(`/api/invoices/${inv.id}/pdf`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+      const { whatsappUrl } = await res.json();
+      window.open(whatsappUrl, "_blank");
+      toast.success("WhatsApp ouvert 📲");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur WhatsApp", { duration: 5000 });
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function handlePdf() {
+    setOpen(false);
+    try {
+      const res = await fetch(`/api/invoices/${inv.id}/pdf`, { method: "POST" });
+      if (!res.ok) throw new Error("Erreur PDF");
+      const { pdfUrl } = await res.json();
+      if (pdfUrl) window.open(pdfUrl, "_blank");
+      else toast.error("PDF non disponible");
+    } catch {
+      toast.error("Erreur lors du téléchargement");
+    }
+  }
+
+  function handleRelance() {
+    setOpen(false);
+    const client = (inv as any).clients;
+    const phone = client?.phone?.replace(/\D/g, "");
+    if (!phone) { toast.error("Numéro de téléphone du client manquant"); return; }
+    const msg = encodeURIComponent(`Bonjour, je vous relance concernant la facture ${inv.invoice_number} d'un montant de ${fmt(Number(inv.total))}. Merci de procéder au règlement.`);
+    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+  }
+
+  const itemsByStatus: Record<string, MenuItem[]> = {
+    draft: [
+      { label: "Modifier", href: `/invoices/${inv.id}/edit` },
+      { label: "Télécharger PDF", action: handlePdf },
+      { label: "Envoyer par WhatsApp", action: handleWhatsApp },
+      { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
+    ],
+    sent: [
+      { label: "Voir la facture", href: `/invoices/${inv.id}` },
+      { label: "Télécharger PDF", action: handlePdf },
+      { label: "Envoyer par WhatsApp", action: handleWhatsApp },
+      { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
+      { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
+    ],
+    paid: [
+      { label: "Voir la facture", href: `/invoices/${inv.id}` },
+      { label: "Télécharger PDF", action: handlePdf },
+      { label: "Envoyer par WhatsApp", action: handleWhatsApp },
+      { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
+    ],
+    overdue: [
+      { label: "Voir la facture", href: `/invoices/${inv.id}` },
+      { label: "Télécharger PDF", action: handlePdf },
+      { label: "Envoyer par WhatsApp", action: handleWhatsApp },
+      { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
+      { label: "Relancer le client", action: handleRelance },
+      { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
+    ],
+    cancelled: [
+      { label: "Voir la facture", href: `/invoices/${inv.id}` },
+      { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
+    ],
+  };
+
+  const items = itemsByStatus[inv.status] ?? itemsByStatus.sent;
+
+  return (
+    <>
+      <div className="flex justify-end">
+        <button
+          ref={btnRef}
+          onClick={toggle}
+          disabled={waLoading}
+          className="flex items-center justify-center w-7 h-7 rounded-lg text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A2E] transition-colors text-[18px] leading-none"
+        >
+          {waLoading ? <Loader2 size={13} className="animate-spin" /> : "⋯"}
+        </button>
+      </div>
+
+      {open && (
+        <div
+          ref={menuRef}
+          className="py-1"
+          style={{
+            position: "fixed",
+            top: pos.top,
+            left: pos.left,
+            zIndex: 9999,
+            minWidth: "200px",
+            background: "white",
+            border: "1px solid rgba(0,0,0,0.08)",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          }}
+        >
+          {items.map((item) =>
+            item.href ? (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2 text-[13px] text-[#1A1A2E] hover:bg-[#FAFAF6] transition-colors"
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <button
+                key={item.label}
+                onClick={item.action}
+                className="w-full text-left px-4 py-2 text-[13px] hover:bg-[#FAFAF6] transition-colors"
+                style={{ color: item.red ? "#DC2626" : "#1A1A2E" }}
+              >
+                {item.label}
+              </button>
+            )
+          )}
+        </div>
+      )}
+    </>
+  );
+}
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filter, setFilter] = useState<"all" | InvoiceStatus>("all");
   const [loading, setLoading] = useState(true);
-  const [waSending, setWaSending] = useState<WaSending>({});
   const supabase = createClient();
-
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -49,26 +217,19 @@ export default function InvoicesPage() {
     load();
   }, []);
 
-  async function sendWhatsApp(invoiceId: string, e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setWaSending((s) => ({ ...s, [invoiceId]: "loading" }));
-    try {
-      const res = await fetch(`/api/invoices/${invoiceId}/pdf`, { method: "POST" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `HTTP ${res.status}`);
-      }
-      const { whatsappUrl } = await res.json();
-      window.open(whatsappUrl, "_blank");
-      setWaSending((s) => ({ ...s, [invoiceId]: "success" }));
-      toast.success("WhatsApp ouvert 📲");
-      setTimeout(() => setWaSending((s) => { const n = { ...s }; delete n[invoiceId]; return n; }), 2000);
-    } catch (err: any) {
-      setWaSending((s) => ({ ...s, [invoiceId]: "error" }));
-      toast.error(err.message || "Erreur WhatsApp", { duration: 5000 });
-      setTimeout(() => setWaSending((s) => { const n = { ...s }; delete n[invoiceId]; return n; }), 2000);
-    }
+  async function markPaid(id: string) {
+    const { error } = await supabase.from("invoices").update({ status: "paid" }).eq("id", id);
+    if (error) { toast.error("Erreur lors de la mise à jour"); return; }
+    setInvoices((prev) => prev.map((i) => i.id === id ? { ...i, status: "paid" } : i));
+    toast.success("Facture marquée comme payée");
+  }
+
+  async function deleteInvoice(id: string) {
+    if (!confirm("Supprimer cette facture ?")) return;
+    const { error } = await supabase.from("invoices").delete().eq("id", id);
+    if (error) { toast.error("Erreur lors de la suppression"); return; }
+    setInvoices((prev) => prev.filter((i) => i.id !== id));
+    toast.success("Facture supprimée");
   }
 
   const filtered = filter === "all" ? invoices : invoices.filter((i) => i.status === filter);
@@ -117,7 +278,6 @@ export default function InvoicesPage() {
             )}
             {filtered.map((inv) => {
               const [cls, label] = BADGE[inv.status] ?? ["b-draft", inv.status];
-              const waStatus = waSending[inv.id];
               return (
                 <tr key={inv.id}>
                   <td>
@@ -135,27 +295,7 @@ export default function InvoicesPage() {
                   </td>
                   <td><span className={`badge ${cls}`}>{label}</span></td>
                   <td>
-                    <button
-                      onClick={(e) => sendWhatsApp(inv.id, e)}
-                      disabled={waStatus === "loading"}
-                      title="Envoyer par WhatsApp"
-                      className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all ${
-                        waStatus === "success"
-                          ? "bg-[#D1FAE5] text-[#059669]"
-                          : waStatus === "error"
-                          ? "bg-[#FEE2E2] text-[#DC2626]"
-                          : "bg-[#F3F4F6] hover:bg-[rgba(200,146,74,0.12)] text-[#6B7280] hover:text-[#C8924A]"
-                      }`}
-                    >
-                      {waStatus === "loading"
-                        ? <Loader2 size={12} className="animate-spin" />
-                        : waStatus === "success"
-                        ? <span className="text-[11px]">✓</span>
-                        : waStatus === "error"
-                        ? <span className="text-[11px]">✕</span>
-                        : <Send size={12} />
-                      }
-                    </button>
+                    <InvoiceMenu inv={inv} onMarkPaid={markPaid} onDelete={deleteInvoice} />
                   </td>
                 </tr>
               );

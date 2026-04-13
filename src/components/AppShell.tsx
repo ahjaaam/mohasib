@@ -161,7 +161,7 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
       {/* Main */}
       <div className="flex flex-col flex-1 md:ml-[210px] min-w-0 h-screen overflow-hidden">
         {/* Topbar */}
-        <div className="flex items-center justify-between px-5 md:px-[22px] h-[52px] border-b border-[rgba(0,0,0,0.08)] bg-white flex-shrink-0">
+        {pathname !== "/dashboard" && <div className="flex items-center justify-between px-5 md:px-[22px] h-[52px] border-b border-[rgba(0,0,0,0.08)] bg-white flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <button className="md:hidden p-1 text-[#6B7280]" onClick={() => setSidebarOpen(!sidebarOpen)}>
               {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
@@ -203,11 +203,11 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
               </>
             )}
           </div>
-        </div>
+        </div>}
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-[18px_22px]">
-          <div className="max-w-6xl mx-auto page-fade">
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-6xl mx-auto page-fade p-4 md:p-[24px_22px_18px]">
             {children}
           </div>
         </main>

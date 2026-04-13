@@ -16,21 +16,32 @@ const STATUS_BADGE: Record<string, string> = {
   cancelled: '<span class="badge b-draft">Annulée</span>',
 };
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <div className="w-[3px] h-4 bg-[#C8924A] rounded-full flex-shrink-0" />
+      <span className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[1px]">{children}</span>
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [invoicesRes, transactionsRes, clientCountRes] = await Promise.all([
+  const [invoicesRes, transactionsRes, clientCountRes, profileRes] = await Promise.all([
     supabase.from("invoices").select("*, clients(id,name)").eq("user_id", user!.id)
       .order("created_at", { ascending: false }).limit(5),
     supabase.from("transactions").select("*").eq("user_id", user!.id)
       .order("date", { ascending: false }).limit(6),
     supabase.from("clients").select("id", { count: "exact" }).eq("user_id", user!.id),
+    supabase.from("users").select("full_name").eq("id", user!.id).single(),
   ]);
 
   const invoices: Invoice[] = invoicesRes.data ?? [];
   const transactions: Transaction[] = transactionsRes.data ?? [];
   const clientCount = clientCountRes.count ?? 0;
+  const firstName = profileRes.data?.full_name?.split(" ")[0] ?? "vous";
 
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -48,147 +59,170 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      {/* Prochaines échéances */}
-      <div className="mb-5">
-        <DashboardNews />
+      {/* Greeting */}
+      <div className="mb-7">
+        <h2 className="text-[22px] font-semibold text-[#1A1A2E] leading-tight">Bonjour, {firstName}</h2>
+        <p className="text-[12.5px] text-[#6B7280] mt-0.5">
+          {new Date().toLocaleDateString("fr-MA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+        </p>
       </div>
 
-      {/* Quick Actions */}
-      <div className="mb-5">
-        <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5 pl-2.5 border-l-[3px] border-[#C8924A]">Actions rapides</div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-          <Link href="/invoices/new" className="qa-card">
-            <div className="text-2xl flex-shrink-0">🧾</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Créer une facture</div>
-              <div className="text-[11px] text-[#6B7280] leading-snug">ICE, TVA et WhatsApp intégrés</div>
-            </div>
-            <ArrowUpRight size={13} className="text-[#C8924A]/50 flex-shrink-0" />
-          </Link>
-          <Link href="/transactions" className="qa-card">
-            <div className="text-2xl flex-shrink-0">💸</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Enregistrer une dépense</div>
-              <div className="text-[11px] text-[#6B7280] leading-snug">Ajout rapide au journal</div>
-            </div>
-            <ArrowUpRight size={13} className="text-[#C8924A]/50 flex-shrink-0" />
-          </Link>
-          <Link href="/chat" className="qa-card">
-            <div className="text-2xl flex-shrink-0">💬</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Demander à Mohasib AI</div>
-              <div className="text-[11px] text-[#6B7280] leading-snug">Votre comptable 24h/24</div>
-            </div>
-            <ArrowUpRight size={13} className="text-[#C8924A]/50 flex-shrink-0" />
-          </Link>
-          <Link href="/invoices" className="qa-card">
-            <div className="text-2xl flex-shrink-0">📋</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Voir les factures</div>
-              <div className="text-[11px] text-[#6B7280] leading-snug">
-                {pendingInvs.length > 0 ? `${pendingInvs.length} en attente de paiement` : "Toutes à jour"}
+      {/* Actions rapides + Prochaines échéances side by side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">
+        {/* Actions rapides */}
+        <div>
+          <SectionLabel>Actions rapides</SectionLabel>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Link href="/invoices/new" className="qa-card">
+              <div className="text-2xl flex-shrink-0">🧾</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Créer une facture</div>
+                <div className="text-[11px] text-[#6B7280] leading-snug">ICE, TVA et WhatsApp intégrés</div>
               </div>
-            </div>
-            <ArrowUpRight size={13} className="text-[#C8924A]/50 flex-shrink-0" />
-          </Link>
+              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
+            </Link>
+            <Link href="/transactions" className="qa-card">
+              <div className="text-2xl flex-shrink-0">💸</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Enregistrer une dépense</div>
+                <div className="text-[11px] text-[#6B7280] leading-snug">Ajout rapide au journal</div>
+              </div>
+              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
+            </Link>
+            <Link href="/chat" className="qa-card">
+              <div className="text-2xl flex-shrink-0">💬</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Demander à Mohasib AI</div>
+                <div className="text-[11px] text-[#6B7280] leading-snug">Votre comptable 24h/24</div>
+              </div>
+              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
+            </Link>
+            <Link href="/invoices" className="qa-card">
+              <div className="text-2xl flex-shrink-0">📋</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Voir les factures</div>
+                <div className="text-[11px] text-[#6B7280] leading-snug">
+                  {pendingInvs.length > 0 ? `${pendingInvs.length} en attente de paiement` : "Toutes à jour"}
+                </div>
+              </div>
+              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Prochaines échéances */}
+        <div>
+          <SectionLabel>Prochaines échéances</SectionLabel>
+          <DashboardNews />
         </div>
       </div>
 
       {/* KPIs */}
-      <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5 pl-2.5 border-l-[3px] border-[#C8924A] mt-7">Vue d&apos;ensemble</div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-4">
-        <div className="kpi">
-          <div className="kpi-label">CA ce mois</div>
-          <div className="kpi-value">{fmt(revenue)}</div>
-          <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
-            <span className="tag tag-up">+12%</span> vs mois préc.
+      <div className="mb-8">
+        <SectionLabel>Vue d&apos;ensemble</SectionLabel>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          <div className="kpi">
+            <div className="kpi-label">CA ce mois</div>
+            <div className="kpi-value">{fmt(revenue)}</div>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
+              <span className="tag tag-up">+12%</span> vs mois préc.
+            </div>
           </div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">En attente</div>
-          <div className="kpi-value">{pendingInvs.length} fact.</div>
-          <div className="text-[11px] text-[#6B7280]">{fmt(pendingTotal)}</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">TVA à déclarer</div>
-          <div className="kpi-value">{fmt(Math.round(tvaEstimate))}</div>
-          <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
-            <span className="tag tag-warn">20 {nextMonth.toLocaleDateString("fr-MA", { month: "short" })}</span>
+          <div className="kpi">
+            <div className="kpi-label">Factures en attente</div>
+            <div className="kpi-value">{pendingInvs.length}</div>
+            <div className="text-[11px] text-[#6B7280]">
+              {pendingInvs.length > 0 ? fmt(pendingTotal) : "Aucune en attente"}
+            </div>
           </div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">Clients actifs</div>
-          <div className="kpi-value">{clientCount}</div>
-          <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
-            <span className="tag tag-up">actifs</span>
+          <div className="kpi">
+            <div className="kpi-label">TVA à déclarer</div>
+            <div className="kpi-value">{fmt(Math.round(tvaEstimate))}</div>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
+              Échéance <span className="tag tag-warn">20 {nextMonth.toLocaleDateString("fr-MA", { month: "short" })}</span>
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-label">Clients actifs</div>
+            <div className="kpi-value">{clientCount}</div>
+            <div className="text-[11px] text-[#6B7280]">
+              {clientCount === 0 ? "Aucun client" : `${clientCount} client${clientCount > 1 ? "s" : ""} actif${clientCount > 1 ? "s" : ""}`}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Two-column tables */}
-      <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-3 mb-4 mt-7">
-        {/* Invoices */}
-        <div className="tbl">
-          <div className="tbl-header">
-            <span className="tbl-title">Factures récentes</span>
-            <Link href="/invoices" className="btn btn-outline btn-sm flex items-center gap-1">
-              Voir tout <ArrowRight size={11} />
-            </Link>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>N°</th>
-                <th>Client</th>
-                <th>TTC</th>
-                <th>Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.length === 0 && (
-                <tr><td colSpan={4} className="text-center py-6 text-[#6B7280] text-[12px]">Aucune facture</td></tr>
-              )}
-              {invoices.map((inv) => (
-                <tr key={inv.id}>
-                  <td className="font-medium text-[#6B7280] text-[11.5px]">{inv.invoice_number}</td>
-                  <td>{(inv as any).clients?.name ?? "—"}</td>
-                  <td className="font-semibold">{fmt(Number(inv.total))}</td>
-                  <td dangerouslySetInnerHTML={{ __html: STATUS_BADGE[inv.status] ?? "" }} />
+      <div>
+        <SectionLabel>Activité récente</SectionLabel>
+        <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-3">
+          {/* Invoices */}
+          <div className="tbl">
+            <div className="tbl-header">
+              <span className="tbl-title">Factures récentes</span>
+              <Link href="/invoices" className="btn btn-outline btn-sm flex items-center gap-1">
+                Voir tout <ArrowRight size={11} />
+              </Link>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>N°</th>
+                  <th>Client</th>
+                  <th>TTC</th>
+                  <th>Statut</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {invoices.length === 0 && (
+                  <tr><td colSpan={4} className="text-center py-6 text-[#6B7280] text-[12px]">Aucune facture</td></tr>
+                )}
+                {invoices.map((inv) => (
+                  <tr key={inv.id}>
+                    <td className="font-medium text-[#6B7280] text-[11.5px]">{inv.invoice_number}</td>
+                    <td>{(inv as any).clients?.name ?? "—"}</td>
+                    <td className="font-semibold">{fmt(Number(inv.total))}</td>
+                    <td dangerouslySetInnerHTML={{ __html: STATUS_BADGE[inv.status] ?? "" }} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Transactions */}
-        <div className="tbl">
-          <div className="tbl-header">
-            <span className="tbl-title">Transactions</span>
-            <Link href="/transactions" className="btn btn-outline btn-sm flex items-center gap-1">
-              Voir tout <ArrowRight size={11} />
-            </Link>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Montant</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.length === 0 && (
-                <tr><td colSpan={2} className="text-center py-6 text-[#6B7280] text-[12px]">Aucune transaction</td></tr>
-              )}
-              {transactions.map((tx) => (
-                <tr key={tx.id}>
-                  <td className="max-w-[160px] truncate">{tx.description}</td>
-                  <td className={`font-semibold ${tx.type === "income" ? "text-[#059669]" : "text-[#DC2626]"}`}>
-                    {tx.type === "income" ? "+" : "-"}{fmt(Math.abs(Number(tx.amount)))}
-                  </td>
+          {/* Transactions */}
+          <div className="tbl">
+            <div className="tbl-header">
+              <span className="tbl-title">Transactions</span>
+              <Link href="/transactions" className="btn btn-outline btn-sm flex items-center gap-1">
+                Voir tout <ArrowRight size={11} />
+              </Link>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Date</th>
+                  <th>Montant</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {transactions.length === 0 && (
+                  <tr><td colSpan={3} className="text-center py-6 text-[#6B7280] text-[12px]">Aucune transaction</td></tr>
+                )}
+                {transactions.map((tx) => (
+                  <tr key={tx.id}>
+                    <td className="max-w-[120px] truncate">{tx.description}</td>
+                    <td className="text-[11px] text-[#6B7280] whitespace-nowrap w-[1%]">
+                      {new Date(tx.date).toLocaleDateString("fr-MA", { day: "numeric", month: "short" })}
+                    </td>
+                    <td className={`font-semibold whitespace-nowrap w-[1%] ${tx.type === "income" ? "text-[#059669]" : "text-[#DC2626]"}`}>
+                      {tx.type === "income" ? "+" : "-"}{fmt(Math.abs(Number(tx.amount)))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

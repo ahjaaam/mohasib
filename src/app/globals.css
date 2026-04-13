@@ -69,10 +69,10 @@
   .tab.active { @apply text-[#C8924A] border-[#C8924A] font-medium; }
 
   /* Deadline bar */
-  .deadline-bar { @apply flex items-center gap-2 bg-[#FEF3C7] border border-[rgba(217,119,6,0.2)] rounded-lg px-3.5 py-2.5 mb-4 text-[12px] text-[#92400E]; }
+  .deadline-bar { @apply flex items-center gap-2 bg-[#FEF3C7] border border-[rgba(217,119,6,0.2)] rounded-xl px-3.5 py-2.5 mb-4 text-[12px] text-[#92400E]; }
 
   /* Alert */
-  .alert-blue { @apply bg-[#EFF6FF] text-[#1E40AF] border border-[rgba(29,78,216,0.15)] rounded-lg px-3 py-2.5 mb-3 text-[12px]; }
+  .alert-blue { @apply bg-[#EFF6FF] text-[#1E40AF] border border-[rgba(29,78,216,0.15)] rounded-xl px-3 py-2.5 mb-3 text-[12px]; }
 
   /* Quick action card */
   .qa-card {
@@ -92,7 +92,7 @@
   .client-card:hover { @apply border-[#C8924A] shadow-[0_2px_8px_rgba(200,146,74,0.1)]; }
 
   /* Totals box */
-  .totals-box { @apply bg-[#F0EDE5] rounded-lg p-3.5 mt-3; }
+  .totals-box { @apply bg-[#F0EDE5] rounded-xl p-3.5 mt-3; }
   .total-row { @apply flex justify-between text-[12.5px] py-0.5 text-[#6B7280]; }
   .total-row.grand { @apply font-bold text-sm border-t border-[rgba(0,0,0,0.08)] mt-1.5 pt-2 text-[#1A1A2E]; }
 

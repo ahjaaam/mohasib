@@ -142,8 +142,8 @@ function Navbar() {
     >
       <div className="max-w-6xl mx-auto px-5 md:px-8 h-[60px] flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="text-[20px] font-bold text-[#0D1526] tracking-tight select-none">
-          Mohasib
+        <Link href="/" className="select-none">
+          <img src="/logo.png" alt="Mohasib" className="h-8 w-auto" />
         </Link>
 
         {/* Center nav — desktop */}
@@ -621,7 +621,7 @@ export default function HomePageClient() {
             <AnimateIn delay={0.05}>
               <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-8"
                 style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }}>
-                <h3 className="text-[17px] font-bold text-[#1A1A2E] mb-1">Mohasib Solo</h3>
+                <h3 className="text-[17px] font-bold text-[#1A1A2E] mb-1">Mohasib Admin</h3>
                 <p className="text-[12.5px] text-[#9CA3AF] mb-4">Pour les entrepreneurs autonomes</p>
                 <div className="mb-1">
                   <span className="text-[40px] font-bold text-[#0D1526]" style={{ letterSpacing: "-1.5px" }}>199</span>
@@ -665,7 +665,7 @@ export default function HomePageClient() {
                 <p className="text-[11.5px] text-[rgba(255,255,255,0.4)] mb-5">199 MAD logiciel + 200 MAD comptable dédié</p>
                 <hr className="border-[rgba(255,255,255,0.12)] mb-5" />
                 <ul className="space-y-2.5 mb-7">
-                  {["Tout de Mohasib Solo","Comptable dédié assigné sous 24h","Accès WhatsApp direct à votre comptable","Révision mensuelle de vos livres","Validation TVA avant soumission DGI","Assistance clôture annuelle","Comptable disponible pour vos questions"].map((f) => (
+                  {["Tout de Mohasib Admin","Comptable dédié assigné sous 24h","Accès WhatsApp direct à votre comptable","Révision mensuelle de vos livres","Validation TVA avant soumission DGI","Assistance clôture annuelle","Comptable disponible pour vos questions"].map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-[13px] text-white/80">
                       <Check size={14} className="text-[#C8924A] flex-shrink-0" /> {f}
                     </li>
