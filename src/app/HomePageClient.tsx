@@ -1,42 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import {
-  Clock, Banknote, AlertTriangle, FileText, Wand2, Receipt,
-  Calendar, Users, Download, ChevronDown, Menu, X, Check,
-  ArrowRight, CheckCircle,
-} from "lucide-react";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Phase { shown: number; typing: boolean; }
-
-// ─── Chat animation data ──────────────────────────────────────────────────────
-
-const CHAT_MESSAGES = [
-  { role: "ai",   text: "Bonjour ! Comment puis-je vous aider ?" },
-  { role: "user", text: "Combien je dois en TVA ce mois ?" },
-  { role: "ai",   text: "Basé sur vos factures d'avril :\n• TVA collectée : 9 900 MAD\n• TVA déductible : 2 600 MAD\n• TVA nette due : 7 300 MAD\nÉchéance : 20 mai 2026 ⚠️" },
-  { role: "user", text: "Qui ne m'a pas encore payé ?" },
-  { role: "ai",   text: "2 factures en attente :\n• Pharma3 SA — 10 200 MAD (15j)\n• Immo Derb Omar — 26 400 MAD (retard)" },
-];
-
-const CHAT_PHASES: Phase[] = [
-  { shown: 1, typing: false },
-  { shown: 1, typing: true  },
-  { shown: 2, typing: false },
-  { shown: 2, typing: true  },
-  { shown: 3, typing: false },
-  { shown: 3, typing: true  },
-  { shown: 4, typing: false },
-  { shown: 4, typing: true  },
-  { shown: 5, typing: false },
-  { shown: 5, typing: false },
-  { shown: 0, typing: false },
-];
-const CHAT_DELAYS = [1800, 900, 700, 1500, 1800, 700, 700, 1500, 1800, 2800, 400];
+import { ChevronDown, Menu, X } from "lucide-react";
 
 // ─── FAQ data ─────────────────────────────────────────────────────────────────
 
@@ -50,750 +17,447 @@ const FAQS = [
     a: "Après votre inscription au Pack + Comptable, nous vous assignons un comptable de notre réseau sous 24h. Vous avez son WhatsApp direct, il révise vos livres chaque mois et valide vos déclarations TVA.",
   },
   {
-    q: "Mohasib gère-t-il la fiscalité marocaine ?",
+    q: "Mohasib est-il conforme à la fiscalité marocaine ?",
     a: "Oui — TVA (7 %, 10 %, 14 %, 20 %), IS, IR, CNSS. Le plan comptable CGNC est intégré. Les déclarations sont au format DGI.",
   },
   {
-    q: "Puis-je essayer avant de payer ?",
+    q: "Puis-je essayer gratuitement ?",
     a: "Oui — 14 jours gratuits, aucune carte bancaire requise. Vous accédez à toutes les fonctionnalités du plan choisi.",
   },
   {
-    q: "Mes données sont-elles sécurisées ?",
+    q: "Mes données financières sont-elles sécurisées ?",
     a: "Vos données sont chiffrées et hébergées sur des serveurs sécurisés. Nous ne partageons jamais vos informations financières avec des tiers.",
-  },
-  {
-    q: "Compatible avec mon logiciel comptable ?",
-    a: "Les exports Mohasib sont en Excel et PDF au format CGNC — compatibles avec Sage, Ciel, et tous les logiciels utilisés par les fiduciaires marocains.",
   },
 ];
 
-// ─── Scroll-fade hook ─────────────────────────────────────────────────────────
+// ─── FAQ Item ─────────────────────────────────────────────────────────────────
 
-function useFadeIn(threshold = 0.15) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
-      { threshold }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [threshold]);
-  return { ref, visible };
-}
-
-// ─── AnimateIn wrapper ────────────────────────────────────────────────────────
-
-function AnimateIn({ children, delay = 0, className = "" }: {
-  children: React.ReactNode; delay?: number; className?: string;
-}) {
-  const { ref, visible } = useFadeIn();
-  return (
-    <div ref={ref} className={className} style={{
-      opacity: visible ? 1 : 0,
-      transform: visible ? "translateY(0)" : "translateY(22px)",
-      transition: `opacity 0.55s ease-out ${delay}s, transform 0.55s ease-out ${delay}s`,
-    }}>
-      {children}
-    </div>
-  );
-}
-
-// ─── Section label ────────────────────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[11.5px] font-semibold uppercase tracking-[2px] text-[#C8924A] mb-3">
-      {children}
-    </p>
-  );
-}
-
-// ─── Navbar ───────────────────────────────────────────────────────────────────
-
-function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
+function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  const links = [
-    { href: "#features", label: "Fonctionnalités" },
-    { href: "#pricing", label: "Tarifs" },
-    { href: "#fiduciaires", label: "Pour les fiduciaires" },
-  ];
-
   return (
-    <header
-      className="fixed top-0 left-0 right-0 z-50 transition-all duration-200"
-      style={{
-        background: scrolled ? "rgba(255,255,255,0.92)" : "white",
-        backdropFilter: scrolled ? "blur(12px)" : "none",
-        borderBottom: scrolled ? "1px solid rgba(0,0,0,0.07)" : "1px solid transparent",
-        animation: "slideDown 0.35s ease-out",
-      }}
-    >
-      <div className="max-w-6xl mx-auto px-5 md:px-8 h-[60px] flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="select-none">
-          <img src="/logo.png" alt="Mohasib" className="h-8 w-auto" />
-        </Link>
-
-        {/* Center nav — desktop */}
-        <nav className="hidden md:flex items-center gap-7">
-          {links.map((l) => (
-            <a key={l.href} href={l.href}
-              className="text-[13.5px] text-[#6B7280] hover:text-[#0D1526] transition-colors">
-              {l.label}
-            </a>
-          ))}
-        </nav>
-
-        {/* Right — desktop */}
-        <div className="hidden md:flex items-center gap-3">
-          <Link href="/auth/login" className="text-[13.5px] text-[#6B7280] hover:text-[#0D1526] transition-colors">
-            Se connecter
-          </Link>
-          <Link href="/auth/signup"
-            className="px-4 py-2 rounded-full text-[13px] font-semibold bg-[#0D1526] text-white hover:text-[#C8924A] transition-colors">
-            Commencer gratuitement
-          </Link>
-        </div>
-
-        {/* Hamburger */}
-        <button className="md:hidden text-[#0D1526]" onClick={() => setOpen(!open)}>
-          {open ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-
-      {/* Mobile menu */}
+    <div className="border-b border-[rgba(0,0,0,0.08)]">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between py-5 text-left"
+      >
+        <span style={{ fontSize: 16, fontWeight: 500, color: "#0A0A0A", fontFamily: "var(--font-inter, Inter, sans-serif)" }}>
+          {q}
+        </span>
+        <ChevronDown
+          size={18}
+          style={{
+            color: "#6B7280",
+            flexShrink: 0,
+            marginLeft: 16,
+            transition: "transform 0.2s",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        />
+      </button>
       {open && (
-        <div className="md:hidden bg-white border-t border-[rgba(0,0,0,0.07)] px-5 py-4 flex flex-col gap-4">
-          {links.map((l) => (
-            <a key={l.href} href={l.href} onClick={() => setOpen(false)}
-              className="text-[14px] text-[#374151] hover:text-[#0D1526]">
-              {l.label}
-            </a>
-          ))}
-          <hr className="border-[rgba(0,0,0,0.07)]" />
-          <Link href="/auth/login" className="text-[14px] text-[#6B7280]">Se connecter</Link>
-          <Link href="/auth/signup" className="btn bg-[#0D1526] text-white justify-center py-2.5 rounded-lg text-[13.5px] font-semibold">
-            Commencer gratuitement
-          </Link>
-        </div>
+        <p style={{ fontSize: 15, color: "#6B7280", lineHeight: 1.7, paddingBottom: 20, fontFamily: "var(--font-inter, Inter, sans-serif)" }}>
+          {a}
+        </p>
       )}
-    </header>
-  );
-}
-
-// ─── Dashboard mockup ─────────────────────────────────────────────────────────
-
-function DashboardMockup() {
-  return (
-    <div className="relative w-full max-w-[700px] mx-auto mt-12 rounded-xl overflow-hidden select-none"
-      style={{
-        boxShadow: "0 25px 60px rgba(0,0,0,0.16)",
-        transform: "perspective(1000px) rotateX(3deg)",
-        animation: "mockupIn 0.7s ease-out 0.4s both",
-      }}>
-      <div className="flex" style={{ minHeight: 360 }}>
-        {/* Sidebar */}
-        <div className="w-[150px] flex-shrink-0 bg-[#0D1526] flex flex-col py-4 px-3">
-          <div className="text-white font-bold text-[13px] px-2 mb-5">Mohasib</div>
-          {["Tableau de bord","Factures","Clients","Transactions","TVA","Export"].map((item, i) => (
-            <div key={item} className={`px-2 py-[7px] rounded-lg text-[11px] mb-0.5 ${i === 0 ? "bg-[rgba(200,146,74,0.15)] text-[#C8924A] font-medium" : "text-white/40"}`}>
-              {item}
-            </div>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 bg-[#FAFAF6] p-4 min-w-0">
-          {/* KPIs */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {[
-              { label: "CA ce mois", value: "47 200", sub: "+12 % vs mois dernier" },
-              { label: "Factures", value: "8", sub: "en attente" },
-              { label: "TVA due", value: "7 300", sub: "Échéance 20 mai" },
-            ].map((k) => (
-              <div key={k.label} className="bg-white rounded-lg p-3 border border-[rgba(0,0,0,0.07)]">
-                <div className="text-[9.5px] text-[#9CA3AF] uppercase tracking-wide mb-1">{k.label}</div>
-                <div className="text-[15px] font-bold text-[#1A1A2E]">{k.value}</div>
-                <div className="text-[9px] text-[#9CA3AF] mt-0.5">{k.sub}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Table */}
-          <div className="bg-white rounded-lg border border-[rgba(0,0,0,0.07)] overflow-hidden">
-            <div className="px-3 py-2 border-b border-[rgba(0,0,0,0.05)]">
-              <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wide">Factures récentes</span>
-            </div>
-            {[
-              { n: "F-031", c: "Pharma3 SA",     a: "10 200", s: "Payée",      sc: "text-[#059669] bg-[#D1FAE5]" },
-              { n: "F-032", c: "Atlas Bâtiment", a: "8 500",  s: "En attente", sc: "text-[#92400E] bg-[#FEF3C7]" },
-              { n: "F-033", c: "Immo Derb Omar", a: "26 400", s: "En retard",  sc: "text-[#991B1B] bg-[#FEE2E2]" },
-            ].map((r) => (
-              <div key={r.n} className="flex items-center gap-2 px-3 py-2 border-b border-[rgba(0,0,0,0.04)] last:border-0">
-                <span className="text-[9.5px] text-[#9CA3AF] w-10">{r.n}</span>
-                <span className="text-[10px] font-medium flex-1 text-[#1A1A2E] truncate">{r.c}</span>
-                <span className="text-[10px] font-semibold text-[#1A1A2E]">{r.a} MAD</span>
-                <span className={`text-[8.5px] font-semibold px-1.5 py-0.5 rounded-full ${r.sc}`}>{r.s}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* AI badge */}
-      <div className="absolute bottom-3 right-3 bg-[#C8924A] text-white text-[10px] font-semibold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
-        <Wand2 size={11} /> Mohasib AI
-      </div>
-
-      {/* Top bar chrome */}
-      <div className="absolute top-0 left-0 right-0 h-[28px] bg-[#0A1020] flex items-center px-3 gap-1.5">
-        <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
-        <div className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
-        <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
-        <div className="flex-1 mx-3 h-4 bg-[rgba(255,255,255,0.06)] rounded text-[8px] text-white/30 flex items-center justify-center">
-          app.mohasib.ma
-        </div>
-      </div>
     </div>
   );
 }
 
-// ─── Chat mockup ──────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
-function ChatMockup() {
-  const [phaseIdx, setPhaseIdx] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+export default function HomePageClient() {
+  const supabase = createClient();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
-  useEffect(() => {
-    let idx = 0;
-    function tick() {
-      idx = (idx + 1) % CHAT_PHASES.length;
-      setPhaseIdx(idx);
-      timerRef.current = setTimeout(tick, CHAT_DELAYS[idx]);
-    }
-    timerRef.current = setTimeout(tick, CHAT_DELAYS[0]);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, []);
+  async function handleWaitlist(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email) return;
+    await supabase.from("fiduciaire_waitlist").insert({ email });
+    setSubmitted(true);
+  }
 
-  const { shown, typing } = CHAT_PHASES[phaseIdx];
+  const serif = "var(--font-playfair, 'Instrument Serif', Georgia, serif)";
+  const sans = "var(--font-inter, Inter, sans-serif)";
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-[rgba(255,255,255,0.08)]"
-      style={{ background: "#19274A", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
-      {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[rgba(255,255,255,0.07)]">
-        <div className="w-7 h-7 rounded-full bg-[#C8924A] flex items-center justify-center">
-          <Wand2 size={13} className="text-white" />
-        </div>
-        <div>
-          <div className="text-[12px] font-semibold text-white">Mohasib AI</div>
-          <div className="text-[10px] text-[rgba(255,255,255,0.4)] flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] inline-block" /> En ligne
-          </div>
-        </div>
-      </div>
+    <div style={{ fontFamily: sans, backgroundColor: "#FFFFFF", color: "#0A0A0A" }}>
 
-      {/* Messages */}
-      <div className="p-4 space-y-3 min-h-[280px]">
-        {CHAT_MESSAGES.slice(0, shown).map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            style={{ animation: "fadeUp 0.3s ease-out" }}>
-            <div
-              className="max-w-[85%] text-[12px] leading-relaxed px-3.5 py-2.5 rounded-xl"
+      {/* ── NAVBAR ──────────────────────────────────────────────────────────── */}
+      <nav style={{
+        position: "sticky", top: 0, zIndex: 50,
+        backgroundColor: "#FFFFFF",
+        borderBottom: "1px solid rgba(0,0,0,0.08)",
+        height: 56,
+        display: "flex", alignItems: "center",
+      }}>
+        <div style={{
+          maxWidth: 1200, margin: "0 auto", width: "100%",
+          padding: "0 48px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          {/* Logo */}
+          <span style={{ fontWeight: 700, fontSize: 18, color: "#0A0A0A", fontFamily: sans }}>
+            Mohasib
+          </span>
+
+          {/* Center nav — desktop */}
+          <div className="hidden md:flex" style={{ gap: 32 }}>
+            {["Fonctionnalités", "Tarifs", "À propos"].map(label => (
+              <a
+                key={label}
+                href={label === "Tarifs" ? "#tarifs" : label === "Fonctionnalités" ? "#fonctionnalites" : "#"}
+                style={{ fontSize: 14, color: "#6B7280", textDecoration: "none", fontFamily: sans }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#0A0A0A")}
+                onMouseLeave={e => (e.currentTarget.style.color = "#6B7280")}
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+
+          {/* Right actions */}
+          <div className="hidden md:flex" style={{ alignItems: "center", gap: 20 }}>
+            <Link href="/auth/login" style={{ fontSize: 14, color: "#6B7280", textDecoration: "none", fontFamily: sans }}>
+              Se connecter
+            </Link>
+            <Link
+              href="/auth/signup"
               style={{
-                background: msg.role === "ai" ? "rgba(255,255,255,0.07)" : "#C8924A",
-                color: "white",
-                whiteSpace: "pre-line",
+                fontSize: 13, fontWeight: 500, color: "#FFFFFF",
+                backgroundColor: "#0D1526",
+                padding: "8px 18px", borderRadius: 9999,
+                textDecoration: "none", fontFamily: sans,
               }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
             >
-              {msg.text}
-            </div>
+              Commencer
+            </Link>
           </div>
-        ))}
 
-        {typing && (
-          <div className="flex justify-start" style={{ animation: "fadeUp 0.3s ease-out" }}>
-            <div className="flex items-center gap-1 px-3.5 py-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.07)" }}>
-              <div className="dot" /><div className="dot" /><div className="dot" />
+          {/* Mobile hamburger */}
+          <button
+            className="md:hidden"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#0A0A0A", padding: 4 }}
+          >
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+
+        {/* Mobile menu */}
+        {mobileOpen && (
+          <div style={{
+            position: "absolute", top: 56, left: 0, right: 0,
+            backgroundColor: "#FFFFFF",
+            borderBottom: "1px solid rgba(0,0,0,0.08)",
+            padding: "16px 24px 24px",
+            display: "flex", flexDirection: "column", gap: 16,
+          }}>
+            {["Fonctionnalités", "Tarifs", "À propos"].map(label => (
+              <a key={label} href="#" onClick={() => setMobileOpen(false)}
+                style={{ fontSize: 15, color: "#374151", textDecoration: "none" }}>
+                {label}
+              </a>
+            ))}
+            <div style={{ borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+              <Link href="/auth/login" style={{ fontSize: 14, color: "#6B7280", textDecoration: "none" }}>Se connecter</Link>
+              <Link href="/auth/signup" style={{
+                fontSize: 14, fontWeight: 500, color: "#FFFFFF",
+                backgroundColor: "#0D1526", padding: "10px 20px",
+                borderRadius: 9999, textDecoration: "none", textAlign: "center",
+              }}>Commencer</Link>
             </div>
           </div>
         )}
-      </div>
+      </nav>
 
-      {/* Input bar */}
-      <div className="px-4 pb-4">
-        <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.06)] rounded-xl px-3 py-2.5 border border-[rgba(255,255,255,0.08)]">
-          <span className="text-[11.5px] text-[rgba(255,255,255,0.25)] flex-1">Posez une question…</span>
-          <ArrowRight size={14} className="text-[#C8924A]" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Count-up stat ────────────────────────────────────────────────────────────
-
-function StatNumber({ target, suffix = "" }: { target: number; suffix?: string }) {
-  const [count, setCount] = useState(0);
-  const [started, setStarted] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setStarted(true); obs.disconnect(); }
-    }, { threshold: 0.5 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!started) return;
-    const duration = 1200;
-    const steps = 50;
-    const inc = target / steps;
-    let i = 0;
-    const t = setInterval(() => {
-      i++;
-      setCount(Math.min(Math.round(inc * i), target));
-      if (i >= steps) clearInterval(t);
-    }, duration / steps);
-    return () => clearInterval(t);
-  }, [started, target]);
-
-  return <span ref={ref}>{count}{suffix}</span>;
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
-
-export default function HomePageClient() {
-  const [faqOpen, setFaqOpen] = useState<number | null>(null);
-  const [waitlistEmail, setWaitlistEmail] = useState("");
-  const [waitlistDone, setWaitlistDone] = useState(false);
-  const [waitlistLoading, setWaitlistLoading] = useState(false);
-
-  async function handleWaitlist(e: FormEvent) {
-    e.preventDefault();
-    if (!waitlistEmail) return;
-    setWaitlistLoading(true);
-    try {
-      const supabase = createClient();
-      await supabase.from("fiduciaire_waitlist").insert([{ email: waitlistEmail, user_id: null }]);
-    } catch { /* silent — RLS may block anonymous; user can fix later */ }
-    setWaitlistLoading(false);
-    setWaitlistDone(true);
-    setWaitlistEmail("");
-  }
-
-  const heroStyle = { animation: "fadeUp 0.6s ease-out both" };
-  const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
-
-  return (
-    <div className="bg-white text-[#1A1A2E] overflow-x-hidden">
-      <style>{`
-        @keyframes slideDown { from { transform: translateY(-60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes fadeUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes mockupIn { from { transform: perspective(1000px) rotateX(6deg) scale(0.96); opacity: 0; } to { transform: perspective(1000px) rotateX(3deg) scale(1); opacity: 1; } }
-        .feature-card:hover { border-color: #C8924A; transform: translateY(-2px); }
-        .feature-card { transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
-        .feature-card:hover { box-shadow: 0 8px 24px rgba(200,146,74,0.12); }
-      `}</style>
-
-      <Navbar />
-
-      {/* ── HERO ──────────────────────────────────────────────────────────── */}
-      <section id="hero" className="relative min-h-screen flex flex-col items-center justify-center pt-[60px] pb-12 px-5 overflow-hidden"
-        style={{
-          background: "white",
-          backgroundImage: "linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-        }}>
-        {/* Gradient overlay to fade grid at edges */}
-        <div className="absolute inset-0 pointer-events-none"
-          style={{ background: "radial-gradient(ellipse 80% 60% at 50% 40%, transparent 40%, white 100%)" }} />
-
-        <div className="relative z-10 flex flex-col items-center text-center max-w-3xl mx-auto" style={heroStyle}>
-          {/* Pill badge */}
-          <div className="inline-flex items-center gap-2 bg-[#0D1526] text-[#C8924A] text-[12px] font-medium px-4 py-1.5 rounded-full mb-7"
-            style={{ animation: "fadeUp 0.5s ease-out 0.05s both" }}>
-            ✦ Conçu pour le marché marocain 🇲🇦
-          </div>
-
-          {/* Headline */}
-          <h1 className="font-serif font-semibold leading-[1.13] mb-5"
-            style={{ ...serif, fontSize: "clamp(36px,5vw,62px)", letterSpacing: "-1px", animation: "fadeUp 0.5s ease-out 0.12s both" }}>
-            La comptabilité intelligente<br />
-            pour les entrepreneurs marocains
+      {/* ── SECTION 1: HERO ─────────────────────────────────────────────────── */}
+      <section style={{ padding: "120px 48px 100px", backgroundColor: "#FFFFFF" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <h1 style={{
+            fontFamily: serif,
+            fontSize: "clamp(42px, 6vw, 72px)",
+            fontWeight: 600,
+            lineHeight: 1.1,
+            letterSpacing: "-2px",
+            color: "#0A0A0A",
+            maxWidth: 700,
+            margin: 0,
+          }}>
+            La comptabilité marocaine,<br />enfin intelligente.
           </h1>
 
-          {/* Sub */}
-          <p className="text-[#6B7280] mb-8 max-w-[500px] leading-relaxed"
-            style={{ fontSize: "clamp(15px,2vw,18px)", animation: "fadeUp 0.5s ease-out 0.2s both" }}>
-            Créez vos factures, suivez votre TVA, et posez vos questions comptables à Mohasib AI — en français, en arabe, ou en darija.
+          <p style={{
+            fontSize: 18, color: "#6B7280", maxWidth: 560,
+            lineHeight: 1.7, marginTop: 24, fontFamily: sans,
+          }}>
+            Mohasib automatise vos factures, calcule votre TVA, et répond à vos questions comptables en temps réel. Conçu pour les entrepreneurs marocains.
           </p>
 
-          {/* CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-6"
-            style={{ animation: "fadeUp 0.5s ease-out 0.28s both" }}>
-            <Link href="/auth/signup"
-              className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#0D1526] text-white text-[14px] font-semibold hover:opacity-90 transition-opacity">
-              Commencer gratuitement <ArrowRight size={15} />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 40, alignItems: "center" }}>
+            <Link
+              href="/auth/signup"
+              style={{
+                fontSize: 15, fontWeight: 500, color: "#FFFFFF",
+                backgroundColor: "#0D1526",
+                padding: "14px 28px", borderRadius: 9999,
+                textDecoration: "none", fontFamily: sans,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            >
+              Commencer gratuitement
             </Link>
-            <a href="#features"
-              className="flex items-center gap-2 px-6 py-3 rounded-lg border border-[rgba(0,0,0,0.15)] text-[#0D1526] text-[14px] font-medium hover:border-[#0D1526] transition-colors">
-              ▶ Voir la démo
+            <a
+              href="#fonctionnalites"
+              style={{
+                fontSize: 15, color: "#0A0A0A",
+                backgroundColor: "transparent",
+                border: "1px solid rgba(0,0,0,0.2)",
+                padding: "14px 28px", borderRadius: 9999,
+                textDecoration: "none", fontFamily: sans,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(0,0,0,0.4)")}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(0,0,0,0.2)")}
+            >
+              Voir comment ça marche
             </a>
           </div>
 
-          {/* Trust line */}
-          <div className="flex flex-wrap items-center justify-center gap-5 text-[12px] text-[#9CA3AF]"
-            style={{ animation: "fadeUp 0.5s ease-out 0.34s both" }}>
-            <span>✓ Essai 14 jours gratuit</span>
-            <span>✓ Aucune carte bancaire</span>
-            <span>✓ Annulation à tout moment</span>
-          </div>
-        </div>
-
-        <DashboardMockup />
-      </section>
-
-      {/* ── PROBLEM ───────────────────────────────────────────────────────── */}
-      <section className="py-20 px-5" style={{ background: "#FAFAF6" }}>
-        <div className="max-w-5xl mx-auto">
-          <AnimateIn className="text-center mb-12">
-            <SectionLabel>Le problème</SectionLabel>
-            <h2 className="font-serif text-[28px] md:text-[36px] font-semibold leading-tight"
-              style={{ ...serif, letterSpacing: "-0.5px" }}>
-              La comptabilité vous coûte trop cher<br className="hidden md:block" /> et prend trop de temps
-            </h2>
-          </AnimateIn>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-            {[
-              { icon: Clock, value: "4–6h", label: "par semaine perdues sur la comptabilité", sub: "Temps moyen d'un entrepreneur marocain sur l'admin financier", countTo: null },
-              { icon: Banknote, value: "800–1500 MAD", label: "par mois pour un fiduciaire", sub: "Pour des tâches que l'IA peut automatiser en secondes", countTo: null },
-              { icon: AlertTriangle, value: null, label: "des TPE pénalisées par la DGI", sub: "Pour des erreurs de déclaration qui auraient pu être évitées", countTo: 47 },
-            ].map((s, i) => (
-              <AnimateIn key={i} delay={i * 0.1}>
-                <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-6"
-                  style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-                  <s.icon size={22} className="text-[#C8924A] mb-4" />
-                  <div className="text-[36px] font-bold text-[#0D1526] leading-none mb-2"
-                    style={{ letterSpacing: "-1px" }}>
-                    {s.countTo !== null ? <StatNumber target={s.countTo} suffix="%" /> : s.value}
-                  </div>
-                  <div className="text-[13.5px] font-semibold text-[#1A1A2E] mb-1">{s.label}</div>
-                  <div className="text-[12px] text-[#9CA3AF] leading-relaxed">{s.sub}</div>
-                </div>
-              </AnimateIn>
-            ))}
-          </div>
-
-          <AnimateIn className="text-center">
-            <p className="text-[15px] text-[#6B7280] italic" style={serif}>
-              "Il y a une meilleure façon de gérer votre comptabilité."
-            </p>
-          </AnimateIn>
-        </div>
-      </section>
-
-      {/* ── FEATURES ──────────────────────────────────────────────────────── */}
-      <section id="features" className="py-20 px-5 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <AnimateIn className="text-center mb-12">
-            <SectionLabel>La solution</SectionLabel>
-            <h2 className="font-serif text-[28px] md:text-[36px] font-semibold leading-tight"
-              style={{ ...serif, letterSpacing: "-0.5px" }}>
-              Tout ce dont vous avez besoin,<br className="hidden md:block" /> dans un seul outil
-            </h2>
-          </AnimateIn>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              {
-                icon: FileText, title: "Facturation intelligente",
-                desc: "Créez des factures conformes en 2 minutes. ICE, TVA, mentions légales intégrés. Envoyez par WhatsApp ou email en un clic.",
-                badge: { label: "Le plus utilisé", color: "bg-[#FEF3C7] text-[#92400E]" },
-              },
-              {
-                icon: Wand2, title: "Mohasib AI",
-                desc: "Posez n'importe quelle question en français ou darija. Obtenez une réponse immédiate basée sur vos données réelles.",
-                badge: { label: "Nouveau", color: "bg-[#D1FAE5] text-[#065F46]" },
-              },
-              {
-                icon: Receipt, title: "Import de relevés bancaires",
-                desc: "Uploadez votre relevé PDF Attijariwafa, CIH ou BMCE. L'IA extrait toutes les transactions automatiquement.",
-                badge: null,
-              },
-              {
-                icon: Calendar, title: "Déclarations TVA automatiques",
-                desc: "Calculez votre TVA en un clic. Générez le document DGI-ready. Ne manquez plus jamais une échéance.",
-                badge: null,
-              },
-              {
-                icon: Users, title: "Gestion clients",
-                desc: "Répertoire complet avec historique et délais de paiement. Relancez les mauvais payeurs automatiquement.",
-                badge: null,
-              },
-              {
-                icon: Download, title: "Export fiduciaire",
-                desc: "Journal des ventes, grand livre, balance — en format CGNC marocain. Un clic pour votre fiduciaire.",
-                badge: null,
-              },
-            ].map((f, i) => (
-              <AnimateIn key={i} delay={i * 0.07}>
-                <div className="feature-card bg-white border border-[rgba(0,0,0,0.09)] rounded-xl p-6 h-full">
-                  <div className="flex items-start justify-between mb-3">
-                    <f.icon size={22} className="text-[#C8924A]" />
-                    {f.badge && (
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${f.badge.color}`}>
-                        {f.badge.label}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-[14px] font-semibold text-[#1A1A2E] mb-2">{f.title}</h3>
-                  <p className="text-[12.5px] text-[#6B7280] leading-relaxed">{f.desc}</p>
-                </div>
-              </AnimateIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── AI SHOWCASE ───────────────────────────────────────────────────── */}
-      <section className="py-20 px-5" style={{ background: "#0D1526" }}>
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          {/* Left */}
-          <AnimateIn>
-            <SectionLabel>Mohasib AI</SectionLabel>
-            <h2 className="font-serif text-[28px] md:text-[38px] font-semibold leading-tight text-white mb-5"
-              style={{ ...serif, letterSpacing: "-0.5px" }}>
-              Votre comptable,<br />disponible 24h/24
-            </h2>
-            <p className="text-[rgba(255,255,255,0.6)] text-[14.5px] leading-relaxed mb-7">
-              Posez vos questions comptables en français, en arabe ou en darija. Mohasib connaît la fiscalité marocaine et vos chiffres en temps réel.
-            </p>
-            <ul className="space-y-3 mb-7">
-              {["Calcul TVA instantané", "Alertes déclarations DGI", "Conseils fiscaux personnalisés"].map((item) => (
-                <li key={item} className="flex items-center gap-2.5 text-[13.5px] text-white/80">
-                  <CheckCircle size={15} className="text-[#C8924A] flex-shrink-0" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <p className="text-[11.5px] text-[#C8924A]">✦ Alimenté par Claude AI d'Anthropic</p>
-          </AnimateIn>
-
-          {/* Right — chat */}
-          <AnimateIn delay={0.15}>
-            <ChatMockup />
-          </AnimateIn>
-        </div>
-      </section>
-
-      {/* ── PRICING ───────────────────────────────────────────────────────── */}
-      <section id="pricing" className="py-20 px-5" style={{ background: "#FAFAF6" }}>
-        <div className="max-w-4xl mx-auto">
-          <AnimateIn className="text-center mb-12">
-            <SectionLabel>Tarifs</SectionLabel>
-            <h2 className="font-serif text-[28px] md:text-[36px] font-semibold leading-tight"
-              style={{ ...serif, letterSpacing: "-0.5px" }}>
-              Simple et transparent
-            </h2>
-            <p className="text-[#6B7280] mt-2 text-[15px]">Choisissez la formule qui vous convient</p>
-          </AnimateIn>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-            {/* Solo */}
-            <AnimateIn delay={0.05}>
-              <div className="bg-white border border-[rgba(0,0,0,0.09)] rounded-2xl p-8"
-                style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }}>
-                <h3 className="text-[17px] font-bold text-[#1A1A2E] mb-1">Mohasib Admin</h3>
-                <p className="text-[12.5px] text-[#9CA3AF] mb-4">Pour les entrepreneurs autonomes</p>
-                <div className="mb-1">
-                  <span className="text-[40px] font-bold text-[#0D1526]" style={{ letterSpacing: "-1.5px" }}>199</span>
-                  <span className="text-[15px] font-medium text-[#0D1526]"> MAD</span>
-                  <span className="text-[13px] text-[#9CA3AF]">/mois</span>
-                </div>
-                <p className="text-[11.5px] text-[#9CA3AF] line-through mb-5">Fiduciaire classique : 800–1500 MAD/mois</p>
-                <hr className="border-[rgba(0,0,0,0.07)] mb-5" />
-                <ul className="space-y-2.5 mb-7">
-                  {["Factures illimitées","Clients illimités","Mohasib AI illimité","Import relevés bancaires","Calcul TVA automatique","Export fiduciaire CGNC","Alertes déclarations DGI","Envoi WhatsApp des factures"].map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-[13px] text-[#374151]">
-                      <Check size={14} className="text-[#C8924A] flex-shrink-0" /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/auth/signup"
-                  className="block w-full text-center py-2.5 rounded-lg border border-[#0D1526] text-[#0D1526] text-[13.5px] font-semibold hover:bg-[#0D1526] hover:text-white transition-colors">
-                  Commencer l'essai gratuit
-                </Link>
-                <p className="text-center text-[11px] text-[#9CA3AF] mt-3">14 jours gratuits — aucune carte bancaire</p>
-              </div>
-            </AnimateIn>
-
-            {/* Pro */}
-            <AnimateIn delay={0.12}>
-              <div className="relative rounded-2xl p-8"
-                style={{
-                  background: "#0D1526", border: "2px solid #C8924A",
-                  transform: "scale(1.03)", boxShadow: "0 20px 40px rgba(13,21,38,0.3)",
-                }}>
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#C8924A] text-[#0D1526] text-[11px] font-bold px-4 py-1.5 rounded-full">
-                  Recommandé
-                </div>
-                <h3 className="text-[17px] font-bold text-white mb-1">Mohasib + Comptable</h3>
-                <p className="text-[12.5px] text-[rgba(255,255,255,0.5)] mb-4">Pour les entrepreneurs qui veulent un vrai comptable</p>
-                <div className="mb-1">
-                  <span className="text-[40px] font-bold text-white" style={{ letterSpacing: "-1.5px" }}>399</span>
-                  <span className="text-[15px] font-medium text-white"> MAD</span>
-                  <span className="text-[13px] text-[rgba(255,255,255,0.5)]">/mois</span>
-                </div>
-                <p className="text-[11.5px] text-[rgba(255,255,255,0.4)] mb-5">199 MAD logiciel + 200 MAD comptable dédié</p>
-                <hr className="border-[rgba(255,255,255,0.12)] mb-5" />
-                <ul className="space-y-2.5 mb-7">
-                  {["Tout de Mohasib Admin","Comptable dédié assigné sous 24h","Accès WhatsApp direct à votre comptable","Révision mensuelle de vos livres","Validation TVA avant soumission DGI","Assistance clôture annuelle","Comptable disponible pour vos questions"].map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-[13px] text-white/80">
-                      <Check size={14} className="text-[#C8924A] flex-shrink-0" /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/auth/signup"
-                  className="block w-full text-center py-2.5 rounded-lg bg-[#C8924A] text-[#0D1526] text-[13.5px] font-bold hover:bg-[#d9a96b] transition-colors">
-                  Commencer avec un comptable
-                </Link>
-                <p className="text-center text-[11px] text-[rgba(255,255,255,0.4)] mt-3">14 jours gratuits — aucune carte bancaire</p>
-              </div>
-            </AnimateIn>
-          </div>
-
-          <AnimateIn className="text-center mt-8">
-            <p className="text-[13px] text-[#6B7280]">
-              Vous êtes fiduciaire ou cabinet comptable ?{" "}
-              <a href="#" className="text-[#C8924A] hover:underline">
-                → Mohasib Pro arrive bientôt — Rejoindre la liste d'attente
-              </a>
-            </p>
-          </AnimateIn>
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS ──────────────────────────────────────────────────── */}
-      <section className="py-20 px-5 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <AnimateIn className="text-center mb-14">
-            <SectionLabel>Comment ça marche</SectionLabel>
-            <h2 className="font-serif text-[28px] md:text-[36px] font-semibold"
-              style={{ ...serif, letterSpacing: "-0.5px" }}>
-              Opérationnel en 5 minutes
-            </h2>
-          </AnimateIn>
-
-          <div className="relative grid grid-cols-1 md:grid-cols-4 gap-6">
-            {/* Dotted connector — desktop only */}
-            <div className="hidden md:block absolute top-7 left-[12.5%] right-[12.5%] h-px border-t-2 border-dashed border-[rgba(0,0,0,0.1)]" />
-
-            {[
-              { n: "01", title: "Créez votre compte", desc: "Inscription gratuite. Entrez votre ICE et infos entreprise." },
-              { n: "02", title: "Ajoutez vos clients", desc: "Créez vos clients en quelques secondes ou importez-les." },
-              { n: "03", title: "Gérez au quotidien", desc: "Factures, dépenses, questions AI — tout en un seul endroit." },
-              { n: "04", title: "Restez conforme", desc: "TVA calculée, déclarations générées, fiduciaire toujours à jour." },
-            ].map((s, i) => (
-              <AnimateIn key={i} delay={i * 0.1} className="text-center relative">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white border-2 border-[rgba(0,0,0,0.08)] mb-4 relative z-10"
-                  style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-                  <span className="font-serif text-[18px] font-semibold text-[#C8924A]" style={serif}>{s.n}</span>
-                </div>
-                <h3 className="text-[14px] font-semibold text-[#1A1A2E] mb-1.5">{s.title}</h3>
-                <p className="text-[12.5px] text-[#6B7280] leading-relaxed">{s.desc}</p>
-              </AnimateIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── TESTIMONIALS ──────────────────────────────────────────────────── */}
-      <section className="py-20 px-5" style={{ background: "#FAFAF6" }}>
-        <div className="max-w-5xl mx-auto">
-          <AnimateIn className="text-center mb-12">
-            <SectionLabel>Ils nous font confiance</SectionLabel>
-            <h2 className="font-serif text-[28px] md:text-[36px] font-semibold leading-tight"
-              style={{ ...serif, letterSpacing: "-0.5px" }}>
-              Des entrepreneurs marocains<br className="hidden md:block" /> qui gagnent du temps
-            </h2>
-          </AnimateIn>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-            {[
-              { initials: "YB", name: "Youssef B.", role: "Consultant freelance, Casablanca", quote: "Avant Mohasib, je passais 2 heures chaque dimanche sur mes factures. Maintenant c'est 15 minutes." },
-              { initials: "FZ", name: "Fatima Z.", role: "E-commerce, Rabat", quote: "Mon fiduciaire était impressionné par le fichier export. Des données parfaitement organisées." },
-              { initials: "MA", name: "Mehdi A.", role: "Architecte indépendant, Marrakech", quote: "399 MAD par mois avec un vrai comptable contre 1200 MAD avant. Le calcul était vite fait." },
-            ].map((t, i) => (
-              <AnimateIn key={i} delay={i * 0.1}>
-                <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-6 h-full"
-                  style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-                  <div className="text-[#C8924A] text-[14px] mb-3">⭐⭐⭐⭐⭐</div>
-                  <p className="text-[13.5px] text-[#374151] leading-relaxed mb-5 italic">"{t.quote}"</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[#0D1526] flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
-                      {t.initials}
-                    </div>
-                    <div>
-                      <div className="text-[13px] font-semibold text-[#1A1A2E]">{t.name}</div>
-                      <div className="text-[11px] text-[#9CA3AF]">{t.role}</div>
-                    </div>
-                  </div>
-                </div>
-              </AnimateIn>
-            ))}
-          </div>
-
-          <p className="text-center text-[11.5px] text-[#9CA3AF] italic">
-            * Témoignages illustratifs. Vos résultats peuvent varier.
+          <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 16, fontFamily: sans }}>
+            Essai 14 jours · Aucune carte bancaire · Annulation libre
           </p>
         </div>
       </section>
+      <div style={{ height: 1, backgroundColor: "rgba(0,0,0,0.08)", maxWidth: "100%" }} />
 
-      {/* ── FAQ ───────────────────────────────────────────────────────────── */}
-      <section className="py-20 px-5 bg-white">
-        <div className="max-w-[680px] mx-auto">
-          <AnimateIn className="text-center mb-10">
-            <h2 className="font-serif text-[28px] md:text-[34px] font-semibold"
-              style={{ ...serif, letterSpacing: "-0.5px" }}>
-              Questions fréquentes
+      {/* ── SECTION 2: STATS ─────────────────────────────────────────────────── */}
+      <section style={{ padding: "48px", backgroundColor: "#FFFFFF" }}>
+        <div style={{
+          maxWidth: 800, margin: "0 auto",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexWrap: "wrap", gap: 0,
+        }}>
+          {[
+            { num: "4–6h", label: "perdues par semaine sur la comptabilité" },
+            { num: "800–1500 MAD", label: "coût mensuel d'un fiduciaire classique" },
+            { num: "47%", label: "des TPE pénalisées par la DGI chaque année" },
+          ].map((stat, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center" }}>
+              <div style={{ padding: "0 40px", textAlign: "center" }}>
+                <div style={{ fontFamily: serif, fontSize: 36, fontWeight: 700, color: "#0A0A0A", lineHeight: 1.1 }}>
+                  {stat.num}
+                </div>
+                <div style={{ fontSize: 13, color: "#6B7280", maxWidth: 140, marginTop: 8, lineHeight: 1.4, fontFamily: sans }}>
+                  {stat.label}
+                </div>
+              </div>
+              {i < 2 && (
+                <div style={{ width: 1, height: 64, backgroundColor: "rgba(0,0,0,0.1)", flexShrink: 0 }} />
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── SECTION 3: PROBLEM ───────────────────────────────────────────────── */}
+      <section style={{ padding: "100px 48px", backgroundColor: "#FFFFFF" }}>
+        <div style={{ maxWidth: 680, margin: "0 auto" }}>
+          <p style={{ fontSize: 11, letterSpacing: "2px", color: "#C8924A", fontWeight: 600, textTransform: "uppercase", fontFamily: sans, margin: 0 }}>
+            Le problème
+          </p>
+          <h2 style={{
+            fontFamily: serif,
+            fontSize: "clamp(28px, 4vw, 48px)",
+            fontWeight: 600,
+            lineHeight: 1.2,
+            color: "#0A0A0A",
+            marginTop: 12,
+            marginBottom: 48,
+          }}>
+            La comptabilité au Maroc est<br />un problème non résolu.
+          </h2>
+
+          {[
+            {
+              title: "Le système fiscal est complexe.",
+              body: "TVA à 4 taux différents, IS, IR, CNSS — même les comptables expérimentés trouvent le système difficile. Pour un entrepreneur sans formation comptable, c'est incompréhensible.",
+            },
+            {
+              title: "Les factures sont un chaos.",
+              body: "La majorité des TPE marocaines envoient des factures non conformes. Résultat : paiements refusés, dépenses non déductibles, litiges.",
+            },
+            {
+              title: "Le Maroc se digitalise. Les outils n'ont pas suivi.",
+              body: "Aucun logiciel comptable n'est conçu pour le marché marocain. Tout le monde utilise Excel et espère ne pas se tromper.",
+            },
+          ].map((item, i) => (
+            <div key={i}>
+              {i > 0 && <div style={{ height: 1, backgroundColor: "rgba(0,0,0,0.08)", margin: "0" }} />}
+              <div style={{ padding: "36px 0" }}>
+                <h3 style={{ fontSize: 18, fontWeight: 600, color: "#0A0A0A", margin: "0 0 8px", fontFamily: sans }}>
+                  {item.title}
+                </h3>
+                <p style={{ fontSize: 16, color: "#374151", lineHeight: 1.7, margin: 0, fontFamily: sans }}>
+                  {item.body}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── SECTION 4: SOLUTION (DARK) ───────────────────────────────────────── */}
+      <section id="fonctionnalites" style={{ padding: "100px 48px", backgroundColor: "#0D1526" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <p style={{ fontSize: 11, letterSpacing: "2px", color: "#C8924A", fontWeight: 600, textTransform: "uppercase", fontFamily: sans, margin: "0 0 12px" }}>
+            La solution
+          </p>
+          <h2 style={{
+            fontFamily: serif,
+            fontSize: "clamp(28px, 4vw, 52px)",
+            fontWeight: 600,
+            lineHeight: 1.15,
+            color: "#FFFFFF",
+            maxWidth: 600,
+            margin: "0 0 64px",
+          }}>
+            Mohasib fait tout ce que<br />vous évitez de faire.
+          </h2>
+
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap: 0,
+          }}>
+            {[
+              {
+                icon: "◧",
+                title: "Facturation conforme en 2 minutes",
+                desc: "ICE, TVA, mentions légales — tout est intégré et conforme au droit marocain.",
+              },
+              {
+                icon: "✦",
+                title: "Mohasib AI, votre comptable 24h/24",
+                desc: "Posez vos questions en français ou darija. Réponses basées sur vos données réelles.",
+              },
+              {
+                icon: "⬇",
+                title: "Import de relevés bancaires",
+                desc: "Uploadez votre relevé CIH ou Attijariwafa. L'IA extrait toutes les transactions.",
+              },
+              {
+                icon: "📋",
+                title: "Déclaration TVA en un clic",
+                desc: "Calcul automatique, document DGI-ready, historique de toutes vos déclarations.",
+              },
+              {
+                icon: "👤",
+                title: "Comptable dédié sur WhatsApp",
+                desc: "Pack + Comptable : un vrai comptable assigné à votre compte sous 24h.",
+              },
+              {
+                icon: "↗",
+                title: "Export fiduciaire complet",
+                desc: "Journal des ventes, grand livre, balance — en format CGNC marocain.",
+              },
+            ].map((f, i) => (
+              <div key={i} style={{
+                padding: "32px 24px",
+                borderTop: i >= 2 ? "1px solid rgba(255,255,255,0.08)" : "none",
+                borderLeft: i % 2 === 1 ? "1px solid rgba(255,255,255,0.08)" : "none",
+              }}>
+                <div style={{ fontSize: 20, color: "#C8924A", marginBottom: 12 }}>{f.icon}</div>
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: "#FFFFFF", margin: "0 0 8px", fontFamily: sans }}>
+                  {f.title}
+                </h3>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, margin: 0, fontFamily: sans }}>
+                  {f.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── SECTION 5: AI DEMO ───────────────────────────────────────────────── */}
+      <section style={{ padding: "100px 48px", backgroundColor: "#FFFFFF" }}>
+        <div style={{
+          maxWidth: 1100, margin: "0 auto",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          gap: 64,
+          alignItems: "start",
+        }}>
+          {/* Left */}
+          <div>
+            <p style={{ fontSize: 11, letterSpacing: "2px", color: "#C8924A", fontWeight: 600, textTransform: "uppercase", fontFamily: sans, margin: "0 0 12px" }}>
+              Mohasib AI
+            </p>
+            <h2 style={{
+              fontFamily: serif,
+              fontSize: "clamp(28px, 4vw, 48px)",
+              fontWeight: 600,
+              lineHeight: 1.2,
+              color: "#0A0A0A",
+              maxWidth: 500,
+              margin: 0,
+            }}>
+              Une question comptable ?<br />Posez-la.
             </h2>
-          </AnimateIn>
+            <p style={{ fontSize: 16, color: "#6B7280", lineHeight: 1.7, marginTop: 20, maxWidth: 400, fontFamily: sans }}>
+              En français ou en darija. Réponses instantanées basées sur vos vraies données.
+            </p>
+            <Link
+              href="/auth/signup"
+              style={{
+                display: "inline-block", marginTop: 32,
+                fontSize: 14, fontWeight: 500, color: "#FFFFFF",
+                backgroundColor: "#0D1526",
+                padding: "12px 24px", borderRadius: 9999,
+                textDecoration: "none", fontFamily: sans,
+              }}
+            >
+              Essayer gratuitement
+            </Link>
+          </div>
 
-          <div className="divide-y divide-[rgba(0,0,0,0.07)]">
-            {FAQS.map((faq, i) => (
-              <div key={i}>
-                <button
-                  className="w-full text-left flex items-center justify-between py-4 gap-4"
-                  onClick={() => setFaqOpen(faqOpen === i ? null : i)}
-                >
-                  <span className="text-[14px] font-medium text-[#1A1A2E]">{faq.q}</span>
-                  <ChevronDown size={16} className="text-[#9CA3AF] flex-shrink-0 transition-transform duration-200"
-                    style={{ transform: faqOpen === i ? "rotate(180deg)" : "rotate(0deg)" }} />
-                </button>
-                <div style={{
-                  maxHeight: faqOpen === i ? "300px" : "0",
-                  overflow: "hidden",
-                  transition: "max-height 0.3s ease-in-out",
-                }}>
-                  <p className="pb-4 text-[13.5px] text-[#6B7280] leading-relaxed">{faq.a}</p>
+          {/* Right — static chat */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {[
+              {
+                user: "Combien je dois en TVA ce mois ?",
+                ai: "Votre TVA collectée est 9 900 MAD.\nTVA déductible : 2 600 MAD.\nTVA nette due : 7 300 MAD avant le 20 mai.",
+              },
+              {
+                user: "Qui ne m'a pas encore payé ?",
+                ai: "2 factures en attente :\n• Pharma3 SA — 10 200 MAD (15j)\n• Immo Derb Omar — 26 400 MAD",
+              },
+            ].map((pair, i) => (
+              <div key={i} style={{
+                backgroundColor: "#FAFAF6",
+                border: "1px solid rgba(0,0,0,0.06)",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}>
+                <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#0A0A0A", textTransform: "uppercase", letterSpacing: "0.5px", fontFamily: sans }}>
+                    Vous
+                  </span>
+                  <p style={{ fontSize: 14, color: "#374151", margin: "6px 0 0", fontFamily: sans }}>
+                    &ldquo;{pair.user}&rdquo;
+                  </p>
+                </div>
+                <div style={{ padding: "16px 20px" }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#C8924A", textTransform: "uppercase", letterSpacing: "0.5px", fontFamily: sans }}>
+                    Mohasib AI
+                  </span>
+                  <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.6, margin: "6px 0 0", whiteSpace: "pre-line", fontFamily: sans }}>
+                    {pair.ai}
+                  </p>
                 </div>
               </div>
             ))}
@@ -801,100 +465,252 @@ export default function HomePageClient() {
         </div>
       </section>
 
-      {/* ── FINAL CTA ─────────────────────────────────────────────────────── */}
-      <section className="py-24 px-5 text-center" style={{ background: "#0D1526" }}>
-        <div className="max-w-xl mx-auto">
-          <AnimateIn>
-            <h2 className="font-serif text-[28px] md:text-[40px] font-semibold leading-tight text-[#C8924A] mb-4"
-              style={{ ...serif, letterSpacing: "-0.5px" }}>
-              Prêt à reprendre le contrôle<br />de votre comptabilité ?
-            </h2>
-            <p className="text-[rgba(255,255,255,0.6)] text-[15px] mb-9">
-              Rejoignez les entrepreneurs marocains qui gagnent 4 à 6 heures par semaine.
-            </p>
+      {/* ── SECTION 6: PRICING ───────────────────────────────────────────────── */}
+      <section id="tarifs" style={{ padding: "100px 48px", backgroundColor: "#FAFAF6" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <p style={{ fontSize: 11, letterSpacing: "2px", color: "#C8924A", fontWeight: 600, textTransform: "uppercase", fontFamily: sans, margin: "0 0 12px" }}>
+            Tarifs
+          </p>
+          <h2 style={{
+            fontFamily: serif,
+            fontSize: "clamp(28px, 4vw, 48px)",
+            fontWeight: 600,
+            color: "#0A0A0A",
+            margin: "0 0 56px",
+          }}>
+            Simple. Transparent.
+          </h2>
 
-            {/* Email form */}
-            {waitlistDone ? (
-              <div className="flex items-center justify-center gap-2 text-[#C8924A] text-[14px] font-semibold mb-8 bg-[rgba(200,146,74,0.1)] border border-[rgba(200,146,74,0.2)] rounded-xl px-5 py-4">
-                <CheckCircle size={17} /> Vous êtes sur la liste ! Nous vous contactons très bientôt.
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: 24,
+          }}>
+            {/* Card 1 */}
+            <div style={{
+              backgroundColor: "#FFFFFF",
+              border: "1px solid rgba(0,0,0,0.1)",
+              borderRadius: 16,
+              padding: 40,
+            }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: "#0A0A0A", margin: "0 0 24px", fontFamily: sans }}>
+                Mohasib Admin
+              </h3>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 8 }}>
+                <span style={{ fontFamily: serif, fontSize: 36, fontWeight: 700, color: "#0A0A0A" }}>199 MAD</span>
+                <span style={{ fontSize: 14, color: "#6B7280", fontFamily: sans }}>/mois</span>
               </div>
-            ) : (
-              <form onSubmit={handleWaitlist} className="flex flex-col sm:flex-row gap-2 mb-8">
-                <input
-                  type="email" required placeholder="votre@email.com"
-                  value={waitlistEmail} onChange={(e) => setWaitlistEmail(e.target.value)}
-                  className="flex-1 px-4 py-3 rounded-lg bg-white text-[#1A1A2E] text-[13.5px] outline-none placeholder:text-[#9CA3AF]"
-                />
-                <button type="submit" disabled={waitlistLoading}
-                  className="px-5 py-3 rounded-lg bg-[#C8924A] text-[#0D1526] text-[13.5px] font-bold hover:bg-[#d9a96b] transition-colors whitespace-nowrap disabled:opacity-60">
-                  {waitlistLoading ? "…" : "Rejoindre →"}
-                </button>
-              </form>
-            )}
-
-            <div className="flex flex-wrap items-center justify-center gap-3 mb-3">
-              <Link href="/auth/signup"
-                className="px-6 py-3 rounded-lg bg-[#C8924A] text-[#0D1526] text-[13.5px] font-bold hover:bg-[#d9a96b] transition-colors">
-                Commencer gratuitement
+              <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 4px", fontFamily: sans }}>
+                Pour les entrepreneurs autonomes
+              </p>
+              <p style={{ fontSize: 12, color: "#9CA3AF", margin: "0 0 28px", fontFamily: sans }}>
+                vs <s>800–1500 MAD/mois</s> fiduciaire
+              </p>
+              <div style={{ height: 1, backgroundColor: "rgba(0,0,0,0.08)", marginBottom: 28 }} />
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  "Factures illimitées",
+                  "Mohasib AI illimité",
+                  "Import relevés bancaires",
+                  "Déclarations TVA",
+                  "Export fiduciaire",
+                ].map(f => (
+                  <li key={f} style={{ fontSize: 14, color: "#374151", fontFamily: sans, display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ color: "#059669", fontWeight: 700 }}>✓</span> {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/auth/signup"
+                style={{
+                  display: "block", textAlign: "center",
+                  fontSize: 14, fontWeight: 500, color: "#0D1526",
+                  border: "1px solid #0D1526",
+                  padding: "12px", borderRadius: 9999,
+                  textDecoration: "none", fontFamily: sans,
+                }}
+              >
+                Commencer l&apos;essai gratuit
               </Link>
-              <a href="#features"
-                className="px-6 py-3 rounded-lg border border-[rgba(255,255,255,0.2)] text-white text-[13.5px] font-medium hover:border-white transition-colors">
-                Voir une démo
-              </a>
             </div>
-            <p className="text-[11.5px] text-[rgba(255,255,255,0.3)]">🔒 Aucun spam. Juste les updates importantes.</p>
-          </AnimateIn>
+
+            {/* Card 2 */}
+            <div style={{
+              backgroundColor: "#0D1526",
+              borderRadius: 16,
+              padding: 40,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 600, color: "#FFFFFF", margin: 0, fontFamily: sans }}>
+                  Mohasib + Comptable
+                </h3>
+                <span style={{
+                  fontSize: 11, fontWeight: 600, color: "#C8924A",
+                  backgroundColor: "rgba(200,146,74,0.2)",
+                  padding: "3px 10px", borderRadius: 9999, fontFamily: sans,
+                }}>
+                  Recommandé
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 8 }}>
+                <span style={{ fontFamily: serif, fontSize: 36, fontWeight: 700, color: "#FFFFFF" }}>399 MAD</span>
+                <span style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", fontFamily: sans }}>/mois</span>
+              </div>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", margin: "0 0 28px", fontFamily: sans }}>
+                Logiciel + comptable dédié
+              </p>
+              <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.1)", marginBottom: 28 }} />
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  "Tout de Mohasib Admin",
+                  "Comptable dédié assigné sous 24h",
+                  "WhatsApp direct avec votre comptable",
+                  "Révision mensuelle de vos livres",
+                  "Validation TVA avant soumission",
+                ].map(f => (
+                  <li key={f} style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", fontFamily: sans, display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ color: "#C8924A", fontWeight: 700 }}>✓</span> {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/auth/signup"
+                style={{
+                  display: "block", textAlign: "center",
+                  fontSize: 14, fontWeight: 500, color: "#FFFFFF",
+                  backgroundColor: "#C8924A",
+                  padding: "12px", borderRadius: 9999,
+                  textDecoration: "none", fontFamily: sans,
+                }}
+              >
+                Commencer avec un comptable
+              </Link>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", textAlign: "center", margin: "12px 0 0", fontFamily: sans }}>
+                14 jours gratuits — aucune carte bancaire
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      <footer style={{ background: "#0A1020" }}>
-        <div className="max-w-5xl mx-auto px-5 py-14 grid grid-cols-2 md:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
-            <div className="text-[20px] font-bold text-[#C8924A] mb-2">Mohasib</div>
-            <p className="text-[12px] text-[rgba(255,255,255,0.35)] mb-1">AI accounting for Moroccan SMEs</p>
-            <p className="text-[12px] text-[rgba(255,255,255,0.35)] mb-4">Fait avec ❤️ au Maroc 🇲🇦</p>
-            <div className="flex items-center gap-3">
-              {["LinkedIn", "Instagram", "Twitter"].map((s) => (
-                <a key={s} href="#" className="text-[12px] text-[rgba(255,255,255,0.35)] hover:text-white transition-colors">{s}</a>
+      {/* ── SECTION 7: FAQ ───────────────────────────────────────────────────── */}
+      <section style={{ padding: "100px 48px", backgroundColor: "#FFFFFF" }}>
+        <div style={{ maxWidth: 680, margin: "0 auto" }}>
+          <h2 style={{
+            fontFamily: serif,
+            fontSize: "clamp(28px, 4vw, 42px)",
+            fontWeight: 600,
+            color: "#0A0A0A",
+            margin: "0 0 48px",
+          }}>
+            Questions fréquentes
+          </h2>
+          {FAQS.map((faq, i) => <FAQItem key={i} q={faq.q} a={faq.a} />)}
+        </div>
+      </section>
+
+      {/* ── SECTION 8: FINAL CTA (DARK) ─────────────────────────────────────── */}
+      <section style={{ padding: "120px 48px", backgroundColor: "#0D1526", textAlign: "center" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto" }}>
+          <h2 style={{
+            fontFamily: serif,
+            fontSize: "clamp(32px, 5vw, 56px)",
+            fontWeight: 600,
+            color: "#FFFFFF",
+            lineHeight: 1.15,
+            margin: 0,
+          }}>
+            Prenez le contrôle de<br />votre comptabilité.
+          </h2>
+          <p style={{ fontSize: 16, color: "rgba(255,255,255,0.55)", marginTop: 16, lineHeight: 1.7, fontFamily: sans }}>
+            Rejoignez les entrepreneurs marocains<br />qui gagnent du temps avec Mohasib.
+          </p>
+
+          <Link
+            href="/auth/signup"
+            style={{
+              display: "inline-block", marginTop: 40,
+              fontSize: 16, fontWeight: 500, color: "#FFFFFF",
+              backgroundColor: "#C8924A",
+              padding: "16px 36px", borderRadius: 9999,
+              textDecoration: "none", fontFamily: sans,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#B8823A")}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#C8924A")}
+          >
+            Commencer gratuitement →
+          </Link>
+
+          {/* Email waitlist */}
+          <div style={{ marginTop: 40 }}>
+            {submitted ? (
+              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", fontFamily: sans }}>
+                ✓ On vous tient au courant !
+              </p>
+            ) : (
+              <form onSubmit={handleWaitlist} style={{ display: "flex", gap: 8, maxWidth: 400, margin: "0 auto", justifyContent: "center" }}>
+                <input
+                  type="email"
+                  placeholder="votre@email.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  style={{
+                    flex: 1, padding: "12px 16px",
+                    borderRadius: 9999, border: "1px solid rgba(255,255,255,0.15)",
+                    backgroundColor: "rgba(255,255,255,0.07)",
+                    color: "#FFFFFF", fontSize: 14, fontFamily: sans,
+                    outline: "none",
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    padding: "12px 20px", borderRadius: 9999,
+                    backgroundColor: "rgba(255,255,255,0.12)",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    color: "#FFFFFF", fontSize: 14, cursor: "pointer", fontFamily: sans,
+                  }}
+                >
+                  →
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
+      <footer style={{ backgroundColor: "#0A0A0A", padding: "60px 48px 40px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
+            <span style={{ fontWeight: 700, fontSize: 18, color: "#FFFFFF", fontFamily: sans }}>
+              Mohasib
+            </span>
+            <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+              {["Fonctionnalités", "Tarifs", "Contact", "LinkedIn"].map(link => (
+                <a key={link} href="#" style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", textDecoration: "none", fontFamily: sans }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                >
+                  {link}
+                </a>
               ))}
             </div>
           </div>
 
-          {/* Product */}
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[rgba(255,255,255,0.25)] mb-4">Produit</p>
-            {["Fonctionnalités", "Tarifs", "Mohasib AI", "Pour les fiduciaires", "Changelog"].map((l) => (
-              <a key={l} href="#" className="block text-[12.5px] text-[rgba(255,255,255,0.45)] hover:text-white mb-2 transition-colors">{l}</a>
-            ))}
-          </div>
+          <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.1)", marginBottom: 28 }} />
 
-          {/* Support */}
-          <div id="fiduciaires">
-            <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[rgba(255,255,255,0.25)] mb-4">Support</p>
-            {["Centre d'aide", "Nous contacter"].map((l) => (
-              <a key={l} href="#" className="block text-[12.5px] text-[rgba(255,255,255,0.45)] hover:text-white mb-2 transition-colors">{l}</a>
-            ))}
-            <p className="text-[12.5px] text-[rgba(255,255,255,0.45)] mb-2">WhatsApp : +212 6XX XXX XXX</p>
-            <p className="text-[12.5px] text-[rgba(255,255,255,0.45)]">contact@mohasib.ma</p>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", fontFamily: sans }}>
+              © 2026 Mohasib. Fait au Maroc 🇲🇦
+            </span>
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", fontFamily: sans }}>
+              contact@mohasib.ma
+            </span>
           </div>
-
-          {/* Legal */}
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[rgba(255,255,255,0.25)] mb-4">Légal</p>
-            {["Politique de confidentialité", "Conditions d'utilisation", "Mentions légales"].map((l) => (
-              <a key={l} href="#" className="block text-[12.5px] text-[rgba(255,255,255,0.45)] hover:text-white mb-2 transition-colors">{l}</a>
-            ))}
-          </div>
-        </div>
-
-        {/* Bottom bar */}
-        <div className="border-t border-[rgba(255,255,255,0.07)] max-w-5xl mx-auto px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-[12px] text-[rgba(255,255,255,0.3)]">© 2025 Mohasib. Tous droits réservés.</p>
-          <p className="text-[12px] text-[rgba(255,255,255,0.3)]">Propulsé par Claude AI d&apos;Anthropic</p>
         </div>
       </footer>
+
     </div>
   );
 }

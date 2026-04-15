@@ -36,6 +36,11 @@ export interface TVAExpenseDetail {
   amount: number;
   tva_rate: number;
   tva_amount: number;
+  fournisseur?: string | null;
+  if_fournisseur?: string | null;
+  ice_fournisseur?: string | null;
+  mode_paiement?: string | null;
+  date_paiement?: string | null;
 }
 
 export interface TVAData {
@@ -83,7 +88,7 @@ export async function fetchTVAData(
       .order("issue_date", { ascending: true }),
     supabase
       .from("transactions")
-      .select("id, description, category, date, amount, tva_rate")
+      .select("id, description, category, date, amount, tva_rate, fournisseur, if_fournisseur, ice_fournisseur, mode_paiement, date_paiement")
       .eq("user_id", user.id)
       .eq("type", "expense")
       .neq("category", "Charges sociales")
@@ -157,6 +162,11 @@ export async function fetchTVAData(
       amount: baseHT,
       tva_rate: rate,
       tva_amount: tva,
+      fournisseur: (exp as any).fournisseur ?? null,
+      if_fournisseur: (exp as any).if_fournisseur ?? null,
+      ice_fournisseur: (exp as any).ice_fournisseur ?? null,
+      mode_paiement: (exp as any).mode_paiement ?? null,
+      date_paiement: (exp as any).date_paiement ?? null,
     });
   }
 

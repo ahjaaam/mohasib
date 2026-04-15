@@ -29,9 +29,20 @@ export default function AddTransactionModal({ userId, clients }: Props) {
     payment_method: "bank_transfer",
     reference: "",
     notes: "",
+    // Supplier fiscal fields
+    fournisseur: "",
+    if_fournisseur: "",
+    ice_fournisseur: "",
+    mode_paiement: "Virement",
+    date_paiement: new Date().toISOString().split("T")[0],
   });
 
+  const isExpense = form.type === "expense";
   const categories = TRANSACTION_CATEGORIES[form.type];
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,6 +61,14 @@ export default function AddTransactionModal({ userId, clients }: Props) {
       reference: form.reference || null,
       notes: form.notes || null,
       currency: "MAD",
+      // Supplier fields (only meaningful for expenses)
+      ...(isExpense && {
+        fournisseur: form.fournisseur || null,
+        if_fournisseur: form.if_fournisseur || null,
+        ice_fournisseur: form.ice_fournisseur || null,
+        mode_paiement: form.mode_paiement || null,
+        date_paiement: form.date_paiement || null,
+      }),
     });
 
     setSaving(false);
@@ -98,7 +117,7 @@ export default function AddTransactionModal({ userId, clients }: Props) {
               <div>
                 <label className="label">Description *</label>
                 <input className="input" required value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                  onChange={(e) => set("description", e.target.value)} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -106,19 +125,19 @@ export default function AddTransactionModal({ userId, clients }: Props) {
                   <label className="label">Montant (MAD) *</label>
                   <input type="number" min="0" step="0.01" className="input" required
                     value={form.amount}
-                    onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
+                    onChange={(e) => set("amount", e.target.value)} />
                 </div>
                 <div>
                   <label className="label">Date *</label>
                   <input type="date" className="input" required value={form.date}
-                    onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+                    onChange={(e) => set("date", e.target.value)} />
                 </div>
               </div>
 
               <div>
                 <label className="label">Catégorie</label>
                 <select className="input" value={form.category}
-                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+                  onChange={(e) => set("category", e.target.value)}>
                   <option value="">— Choisir —</option>
                   {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -127,7 +146,7 @@ export default function AddTransactionModal({ userId, clients }: Props) {
               <div>
                 <label className="label">Client</label>
                 <select className="input" value={form.client_id}
-                  onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}>
+                  onChange={(e) => set("client_id", e.target.value)}>
                   <option value="">— Optionnel —</option>
                   {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -136,7 +155,7 @@ export default function AddTransactionModal({ userId, clients }: Props) {
               <div>
                 <label className="label">Moyen de paiement</label>
                 <select className="input" value={form.payment_method}
-                  onChange={(e) => setForm((f) => ({ ...f, payment_method: e.target.value }))}>
+                  onChange={(e) => set("payment_method", e.target.value)}>
                   <option value="bank_transfer">Virement bancaire</option>
                   <option value="cash">Espèces</option>
                   <option value="check">Chèque</option>
@@ -147,8 +166,76 @@ export default function AddTransactionModal({ userId, clients }: Props) {
               <div>
                 <label className="label">Référence</label>
                 <input className="input" placeholder="N° de virement, chèque..." value={form.reference}
-                  onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))} />
+                  onChange={(e) => set("reference", e.target.value)} />
               </div>
+
+              {/* ── Supplier fiscal fields (expenses only) ─────────────── */}
+              {isExpense && (
+                <div className="border border-[rgba(0,0,0,0.08)] rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[12px] font-semibold text-[#1A1A2E]">Informations fournisseur</p>
+                    <span className="text-[10.5px] text-[#C8924A] font-medium bg-[rgba(200,146,74,0.1)] px-2 py-0.5 rounded-full">
+                      Requis pour la déclaration TVA DGI
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="label">Fournisseur</label>
+                    <input
+                      className="input"
+                      placeholder="Nom du fournisseur"
+                      value={form.fournisseur}
+                      onChange={(e) => set("fournisseur", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">IF Fournisseur <span className="text-[#9CA3AF] font-normal">(optionnel)</span></label>
+                      <input
+                        className="input"
+                        placeholder="Identifiant Fiscal"
+                        value={form.if_fournisseur}
+                        onChange={(e) => set("if_fournisseur", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">ICE Fournisseur <span className="text-[#9CA3AF] font-normal">(optionnel)</span></label>
+                      <input
+                        className="input"
+                        placeholder="ICE 15 chiffres"
+                        value={form.ice_fournisseur}
+                        onChange={(e) => set("ice_fournisseur", e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Mode de paiement</label>
+                      <select
+                        className="input"
+                        value={form.mode_paiement}
+                        onChange={(e) => set("mode_paiement", e.target.value)}
+                      >
+                        <option value="Virement">Virement</option>
+                        <option value="Chèque">Chèque</option>
+                        <option value="Carte bancaire">Carte bancaire</option>
+                        <option value="Espèces">Espèces</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Date de paiement</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={form.date_paiement}
+                        onChange={(e) => set("date_paiement", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {error && <p className="text-xs text-red-500 bg-red-50 p-2 rounded">{error}</p>}
 

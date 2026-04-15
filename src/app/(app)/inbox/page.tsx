@@ -342,8 +342,8 @@ export default function InboxPage() {
           <span className="text-[12.5px] font-semibold text-[#92400E]">
             {pending.length} reçus en attente
           </span>
-          <button onClick={() => setBatchModal(true)} className="btn btn-gold text-[12px]">
-            <CheckCircle size={12} /> Tout confirmer en un clic
+          <button onClick={() => setBatchModal(true)} className="btn btn-gold btn-sm">
+            ✓ Tout confirmer
           </button>
         </div>
       )}
@@ -575,11 +575,25 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
         boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
         transform: dismissing ? `translateX(${isExpense ? "-100%" : "100%"})` : "translateX(0)",
         opacity: dismissing ? 0 : 1,
+        position: "relative",
       }}
     >
+      {/* Aperçu — absolute top-right */}
+      <button
+        onClick={onPreview}
+        className={`absolute top-4 right-4 flex items-center gap-1 text-[12px] border rounded-md transition-colors ${
+          previewing
+            ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A] border-[rgba(200,146,74,0.3)]"
+            : "bg-white text-[#6B7280] border-[rgba(0,0,0,0.15)] hover:bg-[#FAFAF6]"
+        }`}
+        style={{ padding: "4px 10px" }}
+      >
+        <Eye size={12} /> Aperçu
+      </button>
+
       {/* Card header */}
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pr-20">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[13.5px] font-bold text-[#1A1A2E] truncate">
               {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Reçu sans titre"}
@@ -587,30 +601,11 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
             <ConfidenceBadge confidence={ocr.confidence} />
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            {ocr.date && <span className="text-[11px] text-[#9CA3AF]">📅 {fmtDate(ocr.date)}</span>}
+            {ocr.date && <span className="text-[11px] text-[#9CA3AF]">{fmtDate(ocr.date)}</span>}
             {ocr.receipt_number && <span className="text-[11px] text-[#9CA3AF]">#{ocr.receipt_number}</span>}
           </div>
         </div>
 
-        {/* Preview button */}
-        <button
-          onClick={onPreview}
-          title="Aperçu du document"
-          className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium border transition-colors ${
-            previewing
-              ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A] border-[rgba(200,146,74,0.3)]"
-              : "text-[#6B7280] border-[rgba(0,0,0,0.1)] hover:text-[#C8924A] hover:border-[#C8924A] hover:bg-[rgba(200,146,74,0.06)]"
-          }`}
-        >
-          <Eye size={13} />
-          Aperçu
-        </button>
-
-        {/* Dismiss */}
-        <button onClick={onIgnore}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2] transition-colors">
-          <X size={13} />
-        </button>
       </div>
 
       {/* Editable fields */}
@@ -656,10 +651,23 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 px-4 pb-4">
-        <button onClick={onIgnore} className="btn btn-outline flex-shrink-0">Ignorer</button>
-        <button onClick={onConfirm} disabled={saving || !form.description || !form.amount} className="btn btn-gold flex-1">
-          {saving ? <Loader2 size={13} className="animate-spin" /> : <><CheckCircle size={13} /> Confirmer →</>}
+      <div className="flex items-center justify-end gap-2 px-4 pb-4">
+        <button
+          onClick={onIgnore}
+          className="text-[13px] font-medium text-[#DC2626] bg-white border border-[#DC2626] rounded-lg transition-colors cursor-pointer hover:bg-[#FEE2E2]"
+          style={{ padding: "8px 16px" }}
+        >
+          Ignorer
+        </button>
+        <button
+          onClick={onConfirm}
+          disabled={saving || !form.description || !form.amount}
+          className="flex items-center gap-1.5 text-[13px] font-semibold text-white rounded-lg transition-colors disabled:opacity-50"
+          style={{ background: "#C8924A", padding: "8px 20px", borderRadius: "8px" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#B8823A")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#C8924A")}
+        >
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <>✓ Confirmer</>}
         </button>
       </div>
     </div>

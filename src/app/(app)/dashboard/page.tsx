@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { Invoice, Transaction } from "@/types";
 import DashboardNews from "./DashboardNews";
+import DashboardGreeting from "./DashboardGreeting";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -60,12 +61,7 @@ export default async function DashboardPage() {
   return (
     <div>
       {/* Greeting */}
-      <div className="mb-7">
-        <h2 className="text-[22px] font-semibold text-[#1A1A2E] leading-tight">Bonjour, {firstName}</h2>
-        <p className="text-[12.5px] text-[#6B7280] mt-0.5">
-          {new Date().toLocaleDateString("fr-MA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-        </p>
-      </div>
+      <DashboardGreeting firstName={firstName} />
 
       {/* Actions rapides + Prochaines échéances side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">

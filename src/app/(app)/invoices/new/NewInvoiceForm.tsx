@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
@@ -37,14 +37,41 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
   const [waState, setWaState] = useState<"idle" | "loading" | "success" | "error">("idle");
 
   const today = new Date().toISOString().split("T")[0];
-  const due30 = new Date(Date.now() + 30 * 864e5).toISOString().split("T")[0];
+
+  const DELAY_DAYS: Record<string, number> = {
+    "Immédiat": 0,
+    "15 jours": 15,
+    "30 jours": 30,
+    "45 jours": 45,
+    "60 jours": 60,
+  };
+
+  function calcDueDate(delayLabel: string | null | undefined): string {
+    const days = DELAY_DAYS[delayLabel ?? ""] ?? 30;
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split("T")[0];
+  }
 
   const [form, setForm] = useState({
     num: nextNumber,
     client_id: "",
     date: today,
-    due: due30,
+    due: calcDueDate(null), // will be updated by useEffect
   });
+
+  useEffect(() => {
+    supabase
+      .from("companies")
+      .select("invoice_payment_delay")
+      .eq("user_id", userId)
+      .single()
+      .then(({ data }) => {
+        if (data?.invoice_payment_delay) {
+          setForm(f => ({ ...f, due: calcDueDate(data.invoice_payment_delay) }));
+        }
+      });
+  }, [userId]);
 
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
 

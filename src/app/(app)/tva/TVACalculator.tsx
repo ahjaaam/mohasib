@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, FileText, CheckCircle, Send } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, FileText, CheckCircle, Send, Download } from "lucide-react";
 import {
   fetchTVAData, markAsFiled, fetchDeclarationHistory,
   type TVAData, type TVADeclaration,
@@ -23,7 +23,6 @@ function toISO(d: Date): string {
 }
 
 const MONTHS_FR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-const MONTHS_SHORT = ["jan", "fév", "mar", "avr", "mai", "jun", "jul", "aoû", "sep", "oct", "nov", "déc"];
 
 function getPeriodDates(regime: string, year: number, month: number, quarter: number) {
   if (regime === "Mensuel") {
@@ -96,6 +95,7 @@ export default function TVACalculator({ company, userName }: Props) {
   const [filing, setFiling] = useState(false);
   const [filedPeriods, setFiledPeriods] = useState<Set<string>>(new Set());
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [generatingEDI, setGeneratingEDI] = useState(false);
 
   const { start, end } = getPeriodDates(regime, year, month, quarter);
   const deadline = getDeadline(regime, year, month, quarter);
@@ -191,6 +191,96 @@ export default function TVACalculator({ company, userName }: Props) {
       alert("Erreur lors de la génération du PDF");
     }
     setGeneratingPDF(false);
+  }
+
+  async function handleGenerateEDI() {
+    if (!data) return;
+    setGeneratingEDI(true);
+    try {
+      const JSZip = (await import("jszip")).default;
+
+      const ifNum   = company?.if_number ?? "";
+      const ice     = company?.ice ?? "";
+      const rs      = company?.raison_sociale ?? "";
+      const yearStr = String(year);
+      const monthStr = String(regime === "Mensuel" ? month : (quarter - 1) * 3 + 1).padStart(2, "0");
+
+      // ── Build XML ──────────────────────────────────────────────────────────
+      const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const n2 = (n: number) => n.toFixed(2);
+
+      const caTotalHT    = data.invoices.reduce((s, i) => s + i.subtotal, 0);
+      const caImposable  = caTotalHT;
+
+      const lignesVente = data.collectee.map((r, i) => `
+    <LigneVente numero="${i + 1}" taux="${r.rate}">
+      <BaseImposableHT>${n2(r.baseHT)}</BaseImposableHT>
+      <MontantTVA>${n2(r.tvaAmount)}</MontantTVA>
+    </LigneVente>`).join("");
+
+      const lignesDeduction = data.expenses.map((e, i) => `
+    <Deduction numero="${i + 1}">
+      <DateFacture>${e.date_paiement ?? e.date}</DateFacture>
+      <Fournisseur>${esc(e.fournisseur ?? e.description)}</Fournisseur>
+      <IFFournisseur>${esc(e.if_fournisseur ?? "")}</IFFournisseur>
+      <ICEFournisseur>${esc(e.ice_fournisseur ?? "")}</ICEFournisseur>
+      <MontantHT>${n2(e.amount)}</MontantHT>
+      <TauxTVA>${e.tva_rate}</TauxTVA>
+      <MontantTVA>${n2(e.tva_amount)}</MontantTVA>
+      <ModePaiement>${esc(e.mode_paiement ?? "Virement")}</ModePaiement>
+    </Deduction>`).join("");
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<DeclarationTVA xmlns="http://www.tax.gov.ma/tva/2024" version="1.0">
+  <Identification>
+    <IF>${esc(ifNum)}</IF>
+    <ICE>${esc(ice)}</ICE>
+    <RaisonSociale>${esc(rs)}</RaisonSociale>
+    <Periode>
+      <Annee>${yearStr}</Annee>
+      <Mois>${monthStr}</Mois>
+      <Regime>${regime}</Regime>
+      <PeriodeDebut>${start}</PeriodeDebut>
+      <PeriodeFin>${end}</PeriodeFin>
+    </Periode>
+  </Identification>
+
+  <ChiffreAffaires>
+    <CATotalHT>${n2(caTotalHT)}</CATotalHT>
+    <CAImposable>${n2(caImposable)}</CAImposable>
+  </ChiffreAffaires>
+
+  <TVAExigible>${lignesVente}
+    <TotalTVAExigible>${n2(data.totalCollectee)}</TotalTVAExigible>
+  </TVAExigible>
+
+  <ReleveDeductions>${lignesDeduction}
+    <TotalTVADeductible>${n2(data.totalDeductible)}</TotalTVADeductible>
+  </ReleveDeductions>
+
+  <TVANette>
+    <TVAExigibleTotal>${n2(data.totalCollectee)}</TVAExigibleTotal>
+    <TVADeductibleTotal>${n2(data.totalDeductible)}</TVADeductibleTotal>
+    <TVANetteDue>${n2(Math.max(data.totalNette, 0))}</TVANetteDue>
+    <CreditTVA>${n2(Math.max(-data.totalNette, 0))}</CreditTVA>
+  </TVANette>
+</DeclarationTVA>`;
+
+      // ── Build ZIP ──────────────────────────────────────────────────────────
+      const zip = new JSZip();
+      zip.file("declaration.xml", xml);
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `TVA_${ifNum || "DECLARATION"}_${yearStr}_${monthStr}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[EDI]", err);
+      alert("Erreur lors de la génération du fichier EDI");
+    }
+    setGeneratingEDI(false);
   }
 
   const netColor = !data ? "" : data.totalNette > 0 ? "text-[#DC2626]" : data.totalNette < 0 ? "text-[#059669]" : "text-[#6B7280]";
@@ -318,36 +408,47 @@ export default function TVACalculator({ company, userName }: Props) {
             </div>
           )}
 
-          {/* ─── TVA Déductible ────────────────────────────────────────── */}
-          {data.deductible.length > 0 && (
+          {/* ─── Relevé des déductions ─────────────────────────────────── */}
+          {data.expenses.length > 0 && (
             <div className="bg-white rounded-xl border border-[rgba(0,0,0,0.07)] mb-3 overflow-hidden" style={{ borderLeft: "3px solid #3B82F6", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.06)]">
-                <div className="text-[12.5px] font-semibold text-[#1A1A2E]">TVA Déductible</div>
-                <div className="text-[11px] text-[#9CA3AF]">Sur vos achats — {data.expenses.length} dépense{data.expenses.length > 1 ? "s" : ""}</div>
+                <div className="text-[12.5px] font-semibold text-[#1A1A2E]">Relevé des déductions</div>
+                <div className="text-[11px] text-[#9CA3AF]">Dépenses déductibles — {data.expenses.length} ligne{data.expenses.length > 1 ? "s" : ""} (format DGI)</div>
               </div>
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">Catégorie</th>
-                    <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">Base HT</th>
-                    <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">TVA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.deductible.map((row) => (
-                    <tr key={row.category} className="border-t border-[rgba(0,0,0,0.05)]">
-                      <td className="px-4 py-2.5 text-[12.5px] text-[#1A1A2E]">{row.category}</td>
-                      <td className="px-4 py-2.5 text-[12.5px] text-right text-[#374151]">{fmt(row.baseHT)}</td>
-                      <td className="px-4 py-2.5 text-[12.5px] text-right font-semibold text-[#1A1A2E]">{fmt(row.tvaAmount)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] whitespace-nowrap">Date</th>
+                      <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">Description</th>
+                      <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">Fournisseur</th>
+                      <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] whitespace-nowrap">Montant HT</th>
+                      <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] whitespace-nowrap">TVA %</th>
+                      <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] whitespace-nowrap">Montant TVA</th>
                     </tr>
-                  ))}
-                  <tr className="border-t-2 border-[rgba(0,0,0,0.1)] bg-[#FAFAF6]">
-                    <td className="px-4 py-2.5 text-[12.5px] font-bold text-[#1A1A2E]">TOTAL</td>
-                    <td className="px-4 py-2.5 text-[12.5px] font-bold text-right">{fmt(data.deductible.reduce((s, r) => s + r.baseHT, 0))}</td>
-                    <td className="px-4 py-2.5 text-[12.5px] font-bold text-right text-[#3B82F6]">{fmt(data.totalDeductible)}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.expenses.map((exp) => (
+                      <tr key={exp.id} className="border-t border-[rgba(0,0,0,0.05)] hover:bg-[#FAFAF6]">
+                        <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280] whitespace-nowrap">
+                          {new Date(exp.date).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                        </td>
+                        <td className="px-4 py-2.5 text-[12px] text-[#1A1A2E] max-w-[180px] truncate">{exp.description || "—"}</td>
+                        <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280]">{exp.category || "—"}</td>
+                        <td className="px-4 py-2.5 text-[12px] text-right text-[#374151]">{fmt(exp.amount)}</td>
+                        <td className="px-4 py-2.5 text-[12px] text-right text-[#6B7280]">{exp.tva_rate ?? 20}%</td>
+                        <td className="px-4 py-2.5 text-[12px] text-right font-semibold text-[#3B82F6]">{fmt(exp.tva_amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-[rgba(0,0,0,0.1)] bg-[#FAFAF6]">
+                      <td colSpan={3} className="px-4 py-2.5 text-[12.5px] font-bold text-[#1A1A2E]">TOTAL</td>
+                      <td className="px-4 py-2.5 text-[12.5px] font-bold text-right">{fmt(data.expenses.reduce((s, e) => s + e.amount, 0))}</td>
+                      <td />
+                      <td className="px-4 py-2.5 text-[12.5px] font-bold text-right text-[#3B82F6]">{fmt(data.totalDeductible)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -473,14 +574,22 @@ export default function TVACalculator({ company, userName }: Props) {
           </div>
 
           {/* ─── Actions ───────────────────────────────────────────────── */}
-          <div className="flex flex-wrap gap-2 mb-8">
+          <div className="flex flex-wrap gap-2 mb-3">
             <button
               onClick={handleGeneratePDF}
               disabled={generatingPDF}
               className="btn btn-gold"
             >
               <FileText size={13} />
-              {generatingPDF ? "Génération…" : "Générer la déclaration PDF"}
+              {generatingPDF ? "Génération…" : "Préparer ma déclaration TVA"}
+            </button>
+            <button
+              onClick={handleGenerateEDI}
+              disabled={generatingEDI}
+              className="btn btn-outline"
+            >
+              <Download size={13} />
+              {generatingEDI ? "Génération…" : "Télécharger fichier EDI (XML)"}
             </button>
             {!isFiled && (
               <button
@@ -502,6 +611,36 @@ export default function TVACalculator({ company, userName }: Props) {
               <Send size={13} />
               Envoyer au fiduciaire
             </button>
+          </div>
+
+          {/* ─── EDI + SIMPL notes ─────────────────────────────────────── */}
+          <div className="bg-[#F0FDF4] border border-[rgba(5,150,105,0.15)] rounded-xl px-4 py-3.5 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-[12.5px] text-[#065F46] leading-relaxed">
+              📦 Téléchargez le fichier ZIP et importez-le sur SIMPL-TVA via <strong>EDI → Envoi EDI</strong>.
+            </p>
+            <a
+              href="https://simpl.tax.gov.ma"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline flex-shrink-0 text-[12px] text-[#065F46] border-[rgba(5,150,105,0.3)] hover:bg-[#DCFCE7]"
+            >
+              Ouvrir SIMPL-TVA →
+            </a>
+          </div>
+
+          {/* ─── SIMPL note ────────────────────────────────────────────── */}
+          <div className="bg-[#EFF6FF] border border-[rgba(37,99,235,0.15)] rounded-xl px-4 py-3.5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-[12.5px] text-[#1E40AF] leading-relaxed">
+              📋 Votre déclaration est prête. Connectez-vous sur <strong>simpl.tax.gov.ma</strong> pour la déposer.
+            </p>
+            <a
+              href="https://simpl.tax.gov.ma"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline flex-shrink-0 text-[12px] text-[#1E40AF] border-[rgba(37,99,235,0.3)] hover:bg-[#DBEAFE]"
+            >
+              Ouvrir SIMPL-TVA →
+            </a>
           </div>
         </>
       )}

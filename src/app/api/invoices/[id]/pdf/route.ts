@@ -1,20 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
+import sizeOf from "image-size";
 
 async function buildInput(inv: any, company: any) {
   const client = inv.clients ?? null;
 
-  // Fetch logo as base64 if available
+  // Fetch logo as base64 and compute proportional dimensions
   let logoBase64: string | null = null;
   let logoMimeType: string | null = null;
+  let logoWidthPx: number | null = null;
+  let logoHeightPx: number | null = null;
+
   if (company?.logo_url) {
     try {
       const res = await fetch(company.logo_url);
       if (res.ok) {
         const buf = await res.arrayBuffer();
-        logoBase64 = Buffer.from(buf).toString("base64");
+        const buffer = Buffer.from(buf);
+        logoBase64 = buffer.toString("base64");
         logoMimeType = res.headers.get("content-type") ?? "image/png";
+
+        // Get natural dimensions and scale to fit max bounding box
+        try {
+          const dims = sizeOf(buffer);
+          if (dims.width && dims.height) {
+            const MAX_WIDTH = 180;
+            const MAX_HEIGHT = 80;
+            const ratio = Math.min(MAX_WIDTH / dims.width, MAX_HEIGHT / dims.height, 1);
+            logoWidthPx = Math.round(dims.width * ratio);
+            logoHeightPx = Math.round(dims.height * ratio);
+          }
+        } catch (sizeErr) {
+          console.error("[PDF] image-size failed:", sizeErr);
+        }
       }
     } catch {}
   }
@@ -37,7 +56,7 @@ async function buildInput(inv: any, company: any) {
         items: (inv.items ?? []) as any[],
       },
       client,
-      company: company ? { ...company, logoBase64, logoMimeType } : null,
+      company: company ? { ...company, logoBase64, logoMimeType, logoWidthPx, logoHeightPx } : null,
       generatedAt,
     },
     client,
@@ -64,11 +83,14 @@ export async function GET(
 
     if (invErr || !inv) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
-    const { data: company } = await supabase
+    const { data: company, error: companyErr } = await supabase
       .from("companies")
       .select("*")
       .eq("user_id", user.id)
       .single();
+
+    if (companyErr) console.error("[PDF GET] Company fetch error:", companyErr.message);
+    console.log("[PDF GET] Company:", JSON.stringify({ raison_sociale: company?.raison_sociale, invoice_color: company?.invoice_color, logo_url: company?.logo_url }));
 
     const { input, client } = await buildInput(inv, company);
     const arrayBuffer = generateInvoicePDF(input);
@@ -120,11 +142,14 @@ export async function POST(
 
     if (invErr || !inv) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
-    const { data: company } = await supabase
+    const { data: company, error: companyErr2 } = await supabase
       .from("companies")
       .select("*")
       .eq("user_id", user.id)
       .single();
+
+    if (companyErr2) console.error("[PDF POST] Company fetch error:", companyErr2.message);
+    console.log("[PDF POST] Company:", JSON.stringify({ raison_sociale: company?.raison_sociale, invoice_color: company?.invoice_color, logo_url: company?.logo_url }));
 
     const { input, client } = await buildInput(inv, company);
     const arrayBuffer = generateInvoicePDF(input);

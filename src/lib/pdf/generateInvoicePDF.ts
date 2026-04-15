@@ -63,6 +63,8 @@ export interface GeneratePDFInput {
     raison_sociale?: string | null;
     logoBase64?: string | null;
     logoMimeType?: string | null;
+    logoWidthPx?: number | null;
+    logoHeightPx?: number | null;
     ice?: string | null;
     if_number?: string | null;
     rc?: string | null;
@@ -83,9 +85,17 @@ export interface GeneratePDFInput {
 export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   const { invoice, client, company } = data;
 
+  console.log("[PDF] Company data:", JSON.stringify({
+    raison_sociale: company?.raison_sociale,
+    invoice_color: company?.invoice_color,
+    logo_url: company?.logoBase64 ? "[base64 present]" : null,
+    ice: company?.ice,
+    address: company?.address,
+  }));
+
   const accentHex = company?.invoice_color ?? GOLD;
   const accentRgb = hexToRgb(accentHex);
-  const companyName = company?.raison_sociale ?? "Mon Entreprise";
+  const companyName = company?.raison_sociale ?? null;
   const pageW = 210; // A4 width mm
   const pageH = 297; // A4 height mm
   const marginL = 14;
@@ -94,43 +104,54 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  // ── HEADER BAND ────────────────────────────────────────────
-  const headerH = 32;
-  doc.setFillColor(...NAVY_RGB);
+  // ── HEADER BAND (white background) ─────────────────────────
+  const headerH = 36;
+  doc.setFillColor(...WHITE);
   doc.rect(0, 0, pageW, headerH, "F");
 
-  // Logo or company name
+  // Logo or company name (left side)
   if (company?.logoBase64) {
     try {
-      const mime = company.logoMimeType ?? "image/png";
-      doc.addImage(company.logoBase64, mime.split("/")[1].toUpperCase(), marginL, 6, 30, 20);
-    } catch {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(...accentRgb);
-      doc.text(companyName, marginL, 19);
+      const mimeRaw = company.logoMimeType ?? "image/png";
+      // Normalize mime type to what jsPDF expects: PNG, JPEG, WEBP
+      const mimeUpper = mimeRaw.split("/")[1]?.toUpperCase() ?? "PNG";
+      const imgFormat = mimeUpper === "JPG" ? "JPEG" : mimeUpper;
+      // Convert px → mm (96 dpi: 1px = 25.4/96 mm), fallback to 32×14mm
+      const PX_TO_MM = 25.4 / 96;
+      const wMm = company.logoWidthPx ? company.logoWidthPx * PX_TO_MM : 32;
+      const hMm = company.logoHeightPx ? company.logoHeightPx * PX_TO_MM : 14;
+      doc.addImage(company.logoBase64, imgFormat, marginL, 9, wMm, hMm, undefined, "NONE");
+    } catch (err) {
+      console.error("[PDF] Logo render failed:", err);
+      if (companyName) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(...NAVY_RGB);
+        doc.text(companyName, marginL, 21);
+      }
     }
-  } else {
+  } else if (companyName) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.setTextColor(...accentRgb);
-    doc.text(companyName, marginL, 19);
+    doc.setTextColor(...NAVY_RGB);
+    doc.text(companyName, marginL, 21);
   }
 
-  // FACTURE label
+  // FACTURE label (right side, dark navy)
+  const rightX = pageW - marginR - 2; // 2mm extra breathing room
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
-  doc.setTextColor(...WHITE);
-  doc.text("FACTURE", pageW - marginR, 16, { align: "right" });
+  doc.setTextColor(...NAVY_RGB);
+  doc.text("FACTURE", rightX, 14, { align: "right" });
 
-  // Invoice meta
+  // Invoice meta (muted gray)
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.setTextColor(200, 200, 200);
-  doc.text(`N° ${invoice.invoice_number}`, pageW - marginR, 22, { align: "right" });
-  doc.text(`Date : ${fmtDate(invoice.issue_date)}`, pageW - marginR, 27, { align: "right" });
+  doc.setTextColor(...MUTED_RGB);
+  doc.text(`N° ${invoice.invoice_number}`, rightX, 21, { align: "right" });
+  doc.text(`Date : ${fmtDate(invoice.issue_date)}`, rightX, 27, { align: "right" });
   if (invoice.due_date) {
-    doc.text(`Échéance : ${fmtDate(invoice.due_date)}`, pageW - marginR, 31, { align: "right" });
+    doc.text(`Échéance : ${fmtDate(invoice.due_date)}`, rightX, 33, { align: "right" });
   }
 
   // ── FROM / TO ───────────────────────────────────────────────
@@ -146,10 +167,12 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   doc.setTextColor(...accentRgb);
   doc.text("DE :", marginL + 4, y + 6);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...TEXT_RGB);
-  doc.text(companyName, marginL + 4, y + 12);
+  if (companyName) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...TEXT_RGB);
+    doc.text(companyName, marginL + 4, y + 12);
+  }
 
   const fromLines: string[] = [];
   if (company?.address) fromLines.push(company.address);
@@ -210,7 +233,7 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
       fmtAmt(item.amount),
     ]),
     headStyles: {
-      fillColor: NAVY_RGB,
+      fillColor: accentRgb,
       textColor: WHITE,
       fontStyle: "bold",
       fontSize: 7.5,

@@ -84,39 +84,43 @@ const styles = StyleSheet.create({
   },
   // Header band
   headerBand: {
-    backgroundColor: NAVY,
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 36,
     paddingVertical: 20,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+  headerBorder: {
+    height: 3,
+    marginHorizontal: 0,
+  },
   logoImg: {
-    maxWidth: 90,
-    maxHeight: 40,
+    width: 120,
+    height: 60,
     objectFit: "contain",
   },
   logoText: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: "Helvetica-Bold",
-    color: GOLD,
+    color: NAVY,
   },
   headerRight: {
     alignItems: "flex-end",
   },
   invoiceLabel: {
-    fontSize: 22,
+    fontSize: 28,
     fontFamily: "Helvetica-Bold",
-    color: "#FFFFFF",
+    color: NAVY,
     letterSpacing: 1,
   },
   invoiceMeta: {
-    fontSize: 8,
-    color: "rgba(255,255,255,0.65)",
+    fontSize: 11,
+    color: MUTED,
     marginTop: 3,
   },
   invoiceMetaValue: {
-    color: "#FFFFFF",
+    color: MUTED,
     fontFamily: "Helvetica-Bold",
   },
   // Body
@@ -160,7 +164,6 @@ const styles = StyleSheet.create({
   // Table
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: NAVY,
     paddingVertical: 7,
     paddingHorizontal: 10,
     borderRadius: 4,
@@ -319,7 +322,7 @@ export function createInvoicePDF({ invoice, client, company, generatedAt }: Invo
             {company?.logoBase64 ? (
               <Image src={`data:image/png;base64,${company.logoBase64}`} style={styles.logoImg} />
             ) : (
-              <Text style={[styles.logoText, { color: accentColor }]}>{companyName}</Text>
+              <Text style={styles.logoText}>{companyName}</Text>
             )}
           </View>
 
@@ -339,6 +342,8 @@ export function createInvoicePDF({ invoice, client, company, generatedAt }: Invo
             )}
           </View>
         </View>
+        {/* Gold accent border below header */}
+        <View style={[styles.headerBorder, { backgroundColor: accentColor }]} />
 
         {/* Body */}
         <View style={styles.body}>
@@ -382,7 +387,7 @@ export function createInvoicePDF({ invoice, client, company, generatedAt }: Invo
           {/* Line items table */}
           <View>
             {/* Table header */}
-            <View style={[styles.tableHeader, { backgroundColor: NAVY }]}>
+            <View style={[styles.tableHeader, { backgroundColor: accentColor }]}>
               <Text style={[styles.tableHeaderCell, styles.colDesc]}>Description</Text>
               <Text style={[styles.tableHeaderCell, styles.colQty]}>Qté</Text>
               <Text style={[styles.tableHeaderCell, styles.colPU]}>P.U. HT</Text>

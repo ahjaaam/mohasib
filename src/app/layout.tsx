@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Playfair_Display, Inter } from "next/font/google";
+
+const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair", display: "swap" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
@@ -22,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" style={{ scrollBehavior: "smooth" }}>
+    <html lang="fr" style={{ scrollBehavior: "smooth" }} className={`${playfair.variable} ${inter.variable}`}>
       <body suppressHydrationWarning>{children}</body>
     </html>
   );
