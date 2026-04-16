@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
-const SYSTEM_PROMPT = `Tu es Mohasib AI, un assistant comptable intelligent spécialisé pour les PME marocaines.
+const SYSTEM_PROMPT = `Tu es Mohasib Chat, un assistant comptable intelligent spécialisé pour les PME marocaines.
 
 Tu maîtrises parfaitement :
 - La comptabilité générale marocaine (Plan Comptable Général Marocain - PCGM)

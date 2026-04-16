@@ -88,7 +88,7 @@ export default async function DashboardPage() {
             <Link href="/chat" className="qa-card">
               <div className="text-2xl flex-shrink-0">💬</div>
               <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Demander à Mohasib AI</div>
+                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Demander à Mohasib Chat</div>
                 <div className="text-[11px] text-[#6B7280] leading-snug">Votre comptable 24h/24</div>
               </div>
               <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />

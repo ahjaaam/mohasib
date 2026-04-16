@@ -18,13 +18,13 @@ const NAV = [
   { href: "/clients", icon: Users, label: "Clients", key: "clients" },
   { href: "/transactions", icon: ArrowLeftRight, label: "Transactions", key: "transactions" },
   { href: "/tva", icon: Receipt, label: "Déclarations TVA", key: "tva" },
-  { href: "/paie", icon: Banknote, label: "La Paie", key: "paie" },
+  { href: "/paie", icon: Banknote, label: "La Paie", key: "paie", soon: true },
   { href: "/export", icon: Download, label: "Export Fiduciaire", key: "export" },
   { href: "/archive", icon: FolderOpen, label: "Archive", key: "archive" },
 ];
 
 const NAV_AI = [
-  { href: "/chat", icon: MessageSquare, label: "Mohasib AI", key: "chat" },
+  { href: "/chat", icon: MessageSquare, label: "Mohasib Chat", key: "chat" },
   { href: "/rapports", icon: BarChart2, label: "Rapports", key: "rapports", soon: true },
 ];
 
@@ -40,7 +40,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/paie": "La Paie",
   "/export": "Export Fiduciaire",
   "/archive": "Archive",
-  "/chat": "Mohasib AI",
+  "/chat": "Mohasib Chat",
   "/rapports": "Rapports",
   "/notifications": "Notifications",
   "/settings": "Paramètres",
@@ -91,15 +91,20 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
       {/* Nav */}
       <nav className="flex-1 py-2 overflow-y-auto">
         <div className="text-[10px] uppercase tracking-[1px] text-white/[0.22] px-[18px] pt-2.5 pb-1">Principal</div>
-        {NAV.map(({ href, icon: Icon, label }) => (
+        {NAV.map(({ href, icon: Icon, label, soon }: any) => (
           <Link key={href} href={href}
             className={`flex items-center gap-2.5 px-[18px] py-[9px] text-[13px] transition-all border-r-2 ${
               isActive(href)
                 ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
                 : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
-            }`}>
+            } ${soon ? "opacity-70" : ""}`}>
             <Icon size={15} />
             {label}
+            {soon && (
+              <span style={{ background: "rgba(200,146,74,0.15)", color: "#C8924A", fontSize: "9px", padding: "1px 6px", borderRadius: "20px" }}>
+                Bientôt
+              </span>
+            )}
           </Link>
         ))}
         <div className="text-[10px] uppercase tracking-[1px] text-white/[0.22] px-[18px] pt-[20px] pb-1">IA</div>
@@ -172,7 +177,7 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
       {/* Main */}
       <div className="flex flex-col flex-1 md:ml-[210px] min-w-0 h-screen overflow-hidden">
         {/* Topbar */}
-        {pathname !== "/dashboard" && <div className="flex items-center justify-between px-5 md:px-[22px] h-[52px] border-b border-[rgba(0,0,0,0.08)] bg-white flex-shrink-0">
+        {pathname !== "/dashboard" && pathname !== "/chat" && <div className="flex items-center justify-between px-5 md:px-[22px] h-[52px] border-b border-[rgba(0,0,0,0.08)] bg-white flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <button className="md:hidden p-1 text-[#6B7280]" onClick={() => setSidebarOpen(!sidebarOpen)}>
               {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
@@ -212,10 +217,12 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
         </div>}
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="page-fade p-4 md:p-[24px_22px_18px]">
-            {children}
-          </div>
+        <main className="flex-1 overflow-hidden flex flex-col">
+          {pathname === "/chat" ? (
+            <div className="flex-1 overflow-hidden flex flex-col">{children}</div>
+          ) : (
+            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px]">{children}</div>
+          )}
         </main>
       </div>
     </div>

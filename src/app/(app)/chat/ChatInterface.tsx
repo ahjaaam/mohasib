@@ -27,7 +27,7 @@ const SUGS = [
 const WELCOME: Message = {
   role: "assistant",
   content:
-    "Bonjour 👋 Je suis Mohasib AI — votre comptable intelligent. Je connais la fiscalité marocaine, le PCGM, la TVA, l'IS et l'IR. Posez-moi n'importe quelle question.",
+    "Bonjour 👋 Je suis Mohasib Chat — votre comptable intelligent. Je connais la fiscalité marocaine, le PCGM, la TVA, l'IS et l'IR. Posez-moi n'importe quelle question.",
 };
 
 function groupByDate(conversations: Conversation[]) {
@@ -171,7 +171,7 @@ export default function ChatInterface() {
   const groups = groupByDate(conversations);
 
   return (
-    <div className="flex h-[calc(100vh-88px)] gap-0 -mx-[22px] -mt-[18px]">
+    <div className="flex h-full gap-0">
       {/* Sidebar */}
       <div className="w-[220px] flex-shrink-0 flex flex-col border-r border-[rgba(0,0,0,0.08)] bg-white overflow-hidden">
         <div className="p-3 border-b border-[rgba(0,0,0,0.08)]">

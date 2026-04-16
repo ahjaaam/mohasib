@@ -10,6 +10,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  icons: { icon: "/favicon.png" },
   title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
   description:
     "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
