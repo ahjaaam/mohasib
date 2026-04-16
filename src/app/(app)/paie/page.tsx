@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { calculateSalary, formatMAD } from "@/lib/payroll";
 import {
   Users, FileText, BarChart2, Plus, Download, RefreshCw,
-  X, Check, Pencil, Trash2, AlertCircle,
+  ChevronDown, X, Eye, Check, Pencil, Trash2, AlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -16,7 +16,6 @@ interface Employee {
   nom: string;
   prenom: string;
   cin?: string;
-  matricule?: string;
   poste?: string;
   departement?: string;
   type_contrat?: string;
@@ -27,12 +26,6 @@ interface Employee {
   banque?: string;
   rib?: string;
   numero_cnss?: string;
-  has_mutuelle?: boolean;
-  mutuelle_taux_salarie?: number;
-  mutuelle_taux_patronal?: number;
-  has_cimr?: boolean;
-  cimr_taux_salarie?: number;
-  cimr_taux_patronal?: number;
   statut: string;
 }
 
@@ -66,11 +59,9 @@ const SITUATIONS = ["Célibataire","Marié(e)","Divorcé(e)","Veuf/Veuve"];
 const CONTRATS = ["CDI","CDD","Anapec","Intérim"];
 
 const EMPTY_EMP = {
-  nom: "", prenom: "", cin: "", matricule: "", poste: "", departement: "",
+  nom: "", prenom: "", cin: "", poste: "", departement: "",
   type_contrat: "CDI", salaire_brut: "", situation_familiale: "Célibataire",
   nombre_enfants: "0", date_embauche: "", banque: "", rib: "", numero_cnss: "",
-  has_mutuelle: false, mutuelle_taux_salarie: "2.59", mutuelle_taux_patronal: "2.59",
-  has_cimr: false, cimr_taux_salarie: "3.00", cimr_taux_patronal: "3.90",
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -143,7 +134,6 @@ function EmployesTab({ supabase }: { supabase: ReturnType<typeof createClient> }
       nom: emp.nom,
       prenom: emp.prenom,
       cin: emp.cin ?? "",
-      matricule: emp.matricule ?? "",
       poste: emp.poste ?? "",
       departement: emp.departement ?? "",
       type_contrat: emp.type_contrat ?? "CDI",
@@ -154,12 +144,6 @@ function EmployesTab({ supabase }: { supabase: ReturnType<typeof createClient> }
       banque: emp.banque ?? "",
       rib: emp.rib ?? "",
       numero_cnss: emp.numero_cnss ?? "",
-      has_mutuelle: emp.has_mutuelle ?? false,
-      mutuelle_taux_salarie: String(emp.mutuelle_taux_salarie ?? 2.59),
-      mutuelle_taux_patronal: String(emp.mutuelle_taux_patronal ?? 2.59),
-      has_cimr: emp.has_cimr ?? false,
-      cimr_taux_salarie: String(emp.cimr_taux_salarie ?? 3.00),
-      cimr_taux_patronal: String(emp.cimr_taux_patronal ?? 3.90),
     });
     setShowModal(true);
   }
@@ -175,7 +159,6 @@ function EmployesTab({ supabase }: { supabase: ReturnType<typeof createClient> }
       nom: form.nom,
       prenom: form.prenom,
       cin: form.cin || null,
-      matricule: form.matricule || null,
       poste: form.poste || null,
       departement: form.departement || null,
       type_contrat: form.type_contrat,
@@ -186,15 +169,9 @@ function EmployesTab({ supabase }: { supabase: ReturnType<typeof createClient> }
       banque: form.banque || null,
       rib: form.rib || null,
       numero_cnss: form.numero_cnss || null,
-      has_mutuelle: form.has_mutuelle,
-      mutuelle_taux_salarie: Number(form.mutuelle_taux_salarie),
-      mutuelle_taux_patronal: Number(form.mutuelle_taux_patronal),
-      has_cimr: form.has_cimr,
-      cimr_taux_salarie: Number(form.cimr_taux_salarie),
-      cimr_taux_patronal: Number(form.cimr_taux_patronal),
     };
 
-    let err: any;
+    let err;
     if (editing) {
       ({ error: err } = await supabase.from("employees").update(payload).eq("id", editing.id));
     } else {
@@ -220,13 +197,6 @@ function EmployesTab({ supabase }: { supabase: ReturnType<typeof createClient> }
         salaire_brut: Number(form.salaire_brut),
         situation_familiale: form.situation_familiale,
         nombre_enfants: Number(form.nombre_enfants),
-        date_embauche: form.date_embauche || undefined,
-        has_mutuelle: form.has_mutuelle,
-        mutuelle_taux_salarie: Number(form.mutuelle_taux_salarie),
-        mutuelle_taux_patronal: Number(form.mutuelle_taux_patronal),
-        has_cimr: form.has_cimr,
-        cimr_taux_salarie: Number(form.cimr_taux_salarie),
-        cimr_taux_patronal: Number(form.cimr_taux_patronal),
       })
     : null;
 
@@ -340,10 +310,6 @@ function EmployesTab({ supabase }: { supabase: ReturnType<typeof createClient> }
                     <label className="block text-[12px] text-[#374151] mb-1">N° CNSS</label>
                     <input className="input w-full" value={form.numero_cnss} onChange={e => setForm(f => ({...f, numero_cnss: e.target.value}))} />
                   </div>
-                  <div>
-                    <label className="block text-[12px] text-[#374151] mb-1">N° Matricule interne</label>
-                    <input className="input w-full" value={form.matricule} onChange={e => setForm(f => ({...f, matricule: e.target.value}))} placeholder="Ex: EMP-001" />
-                  </div>
                 </div>
               </section>
 
@@ -400,9 +366,9 @@ function EmployesTab({ supabase }: { supabase: ReturnType<typeof createClient> }
                     <p className="text-[11px] font-semibold text-[#C8924A] uppercase tracking-wide mb-2">Aperçu du calcul</p>
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { label: "CSS + IPE (4.48%)", value: preview.cnss_salarie },
+                        { label: "CNSS salarié (6.74%)", value: preview.cnss_salarie },
                         { label: "AMO salarié (2.26%)", value: preview.amo_salarie },
-                        { label: "Frais pro (25%)", value: preview.frais_pro },
+                        { label: "Frais pro (20%)", value: preview.frais_pro },
                         { label: "Net imposable", value: preview.salaire_net_imposable },
                         { label: "IR net", value: preview.ir_net },
                         { label: "Net à payer", value: preview.salaire_net_payer },
@@ -419,59 +385,6 @@ function EmployesTab({ supabase }: { supabase: ReturnType<typeof createClient> }
                     </div>
                   </div>
                 )}
-              </section>
-
-              {/* Mutuelle & CIMR */}
-              <section>
-                <h3 className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide mb-3">Cotisations optionnelles</h3>
-                <div className="space-y-3">
-                  {/* Mutuelle */}
-                  <div className="p-3 rounded-lg border border-[rgba(0,0,0,0.08)] bg-[#FAFAF6]">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={form.has_mutuelle}
-                        onChange={e => setForm(f => ({...f, has_mutuelle: e.target.checked}))}
-                        className="w-4 h-4 accent-[#C8924A]" />
-                      <span className="text-[12px] font-medium text-[#374151]">Mutuelle</span>
-                    </label>
-                    {form.has_mutuelle && (
-                      <div className="grid grid-cols-2 gap-3 mt-3">
-                        <div>
-                          <label className="block text-[11px] text-[#6B7280] mb-1">Taux salarié (%)</label>
-                          <input type="number" step="0.01" className="input w-full" value={form.mutuelle_taux_salarie}
-                            onChange={e => setForm(f => ({...f, mutuelle_taux_salarie: e.target.value}))} />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-[#6B7280] mb-1">Taux patronal (%)</label>
-                          <input type="number" step="0.01" className="input w-full" value={form.mutuelle_taux_patronal}
-                            onChange={e => setForm(f => ({...f, mutuelle_taux_patronal: e.target.value}))} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {/* CIMR */}
-                  <div className="p-3 rounded-lg border border-[rgba(0,0,0,0.08)] bg-[#FAFAF6]">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={form.has_cimr}
-                        onChange={e => setForm(f => ({...f, has_cimr: e.target.checked}))}
-                        className="w-4 h-4 accent-[#C8924A]" />
-                      <span className="text-[12px] font-medium text-[#374151]">CIMR (retraite complémentaire)</span>
-                    </label>
-                    {form.has_cimr && (
-                      <div className="grid grid-cols-2 gap-3 mt-3">
-                        <div>
-                          <label className="block text-[11px] text-[#6B7280] mb-1">Taux salarié (%)</label>
-                          <input type="number" step="0.01" className="input w-full" value={form.cimr_taux_salarie}
-                            onChange={e => setForm(f => ({...f, cimr_taux_salarie: e.target.value}))} />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-[#6B7280] mb-1">Taux patronal (%)</label>
-                          <input type="number" step="0.01" className="input w-full" value={form.cimr_taux_patronal}
-                            onChange={e => setForm(f => ({...f, cimr_taux_patronal: e.target.value}))} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </section>
 
               {/* Bank */}
@@ -545,12 +458,7 @@ function BulletinsTab({ supabase }: { supabase: ReturnType<typeof createClient> 
   async function downloadPdf(id: string, label: string) {
     setDownloadingId(id);
     const res = await fetch(`/api/paie/bulletins/${id}/pdf`);
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}));
-      toast.error(json.error ?? "Erreur PDF");
-      setDownloadingId(null);
-      return;
-    }
+    if (!res.ok) { toast.error("Erreur PDF"); setDownloadingId(null); return; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;

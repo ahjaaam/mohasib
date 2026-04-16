@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
@@ -38,15 +39,8 @@ export default function LoginPage() {
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12"
         style={{ backgroundColor: "#0D1526" }}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: "#C8924A" }}>
-            <span className="text-white font-bold text-base">م</span>
-          </div>
-          <div>
-            <span className="text-white font-bold text-xl">Mohasib</span>
-            <span className="block text-xs" style={{ color: "#C8924A" }}>محاسب</span>
-          </div>
+        <div>
+          <Image src="/logo.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain" }} />
         </div>
 
         <div>
@@ -78,12 +72,8 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: "#C8924A" }}>
-              <span className="text-white font-bold text-sm">م</span>
-            </div>
-            <span className="font-bold text-navy text-lg">Mohasib</span>
+          <div className="lg:hidden mb-8">
+            <Image src="/logo.png" alt="Mohasib" width={120} height={36} style={{ objectFit: "contain" }} />
           </div>
 
           <h1 className="text-2xl font-bold text-navy mb-1">Connexion</h1>

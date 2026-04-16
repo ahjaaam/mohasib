@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 
-const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair", display: "swap" });
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
   description:
-    "Créez vos factures, gérez votre TVA et accédez à un comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
+    "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
   openGraph: {
     title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
     description:
-      "Créez vos factures, gérez votre TVA et accédez à un comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
+      "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
     type: "website",
     locale: "fr_MA",
     siteName: "Mohasib",
@@ -20,14 +24,16 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
-    description: "Créez vos factures, gérez votre TVA. Dès 199 MAD/mois.",
+    description: "Factures, TVA, Paie et comptable dédié. Dès 199 MAD/mois.",
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" style={{ scrollBehavior: "smooth" }} className={`${playfair.variable} ${inter.variable}`}>
-      <body suppressHydrationWarning>{children}</body>
+    <html lang="fr" style={{ scrollBehavior: "smooth" }} className={jakarta.variable}>
+      <body suppressHydrationWarning style={{ fontFamily: "var(--font-jakarta), sans-serif" }}>
+        {children}
+      </body>
     </html>
   );
 }
