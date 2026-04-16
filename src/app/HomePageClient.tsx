@@ -171,15 +171,21 @@ export default function HomePageClient() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
             <Image src="/logo2.png" alt="Mohasib" width={100} height={30} style={{ objectFit: "contain", opacity: 0.7 }} />
             <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-              {[["Tarifs", "#tarifs"], ["Comptables", "#comptables"], ["Contact", "mailto:contact@mohasib.ma"]].map(([label, href]) => (
-                <a key={label} href={href} style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT, transition: "color 0.15s" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "hsla(0, 0%, 24%, 0.40)")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "hsla(0, 0%, 24%, 0.40)")}
-                >{label}</a>
-              ))}
+              <Link href="/auth/signup" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+                LinkedIn
+              </Link>
+              <Link href="/auth/signup" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+                Instagram
+              </Link>
+              <Link href="/auth/signup" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+                Facebook
+              </Link> 
+              <Link href="/auth/signup" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+                YouTube
+              </Link>
             </div>
           </div>
-          <div style={{ height: 1, backgroundColor: "hsla(0, 0%, 24%, 0.40)", marginBottom: 24 }} />
+          <div style={{ height: 1, backgroundColor: "hsla(0, 0%, 78%, 0.40)", marginBottom: 24 }} />
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <span style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", fontFamily: FONT }}>© 2026 Mohasib Chat.</span>
             <span style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", fontFamily: FONT }}>contact@mohasibai.com</span>
