@@ -68,7 +68,7 @@ function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
           value={(form as any)[key]}
           onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
           style={{
-            padding: "12px 16px", borderRadius: 10, fontFamily: FONT,
+            padding: "12px 16px", borderRadius: 0, fontFamily: FONT,
             border: "1px solid rgba(0,0,0,0.12)", backgroundColor: "#FFFFFF",
             color: "#0A0A0A", fontSize: 14, outline: "none",
             width: "100%", boxSizing: "border-box",
@@ -79,7 +79,7 @@ function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
         type="submit"
         disabled={loading}
         style={{
-          marginTop: 4, padding: "13px", borderRadius: 10,
+          marginTop: 4, padding: "13px", borderRadius: 5,
           backgroundColor: GOLD, border: "none", cursor: loading ? "wait" : "pointer",
           color: "#FFFFFF", fontSize: 14, fontWeight: 600, fontFamily: FONT,
           opacity: loading ? 0.7 : 1, transition: "opacity 0.2s",
@@ -128,11 +128,8 @@ export default function HomePageClient() {
           </Link>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Link href="/auth/login" style={{ fontSize: 14, color: "#6B7280", textDecoration: "none", fontFamily: FONT }}>
-              Se connecter
-            </Link>
-            <Link href="/auth/signup" style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF", backgroundColor: NAVY, padding: "9px 20px", borderRadius: 9999, textDecoration: "none", fontFamily: FONT }}>
-              Essai gratuit
+            <Link href="/auth/login" style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF", backgroundColor: NAVY, padding: "9px 20px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
+              Se Connecter
             </Link>
           </div>
         </div>
@@ -150,15 +147,15 @@ export default function HomePageClient() {
               <span style={{ color: GOLD }}>Enfin Intelligente.</span>
             </h1>
 
-            <p style={{ fontSize: 18, color: "#4B5563", lineHeight: 1.7, margin: "0 0 36px", maxWidth: 500, fontFamily: FONT }}>
+            <p style={{ fontSize: 14, color: "#4B5563", lineHeight: 1.5, margin: "0 0 36px", maxWidth: 500, fontFamily: FONT }}>
               Mohasib automatise vos factures, calcule votre TVA et gère votre paie. IA comptable disponible 24h/24 en français ou en darija.
             </p>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
-              <Link href="/auth/signup" style={{ fontSize: 15, fontWeight: 600, color: "#FFFFFF", backgroundColor: NAVY, padding: "14px 28px", borderRadius: 9999, textDecoration: "none", fontFamily: FONT }}>
-                Commencer gratuitement
+              <Link href="/auth/signup" style={{ fontSize: 15, fontWeight: 600, color: "#FFFFFF", backgroundColor: NAVY, padding: "14px 28px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
+                Commencer Gratuitement
               </Link>
-              <a href="#tarifs" style={{ fontSize: 15, fontWeight: 500, color: "#0A0A0A", border: "1px solid rgba(0,0,0,0.18)", backgroundColor: "transparent", padding: "14px 28px", borderRadius: 9999, textDecoration: "none", fontFamily: FONT }}>
+              <a href="#tarifs" style={{ fontSize: 15, fontWeight: 500, color: "#0A0A0A", border: "1px solid rgba(0,0,0,0.18)", backgroundColor: "transparent", padding: "14px 28px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
                 Voir les tarifs
               </a>
             </div>
@@ -183,7 +180,7 @@ export default function HomePageClient() {
           </div>
 
           {/* Right: demo form card */}
-          <div style={{ backgroundColor: NAVY, borderRadius: 20, padding: "36px 32px", boxShadow: "0 24px 64px rgba(13,21,38,0.18)" }}>
+          <div style={{ backgroundColor: NAVY, borderRadius: 10, padding: "30px 22px", boxShadow: "0 24px 64px rgba(13,21,38,0.18)" }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: GOLD, letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: FONT, margin: "0 0 8px" }}>
               Démo personnalisée
             </p>
@@ -322,24 +319,24 @@ export default function HomePageClient() {
       </section>
 
       {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
-      <footer style={{ backgroundColor: "#0A0A0A", padding: "56px 32px 36px" }} className="footer-outer">
+      <footer style={{ backgroundColor: "#ffffff", padding: "56px 32px 36px" }} className="footer-outer">
         <style>{`@media (max-width: 640px) { .footer-outer { padding: 40px 20px 28px !important; } }`}</style>
         <div style={{ maxWidth: 1160, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
             <Image src="/logo2.png" alt="Mohasib" width={100} height={30} style={{ objectFit: "contain", opacity: 0.7 }} />
             <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
               {[["Tarifs", "#tarifs"], ["Comptables", "#comptables"], ["Contact", "mailto:contact@mohasib.ma"]].map(([label, href]) => (
-                <a key={label} href={href} style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", textDecoration: "none", fontFamily: FONT, transition: "color 0.15s" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                <a key={label} href={href} style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT, transition: "color 0.15s" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "hsla(0, 0%, 24%, 0.40)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "hsla(0, 0%, 24%, 0.40)")}
                 >{label}</a>
               ))}
             </div>
           </div>
-          <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.08)", marginBottom: 24 }} />
+          <div style={{ height: 1, backgroundColor: "hsla(0, 0%, 24%, 0.40)", marginBottom: 24 }} />
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", fontFamily: FONT }}>© 2026 Mohasib. Fait au Maroc 🇲🇦</span>
-            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", fontFamily: FONT }}>contact@mohasib.ma</span>
+            <span style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", fontFamily: FONT }}>© 2026 Mohasib AI.</span>
+            <span style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", fontFamily: FONT }}>contact@mohasibai.com</span>
           </div>
         </div>
       </footer>
