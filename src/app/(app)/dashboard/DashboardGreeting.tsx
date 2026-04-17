@@ -15,9 +15,7 @@ export default function DashboardGreeting({ firstName }: { firstName: string }) 
         {getGreeting(firstName)}
       </h2>
       <p className="text-[12.5px] text-[#6B7280] mt-0.5">
-        {new Date().toLocaleDateString("fr-MA", {
-          weekday: "long", day: "numeric", month: "long", year: "numeric",
-        })}
+        {(() => { const d = new Date().toLocaleDateString("fr-MA", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); return d.charAt(0).toUpperCase() + d.slice(1); })()}
       </p>
     </div>
   );

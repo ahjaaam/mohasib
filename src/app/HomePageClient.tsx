@@ -62,7 +62,7 @@ function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
         type="submit"
         disabled={loading}
         style={{
-          marginTop: 4, padding: "13px", borderRadius: 5,
+          marginTop: 4, padding: "13px", borderRadius: 0,
           backgroundColor: GOLD, border: "none", cursor: loading ? "wait" : "pointer",
           color: "#FFFFFF", fontSize: 14, fontWeight: 600, fontFamily: FONT,
           opacity: loading ? 0.7 : 1, transition: "opacity 0.2s",
@@ -130,7 +130,7 @@ export default function HomePageClient() {
             </div>
 
             <p style={{ fontSize: 12, color: "#9CA3AF", margin: 0, fontFamily: FONT }}>
-              14 jours gratuits · Aucune carte bancaire · Annulation libre
+              ☑️ 14 jours gratuits · ☑️ Aucune carte bancaire · ☑️ Annulation libre
             </p>
 
             {/* Social proof */}
@@ -171,18 +171,18 @@ export default function HomePageClient() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
             <Image src="/logo2.png" alt="Mohasib" width={100} height={30} style={{ objectFit: "contain", opacity: 0.7 }} />
             <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-              <Link href="/auth/signup" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+              <Link href="https://www.linkedin.com/company/mohasibai/" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
                 LinkedIn
               </Link>
-              <Link href="/auth/signup" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+              <Link href="https://www.instagram.com/mohasibai/" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
                 Instagram
               </Link>
-              <Link href="/auth/signup" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+              <Link href="https://www.facebook.com/mohasibai" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
                 Facebook
               </Link> 
-              <Link href="/auth/signup" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+            <Link href="#" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
                 YouTube
-              </Link>
+              </Link> 
             </div>
           </div>
           <div style={{ height: 1, backgroundColor: "hsla(0, 0%, 78%, 0.40)", marginBottom: 24 }} />
