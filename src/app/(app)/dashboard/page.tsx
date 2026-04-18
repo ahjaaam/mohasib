@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
@@ -30,13 +32,14 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [invoicesRes, transactionsRes, clientCountRes, profileRes] = await Promise.all([
+  const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes] = await Promise.all([
     supabase.from("invoices").select("*, clients(id,name)").eq("user_id", user!.id)
       .order("created_at", { ascending: false }).limit(5),
     supabase.from("transactions").select("*").eq("user_id", user!.id)
       .order("date", { ascending: false }).limit(6),
     supabase.from("clients").select("id", { count: "exact" }).eq("user_id", user!.id),
     supabase.from("users").select("full_name").eq("id", user!.id).single(),
+    supabase.from("invoices").select("total, status").eq("user_id", user!.id).in("status", ["sent", "overdue"]),
   ]);
 
   const invoices: Invoice[] = invoicesRes.data ?? [];
@@ -49,7 +52,8 @@ export default async function DashboardPage() {
 
   const revenue = transactions.filter((t) => t.type === "income" && t.date >= monthStart)
     .reduce((s, t) => s + Number(t.amount), 0);
-  const pendingInvs = invoices.filter((i) => i.status === "sent" || i.status === "overdue");
+  console.log("[dashboard] pendingRes:", JSON.stringify(pendingRes));
+  const pendingInvs = pendingRes.data ?? [];
   const pendingTotal = pendingInvs.reduce((s, i) => s + Number(i.total), 0);
 
   const tvaEstimate = invoices

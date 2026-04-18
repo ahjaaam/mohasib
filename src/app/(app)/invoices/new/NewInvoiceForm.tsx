@@ -124,6 +124,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
 
     setSaving(false);
     if (err) { setError(err.message); }
+    else if (status === "draft") { router.push("/invoices"); router.refresh(); }
     else { setCreated({ id: row.id, number: row.invoice_number }); }
   }
 
