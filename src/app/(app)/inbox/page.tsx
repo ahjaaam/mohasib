@@ -107,9 +107,9 @@ export default function InboxPage() {
       // Try signed URL first (Supabase Storage)
       let signedUrl: string | undefined;
       if (r.storage_path) {
-        const { data: urlData } = await supabase.storage
-          .from("receipts").createSignedUrl(r.storage_path, 3600);
-        signedUrl = urlData?.signedUrl ?? undefined;
+        const { data: urlData } = supabase.storage
+          .from("receipts").getPublicUrl(r.storage_path);
+        signedUrl = urlData?.publicUrl ?? undefined;
       }
       // Fall back to local object URL captured at upload time
       return { ...r, signedUrl: signedUrl ?? sessionLocalUrls[r.id] };
@@ -287,7 +287,8 @@ export default function InboxPage() {
 
         <div className="flex gap-2 justify-center flex-wrap">
           <button onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-colors"
+            style={{ backgroundColor: "#C8924A", color: "#fff", border: "none" }}>
             <Upload size={13} /> Importer un fichier
           </button>
           <button onClick={() => cameraInputRef.current?.click()}
@@ -338,11 +339,11 @@ export default function InboxPage() {
 
       {/* ─── Batch confirm bar ───────────────────────────────────────────── */}
       {pending.length >= 3 && tab === "pending" && (
-        <div className="flex items-center justify-between bg-[#FEF3C7] border border-[rgba(217,119,6,0.2)] rounded-xl px-4 py-3 mb-4">
-          <span className="text-[12.5px] font-semibold text-[#92400E]">
+        <div className="flex items-center justify-between bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3 mb-4">
+          <span className="text-[12.5px] font-semibold text-[#1E40AF]">
             {pending.length} reçus en attente
           </span>
-          <button onClick={() => setBatchModal(true)} className="btn btn-gold btn-sm">
+          <button onClick={() => setBatchModal(true)} className="btn btn-sm" style={{ backgroundColor: "#1D4ED8", color: "#fff", border: "none" }}>
             ✓ Tout confirmer
           </button>
         </div>
@@ -662,12 +663,10 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
         <button
           onClick={onConfirm}
           disabled={saving || !form.description || !form.amount}
-          className="flex items-center gap-1.5 text-[13px] font-semibold text-white rounded-lg transition-colors disabled:opacity-50"
-          style={{ background: "#C8924A", padding: "8px 20px", borderRadius: "8px" }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "#B8823A")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "#C8924A")}
+          className="flex items-center gap-1.5 text-[13px] font-medium text-[#15803D] bg-white border border-[#15803D] rounded-lg transition-colors cursor-pointer hover:bg-[#F0FDF4] disabled:opacity-50"
+          style={{ padding: "8px 16px" }}
         >
-          {saving ? <Loader2 size={13} className="animate-spin" /> : <>✓ Confirmer</>}
+          {saving ? <Loader2 size={13} className="animate-spin" /> : "Confirmer"}
         </button>
       </div>
     </div>

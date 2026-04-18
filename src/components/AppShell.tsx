@@ -7,32 +7,34 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
-  LayoutDashboard, FileText, Users, ArrowLeftRight,
+  LayoutDashboard, FileText, Users, ArrowLeftRight, ArrowRightLeft,
   MessageSquare, LogOut, Menu, Plus, Inbox, Download,
   Settings, Receipt, FolderOpen, BarChart2, Banknote,
 } from "lucide-react";
 
-const NAV = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord", key: "dashboard" },
-  { href: "/inbox",     icon: Inbox,           label: "Boîte de réception", key: "inbox" },
-  { href: "/invoices",  icon: FileText,         label: "Factures",           key: "invoices" },
-  { href: "/clients",   icon: Users,            label: "Clients",            key: "clients" },
-  { href: "/transactions", icon: ArrowLeftRight, label: "Transactions",      key: "transactions" },
-  { href: "/tva",       icon: Receipt,          label: "Déclarations TVA",   key: "tva" },
-  { href: "/paie",      icon: Banknote,         label: "La Paie",            key: "paie", soon: true },
-  { href: "/export",    icon: Download,         label: "Export Fiduciaire",  key: "export" },
-  { href: "/archive",   icon: FolderOpen,       label: "Archive",            key: "archive" },
+const NAV_MAIN = [
+  { href: "/dashboard",    icon: LayoutDashboard, label: "Tableau de bord",    key: "dashboard" },
+  { href: "/inbox",        icon: Inbox,           label: "Boîte de réception", key: "inbox" },
+  { href: "/invoices",     icon: FileText,        label: "Factures",           key: "invoices" },
+  { href: "/clients",      icon: Users,           label: "Clients",            key: "clients" },
+  { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions" },
+  { href: "/tva",          icon: Receipt,         label: "Déclarations TVA",   key: "tva" },
+  { href: "/export",       icon: Download,        label: "Export Fiduciaire",  key: "export" },
+  { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive" },
 ];
 
-const NAV_AI = [
-  { href: "/chat",     icon: MessageSquare, label: "Mohasib Chat", key: "chat" },
-  { href: "/rapports", icon: BarChart2,     label: "Rapports",     key: "rapports", soon: true },
+const NAV_SOON = [
+  { href: "/rapprochement", icon: ArrowRightLeft, label: "Rapprochement", key: "rapprochement", soon: true, iconSize: 16, iconStrokeWidth: 1.5 },
+  { href: "/paie",          icon: Banknote,       label: "Paie",       key: "paie",          soon: true },
+  { href: "/rapports",      icon: BarChart2,      label: "Rapports",      key: "rapports",      soon: true },
 ];
 
 const ALL_NAV = [
-  ...NAV,
-  ...NAV_AI,
-  { href: "/settings", icon: Settings, label: "Paramètres", key: "settings" },
+  ...NAV_MAIN,
+  ...NAV_SOON,
+  { href: "/chat",     icon: MessageSquare, label: "Mohasib Chat", key: "chat" },
+  { href: "/rapports", icon: BarChart2,     label: "Rapports",     key: "rapports", soon: true },
+  { href: "/settings", icon: Settings,      label: "Paramètres",   key: "settings" },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -42,9 +44,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/invoices/new": "Nouvelle Facture",
   "/invoices/edit":"Modifier la Facture",
   "/clients":      "Clients",
-  "/transactions": "Transactions",
-  "/tva":          "Déclarations TVA",
-  "/paie":         "La Paie",
+  "/transactions":    "Transactions",
+  "/rapprochement":  "Rapprochement Bancaire",  
+  "/tva":            "Déclarations TVA",
+  "/paie":         "Paie",
   "/export":       "Export Fiduciaire",
   "/archive":      "Archive",
   "/chat":         "Mohasib Chat",
@@ -91,48 +94,45 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
   const SidebarContent = () => (
     <>
       <div className="px-[18px] pt-5 pb-[15px] border-b border-white/[0.07]">
-        <Image src="/logo.png" alt="Mohasib" width={120} height={32} className="object-contain" />
+        <Image src="/logo.png" alt="Mohasib" width={120} height={40} style={{ height: "auto" }} className="object-contain" />
         <div className="text-[10.5px] text-white/[0.28] mt-1.5">AI accounting for Moroccan SMEs</div>
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        <div className="text-[10px] uppercase tracking-[1px] text-white/[0.22] px-[18px] pt-2.5 pb-1">Principal</div>
-        {NAV.map(({ href, icon: Icon, label, soon }: any) => (
+        {NAV_MAIN.map(({ href, icon: Icon, label }: any) => (
           <Link key={href} href={href}
-            className={`flex items-center gap-2.5 px-[18px] py-[9px] text-[13px] transition-all border-r-2 ${
+            className={`flex items-center gap-2.5 px-[18px] py-[12px] text-[13px] transition-all border-r-2 ${
               isActive(href)
                 ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
                 : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
-            } ${soon ? "opacity-70" : ""}`}>
+            }`}>
             <Icon size={15} />
             {label}
-            {soon && (
-              <span style={{ background: "rgba(200,146,74,0.15)", color: "#C8924A", fontSize: "9px", padding: "1px 6px", borderRadius: "20px" }}>
-                Bientôt
-              </span>
-            )}
           </Link>
         ))}
-        <div className="text-[10px] uppercase tracking-[1px] text-white/[0.22] px-[18px] pt-[20px] pb-1">IA</div>
-        {NAV_AI.map(({ href, icon: Icon, label, soon }: any) => (
+
+        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: "rgba(255, 255, 255, 0.14)", padding: "14px 18px 6px" }}>Très prochainement</div>
+        {NAV_SOON.map(({ href, icon: Icon, label, iconSize, iconStrokeWidth }: any) => (
           <Link key={href} href={href}
-            className={`flex items-center gap-2.5 px-[18px] py-[9px] text-[13px] transition-all border-r-2 ${
-              isActive(href)
-                ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
-            } ${soon ? "opacity-70" : ""}`}>
-            <Icon size={15} />
+            className="flex items-center gap-2.5 px-[18px] py-[10px] text-[13px] transition-all border-r-2 opacity-60 text-white/20 hover:text-white/85 hover:bg-white/5 border-transparent">
+            <div style={{ width: 16, height: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon size={iconSize ?? 15} strokeWidth={iconStrokeWidth ?? 2} />
+            </div>
             {label}
-            {soon && (
-              <span style={{ background: "rgba(200,146,74,0.15)", color: "#C8924A", fontSize: "9px", padding: "1px 6px", borderRadius: "20px" }}>
-                Bientôt
-              </span>
-            )}
           </Link>
         ))}
       </nav>
 
-      <div className="px-[18px] py-2.5 border-t border-white/[0.07]">
+      <div className="border-t border-white/[0.07] px-[18px] py-[7px]">
+        <Link href="/chat"
+          className={`flex items-center gap-2.5 px-0 py-[7px] text-[13px] transition-all ${
+            pathname === "/chat" ? "text-[#C8924A]" : "text-white/40 hover:text-white/75"
+          }`}>
+          <MessageSquare size={15} />
+          Mohasib Chat
+        </Link>
+      </div>
+      <div className="border-t border-white/[0.07] px-[18px] py-[7px]">
         <Link href="/settings"
           className={`flex items-center gap-2.5 px-0 py-[7px] text-[13px] transition-all ${
             pathname === "/settings" ? "text-[#C8924A]" : "text-white/40 hover:text-white/75"
@@ -171,7 +171,7 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
         <div className="flex flex-col flex-1 md:ml-[210px] min-w-0 h-screen overflow-hidden">
 
           {/* Topbar — hidden on mobile (bottom nav handles navigation) */}
-          {pathname !== "/dashboard" && pathname !== "/chat" && (
+          {pathname !== "/dashboard" && pathname !== "/chat" && pathname !== "/inbox" && (
             <div className="hidden md:flex items-center justify-between px-[22px] h-[52px] border-b border-[rgba(0,0,0,0.08)] bg-white flex-shrink-0">
               <span className="text-[14px] font-semibold text-[#1A1A2E]">{pageTitle}</span>
               <div className="flex items-center gap-2">

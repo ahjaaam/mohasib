@@ -211,7 +211,7 @@ export default function TransactionsPage() {
         </div>
 
         {/* Form fields */}
-        <div className="grid gap-2" style={{ gridTemplateColumns: "120px 1fr 140px 130px auto" }}>
+        <div className="grid gap-2 items-end" style={{ gridTemplateColumns: "120px 1fr 140px 130px auto" }}>
           <div className="flex flex-col gap-1">
             <label className="text-[10.5px] font-medium text-[#6B7280]">Date</label>
             <input type="date" className="input" value={form.date}
@@ -237,11 +237,14 @@ export default function TransactionsPage() {
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
               onKeyDown={(e) => e.key === "Enter" && addTransaction()} />
           </div>
-          <div className="flex flex-col justify-end">
-            <button onClick={addTransaction} disabled={saving || ocrLoading} className="btn btn-gold whitespace-nowrap">
-              {saving ? "..." : "Ajouter"}
-            </button>
-          </div>
+          <button
+            onClick={addTransaction}
+            disabled={saving || ocrLoading}
+            className="btn btn-gold whitespace-nowrap"
+            style={{ height: 36, padding: "0 20px", borderRadius: 8, alignSelf: "flex-end" }}
+          >
+            {saving ? "..." : "Ajouter"}
+          </button>
         </div>
       </div>
 

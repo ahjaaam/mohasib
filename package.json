@@ -13,6 +13,7 @@
     "@react-pdf/renderer": "^4.4.1",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.45.4",
+    "@types/string-similarity": "^4.0.2",
     "ai": "^6.0.149",
     "autoprefixer": "^10.4.27",
     "image-size": "^2.0.2",
@@ -27,6 +28,7 @@
     "react-markdown": "^10.1.0",
     "recharts": "^2.15.3",
     "remark-gfm": "^4.0.1",
+    "string-similarity": "^4.0.4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

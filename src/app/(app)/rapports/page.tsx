@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import { createClient } from "@/lib/supabase/client";
 import { BarChart2, Lock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -53,8 +53,6 @@ export default function RapportsPage() {
   const [month, setMonth] = useState(now.getMonth());
   const [data, setData]   = useState<MonthData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState("");
-  const [notified, setNotified] = useState(false);
   const supabase = createClient();
 
   // ── Fetch month data ────────────────────────────────────────────────────────
@@ -122,17 +120,8 @@ export default function RapportsPage() {
     else setMonth(m => m + 1);
   }
 
-  async function handleNotify(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email) return;
-    await supabase.from("fiduciaire_waitlist").insert({ email, user_id: null });
-    setNotified(true);
-    toast.success("Vous serez notifié !");
-  }
-
   const net = (data?.ca ?? 0) - (data?.depenses ?? 0);
   const maxClient = data?.topClients[0]?.total ?? 1;
-  const maxCat = data?.categories[0]?.total ?? 1;
   const totalCat = data?.categories.reduce((s, c) => s + c.total, 0) ?? 1;
 
   return (
@@ -164,23 +153,6 @@ export default function RapportsPage() {
           <LockedReport title="Rapport IS estimé"              sub="Impôt sur les sociétés prévisionnel" />
         </div>
 
-        {/* Email capture */}
-        {notified ? (
-          <p className="text-[13px] text-[#059669] font-medium">✓ Vous serez notifié !</p>
-        ) : (
-          <form onSubmit={handleNotify} className="flex gap-2 max-w-sm mx-auto">
-            <input
-              className="input flex-1"
-              type="email"
-              placeholder="votre@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <button type="submit" className="btn btn-gold flex-shrink-0">
-              Me notifier →
-            </button>
-          </form>
-        )}
       </div>
 
       {/* ── Working report ────────────────────────────────────────────────── */}

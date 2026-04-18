@@ -278,8 +278,8 @@ function UploadModal({ onClose, onUploaded }: {
         .from("company-documents").upload(path, file);
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = await supabase.storage
-        .from("company-documents").createSignedUrl(path, 3600 * 24 * 365);
+      const { data: urlData } = supabase.storage
+        .from("company-documents").getPublicUrl(path);
 
       const name = category === "Autre" && customName ? customName : (category + " — " + file.name);
 
@@ -306,7 +306,7 @@ function UploadModal({ onClose, onUploaded }: {
         name,
         type: "company_document",
         date: inserted.created_at,
-        url: urlData?.signedUrl ?? null,
+        url: urlData?.publicUrl ?? null,
         mime_type: file.type,
         document_category: category,
         expiration_date: expiry || null,
@@ -480,9 +480,9 @@ export default function ArchivePage() {
       // get signed url
       let url: string | null = null;
       if (cd.storage_path) {
-        const { data } = await supabase.storage.from("company-documents")
-          .createSignedUrl(cd.storage_path, 3600);
-        url = data?.signedUrl ?? null;
+        const { data } = supabase.storage.from("company-documents")
+          .getPublicUrl(cd.storage_path);
+        url = data?.publicUrl ?? null;
       }
       result.push({
         id: `cd-${cd.id}`,
@@ -523,9 +523,9 @@ export default function ArchivePage() {
           setSelected(resolved);
         }
       } else if (doc.type === "recu" && doc.storage_path) {
-        const { data } = await supabase.storage.from("receipts")
-          .createSignedUrl(doc.storage_path, 3600);
-        const resolved = { ...doc, url: data?.signedUrl ?? null };
+        const { data } = supabase.storage.from("receipts")
+          .getPublicUrl(doc.storage_path);
+        const resolved = { ...doc, url: data?.publicUrl ?? null };
         setDocs((prev) => prev.map((d) => d.id === doc.id ? resolved : d));
         setSelected(resolved);
       }
@@ -594,17 +594,17 @@ export default function ArchivePage() {
 
           {/* Search + Add */}
           <div className="px-3.5 pt-3.5 pb-2 flex-shrink-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-stretch gap-2">
               <div className="relative flex-1">
                 <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6B7280]" />
                 <input
-                  className="input pl-8 text-[12px]"
+                  className="input pl-8 text-[12px] h-full"
                   placeholder="Rechercher un document..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <button onClick={() => setShowUpload(true)} className="btn btn-gold btn-sm flex-shrink-0">
+              <button onClick={() => setShowUpload(true)} className="btn btn-gold flex-shrink-0 flex items-center gap-1.5 text-[12px]">
                 <Plus size={12} /> Ajouter
               </button>
             </div>
