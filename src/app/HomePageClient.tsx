@@ -93,7 +93,7 @@ export default function HomePageClient() {
       <nav style={{ backgroundColor: "#FFFFFF", height: 74 }}>
         <div className="nav-inner">
           <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-            <Image src="/logo2.png" alt="Mohasib" width={168} height={50.4} style={{ objectFit: "contain" }} />
+            <Image src="/logo2.png" alt="Mohasib" width={168} height={50} style={{ height: "auto", objectFit: "contain" }} />
           </Link>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -173,7 +173,7 @@ export default function HomePageClient() {
         <style>{`@media (max-width: 640px) { .footer-outer { padding: 40px 20px 28px !important; } }`}</style>
         <div style={{ maxWidth: 1160, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
-            <Image src="/logo2.png" alt="Mohasib" width={100} height={30} style={{ objectFit: "contain", opacity: 0.7 }} />
+            <Image src="/logo2.png" alt="Mohasib" width={100} height={30} style={{ height: "auto", objectFit: "contain", opacity: 0.7 }} />
             <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
               <Link href="https://www.linkedin.com/company/mohasibai/" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
                 LinkedIn
