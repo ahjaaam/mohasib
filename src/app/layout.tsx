@@ -26,9 +26,18 @@ export const metadata: Metadata = {
     description:
       "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
     type: "website",
+    images: [
+      {
+        url: 'https://www.mohasibai.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Mohasib AI Dashboard',
+      }
+    ],
     locale: "fr_MA",
-    siteName: "Mohasib",
+    siteName: "Mohasib AI",
   },
+  
   twitter: {
     card: "summary_large_image",
     title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
