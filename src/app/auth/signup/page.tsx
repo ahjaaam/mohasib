@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import Image from "next/image";
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
 
 export default function SignupPage() {
@@ -70,15 +71,8 @@ export default function SignupPage() {
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12"
         style={{ backgroundColor: "#0D1526" }}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: "#C8924A" }}>
-            <span className="text-white font-bold text-base">م</span>
-          </div>
-          <div>
-            <span className="text-white font-bold text-xl">Mohasib</span>
-            <span className="block text-xs" style={{ color: "#C8924A" }}>محاسب</span>
-          </div>
+        <div>
+          <Image src="/logo.png" alt="Mohasib" width={140} height={42} style={{ height: "auto", objectFit: "contain" }} />
         </div>
         <div>
           <h2 className="text-3xl font-bold text-white leading-tight mb-4">
