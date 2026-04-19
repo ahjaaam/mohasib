@@ -161,7 +161,7 @@ export default function HomePageClient() {
               Voyez Mohasib En Action
             </h2>
             <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", margin: "0 0 28px", fontFamily: FONT }}>
-              Un expert vous montre comment Mohasib s&apos;adapte à votre activité.
+              Nous vous montrerons comment Mohasib s&apos;adapte à votre activité.
             </p>
             <DemoForm />
           </div>
