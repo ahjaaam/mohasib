@@ -36,6 +36,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, openUp: false });
   const [waLoading, setWaLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +67,24 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
       openUp,
     });
     setOpen(true);
+  }
+
+  async function handleEmail() {
+    setOpen(false);
+    setEmailLoading(true);
+    try {
+      const res = await fetch(`/api/invoices/${inv.id}/send-email`, { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.message || json.error || "Erreur d'envoi email", { duration: 5000 });
+      } else {
+        toast.success("Email envoyé avec succès 📧");
+      }
+    } catch {
+      toast.error("Erreur d'envoi. Vérifiez votre connexion.", { duration: 5000 });
+    } finally {
+      setEmailLoading(false);
+    }
   }
 
   async function handleWhatsApp() {
@@ -111,12 +130,14 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
       { label: "Modifier", href: `/invoices/${inv.id}/edit` },
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
+      { label: "Envoyer par email", action: handleEmail },
       { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
     ],
     sent: [
       { label: "Voir la facture", href: `/invoices/${inv.id}` },
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
+      { label: "Envoyer par email", action: handleEmail },
       { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
       { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
     ],
@@ -124,12 +145,14 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
       { label: "Voir la facture", href: `/invoices/${inv.id}` },
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
+      { label: "Envoyer par email", action: handleEmail },
       { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
     ],
     overdue: [
       { label: "Voir la facture", href: `/invoices/${inv.id}` },
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
+      { label: "Envoyer par email", action: handleEmail },
       { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
       { label: "Relancer le client", action: handleRelance },
       { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
@@ -148,10 +171,10 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
         <button
           ref={btnRef}
           onClick={toggle}
-          disabled={waLoading}
+          disabled={waLoading || emailLoading}
           className="flex items-center justify-center w-7 h-7 rounded-lg text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A2E] transition-colors text-[18px] leading-none"
         >
-          {waLoading ? <Loader2 size={13} className="animate-spin" /> : "⋯"}
+          {(waLoading || emailLoading) ? <Loader2 size={13} className="animate-spin" /> : "⋯"}
         </button>
       </div>
 

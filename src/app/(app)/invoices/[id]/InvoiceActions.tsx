@@ -13,21 +13,28 @@ interface Props {
   invoiceId: string;
   status: string;
   clientPhone?: string | null;
+  clientEmail?: string | null;
   clientId?: string | null;
   whatsappSentAt?: string | null;
   whatsappSentCount?: number;
+  emailSentAt?: string | null;
+  emailSentCount?: number;
 }
 
 export default function InvoiceActions({
   invoiceId,
   status,
   clientPhone,
+  clientEmail,
   clientId,
   whatsappSentAt,
   whatsappSentCount,
+  emailSentAt,
+  emailSentCount,
 }: Props) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [waState, setWaState] = useState<WaState>("idle");
+  const [emailState, setEmailState] = useState<WaState>("idle");
   const router = useRouter();
   const supabase = createClient();
 
@@ -81,6 +88,31 @@ export default function InvoiceActions({
       setWaState("error");
       toast.error(e.message || "Erreur lors de l'envoi WhatsApp", { duration: 6000 });
       setTimeout(() => setWaState("idle"), 2500);
+    }
+  }
+
+  async function sendEmail() {
+    setEmailState("loading");
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/send-email`, { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (json.error === "NO_EMAIL") {
+          toast.error("Ce client n'a pas d'email enregistré", { duration: 6000 });
+        } else {
+          throw new Error(json.message || json.error || `HTTP ${res.status}`);
+        }
+        setEmailState("idle");
+        return;
+      }
+      setEmailState("success");
+      toast.success("Email envoyé avec succès 📧");
+      router.refresh();
+      setTimeout(() => setEmailState("idle"), 3000);
+    } catch (e: any) {
+      setEmailState("error");
+      toast.error(e.message || "Erreur d'envoi. Vérifiez votre connexion.", { duration: 6000 });
+      setTimeout(() => setEmailState("idle"), 3000);
     }
   }
 
@@ -158,26 +190,63 @@ export default function InvoiceActions({
         {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
       </button>
 
+      {/* Email send */}
+      <button
+        onClick={sendEmail}
+        disabled={emailState === "loading"}
+        className={`btn justify-center w-full flex items-center gap-1.5 transition-all ${
+          emailState === "success"
+            ? "bg-[#059669] text-white border-[#059669] hover:bg-[#059669]"
+            : emailState === "error"
+            ? "bg-[#DC2626] text-white border-[#DC2626] hover:bg-[#DC2626]"
+            : "btn-outline"
+        }`}
+      >
+        {emailState === "loading" && <><Loader2 size={13} className="animate-spin" /> Envoi en cours...</>}
+        {emailState === "success" && <>✓ Email envoyé</>}
+        {emailState === "error" && <>❌ Erreur — réessayer</>}
+        {emailState === "idle" && <>📧 Envoyer par email</>}
+      </button>
+
       {/* No phone warning */}
       {!clientPhone && (
         <div className="text-[10.5px] text-[#D97706] bg-[#FEF3C7] rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
           <span>⚠️ Aucun numéro WhatsApp pour ce client</span>
           {clientId && (
-            <Link
-              href="/clients"
-              className="text-[10px] text-[#D97706] underline hover:text-[#B45309] flex-shrink-0"
-            >
+            <Link href="/clients" className="text-[10px] text-[#D97706] underline hover:text-[#B45309] flex-shrink-0">
               Ajouter →
             </Link>
           )}
         </div>
       )}
 
-      {/* WhatsApp send history */}
-      {whatsappSentAt && (
-        <div className="text-[10.5px] text-[#6B7280] mt-1 px-0.5">
-          📲 Envoyé par WhatsApp le {fmtDate(whatsappSentAt)}
-          {whatsappSentCount && whatsappSentCount > 1 ? ` (×${whatsappSentCount})` : ""}
+      {/* No email warning */}
+      {!clientEmail && (
+        <div className="text-[10.5px] text-[#D97706] bg-[#FEF3C7] rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
+          <span>⚠️ Aucun email pour ce client</span>
+          {clientId && (
+            <Link href="/clients" className="text-[10px] text-[#D97706] underline hover:text-[#B45309] flex-shrink-0">
+              Ajouter →
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Send history */}
+      {(whatsappSentAt || emailSentAt) && (
+        <div className="flex flex-col gap-0.5 mt-1 px-0.5">
+          {whatsappSentAt && (
+            <div className="text-[10.5px] text-[#6B7280]">
+              📲 Envoyé par WhatsApp le {fmtDate(whatsappSentAt)}
+              {whatsappSentCount && whatsappSentCount > 1 ? ` (×${whatsappSentCount})` : ""}
+            </div>
+          )}
+          {emailSentAt && (
+            <div className="text-[10.5px] text-[#6B7280]">
+              📧 Envoyé par email le {fmtDate(emailSentAt)}
+              {emailSentCount && emailSentCount > 1 ? ` (×${emailSentCount})` : ""}
+            </div>
+          )}
         </div>
       )}
     </div>

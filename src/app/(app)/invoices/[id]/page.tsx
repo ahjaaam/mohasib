@@ -126,9 +126,12 @@ export default async function InvoiceDetailPage({
             invoiceId={inv.id}
             status={inv.status}
             clientPhone={client?.phone ?? null}
+            clientEmail={client?.email ?? null}
             clientId={client?.id ?? null}
             whatsappSentAt={(inv as any).whatsapp_sent_at ?? null}
             whatsappSentCount={(inv as any).whatsapp_sent_count ?? 0}
+            emailSentAt={(inv as any).email_sent_at ?? null}
+            emailSentCount={(inv as any).email_sent_count ?? 0}
           />
         </div>
       </div>
