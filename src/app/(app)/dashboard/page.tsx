@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes] = await Promise.all([
+  const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes, tvaRes] = await Promise.all([
     supabase.from("invoices").select("*, clients(id,name)").eq("user_id", user!.id)
       .order("created_at", { ascending: false }).limit(5),
     supabase.from("transactions").select("*").eq("user_id", user!.id)
@@ -40,6 +40,7 @@ export default async function DashboardPage() {
     supabase.from("clients").select("id", { count: "exact" }).eq("user_id", user!.id),
     supabase.from("users").select("full_name").eq("id", user!.id).single(),
     supabase.from("invoices").select("total, status").eq("user_id", user!.id).in("status", ["sent", "overdue"]),
+    supabase.from("invoices").select("tax_amount").eq("user_id", user!.id).in("status", ["paid", "sent"]),
   ]);
 
   const invoices: Invoice[] = invoicesRes.data ?? [];
@@ -56,9 +57,7 @@ export default async function DashboardPage() {
   const pendingInvs = pendingRes.data ?? [];
   const pendingTotal = pendingInvs.reduce((s, i) => s + Number(i.total), 0);
 
-  const tvaEstimate = invoices
-    .filter((i) => i.status === "paid" || i.status === "sent")
-    .reduce((s, i) => s + Number(i.tax_amount), 0);
+  const tvaEstimate = (tvaRes.data ?? []).reduce((s, i) => s + Number(i.tax_amount), 0);
 
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 20);
 
