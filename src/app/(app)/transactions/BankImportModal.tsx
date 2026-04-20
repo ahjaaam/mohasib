@@ -143,9 +143,10 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
   // ── File handling ──────────────────────────────────────────────────────────
 
   const handleFile = useCallback((f: File) => {
-    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/jpg", "image/webp"];
-    if (!allowed.includes(f.type)) {
-      setApiError("Format non supporté. Utilisez PDF, JPG ou PNG.");
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/jpg", "image/webp", "text/csv", "application/vnd.ms-excel", "application/csv"];
+    const isCSV = f.name.toLowerCase().endsWith(".csv");
+    if (!allowed.includes(f.type) && !isCSV) {
+      setApiError("Format non supporté. Utilisez PDF, CSV, JPG ou PNG.");
       return;
     }
     if (f.size > 10 * 1024 * 1024) {
@@ -386,7 +387,7 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
                   ref={fileInputRef}
                   type="file"
                   className="hidden"
-                  accept=".pdf,image/jpeg,image/png,image/jpg,image/webp"
+                  accept=".pdf,.csv,image/jpeg,image/png,image/jpg,image/webp"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
                 />
                 {file ? (
@@ -409,7 +410,7 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
                       <p className="text-[12px] text-[#6B7280]">ou cliquez pour sélectionner</p>
                     </div>
                     <p className="text-[11px] text-[#9CA3AF]">
-                      PDF, JPG, PNG — max 10 MB
+                      PDF, CSV, JPG, PNG — max 10 MB
                     </p>
                   </>
                 )}
