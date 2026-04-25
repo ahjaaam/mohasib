@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import type { Receipt, OcrData } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
+import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
 import { Upload, CheckCircle, X, Loader2, Camera, Mail, FileText, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -36,6 +38,7 @@ interface CardForm {
   description: string;
   date: string;
   tva_rate: string;
+  compte_comptable: string;
 }
 
 interface UploadingFile {
@@ -53,12 +56,15 @@ function initForm(ocr: OcrData): CardForm {
     : ocr.type === "expense" && ocr.amount != null
       ? String(-Math.abs(ocr.amount))
       : String(ocr.amount ?? "");
+  const category = ocr.category ?? "Autre dépense";
+  const compte = ocr.compte ?? categoryToCompte[category] ?? "";
   return {
     amount: signedAmt,
-    category: ocr.category ?? "Autre dépense",
+    category,
     description: vendor ? (desc ? `${vendor} — ${desc}` : vendor) : desc,
     date: ocr.date ?? new Date().toISOString().split("T")[0],
     tva_rate: String(ocr.tva_rate ?? ""),
+    compte_comptable: compte,
   };
 }
 
@@ -183,7 +189,7 @@ export default function InboxPage() {
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
-    const { error } = await supabase.from("transactions").insert({
+    const row = {
       user_id: userId,
       type: amt >= 0 ? "income" : "expense",
       description: form.description || "Dépense",
@@ -192,7 +198,13 @@ export default function InboxPage() {
       category: form.category || null,
       currency: "MAD",
       receipt_id: id,
-    });
+      compte_comptable: form.compte_comptable || null,
+    };
+    let { error } = await supabase.from("transactions").insert(row);
+    if (error?.message.includes("compte_comptable")) {
+      const { compte_comptable: _c, ...rowWithout } = row;
+      ({ error } = await supabase.from("transactions").insert(rowWithout));
+    }
     if (error) {
       toast.error("Erreur lors de la création");
       setSaving((s) => { s.delete(id); return new Set(s); });
@@ -242,9 +254,15 @@ export default function InboxPage() {
         category: form.category || null,
         currency: "MAD",
         receipt_id: r.id,
+        compte_comptable: form.compte_comptable || null,
       };
     });
-    await supabase.from("transactions").insert(rows);
+    let { error: batchErr } = await supabase.from("transactions").insert(rows);
+    if (batchErr?.message.includes("compte_comptable")) {
+      const simpleRows = rows.map(({ compte_comptable: _c, ...r }) => r);
+      ({ error: batchErr } = await supabase.from("transactions").insert(simpleRows));
+    }
+    if (batchErr) { toast.error(batchErr.message); setBatchSaving(false); return; }
     await supabase.from("receipts").update({ status: "matched" }).eq("user_id", userId).eq("status", "pending");
     setBatchSaving(false);
     setBatchModal(false);
@@ -254,7 +272,13 @@ export default function InboxPage() {
   }
 
   function updateForm(id: string, field: keyof CardForm, val: string) {
-    setForms((f) => ({ ...f, [id]: { ...f[id], [field]: val } }));
+    setForms((f) => {
+      const updated = { ...f[id], [field]: val };
+      if (field === "category") {
+        updated.compte_comptable = categoryToCompte[val] ?? f[id]?.compte_comptable ?? "";
+      }
+      return { ...f, [id]: updated };
+    });
   }
 
   // ── Derived state ─────────────────────────────────────────────────────────
@@ -550,6 +574,67 @@ function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClos
   );
 }
 
+// ─── Compte Comptable searchable select ───────────────────────────────────────
+
+function CompteSelect({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [dropRect, setDropRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = cgncAccounts.find((a) => a.code === value);
+  const filtered = query.trim()
+    ? cgncAccounts.filter((a) =>
+        a.code.startsWith(query) ||
+        a.label.toLowerCase().includes(query.toLowerCase())
+      )
+    : cgncAccounts;
+
+  function handleFocus() {
+    if (inputRef.current) {
+      const r = inputRef.current.getBoundingClientRect();
+      setDropRect({ top: r.bottom + window.scrollY + 4, left: r.left + window.scrollX, width: r.width });
+    }
+    setQuery("");
+    setOpen(true);
+  }
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        className="input text-[12px]"
+        placeholder="Sélectionner un compte..."
+        value={open ? query : selected ? `${selected.code} — ${selected.label}` : ""}
+        onFocus={handleFocus}
+        onChange={(e) => setQuery(e.target.value)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && dropRect && createPortal(
+        <div
+          style={{ position: "absolute", top: dropRect.top, left: dropRect.left, width: dropRect.width, zIndex: 9999 }}
+          className="bg-white border border-[rgba(0,0,0,0.12)] rounded-lg shadow-xl max-h-48 overflow-y-auto"
+        >
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-[11.5px] text-[#9CA3AF]">Aucun résultat</div>
+          ) : filtered.map((a) => (
+            <button
+              key={a.code}
+              type="button"
+              className={`w-full text-left px-3 py-2 text-[11.5px] hover:bg-[#FAFAF6] ${a.code === value ? "bg-[rgba(200,146,74,0.08)]" : ""}`}
+              onMouseDown={(e) => { e.preventDefault(); onChange(a.code); setOpen(false); setQuery(""); }}
+            >
+              <span className="font-mono font-semibold text-[#C8924A]">{a.code}</span>
+              <span className="text-[#6B7280]"> — {a.label}</span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 // ─── Pending Receipt Card ─────────────────────────────────────────────────────
 
 interface CardProps {
@@ -648,6 +733,11 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           <select className="input" value={form.tva_rate} onChange={(e) => onFormChange("tva_rate", e.target.value)}>
             {TVA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+        </div>
+
+        <div className="col-span-2">
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Compte comptable</label>
+          <CompteSelect value={form.compte_comptable} onChange={(val) => onFormChange("compte_comptable", val)} />
         </div>
       </div>
 

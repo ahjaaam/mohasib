@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { Check, X } from "lucide-react";
@@ -8,6 +8,7 @@ import { Check, X } from "lucide-react";
 interface Props {
   userId: string;
   userEmail: string;
+  companyId: string | null;
 }
 
 const PRO_FEATURES = [
@@ -21,38 +22,24 @@ const PRO_FEATURES = [
   "Récap TVA automatique",
 ];
 
-const MOCK_PAYMENTS = [
-  { date: "01/03/2026", amount: "199 MAD", status: "Payé" },
-  { date: "01/02/2026", amount: "199 MAD", status: "Payé" },
-  { date: "01/01/2026", amount: "199 MAD", status: "Payé" },
-];
-
-export default function AbonnementTab({ userId, userEmail }: Props) {
+export default function AbonnementTab({ userId, userEmail: _userEmail, companyId }: Props) {
   const supabase = createClient();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [waitlistEmail, setWaitlistEmail] = useState(userEmail);
-  const [waitlistDone, setWaitlistDone] = useState(false);
-  const [submittingWaitlist, setSubmittingWaitlist] = useState(false);
+
+  const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number; resetDate: string } | null>(null);
+  useEffect(() => {
+    fetch("/api/usage").then(r => r.json()).then(d => { if (!d.error) setUsage(d); }).catch(() => {});
+  }, [companyId]);
 
   const nextRenewal = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
     .toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" });
-
-  async function joinWaitlist() {
-    if (!waitlistEmail) return;
-    setSubmittingWaitlist(true);
-    await supabase.from("fiduciaire_waitlist").insert({ email: waitlistEmail, user_id: userId });
-    setSubmittingWaitlist(false);
-    setWaitlistDone(true);
-    toast.success("✓ Vous serez notifié dès le lancement !");
-  }
 
   async function deleteAccount() {
     if (deleteConfirm !== "SUPPRIMER") return;
     const { error } = await supabase.auth.admin.deleteUser(userId);
     if (error) {
-      // Fall back to sign out — actual deletion requires admin API
       await supabase.auth.signOut();
       toast.error("Contactez le support pour supprimer votre compte");
     }
@@ -63,27 +50,39 @@ export default function AbonnementTab({ userId, userEmail }: Props) {
       {/* Current Plan */}
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-5">
         <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-[15px] font-bold text-[#1A1A2E]">Mohasib Pro</h3>
-            <p className="text-[13px] text-[#6B7280] mt-0.5">199 MAD / mois</p>
-          </div>
+          <h3 className="text-[15px] font-bold text-[#1A1A2E]">Mohasib Pro</h3>
           <span className="text-[11px] px-2.5 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full font-semibold">Actif ✓</span>
         </div>
-        <p className="text-[11.5px] text-[#9CA3AF] mb-4">Prochain renouvellement : {nextRenewal}</p>
 
         {/* Usage */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          {[
-            { label: "Factures ce mois", value: "8", max: "Illimité" },
-            { label: "Clients", value: "6", max: "Illimité" },
-            { label: "Questions AI", value: "47", max: "ce mois" },
-          ].map(s => (
-            <div key={s.label} className="bg-[#FAFAF6] rounded-lg p-3">
-              <div className="text-[18px] font-bold text-[#1A1A2E]">{s.value}</div>
-              <div className="text-[10.5px] text-[#9CA3AF]">{s.label}</div>
-              <div className="text-[10px] text-[#C8924A] font-medium">{s.max}</div>
-            </div>
-          ))}
+        <div className="mb-4">
+          <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-2">Documents importés ce mois</p>
+          {usage ? (
+            <>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[13px] font-bold text-[#1A1A2E]">{usage.used} / {usage.limit}</span>
+                <span className="text-[11px] text-[#6B7280]">Réinitialisation le {usage.resetDate}</span>
+              </div>
+              <div className="w-full h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    usage.used / usage.limit >= 1 ? "bg-[#DC2626]"
+                    : usage.used / usage.limit >= 0.8 ? "bg-[#F59E0B]"
+                    : "bg-[#059669]"
+                  }`}
+                  style={{ width: `${Math.min(100, (usage.used / usage.limit) * 100)}%` }}
+                />
+              </div>
+              {usage.used / usage.limit >= 0.8 && usage.used < usage.limit && (
+                <p className="text-[11px] text-[#92400E] mt-1.5">⚠️ Plus que {usage.remaining} document{usage.remaining > 1 ? "s" : ""} disponible{usage.remaining > 1 ? "s" : ""} ce mois.</p>
+              )}
+              {usage.used >= usage.limit && (
+                <p className="text-[11px] text-[#DC2626] mt-1.5">⛔ Limite atteinte. Les imports seront de nouveau disponibles le {usage.resetDate}.</p>
+              )}
+            </>
+          ) : (
+            <div className="h-8 bg-[#F3F4F6] rounded animate-pulse" />
+          )}
         </div>
 
         {/* Features */}
@@ -105,60 +104,6 @@ export default function AbonnementTab({ userId, userEmail }: Props) {
             Annuler mon abonnement
           </button>
         </div>
-      </div>
-
-      {/* Fiduciaire Teaser */}
-      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-5 relative overflow-hidden">
-        <div className="absolute top-3 right-3 text-[10px] px-2.5 py-1 bg-[#FEF3C7] text-[#92400E] rounded-full font-semibold">
-          Bientôt disponible
-        </div>
-        <h3 className="text-[13px] font-bold text-[#1A1A2E] mb-1">Mohasib Pro Fiduciaire</h3>
-        <p className="text-[12px] text-[#6B7280] mb-4">Gérez tous vos clients depuis un seul tableau de bord. Idéal pour les cabinets comptables.</p>
-        {waitlistDone ? (
-          <div className="text-[12.5px] text-[#059669] font-medium">✓ Vous êtes sur la liste — on vous prévient au lancement !</div>
-        ) : (
-          <div className="flex gap-2">
-            <input
-              className="input flex-1"
-              type="email"
-              value={waitlistEmail}
-              onChange={e => setWaitlistEmail(e.target.value)}
-              placeholder="votre@email.ma"
-            />
-            <button onClick={joinWaitlist} disabled={submittingWaitlist} className="btn btn-gold flex-shrink-0">
-              {submittingWaitlist ? "..." : "Être notifié →"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Invoice History */}
-      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
-        <div className="tbl-header">
-          <span className="tbl-title">Historique des paiements</span>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Montant</th>
-              <th>Statut</th>
-              <th>Reçu</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_PAYMENTS.map((p, i) => (
-              <tr key={i}>
-                <td>{p.date}</td>
-                <td className="font-semibold">{p.amount}</td>
-                <td><span className="badge b-paid">{p.status}</span></td>
-                <td>
-                  <button className="text-[11.5px] text-[#C8924A] hover:underline">Télécharger</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
 
       {/* Danger Zone */}

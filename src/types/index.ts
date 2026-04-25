@@ -81,6 +81,7 @@ export interface OcrData {
   payment_method?: string | null;
   receipt_number?: string | null;
   confidence?: number | null;
+  compte?: string | null;
 }
 
 export interface Receipt {
@@ -112,6 +113,7 @@ export interface Transaction {
   payment_method: string | null;
   reference: string | null;
   notes: string | null;
+  compte_comptable?: string | null;
   created_at: string;
   updated_at: string;
   clients?: Pick<Client, "id" | "name">;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 
 const anthropic = new Anthropic();
 
@@ -18,13 +19,15 @@ Return ONLY a valid JSON object — no markdown, no explanation:
   "description": "brief description in French",
   "payment_method": "cash|card|virement|cheque or null",
   "receipt_number": "reference number or null",
-  "confidence": 0.95
+  "confidence": 0.95,
+  "compte": "6132"
 }
 
 Rules:
 - amount: negative number for expenses/purchases, positive for income/sales
 - tva_rate: only 7, 10, 14, or 20 — use null if not visible
 - confidence: 1.0 = very clear receipt, 0.5 = partially readable, 0.1 = very hard to read
+- compte: Moroccan CGNC account code. Expenses → 6xxx, Revenue/Sales → 7xxx. Examples: rent→6132, salaries→6171, phone→6147, transport→6142, office supplies→6123, equipment→2350, marketing→6144, bank fees→6311, client invoice→3421, supplier→4411
 - Always use null for fields that cannot be determined
 - Respond with JSON only`;
 
@@ -32,6 +35,20 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: company } = await supabase.from("companies").select("id").eq("user_id", user.id).single();
+  if (company) {
+    const usage = await getMonthlyUsage(company.id);
+    if (!usage.allowed) {
+      return NextResponse.json({
+        error: "limit_reached",
+        message: `Limite mensuelle atteinte (${usage.used}/${usage.limit} documents). Réinitialisation le ${usage.resetDate}.`,
+        used: usage.used,
+        limit: usage.limit,
+        resetDate: usage.resetDate,
+      }, { status: 429 });
+    }
+  }
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
@@ -102,6 +119,12 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
+
+  if (company) {
+    await incrementUploadCount(company.id, user.id, {
+      fileName: file.name, fileType: file.type, source: "inbox",
+    });
+  }
 
   return NextResponse.json({ receipt, ocr: ocrData });
 }

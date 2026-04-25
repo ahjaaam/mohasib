@@ -15,6 +15,7 @@ export default async function SettingsPage() {
     <SettingsShell
       userId={user!.id}
       userEmail={user!.email ?? ""}
+      companyId={companyRes.data?.id ?? null}
       profile={profileRes.data ?? {}}
       company={companyRes.data ?? {}}
       prefs={prefsRes.data ?? {}}

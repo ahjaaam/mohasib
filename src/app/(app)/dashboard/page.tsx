@@ -6,6 +6,7 @@ import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { Invoice, Transaction } from "@/types";
 import DashboardNews from "./DashboardNews";
 import DashboardGreeting from "./DashboardGreeting";
+import { getMonthlyUsage } from "@/lib/usage";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -32,6 +33,9 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  const companyRes = await supabase.from("companies").select("id").eq("user_id", user!.id).single();
+  const companyId = companyRes.data?.id ?? null;
+
   const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes, tvaRes] = await Promise.all([
     supabase.from("invoices").select("*, clients(id,name)").eq("user_id", user!.id)
       .order("created_at", { ascending: false }).limit(5),
@@ -42,6 +46,9 @@ export default async function DashboardPage() {
     supabase.from("invoices").select("total, status").eq("user_id", user!.id).in("status", ["sent", "overdue"]),
     supabase.from("invoices").select("tax_amount").eq("user_id", user!.id).in("status", ["paid", "sent"]),
   ]);
+
+  const usageData = companyId ? await getMonthlyUsage(companyId) : null;
+  const showUsageWarning = usageData && usageData.used / usageData.limit >= 0.8;
 
   const invoices: Invoice[] = invoicesRes.data ?? [];
   const transactions: Transaction[] = transactionsRes.data ?? [];
@@ -65,6 +72,22 @@ export default async function DashboardPage() {
     <div>
       {/* Greeting */}
       <DashboardGreeting firstName={firstName} />
+
+      {/* Usage warning banner */}
+      {showUsageWarning && usageData && (
+        <div className={`mb-5 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-[12.5px] ${
+          usageData.used >= usageData.limit
+            ? "bg-[#FEE2E2] border border-[#FECACA] text-[#DC2626]"
+            : "bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E]"
+        }`}>
+          <span>
+            {usageData.used >= usageData.limit
+              ? `⛔ Limite mensuelle atteinte (${usageData.used}/${usageData.limit} documents). Imports désactivés jusqu'au ${usageData.resetDate}.`
+              : `⚠️ Vous avez utilisé ${usageData.used}/${usageData.limit} documents ce mois (${usageData.remaining} restant${usageData.remaining > 1 ? "s" : ""}).`}
+          </span>
+          <a href="/settings?tab=abonnement" className="font-semibold whitespace-nowrap hover:underline">Voir l'abonnement →</a>
+        </div>
+      )}
 
       {/* Actions rapides + Prochaines échéances side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">

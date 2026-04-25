@@ -11,6 +11,7 @@ import AbonnementTab from "./AbonnementTab";
 interface Props {
   userId: string;
   userEmail: string;
+  companyId: string | null;
   profile: any;
   company: any;
   prefs: any;
@@ -23,7 +24,7 @@ const TABS = [
   { id: "abonnement", label: "Abonnement", icon: CreditCard },
 ];
 
-export default function SettingsShell({ userId, userEmail, profile, company, prefs }: Props) {
+export default function SettingsShell({ userId, userEmail, companyId, profile, company, prefs }: Props) {
   const [tab, setTab] = useState("entreprise");
 
   return (
@@ -76,7 +77,7 @@ export default function SettingsShell({ userId, userEmail, profile, company, pre
           {tab === "entreprise" && <EntrepriseTab userId={userId} company={company} />}
           {tab === "profil" && <ProfilTab userId={userId} userEmail={userEmail} profile={profile} prefs={prefs} />}
           {tab === "apparence" && <ApparenceTab userId={userId} company={company} />}
-          {tab === "abonnement" && <AbonnementTab userId={userId} userEmail={userEmail} />}
+          {tab === "abonnement" && <AbonnementTab userId={userId} userEmail={userEmail} companyId={companyId} />}
         </div>
       </div>
     </>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
+import * as XLSX from "xlsx";
+import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 
 export const maxDuration = 120;
 
@@ -42,9 +44,39 @@ function normalizeCategory(cat: string | null | undefined, amount: number): stri
   return amount >= 0 ? "Autre revenu" : "Autre dépense";
 }
 
-// Strips markdown fences if model wraps JSON in ```
-function stripFences(s: string): string {
-  return s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+// Robustly extract the first valid JSON object or array from any text
+function extractJSON(raw: string): any {
+  // 1. Strip outer markdown fences
+  const stripped = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  try { return JSON.parse(stripped); } catch {}
+
+  // 2. Find first { or [ and try parsing from there
+  const objIdx = raw.indexOf("{");
+  const arrIdx = raw.indexOf("[");
+  const starts: number[] = [];
+  if (objIdx !== -1) starts.push(objIdx);
+  if (arrIdx !== -1) starts.push(arrIdx);
+  starts.sort((a, b) => a - b);
+
+  for (const idx of starts) {
+    const slice = raw.slice(idx);
+    try { return JSON.parse(slice); } catch {}
+    // Try to find matching closing bracket by scanning
+    const opener = raw[idx];
+    const closer = opener === "{" ? "}" : "]";
+    let depth = 0, inStr = false, escape = false;
+    for (let i = 0; i < slice.length; i++) {
+      const c = slice[i];
+      if (escape) { escape = false; continue; }
+      if (c === "\\" && inStr) { escape = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === opener) depth++;
+      else if (c === closer) { depth--; if (depth === 0) { try { return JSON.parse(slice.slice(0, i + 1)); } catch {} break; } }
+    }
+  }
+
+  throw new Error(`JSON_PARSE_FAILED: ${raw.slice(0, 200)}`);
 }
 
 const EXTRACTION_PROMPT = `You are an expert at reading Moroccan bank statements (Attijariwafa, CIH, BMCE/Bank of Africa, BCP/Banque Populaire, Société Générale Maroc, BMCI, Al Barid Bank).
@@ -108,21 +140,20 @@ async function callClaude(
     return m;
   });
 
-  const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 4000,
+  // Sonnet for document/image blocks; Haiku for plain text (CSV/Excel)
+  const isTextOnly = finalMessages.every((m) => typeof m.content === "string");
+  const stream = anthropic.messages.stream({
+    model: isTextOnly ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6",
+    max_tokens: isTextOnly ? 8192 : 16000,
     messages: finalMessages,
   });
+  const response = await stream.finalMessage();
 
   const rawText = response.content[0].type === "text" ? response.content[0].text.trim() : "";
-  const cleaned = stripFences(rawText);
-
-  let parsed: any;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error("JSON_PARSE_FAILED");
+  if (response.stop_reason === "max_tokens") {
+    throw new Error("TRUNCATED");
   }
+  const parsed = extractJSON(rawText);
 
   // Accept both { transactions: [] } and bare []
   const rawTxs: any[] = Array.isArray(parsed) ? parsed : (parsed.transactions ?? []);
@@ -168,6 +199,20 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { data: company } = await supabase.from("companies").select("id").eq("user_id", user.id).single();
+  if (company) {
+    const usage = await getMonthlyUsage(company.id);
+    if (!usage.allowed) {
+      return NextResponse.json({
+        error: "limit_reached",
+        message: `Limite mensuelle atteinte (${usage.used}/${usage.limit} documents). Réinitialisation le ${usage.resetDate}.`,
+        used: usage.used,
+        limit: usage.limit,
+        resetDate: usage.resetDate,
+      }, { status: 429 });
+    }
+  }
+
   let formData: FormData;
   try {
     formData = await req.formData();
@@ -186,12 +231,15 @@ export async function POST(req: NextRequest) {
 
   const isPDF = file.type === "application/pdf";
   const isImage = ["image/jpeg", "image/png", "image/webp", "image/jpg"].includes(file.type);
-  const isCSV = file.type === "text/csv" || file.type === "application/vnd.ms-excel"
-    || file.type === "application/csv" || file.name.toLowerCase().endsWith(".csv");
+  const isXLSX = file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    || file.name.toLowerCase().endsWith(".xlsx");
+  const isXLS = file.type === "application/vnd.ms-excel" || file.name.toLowerCase().endsWith(".xls");
+  const isCSV = file.type === "text/csv" || file.type === "application/csv"
+    || file.name.toLowerCase().endsWith(".csv");
 
-  if (!isPDF && !isImage && !isCSV) {
+  if (!isPDF && !isImage && !isCSV && !isXLSX && !isXLS) {
     return NextResponse.json(
-      { error: "Format non supporté. Utilisez PDF, CSV, JPG ou PNG." },
+      { error: "Format non supporté. Utilisez PDF, CSV, Excel, JPG ou PNG." },
       { status: 400 }
     );
   }
@@ -199,38 +247,47 @@ export async function POST(req: NextRequest) {
   // Build base messages
   let baseMessages: Anthropic.MessageParam[];
 
-  if (isCSV) {
-    const csvText = await file.text();
+  if (isPDF) {
+    const bytes = await file.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString("base64");
+    baseMessages = [{
+      role: "user",
+      content: [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } } as any,
+        { type: "text" as const, text: EXTRACTION_PROMPT },
+      ] as Anthropic.ContentBlockParam[],
+    }];
+  } else if (isCSV || isXLSX || isXLS) {
+    let csvText: string;
+    if (isXLSX || isXLS) {
+      const bytes = await file.arrayBuffer();
+      const wb = XLSX.read(bytes);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      csvText = XLSX.utils.sheet_to_csv(ws);
+    } else {
+      csvText = await file.text();
+    }
     baseMessages = [{
       role: "user",
       content: `${EXTRACTION_PROMPT}\n\nCSV content:\n\`\`\`\n${csvText}\n\`\`\``,
     }];
   } else {
+    // Image — still needs vision
     const bytes = await file.arrayBuffer();
     const base64 = Buffer.from(bytes).toString("base64");
-
-    let fileBlock: Anthropic.MessageParam["content"][number];
-    if (isPDF) {
-      fileBlock = {
-        type: "document",
-        source: { type: "base64", media_type: "application/pdf", data: base64 },
-      } as any;
-    } else {
-      const mimeType = (file.type === "image/jpg" ? "image/jpeg" : file.type) as
-        "image/jpeg" | "image/png" | "image/webp";
-      fileBlock = {
-        type: "image" as const,
-        source: { type: "base64" as const, media_type: mimeType, data: base64 },
-      };
-    }
+    const mimeType = (file.type === "image/jpg" ? "image/jpeg" : file.type) as
+      "image/jpeg" | "image/png" | "image/webp";
     baseMessages = [{
       role: "user",
-      content: [fileBlock, { type: "text" as const, text: EXTRACTION_PROMPT }] as Anthropic.ContentBlockParam[],
+      content: [
+        { type: "image" as const, source: { type: "base64" as const, media_type: mimeType, data: base64 } },
+        { type: "text" as const, text: EXTRACTION_PROMPT },
+      ] as Anthropic.ContentBlockParam[],
     }];
   }
 
   // Retry up to 3 times if Claude returns 0 transactions
-  const MAX_ATTEMPTS = 3;
+  const MAX_ATTEMPTS = 2;
   let lastError: string | null = null;
   let period: string | null = null;
 
@@ -253,6 +310,11 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      if (company) {
+        await incrementUploadCount(company.id, user.id, {
+          fileName: file.name, fileType: file.type, source: "bank_import",
+        });
+      }
       return NextResponse.json({ transactions, period, count: transactions.length });
 
     } catch (err: any) {
@@ -266,9 +328,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      lastError = msg === "JSON_PARSE_FAILED"
+      lastError = msg === "TRUNCATED"
+        ? "Relevé trop volumineux — la réponse a été tronquée."
+        : msg.startsWith("JSON_PARSE_FAILED")
         ? "Format de réponse inattendu."
-        : "Erreur d'analyse.";
+        : `Erreur d'analyse (${msg.slice(0, 80)})`;
 
       if (attempt < MAX_ATTEMPTS) await sleep(1000);
     }

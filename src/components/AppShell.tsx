@@ -72,6 +72,13 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
+  const [docsRemaining, setDocsRemaining] = useState<number | null>(null);
+  useEffect(() => {
+    if (pathname === "/transactions") {
+      fetch("/api/usage").then(r => r.json()).then(d => { if (d.remaining != null) setDocsRemaining(d.remaining); }).catch(() => {});
+    }
+  }, [pathname]);
+
   const isActive = (href: string) =>
     href === "/invoices"
       ? pathname === "/invoices" || pathname.startsWith("/invoices/")
@@ -194,9 +201,19 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
                   </button>
                 )}
                 {pathname === "/transactions" && (
-                  <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("bank-import-open"))}>
-                    <Plus size={13} /> Importer un relevé
-                  </button>
+                  <div className="relative group flex flex-col items-end gap-0.5">
+                    <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("bank-import-open"))}>
+                      <Plus size={13} /> Importer un relevé
+                    </button>
+                    <div className="absolute right-0 top-full mt-1.5 bg-[#0D1526] text-white text-[11px] rounded-md px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                      PDF max 8 pages · CSV max 200 lignes
+                    </div>
+                    {docsRemaining !== null && (
+                      <span className={`text-[10.5px] font-medium ${docsRemaining === 0 ? "text-[#DC2626]" : docsRemaining <= 20 ? "text-[#D97706]" : "text-[#6B7280]"}`}>
+                        {docsRemaining === 0 ? "Limite atteinte" : `${docsRemaining} doc${docsRemaining > 1 ? "s" : ""} restant${docsRemaining > 1 ? "s" : ""}`}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

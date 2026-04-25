@@ -48,6 +48,29 @@ const PROCESSING_STEPS = [
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+// ─── Client-side file validation helpers ─────────────────────────────────────
+
+async function countPDFPages(f: File): Promise<number> {
+  const buffer = await f.arrayBuffer();
+  const text = new TextDecoder("latin1").decode(new Uint8Array(buffer));
+  const countMatches = [...text.matchAll(/\/Count\s+(\d+)/g)];
+  if (countMatches.length > 0) return Math.max(...countMatches.map((m) => parseInt(m[1], 10)));
+  return text.match(/\/Type\s*\/Page[^s]/g)?.length ?? 1;
+}
+
+async function countCSVRows(f: File): Promise<number> {
+  const text = await f.text();
+  return Math.max(text.split("\n").filter((r) => r.trim().length > 0).length - 1, 0);
+}
+
+async function countExcelRows(f: File): Promise<number> {
+  const XLSX = await import("xlsx");
+  const buffer = await f.arrayBuffer();
+  const wb = XLSX.read(buffer);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws).length;
+};
+
 function fmt(n: number) {
   return Math.abs(n).toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD";
 }
@@ -107,6 +130,7 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
   const [bank, setBank] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState<{ used: number; limit: number; resetDate: string } | null>(null);
 
   // Processing
   const [processingStep, setProcessingStep] = useState(0);
@@ -126,6 +150,17 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
     incomeAmt: number; expenseAmt: number; skipped: number;
   } | null>(null);
 
+  // Client-side file validation
+  type FileValidation = {
+    valid: boolean;
+    type: "pdf" | "csv" | "xlsx" | "image";
+    count: number;
+    limit: number;
+    sizeMB: string;
+  };
+  const [validating, setValidating] = useState(false);
+  const [fileValidation, setFileValidation] = useState<FileValidation | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset when modal closes
@@ -135,26 +170,53 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
         setStep(1); setFile(null); setBank(""); setApiError(null);
         setProcessingStep(0); setTransactions([]); setPeriod(null);
         setFilter("all"); setSearch(""); setEditingId(null);
-        setImportedStats(null);
+        setImportedStats(null); setFileValidation(null); setValidating(false); setLimitReached(null);
       }, 200);
     }
   }, [open]);
 
   // ── File handling ──────────────────────────────────────────────────────────
 
-  const handleFile = useCallback((f: File) => {
-    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/jpg", "image/webp", "text/csv", "application/vnd.ms-excel", "application/csv"];
-    const isCSV = f.name.toLowerCase().endsWith(".csv");
-    if (!allowed.includes(f.type) && !isCSV) {
-      setApiError("Format non supporté. Utilisez PDF, CSV, JPG ou PNG.");
+  const handleFile = useCallback(async (f: File) => {
+    const name = f.name.toLowerCase();
+    const isPDF = f.type === "application/pdf";
+    const isImage = ["image/jpeg", "image/png", "image/webp", "image/jpg"].includes(f.type);
+    const isXLSX = f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || name.endsWith(".xlsx");
+    const isXLS = f.type === "application/vnd.ms-excel" || name.endsWith(".xls");
+    const isCSV = f.type === "text/csv" || f.type === "application/csv" || name.endsWith(".csv");
+
+    if (!isPDF && !isImage && !isCSV && !isXLSX && !isXLS) {
+      setApiError("Format non supporté. Utilisez PDF, CSV, Excel, JPG ou PNG.");
       return;
     }
     if (f.size > 10 * 1024 * 1024) {
-      setApiError("Fichier trop volumineux. Maximum 10MB.");
+      setApiError("Fichier trop volumineux. Maximum 10 MB.");
       return;
     }
     setApiError(null);
     setFile(f);
+    setFileValidation(null);
+    setValidating(true);
+    try {
+      const sizeMB = (f.size / 1024 / 1024).toFixed(1);
+      if (isPDF) {
+        const pages = await countPDFPages(f);
+        setFileValidation({ valid: pages <= 8, type: "pdf", count: pages, limit: 8, sizeMB });
+      } else if (isXLSX || isXLS) {
+        const rows = await countExcelRows(f);
+        setFileValidation({ valid: rows <= 200, type: "xlsx", count: rows, limit: 200, sizeMB });
+      } else if (isCSV) {
+        const rows = await countCSVRows(f);
+        setFileValidation({ valid: rows <= 200, type: "csv", count: rows, limit: 200, sizeMB });
+      } else {
+        setFileValidation({ valid: true, type: "image", count: 1, limit: 1, sizeMB });
+      }
+    } catch {
+      // validation failed — allow through
+      setFileValidation({ valid: true, type: isPDF ? "pdf" : "csv", count: 0, limit: 8, sizeMB: (f.size / 1024 / 1024).toFixed(1) });
+    } finally {
+      setValidating(false);
+    }
   }, []);
 
   function onDrop(e: React.DragEvent) {
@@ -172,7 +234,6 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
     setApiError(null);
     setProcessingStep(0);
 
-    // Animation timers
     const t1 = setTimeout(() => setProcessingStep(1), 700);
     const t2 = setTimeout(() => setProcessingStep(2), 2800);
 
@@ -181,12 +242,24 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
     if (bank) fd.append("bank", bank);
 
     const res = await fetch("/api/import/bank-statement", { method: "POST", body: fd });
-    const result = await res.json();
+    let result: any;
+    try {
+      result = await res.json();
+    } catch {
+      result = { error: "Erreur serveur inattendue. Réessayez." };
+    }
 
     clearTimeout(t1);
     clearTimeout(t2);
 
     if (!res.ok || result.error) {
+      if (result.error === "limit_reached") {
+        setLimitReached({ used: result.used, limit: result.limit, resetDate: result.resetDate });
+        setProcessingStep(0);
+        await sleep(400);
+        setStep(1);
+        return;
+      }
       setApiError(result.error || "Erreur d'analyse.");
       setProcessingStep(0);
       await sleep(600);
@@ -367,54 +440,111 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
 
           {/* ── STEP 1: Upload ────────────────────────────────────────────── */}
           {step === 1 && (
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
 
-              {/* Drop zone */}
-              <div
-                className={`relative border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
-                  dragOver
-                    ? "border-[#C8924A] bg-[rgba(200,146,74,0.06)]"
-                    : file
-                    ? "border-[#059669] bg-[#F0FDF4]"
-                    : "border-[rgba(0,0,0,0.15)] hover:border-[#C8924A] hover:bg-[rgba(200,146,74,0.03)]"
-                }`}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={onDrop}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.csv,image/jpeg,image/png,image/jpg,image/webp"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-                />
-                {file ? (
-                  <>
-                    <div className="text-3xl">📄</div>
-                    <p className="text-[13px] font-semibold text-[#059669]">{file.name}</p>
-                    <p className="text-[11.5px] text-[#6B7280]">
-                      {(file.size / 1024 / 1024).toFixed(1)} MB — Cliquez pour changer
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-12 h-12 rounded-full bg-[#F3F4F6] flex items-center justify-center">
-                      <Upload size={22} className="text-[#9CA3AF]" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[13px] font-medium text-[#1A1A2E]">
-                        Glissez votre relevé bancaire ici
-                      </p>
-                      <p className="text-[12px] text-[#6B7280]">ou cliquez pour sélectionner</p>
-                    </div>
-                    <p className="text-[11px] text-[#9CA3AF]">
-                      PDF, CSV, JPG, PNG — max 10 MB
-                    </p>
-                  </>
-                )}
+              {/* Hidden file input — single instance */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,.csv,.xlsx,.xls,image/jpeg,image/png,image/jpg,image/webp"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) { handleFile(f); e.target.value = ""; } }}
+              />
+
+              {/* Limits info — always visible */}
+              <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg px-4 py-3 text-[#1E40AF]">
+                <p className="text-[12.5px] font-semibold mb-1">Formats acceptés :</p>
+                <ul className="text-[12px] flex flex-col gap-0.5">
+                  <li>📄 PDF — maximum 8 pages</li>
+                  <li>📋 CSV / Excel — maximum 200 lignes</li>
+                  <li>🖼️ Image (JPG, PNG) — 1 page max</li>
+                </ul>
               </div>
+
+              {/* Drop zone / validation states */}
+              {!file || validating ? (
+                <div
+                  className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
+                    dragOver
+                      ? "border-[#C8924A] bg-[rgba(200,146,74,0.06)]"
+                      : "border-[rgba(0,0,0,0.15)] hover:border-[#C8924A] hover:bg-[rgba(200,146,74,0.03)]"
+                  }`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={onDrop}
+                >
+                  {validating ? (
+                    <>
+                      <Loader2 size={22} className="animate-spin text-[#C8924A]" />
+                      <p className="text-[12.5px] text-[#6B7280]">Vérification du fichier...</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 rounded-full bg-[#F3F4F6] flex items-center justify-center">
+                        <Upload size={22} className="text-[#9CA3AF]" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[13px] font-medium text-[#1A1A2E]">Glissez votre relevé bancaire ici</p>
+                        <p className="text-[12px] text-[#6B7280]">ou cliquez pour sélectionner</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : fileValidation && !fileValidation.valid ? (
+                /* REJECTED */
+                <div className="border border-[#FECACA] bg-[#FEF2F2] rounded-xl p-5 flex flex-col gap-3">
+                  <p className="text-[13px] font-semibold text-[#DC2626]">❌ Fichier trop volumineux</p>
+                  <p className="text-[12px] font-medium text-[#374151]">{file.name}</p>
+                  <p className="text-[12px] text-[#DC2626]">
+                    {fileValidation.type === "pdf"
+                      ? `Pages détectées : ${fileValidation.count} (limite : ${fileValidation.limit})`
+                      : `Lignes détectées : ${fileValidation.count.toLocaleString("fr-MA")} (limite : ${fileValidation.limit})`}
+                  </p>
+                  <div className="text-[12px] text-[#374151] flex flex-col gap-1.5">
+                    <p className="font-medium">Comment résoudre :</p>
+                    {fileValidation.type === "pdf" ? (
+                      <>
+                        <p>• Divisez le PDF sur{" "}
+                          <a href="https://smallpdf.com/split-pdf" target="_blank" rel="noopener noreferrer" className="text-[#C8924A] underline">smallpdf.com</a>
+                        </p>
+                        <a href="https://smallpdf.com/split-pdf" target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[12px] text-[#C8924A] border border-[#C8924A] rounded-lg px-3 py-1.5 w-fit hover:bg-[rgba(200,146,74,0.05)] transition-colors">
+                          ↗ Ouvrir smallpdf.com
+                        </a>
+                      </>
+                    ) : (
+                      <p>• Filtrez les dates dans Excel pour garder seulement 3 mois de transactions.</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => { setFile(null); setFileValidation(null); fileInputRef.current?.click(); }}
+                    className="text-[12px] text-[#C8924A] border border-[#C8924A] rounded-lg px-4 py-2 w-fit hover:bg-[rgba(200,146,74,0.05)] transition-colors"
+                  >
+                    ← Choisir un autre fichier
+                  </button>
+                </div>
+              ) : fileValidation?.valid ? (
+                /* VALID */
+                <div className="border border-[#A7F3D0] bg-[#F0FDF4] rounded-xl p-5 flex flex-col gap-2">
+                  <p className="text-[13px] font-semibold text-[#065F46]">✅ Fichier valide</p>
+                  <p className="text-[12.5px] font-medium text-[#374151]">{file.name}</p>
+                  <p className="text-[12px] text-[#6B7280]">
+                    {fileValidation.type === "pdf"
+                      ? `Pages : ${fileValidation.count} / ${fileValidation.limit} ✓`
+                      : fileValidation.type === "image"
+                      ? "Image — 1 page ✓"
+                      : `Lignes : ${fileValidation.count.toLocaleString("fr-MA")} / ${fileValidation.limit} ✓`}
+                    {" · "}{fileValidation.sizeMB} MB
+                  </p>
+                  <button
+                    onClick={() => { setFile(null); setFileValidation(null); fileInputRef.current?.click(); }}
+                    className="text-[11px] text-[#6B7280] hover:text-[#374151] w-fit transition-colors mt-0.5"
+                  >
+                    ← Choisir un autre fichier
+                  </button>
+                </div>
+              ) : null}
 
               {/* Bank selector */}
               <div className="flex flex-col gap-1.5">
@@ -440,10 +570,12 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
               <div className="mt-auto flex justify-end">
                 <button
                   onClick={analyze}
-                  disabled={!file}
+                  disabled={!file || validating || !fileValidation?.valid}
                   className="btn btn-gold px-6 disabled:opacity-50"
                 >
-                  Analyser le relevé →
+                  {fileValidation && !fileValidation.valid
+                    ? "Fichier trop volumineux"
+                    : "Extraire les transactions →"}
                 </button>
               </div>
             </div>
@@ -747,6 +879,26 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
           )}
         </div>
       </div>
+
+      {/* Limit-reached overlay */}
+      {limitReached && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(13,21,38,0.7)" }}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full flex flex-col gap-4">
+            <div className="w-12 h-12 rounded-full bg-[#FEE2E2] flex items-center justify-center text-2xl mx-auto">⛔</div>
+            <div className="text-center">
+              <h3 className="text-[15px] font-bold text-[#1A1A2E] mb-1">Limite mensuelle atteinte</h3>
+              <p className="text-[12.5px] text-[#6B7280]">
+                Vous avez importé {limitReached.used}/{limitReached.limit} documents ce mois.
+                Les imports seront disponibles à nouveau le <strong>{limitReached.resetDate}</strong>.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setLimitReached(null)} className="btn btn-outline flex-1 justify-center">Fermer</button>
+              <a href="/settings" className="btn btn-gold flex-1 justify-center text-center">Voir l'abonnement →</a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
