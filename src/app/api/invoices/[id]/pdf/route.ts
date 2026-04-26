@@ -155,7 +155,7 @@ export async function POST(
     const arrayBuffer = generateInvoicePDF(input);
 
     // Build share URL from short ID — no storage upload required for WhatsApp
-    const shareUrl = `https://www.mohasibai.com/f/${id.substring(0, 8)}`;
+    const shareUrl = `https://www.mohasibai.com/f/${id}`;
 
     // Upload PDF to storage in the background — failures are silent and never block WhatsApp
     const storagePath = `${user.id}/${inv.invoice_number}.pdf`;
