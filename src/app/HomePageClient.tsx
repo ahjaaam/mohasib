@@ -141,7 +141,6 @@ export default function HomePageClient() {
             <div style={{ marginTop: 48, paddingTop: 40, borderTop: "1px solid rgba(0,0,0,0.08)", display: "flex", flexWrap: "wrap", gap: 40 }}>
               {[
                /*  { num: "4–6h de travail", label: "Économisées par semaine" }, */
-               /*  { num: "A partir de 199 MAD", label: "vs 1 000+ MAD fiduciaire" }, */
                /* { num: "100%", label: "Conforme DGI Maroc" }, */
               ].map((s, i) => (
                 <div key={i}>

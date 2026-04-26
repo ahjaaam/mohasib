@@ -20,11 +20,11 @@ export const metadata: Metadata = {
   icons: { icon: "/favicon.png" },
   title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
   description:
-    "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
+    "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines.",
   openGraph: {
     title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
     description:
-      "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines. Dès 199 MAD/mois.",
+      "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines.",
     type: "website",
     images: [
       {
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
-    description: "Factures, TVA, Paie et comptable dédié. Dès 199 MAD/mois.",
+    description: "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines.",
   },
 };
 
