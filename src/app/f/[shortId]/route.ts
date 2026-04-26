@@ -15,13 +15,14 @@ export async function GET(
   try {
     const { shortId } = await params;
 
-    const { data: inv } = await supabase
+    const { data: inv, error: invErr } = await supabase
       .from("invoices")
       .select("*, clients(*)")
       .like("id", `${shortId}%`)
       .single();
 
-    if (!inv) {
+    if (invErr || !inv) {
+      console.error("[public invoice] lookup failed", { shortId, invErr });
       return new NextResponse("Facture introuvable.", {
         status: 404,
         headers: { "Content-Type": "text/plain" },
