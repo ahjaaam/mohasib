@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
 import { Resend } from "resend";
 import sizeOf from "image-size";
+import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
+
+const EMAIL_LIMIT = 10;
+const EMAIL_OPTS = { maxAttempts: EMAIL_LIMIT, windowMs: 60 * 60_000, blockMs: 60 * 60_000 };
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -16,9 +20,12 @@ function fmtAmount(n: number) {
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rl = await checkRateLimit(getClientIp(req), "invoices/send-email", EMAIL_OPTS);
+  if (!rl.allowed) return tooManyRequests(rl, EMAIL_LIMIT, "Trop de tentatives. Réessayez dans 1 heure.");
+
   try {
     const { id } = await params;
     const supabase = await createClient();

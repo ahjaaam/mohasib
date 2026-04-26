@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import * as XLSX from "xlsx";
 import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
+import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
+
+const IMPORT_LIMIT = 20;
+const IMPORT_OPTS = { maxAttempts: IMPORT_LIMIT, windowMs: 5 * 60_000, blockMs: 10 * 60_000 };
 
 export const maxDuration = 120;
 
@@ -195,6 +199,9 @@ function normalizeTxs(rawTxs: any[]): any[] {
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export async function POST(req: NextRequest) {
+  const rl = await checkRateLimit(getClientIp(req), "import/bank-statement", IMPORT_OPTS);
+  if (!rl.allowed) return tooManyRequests(rl, IMPORT_LIMIT, "Trop de tentatives. Réessayez dans 10 minutes.");
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

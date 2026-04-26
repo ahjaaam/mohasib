@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
+import { Turnstile } from "@marsidev/react-turnstile";
+
+const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+const CAPTCHA_THRESHOLD = 3;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,21 +16,40 @@ export default function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
+
+  const needsCaptcha = SITE_KEY && failedAttempts >= CAPTCHA_THRESHOLD;
+  const captchaBlocking = needsCaptcha && !captchaToken;
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    if (captchaBlocking) return;
     setLoading(true);
     setError(null);
 
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+    let res: Response, data: any;
+    try {
+      res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, captchaToken }),
+      });
+      data = await res.json();
+    } catch {
+      setLoading(false);
+      setFailedAttempts((n) => n + 1);
+      setError("Erreur réseau. Vérifiez votre connexion et réessayez.");
+      return;
+    }
 
     setLoading(false);
-    if (err) {
-      setError(err.message === "Invalid login credentials"
-        ? "Email ou mot de passe incorrect."
-        : err.message);
+
+    if (!res.ok) {
+      setFailedAttempts((n) => n + 1);
+      setCaptchaToken(null); // force re-solve on next attempt
+      setError(data.error ?? "Erreur de connexion.");
     } else {
       router.push("/dashboard");
       router.refresh();
@@ -129,9 +151,26 @@ export default function LoginPage() {
               </p>
             )}
 
+            {needsCaptcha && (
+              <div>
+                <Turnstile
+                  siteKey={SITE_KEY}
+                  onSuccess={(token) => setCaptchaToken(token)}
+                  onExpire={() => setCaptchaToken(null)}
+                  onError={() => setCaptchaToken(null)}
+                  options={{ theme: "light" }}
+                />
+                {captchaBlocking && (
+                  <p className="text-xs text-amber-600 mt-1.5">
+                    Veuillez compléter la vérification ci-dessus.
+                  </p>
+                )}
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !!captchaBlocking}
               className="w-full py-2.5 rounded-lg font-medium text-sm text-white transition-colors disabled:opacity-60"
               style={{ backgroundColor: "#C8924A" }}>
               {loading ? "Connexion en cours..." : "Se connecter"}

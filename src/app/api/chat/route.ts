@@ -1,5 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
+
+const CHAT_LIMIT = 30;
+const CHAT_OPTS = { maxAttempts: CHAT_LIMIT, windowMs: 60_000, blockMs: 5 * 60_000 };
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -22,7 +27,10 @@ Tu précises quand une question nécessite l'avis d'un expert-comptable agréé.
 
 Réponds en français ou darija selon la langue de l'utilisateur.`;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const rl = await checkRateLimit(getClientIp(req), "chat", CHAT_OPTS);
+  if (!rl.allowed) return tooManyRequests(rl, CHAT_LIMIT, "Trop de tentatives. Réessayez dans 5 minutes.");
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
