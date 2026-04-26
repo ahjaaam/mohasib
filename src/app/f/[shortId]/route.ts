@@ -14,6 +14,8 @@ export async function GET(
 ) {
   try {
     const { shortId } = await params;
+    const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+    console.log("[public invoice] shortId:", shortId, "hasServiceKey:", hasServiceKey);
 
     const { data: inv, error: invErr } = await supabase
       .from("invoices")
@@ -22,7 +24,12 @@ export async function GET(
       .single();
 
     if (invErr || !inv) {
-      console.error("[public invoice] lookup failed", { shortId, invErr });
+      console.error("[public invoice] lookup failed", {
+        shortId,
+        code: invErr?.code,
+        message: invErr?.message,
+        hasServiceKey,
+      });
       return new NextResponse("Facture introuvable.", {
         status: 404,
         headers: { "Content-Type": "text/plain" },
