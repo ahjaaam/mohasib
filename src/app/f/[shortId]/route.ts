@@ -20,7 +20,7 @@ export async function GET(
     const { data: inv, error: invErr } = await supabase
       .from("invoices")
       .select("*, clients(*)")
-      .like("id", `${shortId}%`)
+      .filter("id::text", "like", `${shortId}%`)
       .single();
 
     if (invErr || !inv) {
