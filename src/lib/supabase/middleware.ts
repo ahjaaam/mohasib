@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isAuthPage = path.startsWith("/auth");
   const isApiRoute = path.startsWith("/api");
-  const isPublic = path === "/";
+  const isPublic = path === "/" || path.startsWith("/f/");
 
   // API routes handle their own auth — never redirect them
   if (!user && !isAuthPage && !isApiRoute && !isPublic) {

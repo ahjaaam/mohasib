@@ -90,6 +90,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
   async function handleWhatsApp() {
     setOpen(false);
     setWaLoading(true);
+    console.log("Invoice ID for WhatsApp:", inv.id);
     try {
       const res = await fetch(`/api/invoices/${inv.id}/pdf`, { method: "POST" });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
@@ -105,14 +106,24 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
 
   async function handlePdf() {
     setOpen(false);
+    if (!inv.id) { console.error("Missing invoice ID"); return; }
+    console.log("Invoice ID for PDF:", inv.id);
     try {
-      const res = await fetch(`/api/invoices/${inv.id}/pdf`, { method: "POST" });
-      if (!res.ok) throw new Error("Erreur PDF");
-      const { pdfUrl } = await res.json();
-      if (pdfUrl) window.open(pdfUrl, "_blank");
-      else toast.error("PDF non disponible");
-    } catch {
-      toast.error("Erreur lors du téléchargement");
+      const res = await fetch(`/api/invoices/${inv.id}/pdf`);
+      if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      a.href = url;
+      a.download = match ? match[1] : `facture-${inv.invoice_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
+    } catch (e: any) {
+      console.error("PDF error:", e);
+      toast.error(e.message || "Erreur lors du téléchargement");
     }
   }
 

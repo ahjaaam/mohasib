@@ -154,19 +154,15 @@ export async function POST(
     const { input, client } = await buildInput(inv, company);
     const arrayBuffer = generateInvoicePDF(input);
 
+    // Build share URL from short ID — no storage upload required for WhatsApp
+    const shareUrl = `https://www.mohasibai.com/f/${id.substring(0, 8)}`;
+
+    // Upload PDF to storage in the background — failures are silent and never block WhatsApp
     const storagePath = `${user.id}/${inv.invoice_number}.pdf`;
-    const { error: uploadError } = await supabase.storage
+    supabase.storage
       .from("invoices-pdf")
-      .upload(storagePath, new Uint8Array(arrayBuffer), {
-        contentType: "application/pdf",
-        upsert: true,
-      });
-
-    if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("invoices-pdf")
-      .getPublicUrl(storagePath);
+      .upload(storagePath, new Uint8Array(arrayBuffer), { contentType: "application/pdf", upsert: true })
+      .catch(() => {});
 
     // Build message
     const ttc = Number(inv.total).toLocaleString("fr-MA", { minimumFractionDigits: 2 });
@@ -183,7 +179,7 @@ export async function POST(
       `Veuillez trouver ci-joint votre facture *${inv.invoice_number}* d'un montant de *${ttc} MAD*.`,
       "",
       `📄 Télécharger la facture :`,
-      publicUrl,
+      shareUrl,
       ...(dueDate ? ["", `Date d'échéance : ${dueDate}`] : []),
       "",
       "Merci pour votre confiance.",
@@ -210,7 +206,7 @@ export async function POST(
         .eq("id", id);
     } catch { /* columns may not exist yet */ }
 
-    return NextResponse.json({ whatsappUrl, publicUrl });
+    return NextResponse.json({ whatsappUrl, publicUrl: shareUrl });
   } catch (err: any) {
     console.error("[PDF POST]", err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
