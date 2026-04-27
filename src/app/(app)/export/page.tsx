@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { translateError } from "@/lib/errors";
 import { Download, Package, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 
 function fmt(n: number) {
@@ -514,7 +515,7 @@ export default function ExportPage() {
       localStorage.setItem("mohasib_export_history", JSON.stringify(newHistory));
       setDone(true);
     } catch (err: any) {
-      setError(err.message ?? "Erreur lors de la génération du package");
+      setError(translateError(err));
     } finally {
       setGenerating(false);
       setCurrentStep(-1);

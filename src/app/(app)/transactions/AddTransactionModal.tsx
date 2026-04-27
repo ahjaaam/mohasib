@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { translateError } from "@/lib/errors";
 import { X, Plus } from "lucide-react";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import type { Client } from "@/types";
@@ -73,7 +74,7 @@ export default function AddTransactionModal({ userId, clients }: Props) {
 
     setSaving(false);
     if (err) {
-      setError(err.message);
+      setError(translateError(err));
     } else {
       setOpen(false);
       router.refresh();

@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import { translateError } from "@/lib/errors";
 import { Upload } from "lucide-react";
 
 interface Props {
@@ -84,7 +85,7 @@ export default function EntrepriseTab({ userId, company }: Props) {
       tva_taux_defaut: Number(form.tva_taux_defaut),
     }, { onConflict: "user_id" });
     setSaving(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(translateError(error));
     else toast.success("✓ Informations enregistrées");
   }
 

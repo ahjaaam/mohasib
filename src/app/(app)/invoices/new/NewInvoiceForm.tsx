@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import { translateError } from "@/lib/errors";
 import { Trash2, Plus, Loader2, Send } from "lucide-react";
 import type { Client } from "@/types";
 
@@ -123,7 +124,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
       .single();
 
     setSaving(false);
-    if (err) { setError(err.message); }
+    if (err) { setError(translateError(err)); }
     else if (status === "draft") { router.push("/invoices"); router.refresh(); }
     else { setCreated({ id: row.id, number: row.invoice_number }); }
   }
@@ -143,7 +144,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
       setTimeout(() => { router.push("/invoices"); router.refresh(); }, 1500);
     } catch (e: any) {
       setWaState("error");
-      toast.error(e.message || "Erreur WhatsApp", { duration: 5000 });
+      toast.error(translateError(e), { duration: 5000 });
       setTimeout(() => setWaState("idle"), 2500);
     }
   }

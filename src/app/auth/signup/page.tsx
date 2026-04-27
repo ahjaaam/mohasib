@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { translateError } from "@/lib/errors";
 import Link from "next/link";
 import Image from "next/image";
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
@@ -39,7 +40,7 @@ export default function SignupPage() {
 
     setLoading(false);
     if (err) {
-      setError(err.message);
+      setError(translateError(err));
     } else {
       setSuccess(true);
     }

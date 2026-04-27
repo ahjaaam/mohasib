@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import { translateError } from "@/lib/errors";
 import { Camera } from "lucide-react";
 
 interface Props {
@@ -81,7 +82,7 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
       }, { onConflict: "user_id" });
     }
     setSaving(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(translateError(error));
     else toast.success("✓ Profil enregistré");
   }
 
@@ -91,7 +92,7 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
     setSavingPwd(true);
     const { error } = await supabase.auth.updateUser({ password: pwd.next });
     setSavingPwd(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(translateError(error));
     else { toast.success("✓ Mot de passe modifié"); setPwd({ current: "", next: "", confirm: "" }); }
   }
 

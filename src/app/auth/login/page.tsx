@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
+import { translateError } from "@/lib/errors";
 import { Turnstile } from "@marsidev/react-turnstile";
 
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
@@ -40,7 +41,7 @@ export default function LoginPage() {
     } catch {
       setLoading(false);
       setFailedAttempts((n) => n + 1);
-      setError("Erreur réseau. Vérifiez votre connexion et réessayez.");
+      setError(translateError({ code: "NETWORK_ERROR" }));
       return;
     }
 
@@ -49,7 +50,7 @@ export default function LoginPage() {
     if (!res.ok) {
       setFailedAttempts((n) => n + 1);
       setCaptchaToken(null); // force re-solve on next attempt
-      setError(data.error ?? "Erreur de connexion.");
+      setError(translateError(data));
     } else {
       router.push("/dashboard");
       router.refresh();

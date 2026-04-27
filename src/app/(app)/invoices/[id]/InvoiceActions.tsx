@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import { translateError } from "@/lib/errors";
 import { Download, Loader2, Send } from "lucide-react";
 
 type WaState = "idle" | "loading" | "success" | "error";
@@ -64,7 +65,7 @@ export default function InvoiceActions({
       a.click();
       setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
     } catch (e: any) {
-      toast.error(e.message || "Erreur lors de la génération du PDF", { duration: 8000 });
+      toast.error(translateError(e), { duration: 8000 });
     } finally {
       setLoadingAction(null);
     }
@@ -86,7 +87,7 @@ export default function InvoiceActions({
       setTimeout(() => setWaState("idle"), 2500);
     } catch (e: any) {
       setWaState("error");
-      toast.error(e.message || "Erreur lors de l'envoi WhatsApp", { duration: 6000 });
+      toast.error(translateError(e), { duration: 6000 });
       setTimeout(() => setWaState("idle"), 2500);
     }
   }
@@ -111,7 +112,7 @@ export default function InvoiceActions({
       setTimeout(() => setEmailState("idle"), 3000);
     } catch (e: any) {
       setEmailState("error");
-      toast.error(e.message || "Erreur d'envoi. Vérifiez votre connexion.", { duration: 6000 });
+      toast.error(translateError(e), { duration: 6000 });
       setTimeout(() => setEmailState("idle"), 3000);
     }
   }

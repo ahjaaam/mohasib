@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import { translateError } from "@/lib/errors";
 
 interface Props {
   userId: string;
@@ -41,7 +42,7 @@ export default function ApparenceTab({ userId, company }: Props) {
       ...shows,
     }, { onConflict: "user_id" });
     setSaving(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(translateError(error));
     else toast.success("✓ Apparence enregistrée");
   }
 

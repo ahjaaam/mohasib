@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { translateError } from "@/lib/errors";
 import { Trash2, Plus } from "lucide-react";
 import type { Client } from "@/types";
 
@@ -90,7 +91,7 @@ export default function EditInvoiceForm({
     }).eq("id", invoice.id);
 
     setSaving(false);
-    if (err) { setError(err.message); }
+    if (err) { setError(translateError(err)); }
     else { router.push(`/invoices/${invoice.id}`); router.refresh(); }
   }
 

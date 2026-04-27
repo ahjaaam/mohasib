@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { translateError } from "@/lib/errors";
 import { X, UserPlus } from "lucide-react";
 
 interface Props {
@@ -45,7 +46,7 @@ export default function AddClientModal({ userId, className = "", onCreated, butt
 
     setSaving(false);
     if (err) {
-      setError(err.message);
+      setError(translateError(err));
     } else {
       setOpen(false);
       reset();

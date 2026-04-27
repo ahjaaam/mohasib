@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { translateError } from "@/lib/errors";
 import { Loader2 } from "lucide-react";
 import type { Invoice, InvoiceStatus } from "@/types";
 
@@ -98,7 +99,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
       window.open(whatsappUrl, "_blank");
       toast.success("WhatsApp ouvert 📲");
     } catch (err: any) {
-      toast.error(err.message || "Erreur WhatsApp", { duration: 5000 });
+      toast.error(translateError(err), { duration: 5000 });
     } finally {
       setWaLoading(false);
     }
@@ -123,7 +124,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete }: {
       setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
     } catch (e: any) {
       console.error("PDF error:", e);
-      toast.error(e.message || "Erreur lors du téléchargement");
+      toast.error(translateError(e));
     }
   }
 

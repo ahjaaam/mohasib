@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import { translateError } from "@/lib/errors";
 import { X, Upload, Loader2, Search, Trash2, Check } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -388,7 +389,7 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
     setImporting(false);
 
     if (error) {
-      toast.error(error.message, { duration: 8000 });
+      toast.error(translateError(error), { duration: 8000 });
       return;
     }
 

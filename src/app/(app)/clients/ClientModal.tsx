@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { translateError } from "@/lib/errors";
 import { X } from "lucide-react";
 import type { Client } from "@/types";
 
@@ -104,7 +105,7 @@ export default function ClientModal({ userId, client, open, onClose, onSaved, on
 
     setSaving(false);
     if (err) {
-      setError(err.message);
+      setError(translateError(err));
     } else {
       onClose();
       await onSaved();

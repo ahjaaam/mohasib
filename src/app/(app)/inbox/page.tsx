@@ -8,6 +8,7 @@ import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
 import { Upload, CheckCircle, X, Loader2, Camera, Mail, FileText, Eye } from "lucide-react";
 import toast from "react-hot-toast";
+import { translateError } from "@/lib/errors";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -262,7 +263,7 @@ export default function InboxPage() {
       const simpleRows = rows.map(({ compte_comptable: _c, ...r }) => r);
       ({ error: batchErr } = await supabase.from("transactions").insert(simpleRows));
     }
-    if (batchErr) { toast.error(batchErr.message); setBatchSaving(false); return; }
+    if (batchErr) { toast.error(translateError(batchErr)); setBatchSaving(false); return; }
     await supabase.from("receipts").update({ status: "matched" }).eq("user_id", userId).eq("status", "pending");
     setBatchSaving(false);
     setBatchModal(false);
