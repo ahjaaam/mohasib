@@ -49,21 +49,6 @@ export default function AuthErrorPage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <Link
-            href="/auth/signup"
-            style={{
-              display: "block",
-              padding: "12px",
-              borderRadius: 5,
-              backgroundColor: "#C8924A",
-              color: "#FFFFFF",
-              fontSize: 14,
-              fontWeight: 600,
-              textDecoration: "none",
-            }}
-          >
-            Renvoyer un email de confirmation →
-          </Link>
-          <Link
             href="/auth/login"
             style={{
               display: "block",

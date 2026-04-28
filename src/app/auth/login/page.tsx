@@ -100,12 +100,7 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-navy mb-1">Connexion</h1>
-          <p className="text-sm text-gray-500 mb-7">
-            Pas encore de compte ?{" "}
-            <Link href="/auth/signup" className="text-gold hover:underline font-medium">
-              S&apos;inscrire
-            </Link>
-          </p>
+          <p className="text-sm text-gray-500 mb-7"></p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>

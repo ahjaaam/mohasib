@@ -178,7 +178,7 @@ export async function POST(
       "",
       `Veuillez trouver ci-joint votre facture *${inv.invoice_number}* d'un montant de *${ttc} MAD*.`,
       "",
-      `📄 Télécharger la facture :`,
+      `Télécharger la facture :`,
       shareUrl,
       ...(dueDate ? ["", `Date d'échéance : ${dueDate}`] : []),
       "",

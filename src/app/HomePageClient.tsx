@@ -121,9 +121,6 @@ export default function HomePageClient() {
           </p>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
-              <Link href="/auth/signup" style={{ fontSize: 15, fontWeight: 500, color: "#FFFFFF", backgroundColor: NAVY, padding: "14px 28px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
-                Commencer Gratuitement
-              </Link>
               <a
                 href="https://wa.me/212777884056"
                 target="_blank"
