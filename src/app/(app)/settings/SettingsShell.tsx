@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { Toaster } from "react-hot-toast";
-import { Building2, User, Palette, CreditCard } from "lucide-react";
+import { Building2, User, Palette, CreditCard, Plug } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
 import ApparenceTab from "./ApparenceTab";
 import AbonnementTab from "./AbonnementTab";
+import IntegrationsTab from "./IntegrationsTab";
 
 interface Props {
   userId: string;
@@ -22,10 +23,17 @@ const TABS = [
   { id: "profil", label: "Profil personnel", icon: User },
   { id: "apparence", label: "Apparence", icon: Palette },
   { id: "abonnement", label: "Abonnement", icon: CreditCard },
+  { id: "integrations", label: "Intégrations", icon: Plug },
 ];
 
 export default function SettingsShell({ userId, userEmail, companyId, profile, company, prefs }: Props) {
-  const [tab, setTab] = useState("entreprise");
+  const [tab, setTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      if (TABS.some(x => x.id === t)) return t!;
+    }
+    return "entreprise";
+  });
 
   return (
     <>
@@ -78,6 +86,7 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
           {tab === "profil" && <ProfilTab userId={userId} userEmail={userEmail} profile={profile} prefs={prefs} />}
           {tab === "apparence" && <ApparenceTab userId={userId} company={company} />}
           {tab === "abonnement" && <AbonnementTab userId={userId} userEmail={userEmail} companyId={companyId} />}
+          {tab === "integrations" && <IntegrationsTab company={company} />}
         </div>
       </div>
     </>
