@@ -17,7 +17,7 @@ const nextConfig = {
   serverExternalPackages: ["@react-pdf/renderer"],
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3000"],
+      allowedOrigins: ["localhost:3000", "mohasibai.com", "www.mohasibai.com"],
     },
   },
   async headers() {
