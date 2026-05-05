@@ -678,7 +678,7 @@ function LedgerView({
         ]).map((m) => (
           <div key={m.label} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
             <div className="text-[10.5px] text-[#9CA3AF] uppercase tracking-[0.5px] mb-2">{m.label}</div>
-            <div className="text-[20px] font-bold font-mono leading-none" style={{ color: m.color }}>{m.value}</div>
+            <div className="text-[20px] font-bold leading-none" style={{ color: m.color }}>{m.value}</div>
             <div className="text-[10px] text-[#9CA3AF] mt-1">{m.sub}</div>
           </div>
         ))}
@@ -744,7 +744,7 @@ function LedgerView({
                   <td className="px-3 py-2.5 text-[#374151]">
                     <div className="truncate max-w-[160px]">{row.description || "—"}</div>
                   </td>
-                  <td className="px-3 py-2.5 text-right font-mono text-[#1A1A2E]">{fmt(row.ht)}</td>
+                  <td className="px-3 py-2.5 text-right text-[#1A1A2E]">{fmt(row.ht)}</td>
                   <td className="px-3 py-2.5 text-center">
                     {row.tvaRate > 0 ? (
                       <span className="inline-block px-1.5 py-0.5 rounded-full text-[9.5px] font-bold bg-[#FEF3C7] text-[#92400E]">{row.tvaRate}%</span>
@@ -752,10 +752,10 @@ function LedgerView({
                       <span className="text-[#D1D5DB] text-[10px]">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 text-right font-mono text-[#9CA3AF]">
+                  <td className="px-3 py-2.5 text-right text-[#9CA3AF]">
                     {row.tva > 0 ? fmt(row.tva) : <span className="text-[#D1D5DB]">—</span>}
                   </td>
-                  <td className="px-3 py-2.5 text-right font-mono font-bold text-[#1A1A2E]">{fmt(row.ttc)}</td>
+                  <td className="px-3 py-2.5 text-right font-bold text-[#1A1A2E]">{fmt(row.ttc)}</td>
                   <td className="px-3 py-2.5">
                     {row.category ? (
                       <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-medium bg-[#F3F4F6] text-[#374151] whitespace-nowrap max-w-[120px] truncate">
@@ -775,14 +775,14 @@ function LedgerView({
               ))}
             </tbody>
             <tfoot>
-              <tr className="bg-[#1A1A2E]">
-                <td colSpan={4} className="px-3 py-3 text-[10.5px] font-semibold text-white/50 uppercase tracking-[0.5px]">
+              <tr className="bg-[#F3F4F6] border-t border-[rgba(0,0,0,0.1)]">
+                <td colSpan={4} className="px-3 py-3 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px]">
                   Totaux — {rows.length} écriture{rows.length > 1 ? "s" : ""}
                 </td>
-                <td className="px-3 py-3 text-right font-mono font-bold text-white whitespace-nowrap">{fmt(totalHt)}</td>
+                <td className="px-3 py-3 text-right font-bold text-[#1A1A2E] whitespace-nowrap">{fmt(totalHt)}</td>
                 <td />
-                <td className="px-3 py-3 text-right font-mono font-bold text-white/60 whitespace-nowrap">{fmt(totalTva)}</td>
-                <td className="px-3 py-3 text-right font-mono font-bold whitespace-nowrap" style={{ color: "#C8924A" }}>{fmt(totalTtc)}</td>
+                <td className="px-3 py-3 text-right font-bold text-[#6B7280] whitespace-nowrap">{fmt(totalTva)}</td>
+                <td className="px-3 py-3 text-right font-bold whitespace-nowrap text-[#C8924A]">{fmt(totalTtc)}</td>
                 <td colSpan={4} />
               </tr>
             </tfoot>
