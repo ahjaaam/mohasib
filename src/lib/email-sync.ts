@@ -3,9 +3,9 @@ import { decrypt } from "./crypto";
 import { processEmailAttachment } from "./ocr-pipeline";
 
 const INVOICE_KEYWORDS = ["facture", "invoice", "reçu", "recu", "receipt", "reçu de paiement"];
-const MAX_ATTACHMENTS_PER_SYNC = 20;
+const MAX_MESSAGES_PER_SYNC = 20;
 
-// ── Token helpers ──────────────────────────────────────────────────────────────
+// ── Token helpers ─────────────────────────────────────────────────────────────
 
 async function refreshGoogleToken(encryptedRefreshToken: string): Promise<string> {
   const refreshToken = decrypt(encryptedRefreshToken);
@@ -21,6 +21,7 @@ async function refreshGoogleToken(encryptedRefreshToken: string): Promise<string
   });
   if (!res.ok) throw new Error(`Google token refresh failed: ${res.status}`);
   const json = await res.json();
+  if (!json.access_token) throw new Error("No access_token in Google refresh response");
   return json.access_token as string;
 }
 
@@ -42,6 +43,29 @@ async function refreshMicrosoftToken(encryptedRefreshToken: string): Promise<str
   return json.access_token as string;
 }
 
+// ── Gmail part helpers ────────────────────────────────────────────────────────
+
+// Recursively walks Gmail message parts to find all PDF/image attachments,
+// handling nested multipart/mixed and multipart/alternative structures.
+function collectAttachmentParts(part: any): any[] {
+  if (!part) return [];
+  const results: any[] = [];
+
+  if (
+    part.body?.attachmentId &&
+    part.filename &&
+    (part.mimeType === "application/pdf" || part.mimeType?.startsWith("image/"))
+  ) {
+    results.push(part);
+  }
+
+  for (const child of part.parts ?? []) {
+    results.push(...collectAttachmentParts(child));
+  }
+
+  return results;
+}
+
 // ── Gmail sync ────────────────────────────────────────────────────────────────
 
 export async function syncGmail(
@@ -54,14 +78,13 @@ export async function syncGmail(
   const accessToken = await refreshGoogleToken(encryptedToken);
   const authHeader = `Bearer ${accessToken}`;
 
-  // Build search query
+  // Build search query — exclude already-labelled emails
   const labelFilter = labelId ? ` -label:${labelId}` : "";
   const keywordFilter = INVOICE_KEYWORDS.map(k => `"${k}"`).join(" OR ");
   const query = `has:attachment (${keywordFilter})${labelFilter}`;
 
-  // List matching messages (max 20)
   const listRes = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=${MAX_ATTACHMENTS_PER_SYNC}`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=${MAX_MESSAGES_PER_SYNC}`,
     { headers: { Authorization: authHeader } },
   );
   if (!listRes.ok) throw new Error(`Gmail list failed: ${listRes.status}`);
@@ -72,7 +95,6 @@ export async function syncGmail(
 
   for (const msg of messages) {
     try {
-      // Get full message (metadata + attachment info)
       const msgRes = await fetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
         { headers: { Authorization: authHeader } },
@@ -80,14 +102,8 @@ export async function syncGmail(
       if (!msgRes.ok) continue;
       const msgJson = await msgRes.json();
 
-      // Find PDF/image attachments in parts
-      const parts: any[] = msgJson.payload?.parts ?? [];
-      const attachmentParts = parts.filter(
-        (p: any) =>
-          p.body?.attachmentId &&
-          (p.mimeType === "application/pdf" ||
-            p.mimeType?.startsWith("image/")),
-      );
+      // Walk all nested parts recursively to find attachments
+      const attachmentParts = collectAttachmentParts(msgJson.payload);
 
       for (const part of attachmentParts) {
         const attRes = await fetch(
@@ -97,16 +113,16 @@ export async function syncGmail(
         if (!attRes.ok) continue;
         const attJson = await attRes.json();
 
-        // Gmail uses URL-safe base64
+        // Gmail encodes attachment data with URL-safe base64
         const base64 = (attJson.data as string).replace(/-/g, "+").replace(/_/g, "/");
         const bytes = Buffer.from(base64, "base64");
-        const fileName = part.filename || `email-attachment.${part.mimeType === "application/pdf" ? "pdf" : "jpg"}`;
+        const fileName = part.filename || `attachment.${part.mimeType === "application/pdf" ? "pdf" : "jpg"}`;
 
         const result = await processEmailAttachment(supabase, userId, bytes, part.mimeType, fileName);
         if (result) imported++;
       }
 
-      // Apply "Mohasib - Traité" label
+      // Mark email as processed
       if (labelId) {
         await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`, {
           method: "POST",
@@ -119,20 +135,20 @@ export async function syncGmail(
     }
   }
 
-  // Update sync timestamp + import count
+  // Update last sync timestamp and import count
+  const { data: current } = await supabase
+    .from("companies")
+    .select("gmail_import_count")
+    .eq("id", companyId)
+    .single();
+
   await supabase
     .from("companies")
     .update({
       gmail_last_sync: new Date().toISOString(),
-      gmail_import_count: supabase.rpc ? undefined : undefined, // handled below
+      gmail_import_count: (current?.gmail_import_count ?? 0) + imported,
     })
     .eq("id", companyId);
-
-  if (imported > 0) {
-    await supabase.rpc("increment_gmail_import_count", { company_id: companyId, amount: imported }).catch(() => {
-      // RPC may not exist; best-effort
-    });
-  }
 
   return imported;
 }
@@ -148,23 +164,14 @@ export async function syncOutlook(
   const accessToken = await refreshMicrosoftToken(encryptedToken);
   const authHeader = `Bearer ${accessToken}`;
 
-  // Search for messages with attachments containing invoice keywords
+  // $search and $filter cannot be combined in Graph API — search first, filter client-side
   const search = INVOICE_KEYWORDS.join(" OR ");
-  const url = `https://graph.microsoft.com/v1.0/me/messages?$search="${encodeURIComponent(search)}"&$top=${MAX_ATTACHMENTS_PER_SYNC}&$select=id,subject,hasAttachments&$filter=hasAttachments eq true`;
+  const url = `https://graph.microsoft.com/v1.0/me/messages?$search="${encodeURIComponent(search)}"&$top=${MAX_MESSAGES_PER_SYNC}&$select=id,subject,hasAttachments`;
 
   const listRes = await fetch(url, { headers: { Authorization: authHeader } });
-  if (!listRes.ok) {
-    // $search + $filter not always supported; fall back without filter
-    const fallback = await fetch(
-      `https://graph.microsoft.com/v1.0/me/messages?$search="${encodeURIComponent(search)}"&$top=${MAX_ATTACHMENTS_PER_SYNC}&$select=id,subject,hasAttachments`,
-      { headers: { Authorization: authHeader } },
-    );
-    if (!fallback.ok) throw new Error(`Outlook search failed: ${fallback.status}`);
-    const json = await fallback.json();
-    return processOutlookMessages(supabase, userId, companyId, json.value ?? [], authHeader);
-  }
-
+  if (!listRes.ok) throw new Error(`Outlook search failed: ${listRes.status}`);
   const listJson = await listRes.json();
+
   return processOutlookMessages(supabase, userId, companyId, listJson.value ?? [], authHeader);
 }
 
@@ -188,8 +195,8 @@ async function processOutlookMessages(
       const attJson = await attRes.json();
 
       for (const att of attJson.value ?? []) {
-        const mime: string = att.contentType ?? "";
         if (att["@odata.type"] !== "#microsoft.graph.fileAttachment") continue;
+        const mime: string = att.contentType ?? "";
         if (mime !== "application/pdf" && !mime.startsWith("image/")) continue;
 
         const bytes = Buffer.from(att.contentBytes as string, "base64");
@@ -202,14 +209,19 @@ async function processOutlookMessages(
     }
   }
 
+  const { data: current } = await supabase
+    .from("companies")
+    .select("outlook_import_count")
+    .eq("id", companyId)
+    .single();
+
   await supabase
     .from("companies")
-    .update({ outlook_last_sync: new Date().toISOString() })
+    .update({
+      outlook_last_sync: new Date().toISOString(),
+      outlook_import_count: (current?.outlook_import_count ?? 0) + imported,
+    })
     .eq("id", companyId);
-
-  if (imported > 0) {
-    await supabase.rpc("increment_outlook_import_count", { company_id: companyId, amount: imported }).catch(() => {});
-  }
 
   return imported;
 }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
 import { encrypt, decrypt } from "@/lib/crypto";
 
 const serviceSupabase = createServiceClient(
@@ -78,7 +77,7 @@ export async function GET(req: NextRequest) {
 
     const encryptedToken = encrypt(tokens.refresh_token);
 
-    await serviceSupabase
+    const { error: dbErr } = await serviceSupabase
       .from("companies")
       .update({
         gmail_token_encrypted: encryptedToken,
@@ -89,6 +88,11 @@ export async function GET(req: NextRequest) {
         gmail_import_count: 0,
       })
       .eq("user_id", userId);
+
+    if (dbErr) {
+      console.error("[Gmail callback] DB update failed:", dbErr.message, dbErr.code);
+      return NextResponse.redirect(errorUrl);
+    }
 
     return NextResponse.redirect(`${settingsUrl}&success=gmail`);
   } catch (err) {
