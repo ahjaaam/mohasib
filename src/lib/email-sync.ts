@@ -74,13 +74,14 @@ export async function syncGmail(
   userId: string,
   encryptedToken: string,
   labelId: string | null,
-): Promise<number> {
+): Promise<{ imported: number; messagesFound: number }> {
   const accessToken = await refreshGoogleToken(encryptedToken);
   const authHeader = `Bearer ${accessToken}`;
 
-  // Build search query — exclude already-labelled emails
-  const labelFilter = labelId ? ` -label:${labelId}` : "";
-  const keywordFilter = INVOICE_KEYWORDS.map(k => `"${k}"`).join(" OR ");
+  // Exclude already-processed emails using label ID (correct Gmail API syntax: -l:ID)
+  const labelFilter = labelId ? ` -l:${labelId}` : "";
+  // Search subject, body, and attachment filenames — no quotes so partial matches work
+  const keywordFilter = INVOICE_KEYWORDS.join(" OR ");
   const query = `has:attachment (${keywordFilter})${labelFilter}`;
 
   const listRes = await fetch(
@@ -150,7 +151,7 @@ export async function syncGmail(
     })
     .eq("id", companyId);
 
-  return imported;
+  return { imported, messagesFound: messages.length };
 }
 
 // ── Outlook sync ──────────────────────────────────────────────────────────────

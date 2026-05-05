@@ -24,14 +24,14 @@ export async function POST(_req: NextRequest) {
   }
 
   try {
-    const imported = await syncGmail(
+    const { imported, messagesFound } = await syncGmail(
       serviceSupabase,
       company.id,
       user.id,
       company.gmail_token_encrypted,
       company.gmail_label_id ?? null,
     );
-    return NextResponse.json({ imported });
+    return NextResponse.json({ imported, messagesFound });
   } catch (err: any) {
     console.error("[Gmail sync]", err);
     return NextResponse.json({ error: err?.message ?? "Sync failed" }, { status: 500 });

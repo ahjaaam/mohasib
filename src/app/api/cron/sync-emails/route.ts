@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     if (company.gmail_token_encrypted) {
       try {
-        const n = await syncGmail(
+        const { imported: n } = await syncGmail(
           serviceSupabase,
           company.id,
           company.user_id,

@@ -104,7 +104,13 @@ export default function IntegrationsTab({ company }: Props) {
       const res = await fetch("/api/oauth/gmail/sync", { method: "POST" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Erreur de synchronisation");
-      toast.success(`${json.imported ?? 0} document(s) importé(s) depuis Gmail`);
+      const found = json.messagesFound ?? 0;
+      const imp = json.imported ?? 0;
+      toast.success(
+        found === 0
+          ? "Aucun email de facture trouvé dans Gmail"
+          : `${found} email(s) trouvé(s) — ${imp} document(s) importé(s)`
+      );
       window.location.reload();
     } catch (e: any) {
       toast.error(e?.message ?? "Erreur de synchronisation", { duration: 5000 });
