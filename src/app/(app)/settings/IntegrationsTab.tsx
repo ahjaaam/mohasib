@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Loader2, Mail, CheckCircle2, Unplug, RefreshCw } from "lucide-react";
@@ -45,17 +45,9 @@ function StatusBadge({ connected, email }: { connected: boolean; email?: string 
   );
 }
 
-export default function IntegrationsTab({ company }: Props) {
+// Isolated component so useSearchParams doesn't require Suspense on the whole page
+function OAuthFeedback() {
   const searchParams = useSearchParams();
-  const [gmailLoading, setGmailLoading] = useState(false);
-  const [outlookLoading, setOutlookLoading] = useState(false);
-  const [gmailSyncing, setGmailSyncing] = useState(false);
-  const [outlookSyncing, setOutlookSyncing] = useState(false);
-
-  const gmailConnected = !!company.gmail_token_encrypted;
-  const outlookConnected = !!company.outlook_token_encrypted;
-
-  // Show toast on redirect back from OAuth
   useEffect(() => {
     const success = searchParams.get("success");
     const error = searchParams.get("error");
@@ -64,6 +56,17 @@ export default function IntegrationsTab({ company }: Props) {
     if (error === "gmail_failed") toast.error("Connexion Gmail échouée. Réessayez.");
     if (error === "outlook_failed") toast.error("Connexion Outlook échouée. Réessayez.");
   }, [searchParams]);
+  return null;
+}
+
+export default function IntegrationsTab({ company }: Props) {
+  const [gmailLoading, setGmailLoading] = useState(false);
+  const [outlookLoading, setOutlookLoading] = useState(false);
+  const [gmailSyncing, setGmailSyncing] = useState(false);
+  const [outlookSyncing, setOutlookSyncing] = useState(false);
+
+  const gmailConnected = !!company.gmail_token_encrypted;
+  const outlookConnected = !!company.outlook_token_encrypted;
 
   async function disconnectGmail() {
     if (!confirm("Déconnecter Gmail ? La synchronisation automatique sera désactivée.")) return;
@@ -127,6 +130,8 @@ export default function IntegrationsTab({ company }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
+      <Suspense fallback={null}><OAuthFeedback /></Suspense>
+
       {/* Privacy notice */}
       <div className="bg-[#F0F9FF] border border-[#BAE6FD] rounded-xl px-4 py-3 text-[12px] text-[#0369A1] leading-relaxed">
         <span className="font-semibold">🔒 Confidentialité :</span> Mohasib accède uniquement aux
