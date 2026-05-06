@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Receipt, OcrData, Transaction } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, RefreshCw, Download } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, RefreshCw, Download, Inbox } from "lucide-react";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 
@@ -348,112 +348,118 @@ export default function InboxPage() {
   return (
     <div>
 
-      {/* ─── Upload zone ─────────────────────────────────────────────────── */}
-      <div
-        className={`bg-white border-2 rounded-xl p-5 mb-4 transition-all ${dragOver ? "border-[#C8924A] bg-[rgba(200,146,74,0.04)]" : "border-dashed border-[rgba(200,146,74,0.35)]"}`}
-        style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
-      >
-        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple className="hidden"
-          onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }} />
-        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
-          onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }} />
-
-        <div className="text-center mb-4">
-          <div className="text-[13.5px] font-semibold text-[#1A1A2E] mb-0.5">Ajoutez vos reçus et factures</div>
-          <div className="text-[11.5px] text-[#9CA3AF]">L&apos;IA extrait automatiquement toutes les informations</div>
+      {/* ─── Page header ─────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,146,74,0.12)" }}>
+          <Inbox size={18} className="text-[#C8924A]" />
         </div>
-
-        <div className="flex gap-2 justify-center flex-wrap">
-          <button onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-colors"
-            style={{ backgroundColor: "#C8924A", color: "#fff", border: "none" }}>
-            <Upload size={13} /> Importer un fichier
-          </button>
-          <button onClick={() => cameraInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
-            <Camera size={13} /> Prendre une photo
-          </button>
-          <button
-            onClick={handleEmailSync}
-            disabled={emailSyncing}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors disabled:opacity-50"
-          >
-            {emailSyncing
-              ? <Loader2 size={13} className="animate-spin" />
-              : <RefreshCw size={13} />
-            }
-            Synchroniser emails
-          </button>
-        </div>
-
-        <div className="text-center mt-3 text-[10.5px] text-[#9CA3AF]">
-          JPG · PNG · PDF · WebP — max 10 MB · Plusieurs fichiers à la fois
+        <div>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Boîte de réception</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Importez et traitez vos documents</p>
         </div>
       </div>
 
-      {/* ─── In-progress uploads ─────────────────────────────────────────── */}
-      {uploadingFiles.length > 0 && (
-        <div className="flex flex-col gap-1.5 mb-3">
-          {uploadingFiles.map((f) => (
-            <div key={f.tempId} className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-4 py-3 flex items-center gap-3" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center flex-shrink-0">
-                {f.state === "error"
-                  ? <X size={16} className="text-[#DC2626]" />
-                  : f.state === "done"
-                    ? <CheckCircle size={16} className="text-[#059669]" />
-                    : <Loader2 size={16} className="animate-spin text-[#C8924A]" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12.5px] font-medium text-[#1A1A2E] truncate">{f.name}</div>
-                <div className={`text-[11px] mt-0.5 ${f.state === "error" ? "text-[#DC2626]" : f.state === "done" ? "text-[#059669]" : "text-[#C8924A]"}`}>
-                  {f.state === "uploading" && "📤 Envoi en cours..."}
-                  {f.state === "processing" && "🔍 Extraction IA..."}
-                  {f.state === "done" && "✓ Extrait !"}
-                  {f.state === "error" && `❌ ${f.error ?? "Erreur"}`}
-                </div>
-              </div>
-              {f.state === "processing" && (
-                <div className="w-24 h-1 bg-[#F3F4F6] rounded-full overflow-hidden flex-shrink-0">
-                  <div className="h-full bg-[#C8924A] rounded-full animate-pulse" style={{ width: "65%" }} />
-                </div>
-              )}
+      {/* ─── Upload zone (À traiter only) ────────────────────────────────── */}
+      {tab === "pending" && (
+        <>
+          <div
+            className={`bg-white border-2 rounded-xl p-5 mb-4 transition-all ${dragOver ? "border-[#C8924A] bg-[rgba(200,146,74,0.04)]" : "border-dashed border-[rgba(200,146,74,0.35)]"}`}
+            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
+          >
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple className="hidden"
+              onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }} />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+              onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }} />
+
+            <div className="text-center mb-4">
+              <div className="text-[13.5px] font-semibold text-[#1A1A2E] mb-0.5">Ajoutez vos reçus et factures</div>
+              <div className="text-[11.5px] text-[#9CA3AF]">L&apos;IA extrait automatiquement toutes les informations</div>
             </div>
-          ))}
-        </div>
+
+            <div className="flex gap-2 justify-center flex-wrap">
+              <button onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-colors"
+                style={{ backgroundColor: "#C8924A", color: "#fff", border: "none" }}>
+                <Upload size={13} /> Importer un fichier
+              </button>
+              <button onClick={() => cameraInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+                <Camera size={13} /> Prendre une photo
+              </button>
+              <button
+                onClick={handleEmailSync}
+                disabled={emailSyncing}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors disabled:opacity-50"
+              >
+                {emailSyncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                Synchroniser emails
+              </button>
+            </div>
+
+            <div className="text-center mt-3 text-[10.5px] text-[#9CA3AF]">
+              JPG · PNG · PDF · WebP — max 10 MB · Plusieurs fichiers à la fois
+            </div>
+          </div>
+
+          {/* In-progress uploads */}
+          {uploadingFiles.length > 0 && (
+            <div className="flex flex-col gap-1.5 mb-3">
+              {uploadingFiles.map((f) => (
+                <div key={f.tempId} className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-4 py-3 flex items-center gap-3" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                  <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center flex-shrink-0">
+                    {f.state === "error" ? <X size={16} className="text-[#DC2626]" />
+                      : f.state === "done" ? <CheckCircle size={16} className="text-[#059669]" />
+                      : <Loader2 size={16} className="animate-spin text-[#C8924A]" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12.5px] font-medium text-[#1A1A2E] truncate">{f.name}</div>
+                    <div className={`text-[11px] mt-0.5 ${f.state === "error" ? "text-[#DC2626]" : f.state === "done" ? "text-[#059669]" : "text-[#C8924A]"}`}>
+                      {f.state === "uploading" && "📤 Envoi en cours..."}
+                      {f.state === "processing" && "🔍 Extraction IA..."}
+                      {f.state === "done" && "✓ Extrait !"}
+                      {f.state === "error" && `❌ ${f.error ?? "Erreur"}`}
+                    </div>
+                  </div>
+                  {f.state === "processing" && (
+                    <div className="w-24 h-1 bg-[#F3F4F6] rounded-full overflow-hidden flex-shrink-0">
+                      <div className="h-full bg-[#C8924A] rounded-full animate-pulse" style={{ width: "65%" }} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Batch confirm bar */}
+          {pending.length >= 3 && (
+            <div className="flex items-center justify-between bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3 mb-4">
+              <span className="text-[12.5px] font-semibold text-[#1E40AF]">{pending.length} reçus en attente</span>
+              <button onClick={() => setBatchModal(true)} className="btn btn-sm" style={{ backgroundColor: "#1D4ED8", color: "#fff", border: "none" }}>
+                ✓ Tout confirmer
+              </button>
+            </div>
+          )}
+        </>
       )}
 
-      {/* ─── Batch confirm bar ───────────────────────────────────────────── */}
-      {pending.length >= 3 && tab === "pending" && (
-        <div className="flex items-center justify-between bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3 mb-4">
-          <span className="text-[12.5px] font-semibold text-[#1E40AF]">
-            {pending.length} reçus en attente
-          </span>
-          <button onClick={() => setBatchModal(true)} className="btn btn-sm" style={{ backgroundColor: "#1D4ED8", color: "#fff", border: "none" }}>
-            ✓ Tout confirmer
-          </button>
-        </div>
-      )}
-
-      {/* ─── Tabs ────────────────────────────────────────────────────────── */}
-      <div className="flex gap-0 border-b border-[rgba(0,0,0,0.08)] mb-4">
+      {/* ─── Pill tabs ───────────────────────────────────────────────────── */}
+      <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-5 w-fit">
         {([
           ["pending", "À traiter", pending.length],
           ["matched", "Traités", matched.length],
           ["ignored", "Ignorés", ignored.length],
         ] as const).map(([key, label, count]) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-2.5 text-[12.5px] border-b-2 transition-all select-none ${
-              tab === key
-                ? "text-[#C8924A] border-[#C8924A] font-medium"
-                : "text-[#6B7280] border-transparent hover:text-[#1A1A2E]"
+            className={`px-4 py-1.5 rounded-lg text-[12.5px] font-medium transition-all select-none ${
+              tab === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
             }`}>
             {label}
             {count > 0 && (
               <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                tab === key ? "bg-[#C8924A] text-white" : "bg-[#F3F4F6] text-[#6B7280]"
+                tab === key ? "bg-[#F3F4F6] text-[#6B7280]" : "bg-white/60 text-[#9CA3AF]"
               }`}>{count}</span>
             )}
           </button>
