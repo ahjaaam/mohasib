@@ -19,13 +19,13 @@ const NAV_MAIN = [
   { href: "/clients",      icon: Users,           label: "Clients",            key: "clients" },
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions" },
   { href: "/tva",          icon: Receipt,         label: "Déclarations TVA",   key: "tva" },
+  { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie" },
   { href: "/export",       icon: Download,        label: "Export Fiduciaire",  key: "export" },
   { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive" },
 ];
 
 const NAV_SOON = [
   { href: "/rapprochement", icon: ArrowRightLeft, label: "Rapprochement", key: "rapprochement", soon: true, iconSize: 16, iconStrokeWidth: 1.5 },
-  { href: "/paie",          icon: Banknote,       label: "Paie",       key: "paie",          soon: true },
   { href: "/rapports",      icon: BarChart2,      label: "Rapports",      key: "rapports",      soon: true },
 ];
 
