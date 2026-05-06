@@ -178,7 +178,7 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
         <div className="flex flex-col flex-1 md:ml-[210px] min-w-0 h-screen overflow-hidden">
 
           {/* Topbar — hidden on mobile (bottom nav handles navigation) */}
-          {pathname !== "/dashboard" && pathname !== "/chat" && pathname !== "/inbox" && (
+          {pathname !== "/dashboard" && pathname !== "/chat" && pathname !== "/inbox" && pathname !== "/paie" && (
             <div className="hidden md:flex items-center justify-between px-[22px] h-[52px] border-b border-[rgba(0,0,0,0.08)] bg-white flex-shrink-0">
               <span className="text-[14px] font-semibold text-[#1A1A2E]">{pageTitle}</span>
               <div className="flex items-center gap-2">
