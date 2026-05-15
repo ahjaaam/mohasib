@@ -1,0 +1,9 @@
+name            = "mohasib-email-inbound"
+main            = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Email handler — required for Cloudflare Email Routing workers
+[vars]
+# Override these in the Cloudflare dashboard (Workers → mohasib-email → Settings → Variables)
+# or set them as secrets with: wrangler secret put WORKER_SECRET
+APP_URL       = "https://mohasibai.com"
