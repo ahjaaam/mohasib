@@ -46,6 +46,8 @@ async function buildInput(inv: any, company: any) {
     input: {
       invoice: {
         invoice_number: inv.invoice_number,
+        invoice_type: (inv as any).invoice_type ?? "facture",
+        avoir_reason: (inv as any).avoir_reason ?? null,
         issue_date: inv.issue_date,
         due_date: inv.due_date ?? null,
         subtotal: Number(inv.subtotal),
@@ -173,20 +175,32 @@ export async function POST(
       ? new Date(inv.due_date).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "numeric" })
       : null;
 
-    const lines = [
-      `Bonjour ${clientName},`,
-      "",
-      `Veuillez trouver ci-joint votre facture *${inv.invoice_number}* d'un montant de *${ttc} MAD*.`,
-      "",
-      `Télécharger la facture :`,
-      shareUrl,
-      ...(dueDate ? ["", `Date d'échéance : ${dueDate}`] : []),
-      "",
-      "Merci pour votre confiance.",
-      ...(companyName ? [companyName] : []),
-      ...(companyPhone ? [companyPhone] : []),
-    ];
-    const message = lines.join("\n");
+    let message: string;
+    if (company?.whatsapp_template) {
+      message = company.whatsapp_template
+        .replace(/\{\{nom_client\}\}/g,     clientName)
+        .replace(/\{\{numero_facture\}\}/g,  inv.invoice_number)
+        .replace(/\{\{montant_ttc\}\}/g,     `${ttc} MAD`)
+        .replace(/\{\{lien_facture\}\}/g,    shareUrl)
+        .replace(/\{\{date_echeance\}\}/g,   dueDate ? `Date d'échéance : ${dueDate}` : "")
+        .replace(/\{\{nom_entreprise\}\}/g,  companyName)
+        .replace(/\{\{telephone\}\}/g,       companyPhone);
+    } else {
+      const lines = [
+        `Bonjour ${clientName},`,
+        "",
+        `Veuillez trouver ci-joint votre facture *${inv.invoice_number}* d'un montant de *${ttc} MAD*.`,
+        "",
+        `Télécharger la facture :`,
+        shareUrl,
+        ...(dueDate ? ["", `Date d'échéance : ${dueDate}`] : []),
+        "",
+        "Merci pour votre confiance.",
+        ...(companyName ? [companyName] : []),
+        ...(companyPhone ? [companyPhone] : []),
+      ];
+      message = lines.join("\n");
+    }
 
     // Format phone number (prefer whatsapp field, fall back to phone)
     const rawPhone = (client as any)?.whatsapp || client?.phone || null;

@@ -19,6 +19,8 @@ interface Props {
   clients: Pick<Client, "id" | "name" | "email">[];
   nextNumber: string;
   userId: string;
+  dossierId?: string;
+  backHref?: string;
 }
 
 const TVA_RATES = [0, 7, 10, 14, 20];
@@ -29,7 +31,7 @@ function emptyLine(): LineItem {
 
 function fmt(n: number) { return n.toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD"; }
 
-export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
+export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId, backHref }: Props) {
   const router = useRouter();
   const supabase = createClient();
   const [saving, setSaving] = useState(false);
@@ -108,6 +110,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
       .from("invoices")
       .insert({
         user_id: userId,
+        ...(dossierId ? { dossier_id: dossierId } : {}),
         client_id: form.client_id || null,
         invoice_number: form.num,
         status,
@@ -125,8 +128,19 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
 
     setSaving(false);
     if (err) { setError(translateError(err)); }
-    else if (status === "draft") { router.push("/invoices"); router.refresh(); }
-    else { setCreated({ id: row.id, number: row.invoice_number }); }
+    else {
+      if (dossierId) {
+        await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
+      }
+      // Fire-and-forget: book the invoice as journal entries
+      fetch("/api/accounting/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "invoice", invoiceId: row.id, dossierId }),
+      }).catch(() => {});
+      if (status === "draft") { router.push(backHref ?? "/invoices"); router.refresh(); }
+      else { setCreated({ id: row.id, number: row.invoice_number }); }
+    }
   }
 
   async function sendWhatsApp(invoiceId: string) {
@@ -141,7 +155,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
       window.open(whatsappUrl, "_blank");
       setWaState("success");
       toast.success("WhatsApp ouvert avec la facture 📲");
-      setTimeout(() => { router.push("/invoices"); router.refresh(); }, 1500);
+      setTimeout(() => { router.push(backHref ?? "/invoices"); router.refresh(); }, 1500);
     } catch (e: any) {
       setWaState("error");
       toast.error(translateError(e), { duration: 5000 });
@@ -179,14 +193,14 @@ export default function NewInvoiceForm({ clients, nextNumber, userId }: Props) {
             {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
           </button>
           <button
-            onClick={() => { router.push(`/invoices/${created.id}`); router.refresh(); }}
+            onClick={() => { router.push(`${backHref ?? "/invoices"}/${created.id}`); router.refresh(); }}
             className="btn btn-outline flex-1 justify-center"
           >
             Voir la facture
           </button>
         </div>
         <button
-          onClick={() => { router.push("/invoices"); router.refresh(); }}
+          onClick={() => { router.push(backHref ?? "/invoices"); router.refresh(); }}
           className="text-[11.5px] text-[#6B7280] hover:text-[#1A1A2E] underline"
         >
           Retour aux factures

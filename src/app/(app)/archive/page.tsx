@@ -405,7 +405,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "company_document", label: "Entreprise" },
 ];
 
-export default function ArchivePage() {
+export default function ArchivePage({ dossierId: _dossierId }: { dossierId?: string } = {}) {
   const [docs, setDocs] = useState<ArchiveDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ArchiveDoc | null>(null);
@@ -587,10 +587,24 @@ export default function ArchivePage() {
         />
       )}
 
-      <div className="flex h-[calc(100vh-52px)] -m-4 md:-mx-[22px] md:-mt-[24px] md:-mb-[18px] overflow-hidden">
+      <div className="flex h-screen -m-4 md:-mx-[22px] md:-mt-[24px] md:-mb-[18px] overflow-hidden">
 
         {/* ── Left Panel ──────────────────────────────────────────────────── */}
         <div className="w-[38%] min-w-[280px] flex-shrink-0 flex flex-col bg-white border-r border-[rgba(0,0,0,0.08)] overflow-hidden">
+
+          {/* Page header */}
+          <div className="px-3.5 pt-3.5 pb-2.5 border-b border-[rgba(0,0,0,0.06)] flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(200,146,74,0.12)" }}>
+                <FolderOpen size={14} className="text-[#C8924A]" />
+              </div>
+              <div>
+                <div className="text-[14px] font-bold text-[#1A1A2E] leading-none">Archive</div>
+                <div className="text-[10px] text-[#9CA3AF] mt-0.5">Documents et pièces justificatives</div>
+              </div>
+            </div>
+          </div>
 
           {/* Search + Add */}
           <div className="px-3.5 pt-3.5 pb-2 flex-shrink-0">

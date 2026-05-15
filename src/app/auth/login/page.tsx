@@ -58,49 +58,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: "#FAFAF6" }}>
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12"
-        style={{ backgroundColor: "#0D1526" }}>
-        <div>
-          <Image src="/logo.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain" }} />
-        </div>
-
-        <div>
-          <h2 className="text-3xl font-bold text-white leading-tight mb-4">
-            La comptabilité intelligente<br />pour les PME marocaines
-          </h2>
-          <p className="text-gray-400 text-sm leading-relaxed">
-            Gérez vos factures, suivez vos transactions et obtenez des conseils
-            fiscaux personnalisés grâce à l&apos;intelligence artificielle.
-          </p>
-          <div className="mt-8 space-y-3">
-            {["Facturation conforme à la réglementation marocaine",
-              "Déclarations TVA automatisées",
-              "Assistant IA spécialisé en droit fiscal marocain"].map((f) => (
-              <div key={f} className="flex items-center gap-2 text-sm text-gray-400">
-                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: "#C8924A" }} />
-                {f}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <p className="text-xs text-gray-600">
-          © {new Date().getFullYear()} Mohasib. Tous droits réservés.
-        </p>
-      </div>
-
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-8">
-            <Image src="/logo.png" alt="Mohasib" width={120} height={36} style={{ objectFit: "contain" }} />
+    <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#FAFAF6" }}>
+      <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <Image src="/logo2.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain", height: "auto" }} />
           </div>
 
           <h1 className="text-2xl font-bold text-navy mb-1">Connexion</h1>
-          <p className="text-sm text-gray-500 mb-7"></p>
+          <p className="text-sm text-gray-500 mb-7">
+            Pas encore inscrit ?{" "}
+            <Link href="/auth/signup" className="text-gold hover:underline font-medium">
+              Créer un compte
+            </Link>
+          </p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
@@ -173,7 +143,6 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-      </div>
     </div>
   );
 }

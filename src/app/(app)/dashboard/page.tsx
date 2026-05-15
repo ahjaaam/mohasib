@@ -12,12 +12,13 @@ function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
 }
 
-const STATUS_BADGE: Record<string, string> = {
-  paid: '<span class="badge b-paid">Payée</span>',
-  sent: '<span class="badge b-pending">En attente</span>',
-  overdue: '<span class="badge b-overdue">En retard</span>',
-  draft: '<span class="badge b-draft">Brouillon</span>',
-  cancelled: '<span class="badge b-draft">Annulée</span>',
+const STATUS_BADGE: Record<string, [string, string, string]> = {
+  paid:                ["#D1FAE5", "#065F46",  "Payée"],
+  sent:                ["#EFF6FF", "#1D4ED8",  "En attente"],
+  overdue:             ["#FEE2E2", "#991B1B",  "En retard"],
+  draft:               ["#F3F4F6", "#6B7280",  "Brouillon"],
+  cancelled:           ["#F3F4F6", "#6B7280",  "Annulée"],
+  partiellement_payee: ["#FEF3C7", "#92400E",  "Partiel"],
 };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -176,7 +177,7 @@ export default async function DashboardPage() {
 
       {/* Two-column tables */}
       <div>
-        <SectionLabel>Activité récente</SectionLabel>
+        <SectionLabel>Factures récentes</SectionLabel>
         <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-3">
           {/* Invoices */}
           <div className="tbl">
@@ -204,7 +205,17 @@ export default async function DashboardPage() {
                     <td className="font-medium text-[#6B7280] text-[11.5px]">{inv.invoice_number}</td>
                     <td>{(inv as any).clients?.name ?? "—"}</td>
                     <td className="font-semibold">{fmt(Number(inv.total))}</td>
-                    <td dangerouslySetInnerHTML={{ __html: STATUS_BADGE[inv.status] ?? "" }} />
+                    <td>
+                      {(() => {
+                        const [bg, color, label] = STATUS_BADGE[inv.status] ?? ["#F3F4F6", "#6B7280", inv.status];
+                        return (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                            style={{ backgroundColor: bg, color }}>
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </td>
                   </tr>
                 ))}
               </tbody>

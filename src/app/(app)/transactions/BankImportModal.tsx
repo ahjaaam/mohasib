@@ -23,6 +23,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   userId: string;
+  dossierId?: string | null;
   onImported: () => void;
 }
 
@@ -122,7 +123,7 @@ function StepIndicator({ step }: { step: number }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function BankImportModal({ open, onClose, userId, onImported }: Props) {
+export default function BankImportModal({ open, onClose, userId, dossierId, onImported }: Props) {
   const supabase = createClient();
 
   // Flow state
@@ -274,10 +275,10 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
     await sleep(500);
 
     // Fetch existing transactions to detect duplicates
-    const { data: existing } = await supabase
-      .from("transactions")
-      .select("date, amount, type")
-      .eq("user_id", userId);
+    const dupQuery = supabase.from("transactions").select("date, amount, type");
+    const { data: existing } = await (dossierId
+      ? dupQuery.eq("dossier_id", dossierId)
+      : dupQuery.eq("user_id", userId));
 
     const existingSet = new Set(
       (existing ?? []).map((t: any) => {
@@ -368,6 +369,7 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
 
     const rows = selectedTxs.map((t) => ({
       user_id: userId,
+      ...(dossierId ? { dossier_id: dossierId } : {}),
       type: t.amount >= 0 ? "income" : "expense",
       description: t.description,
       amount: Math.abs(t.amount),
@@ -378,12 +380,13 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
       bank_reference: t.reference || null,
     }));
 
-    let { error } = await supabase.from("transactions").insert(rows);
+    let { data: insertedRows, error } = await supabase
+      .from("transactions").insert(rows).select("id");
 
     // Graceful fallback: if new columns don't exist, retry without them
     if (error && (error.message.includes("source") || error.message.includes("bank_reference"))) {
       const simpleRows = rows.map(({ source: _s, bank_reference: _b, ...r }) => r);
-      ({ error } = await supabase.from("transactions").insert(simpleRows));
+      ({ data: insertedRows, error } = await supabase.from("transactions").insert(simpleRows).select("id"));
     }
 
     setImporting(false);
@@ -391,6 +394,19 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
     if (error) {
       toast.error(translateError(error), { duration: 8000 });
       return;
+    }
+
+    // Fire-and-forget: book transactions as journal entries
+    if (insertedRows?.length) {
+      fetch("/api/accounting/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "bank",
+          transactionIds: insertedRows.map((r: any) => r.id),
+          dossierId: dossierId ?? null,
+        }),
+      }).catch(() => {});
     }
 
     const income = selectedTxs.filter((t) => t.amount > 0);
@@ -403,6 +419,9 @@ export default function BankImportModal({ open, onClose, userId, onImported }: P
       expenseAmt: expense.reduce((s, t) => s + Math.abs(t.amount), 0),
       skipped: transactions.length - selectedTxs.length,
     });
+    if (dossierId) {
+      await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
+    }
     setStep(4);
     onImported();
   }

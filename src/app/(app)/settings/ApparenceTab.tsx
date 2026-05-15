@@ -53,7 +53,7 @@ export default function ApparenceTab({ userId, company }: Props) {
         onClick={() => toggleShow(k)}
         className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${shows[k] ? "bg-[#C8924A]" : "bg-[#D1D5DB]"}`}
       >
-        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${shows[k] ? "translate-x-5" : "translate-x-0.5"}`} />
+        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${shows[k] ? "left-5" : "left-0.5"}`} />
       </button>
     </div>
   );

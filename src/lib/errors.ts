@@ -28,7 +28,7 @@ const ERROR_MAP: Record<string, string> = {
 
 // Substrings checked against the full error message (case-insensitive)
 const MESSAGE_MAP: [string, string][] = [
-  ["idx_invoices_number", "Ce numéro de facture existe déjà. Utilisez un numéro différent."],
+  ["idx_invoices_number", "Ce numéro de facture existe déjà pour ce dossier. Utilisez un numéro différent."],
   ["duplicate key", "Cette valeur existe déjà."],
   ["new row violates row-level security", "Accès non autorisé."],
   ["violates row-level security", "Accès non autorisé."],

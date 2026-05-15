@@ -219,7 +219,7 @@ export default function EntrepriseTab({ userId, company }: Props) {
               onClick={() => set("tva_assujetti", !form.tva_assujetti)}
               className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${form.tva_assujetti ? "bg-[#C8924A]" : "bg-[#D1D5DB]"}`}
             >
-              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.tva_assujetti ? "translate-x-5" : "translate-x-0.5"}`} />
+              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${form.tva_assujetti ? "left-5" : "left-0.5"}`} />
             </button>
           </div>
           {form.tva_assujetti && (

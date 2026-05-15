@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
+import { Users, Plus, FileText } from "lucide-react";
 import type { Client } from "@/types";
 import ClientModal from "./ClientModal";
 
@@ -67,7 +70,7 @@ function delayColor(days: number): string {
   return "text-[#DC2626]";
 }
 
-export default function ClientsPage() {
+export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: string } = {}) {
   const [clients, setClients] = useState<ClientWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string>("");
@@ -76,6 +79,8 @@ export default function ClientsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
 
+  const searchParams = useSearchParams();
+  const dossierId = propDossierId ?? searchParams.get("dossier_id");
   const supabase = createClient();
 
   const load = useCallback(async () => {
@@ -85,10 +90,12 @@ export default function ClientsPage() {
     if (!user) return;
     setUserId(user.id);
 
-    const { data } = await supabase
+    const query = supabase
       .from("clients")
-      .select(`*, invoices(id, total, status, issue_date, due_date, updated_at)`)
-      .eq("user_id", user.id)
+      .select(`*, invoices(id, total, status, issue_date, due_date, updated_at)`);
+    const { data } = await (dossierId
+      ? query.eq("dossier_id", dossierId)
+      : query.eq("user_id", user.id))
       .order("name");
 
     const rows: ClientWithStats[] = (data ?? []).map((c: any) => {
@@ -125,9 +132,30 @@ export default function ClientsPage() {
     setModalOpen(true);
   }
 
+  const header = (
+    <div className="flex items-center justify-between gap-3 mb-5">
+      <div className="flex items-center gap-2.5">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(200,146,74,0.12)" }}>
+          <Users size={18} className="text-[#C8924A]" />
+        </div>
+        <div>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Clients</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Gérez vos clients et suivez leur activité</p>
+        </div>
+      </div>
+      <button onClick={openAdd} className="btn btn-gold flex items-center gap-1.5">
+        <Plus size={13} /> Nouveau client
+      </button>
+    </div>
+  );
+
   if (loading)
     return (
-      <div className="text-[12.5px] text-[#6B7280] py-8 text-center">Chargement...</div>
+      <div>
+        {header}
+        <div className="text-[12.5px] text-[#6B7280] py-8 text-center">Chargement...</div>
+      </div>
     );
 
   if (clients.length === 0)
@@ -135,11 +163,13 @@ export default function ClientsPage() {
       <>
         <ClientModal
           userId={userId}
+          dossierId={dossierId}
           client={null}
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           onSaved={load}
         />
+        {header}
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="text-4xl mb-3">👥</div>
           <p className="text-[#6B7280] font-medium text-[13px] mb-1">
@@ -159,12 +189,15 @@ export default function ClientsPage() {
     <>
       <ClientModal
         userId={userId}
+        dossierId={dossierId}
         client={editClient}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSaved={load}
         onDeleted={load}
       />
+
+      {header}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
         {clients.map((c) => (
@@ -217,9 +250,19 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            {/* Hover hint */}
-            <div className="absolute bottom-3 right-3 text-[10.5px] text-[#C8924A] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-              Modifier →
+            {/* Footer row */}
+            <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-[rgba(0,0,0,0.06)]">
+              <Link
+                href={`/invoices?q=${encodeURIComponent(c.name)}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 text-[11.5px] text-[#C8924A] font-medium hover:underline"
+              >
+                <FileText size={12} />
+                Voir les factures {c._count > 0 ? `(${c._count})` : ""}
+              </Link>
+              <span className="text-[10.5px] text-[#C8924A] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                Modifier →
+              </span>
             </div>
           </div>
         ))}

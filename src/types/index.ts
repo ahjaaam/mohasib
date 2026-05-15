@@ -33,7 +33,7 @@ export interface Client {
   updated_at: string;
 }
 
-export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
+export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled" | "partiellement_payee";
 
 export interface InvoiceItem {
   description: string;
@@ -42,11 +42,23 @@ export interface InvoiceItem {
   amount: number;
 }
 
+export interface PartialPayment {
+  date: string;
+  montant: number;
+  mode: string;
+  note?: string;
+}
+
+export type InvoiceType = "facture" | "avoir_client" | "proforma";
+
 export interface Invoice {
   id: string;
   user_id: string;
   client_id: string | null;
   invoice_number: string;
+  invoice_type?: InvoiceType;
+  linked_invoice_id?: string | null;
+  avoir_reason?: string | null;
   status: InvoiceStatus;
   issue_date: string;
   due_date: string | null;
@@ -57,11 +69,34 @@ export interface Invoice {
   currency: string;
   notes: string | null;
   items: InvoiceItem[];
+  montant_paye?: number;
+  reste_a_payer?: number | null;
+  paiements?: PartialPayment[];
   whatsapp_sent_at?: string | null;
   whatsapp_sent_count?: number;
   created_at: string;
   updated_at: string;
   clients?: Pick<Client, "id" | "name" | "email" | "phone">;
+}
+
+export interface AvoirFournisseur {
+  id: string;
+  user_id: string;
+  dossier_id?: string | null;
+  numero_interne: string;
+  ref_fournisseur: string | null;
+  fournisseur: string;
+  date: string;
+  montant_ht: number;
+  tva_amount: number;
+  tva_rate: number;
+  total: number;
+  motif: string | null;
+  compte_comptable: string | null;
+  statut: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export type ReceiptStatus = "pending" | "matched" | "ignored";

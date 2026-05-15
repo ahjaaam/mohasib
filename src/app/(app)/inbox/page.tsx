@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Receipt, OcrData, Transaction } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, RefreshCw, Download, Inbox } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 
@@ -35,7 +35,7 @@ function computeAmounts(ocr: OcrData) {
   return { ht, tva, ttc };
 }
 
-const ALL_CATS = [...TRANSACTION_CATEGORIES.expense, ...TRANSACTION_CATEGORIES.income];
+const ALL_CATS = TRANSACTION_CATEGORIES.expense;
 const TVA_OPTIONS = [
   { label: "Aucune TVA", value: "" },
   { label: "7%", value: "7" },
@@ -64,6 +64,7 @@ interface UploadingFile {
   error?: string;
 }
 
+
 function initForm(ocr: OcrData): CardForm {
   const vendor = ocr.vendor_name ?? ocr.vendor ?? "";
   const desc = ocr.description ?? "";
@@ -72,7 +73,7 @@ function initForm(ocr: OcrData): CardForm {
     : ocr.type === "expense" && ocr.amount != null
       ? String(-Math.abs(ocr.amount))
       : String(ocr.amount ?? "");
-  const category = ocr.category ?? "Autre dépense";
+  const category = ocr.category ?? "Achats";
   const compte = ocr.compte ?? categoryToCompte[category] ?? "";
   return {
     amount: signedAmt,
@@ -86,18 +87,38 @@ function initForm(ocr: OcrData): CardForm {
 
 const sessionLocalUrls: Record<string, string> = {};
 
-function ConfidenceBadge({ confidence }: { confidence?: number | null }) {
-  if (confidence == null) return null;
-  if (confidence >= 0.8)
+function ConfidenceBadge({ confidence, overallConfidence }: { confidence?: number | null; overallConfidence?: string | null }) {
+  const level = overallConfidence
+    ?? (confidence == null ? null : confidence >= 0.8 ? "high" : confidence >= 0.5 ? "medium" : "low");
+  if (!level) return null;
+  if (level === "high")
     return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#D1FAE5] text-[#065F46]">IA sûre</span>;
-  if (confidence >= 0.5)
-    return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">Vérifiez</span>;
-  return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#991B1B]">À vérifier</span>;
+  if (level === "medium")
+    return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">À vérifier</span>;
+  return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#991B1B]">Saisie manuelle</span>;
+}
+
+function SourceBadge({ provider }: { provider?: string }) {
+  if (provider === "gmail") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#991B1B]">
+        <Mail size={9} /> Gmail
+      </span>
+    );
+  }
+  if (provider === "outlook") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#DBEAFE] text-[#1E40AF]">
+        <Mail size={9} /> Outlook
+      </span>
+    );
+  }
+  return null;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function InboxPage() {
+export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: string; inboxEmail?: string | null } = {}) {
   const supabase = createClient();
   const [userId, setUserId] = useState("");
   const [receipts, setReceipts] = useState<ReceiptWithUrl[]>([]);
@@ -112,7 +133,6 @@ export default function InboxPage() {
   const [batchSaving, setBatchSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [previewReceipt, setPreviewReceipt] = useState<ReceiptWithUrl | null>(null);
-  const [emailSyncing, setEmailSyncing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -120,10 +140,10 @@ export default function InboxPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
-    const { data } = await supabase
-      .from("receipts").select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    const receiptsQuery = supabase.from("receipts").select("*").order("created_at", { ascending: false });
+    const { data } = await (dossierId
+      ? receiptsQuery.eq("dossier_id", dossierId)
+      : receiptsQuery.eq("user_id", user.id));
     const list: Receipt[] = data ?? [];
     const withUrls: ReceiptWithUrl[] = await Promise.all(list.map(async (r) => {
       let signedUrl: string | undefined;
@@ -158,7 +178,7 @@ export default function InboxPage() {
     }
 
     setLoading(false);
-  }, []);
+  }, [dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -172,7 +192,7 @@ export default function InboxPage() {
     if (!previewReceipt) return;
     const updated = receipts.find((r) => r.id === previewReceipt.id);
     if (updated) setPreviewReceipt(updated);
-  }, [receipts]);
+  }, [receipts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Upload ────────────────────────────────────────────────────────────────
 
@@ -186,6 +206,7 @@ export default function InboxPage() {
         setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "processing" } : f));
         const fd = new FormData();
         fd.append("file", file);
+        if (dossierId) fd.append("dossier_id", dossierId);
         const res = await fetch("/api/ocr", { method: "POST", body: fd });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Erreur");
@@ -203,43 +224,59 @@ export default function InboxPage() {
     }
   }
 
-  // ── Email sync ────────────────────────────────────────────────────────────
-
-  async function handleEmailSync() {
-    setEmailSyncing(true);
-    try {
-      const [gmailRes, outlookRes] = await Promise.allSettled([
-        fetch("/api/oauth/gmail/sync", { method: "POST" }).then((r) => r.json()),
-        fetch("/api/oauth/outlook/sync", { method: "POST" }).then((r) => r.json()),
-      ]);
-      const gmailJson = gmailRes.status === "fulfilled" ? gmailRes.value : null;
-      const outlookJson = outlookRes.status === "fulfilled" ? outlookRes.value : null;
-
-      const totalImported = (gmailJson?.imported ?? 0) + (outlookJson?.imported ?? 0);
-      const totalFound = (gmailJson?.messagesFound ?? 0);
-
-      if (totalFound === 0 && totalImported === 0) {
-        toast("Aucun email de facture trouvé", { icon: "📭" });
-      } else {
-        toast.success(`${totalFound} email(s) trouvé(s) — ${totalImported} document(s) importé(s)`);
-      }
-      if (totalImported > 0) {
-        await load();
-        setTab("pending");
-      }
-    } catch {
-      toast.error("Erreur de synchronisation email");
-    } finally {
-      setEmailSyncing(false);
-    }
-  }
-
   // ── Confirm / Ignore ──────────────────────────────────────────────────────
 
   async function confirmReceipt(id: string) {
+    const receipt = receipts.find((r) => r.id === id);
     const form = forms[id];
-    if (!form) return;
+    if (!form || !receipt) return;
     setSaving((s) => new Set([...s, id]));
+
+    const isAvoir = (receipt.ocr_data as any).document_type === "avoir";
+
+    if (isAvoir) {
+      const { ht, tva, ttc } = computeAmounts(receipt.ocr_data);
+      const year = new Date().getFullYear();
+      const { data: lastAv } = await supabase
+        .from("avoirs_fournisseurs")
+        .select("numero_interne")
+        .eq("user_id", userId)
+        .ilike("numero_interne", `AV-FOURN-${year}-%`)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const lastNum = lastAv?.[0]
+        ? parseInt(lastAv[0].numero_interne.split("-").pop() ?? "0", 10) : 0;
+      const numero = `AV-FOURN-${year}-${String(lastNum + 1).padStart(4, "0")}`;
+
+      const { error } = await supabase.from("avoirs_fournisseurs").insert({
+        user_id: userId,
+        ...(dossierId ? { dossier_id: dossierId } : {}),
+        numero_interne: numero,
+        fournisseur: receipt.ocr_data.vendor_name ?? receipt.ocr_data.vendor ?? form.description ?? "Fournisseur",
+        ref_fournisseur: receipt.ocr_data.receipt_number ?? null,
+        date: form.date,
+        montant_ht: ht,
+        tva_rate: receipt.ocr_data.tva_rate ?? 0,
+        tva_amount: tva,
+        total: ttc,
+        motif: form.description || "Avoir fournisseur",
+        compte_comptable: form.compte_comptable || "4411",
+        statut: "recu",
+      });
+
+      if (error) {
+        toast.error("Erreur lors de l'enregistrement");
+        setSaving((s) => { s.delete(id); return new Set(s); });
+        return;
+      }
+      await supabase.from("receipts").update({ status: "matched" }).eq("id", id);
+      setSaving((s) => { s.delete(id); return new Set(s); });
+      if (previewReceipt?.id === id) setPreviewReceipt(null);
+      dismissCard(id, "right");
+      toast.success(`Avoir fournisseur ${numero} enregistré !`);
+      return;
+    }
+
     const amt = parseFloat(form.amount);
     if (isNaN(amt)) {
       toast.error("Montant invalide");
@@ -248,6 +285,7 @@ export default function InboxPage() {
     }
     const row = {
       user_id: userId,
+      ...(dossierId ? { dossier_id: dossierId } : {}),
       type: amt >= 0 ? "income" : "expense",
       description: form.description || "Dépense",
       amount: Math.abs(amt),
@@ -268,6 +306,9 @@ export default function InboxPage() {
       return;
     }
     await supabase.from("receipts").update({ status: "matched" }).eq("id", id);
+    if (dossierId) {
+      await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
+    }
     setSaving((s) => { s.delete(id); return new Set(s); });
     if (previewReceipt?.id === id) setPreviewReceipt(null);
     dismissCard(id, "right");
@@ -304,6 +345,7 @@ export default function InboxPage() {
       const amt = parseFloat(form.amount);
       return {
         user_id: userId,
+        ...(dossierId ? { dossier_id: dossierId } : {}),
         type: isNaN(amt) || amt >= 0 ? "income" : "expense" as const,
         description: form.description || "Dépense",
         amount: isNaN(amt) ? 0 : Math.abs(amt),
@@ -320,7 +362,11 @@ export default function InboxPage() {
       ({ error: batchErr } = await supabase.from("transactions").insert(simpleRows));
     }
     if (batchErr) { toast.error(translateError(batchErr)); setBatchSaving(false); return; }
-    await supabase.from("receipts").update({ status: "matched" }).eq("user_id", userId).eq("status", "pending");
+    const matchQuery = supabase.from("receipts").update({ status: "matched" }).eq("status", "pending");
+    await (dossierId ? matchQuery.eq("dossier_id", dossierId) : matchQuery.eq("user_id", userId));
+    if (dossierId) {
+      await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
+    }
     setBatchSaving(false);
     setBatchModal(false);
     setPreviewReceipt(null);
@@ -355,8 +401,29 @@ export default function InboxPage() {
         </div>
         <div>
           <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Boîte de réception</h1>
-          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Importez et traitez vos documents</p>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Factures fournisseurs — importez, vérifiez et confirmez</p>
         </div>
+      </div>
+
+      {/* ─── Pill tabs ───────────────────────────────────────────────────── */}
+      <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-5 w-fit">
+        {([
+          ["pending", "À traiter", pending.length],
+          ["matched", "Traités", matched.length],
+          ["ignored", "Ignorés", ignored.length],
+        ] as const).map(([key, label, count]) => (
+          <button key={key} onClick={() => setTab(key)}
+            className={`px-4 py-1.5 rounded-lg text-[12.5px] font-medium transition-all select-none ${
+              tab === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
+            }`}>
+            {label}
+            {count > 0 && (
+              <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                tab === key ? "bg-[#F3F4F6] text-[#6B7280]" : "bg-white/60 text-[#9CA3AF]"
+              }`}>{count}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* ─── Upload zone (À traiter only) ────────────────────────────────── */}
@@ -375,8 +442,8 @@ export default function InboxPage() {
               onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }} />
 
             <div className="text-center mb-4">
-              <div className="text-[13.5px] font-semibold text-[#1A1A2E] mb-0.5">Ajoutez vos reçus et factures</div>
-              <div className="text-[11.5px] text-[#9CA3AF]">L&apos;IA extrait automatiquement toutes les informations</div>
+              <div className="text-[13.5px] font-semibold text-[#1A1A2E] mb-0.5">Importez vos factures fournisseurs</div>
+              <div className="text-[11.5px] text-[#9CA3AF]">L&apos;IA extrait fournisseur, montant, TVA et date automatiquement</div>
             </div>
 
             <div className="flex gap-2 justify-center flex-wrap">
@@ -388,14 +455,6 @@ export default function InboxPage() {
               <button onClick={() => cameraInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                 <Camera size={13} /> Prendre une photo
-              </button>
-              <button
-                onClick={handleEmailSync}
-                disabled={emailSyncing}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors disabled:opacity-50"
-              >
-                {emailSyncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                Synchroniser emails
               </button>
             </div>
 
@@ -436,7 +495,7 @@ export default function InboxPage() {
           {/* Batch confirm bar */}
           {pending.length >= 3 && (
             <div className="flex items-center justify-between bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3 mb-4">
-              <span className="text-[12.5px] font-semibold text-[#1E40AF]">{pending.length} reçus en attente</span>
+              <span className="text-[12.5px] font-semibold text-[#1E40AF]">{pending.length} facture{pending.length > 1 ? "s" : ""} en attente</span>
               <button onClick={() => setBatchModal(true)} className="btn btn-sm" style={{ backgroundColor: "#1D4ED8", color: "#fff", border: "none" }}>
                 ✓ Tout confirmer
               </button>
@@ -444,27 +503,6 @@ export default function InboxPage() {
           )}
         </>
       )}
-
-      {/* ─── Pill tabs ───────────────────────────────────────────────────── */}
-      <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-5 w-fit">
-        {([
-          ["pending", "À traiter", pending.length],
-          ["matched", "Traités", matched.length],
-          ["ignored", "Ignorés", ignored.length],
-        ] as const).map(([key, label, count]) => (
-          <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-1.5 rounded-lg text-[12.5px] font-medium transition-all select-none ${
-              tab === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
-            }`}>
-            {label}
-            {count > 0 && (
-              <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                tab === key ? "bg-[#F3F4F6] text-[#6B7280]" : "bg-white/60 text-[#9CA3AF]"
-              }`}>{count}</span>
-            )}
-          </button>
-        ))}
-      </div>
 
       {/* ─── Loading ─────────────────────────────────────────────────────── */}
       {loading && (
@@ -480,18 +518,42 @@ export default function InboxPage() {
 
       {/* ─── Pending / Ignored: empty state ─────────────────────────────── */}
       {!loading && tab !== "matched" && tabItems.length === 0 && (
-        <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-12 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-          <div className="text-4xl mb-3">{tab === "pending" ? "📥" : "🗂️"}</div>
+        <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-10 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <div className="text-4xl mb-3">{tab === "pending" ? (dossierId && inboxEmail ? "📧" : "📥") : "🗂️"}</div>
           <p className="text-[13px] font-medium text-[#6B7280]">
-            {tab === "pending" ? "Boîte de réception vide" : "Aucun reçu ignoré"}
+            {tab === "pending" ? "Aucune facture reçue" : "Aucune facture ignorée"}
           </p>
-          <p className="text-[11.5px] text-[#9CA3AF] mt-1">
-            {tab === "pending" ? "Tous vos reçus ont été traités !" : "Les reçus ignorés apparaissent ici."}
-          </p>
-          {tab === "pending" && (
-            <button onClick={() => fileInputRef.current?.click()} className="btn btn-gold mt-4 text-[12px]">
-              <Upload size={12} /> Importer un reçu
-            </button>
+          {tab === "pending" && dossierId && inboxEmail ? (
+            <>
+              <p className="text-[11.5px] text-[#9CA3AF] mt-1 mb-4">
+                Donnez cette adresse à vos fournisseurs — leurs factures apparaîtront ici automatiquement.
+              </p>
+              <div className="flex items-center gap-2 bg-[#F9F9F6] border border-[rgba(0,0,0,0.08)] rounded-lg px-3 py-2.5 max-w-sm mx-auto mb-4">
+                <code className="flex-1 text-[12px] font-mono text-[#1A1A2E] text-left truncate">{inboxEmail}</code>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(inboxEmail); import("react-hot-toast").then(m => m.default.success("Adresse copiée !")); }}
+                  className="flex-shrink-0 text-[11px] font-medium text-[#C8924A] hover:text-[#A87040] transition-colors"
+                >
+                  📋 Copier
+                </button>
+              </div>
+              <button onClick={() => fileInputRef.current?.click()} className="btn btn-outline text-[12px]">
+                <Upload size={12} /> Ou importer manuellement
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-[11.5px] text-[#9CA3AF] mt-1">
+                {tab === "pending"
+                  ? "Toutes vos factures fournisseurs ont été traitées !"
+                  : "Les factures ignorées apparaissent ici."}
+              </p>
+              {tab === "pending" && (
+                <button onClick={() => fileInputRef.current?.click()} className="btn btn-gold mt-4 text-[12px]">
+                  <Upload size={12} /> Importer une facture
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -540,7 +602,7 @@ export default function InboxPage() {
                 return (
                   <div key={r.id} className="flex items-center justify-between text-[12px] py-1 border-b border-[rgba(0,0,0,0.05)] last:border-0">
                     <span className="text-[#374151] truncate flex-1 mr-2">
-                      {form.description || (r.ocr_data.vendor_name ?? r.ocr_data.vendor) || "Reçu"}
+                      {form.description || (r.ocr_data.vendor_name ?? r.ocr_data.vendor) || "Facture fournisseur"}
                     </span>
                     <span className={`font-semibold flex-shrink-0 ${isNaN(amt) || amt >= 0 ? "text-[#059669]" : "text-[#DC2626]"}`}>
                       {isNaN(amt) ? "—" : `${amt >= 0 ? "+" : ""}${fmt(amt)} MAD`}
@@ -665,8 +727,8 @@ function LedgerView({
     return (
       <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-12 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
         <div className="text-4xl mb-3">✅</div>
-        <p className="text-[13px] font-medium text-[#6B7280]">Aucun reçu traité</p>
-        <p className="text-[11.5px] text-[#9CA3AF] mt-1">Importez vos reçus pour les traiter.</p>
+        <p className="text-[13px] font-medium text-[#6B7280]">Aucune facture traitée</p>
+        <p className="text-[11.5px] text-[#9CA3AF] mt-1">Importez vos factures fournisseurs pour les traiter.</p>
       </div>
     );
   }
@@ -780,18 +842,6 @@ function LedgerView({
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="bg-[#F3F4F6] border-t border-[rgba(0,0,0,0.1)]">
-                <td colSpan={4} className="px-3 py-3 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px]">
-                  Totaux — {rows.length} écriture{rows.length > 1 ? "s" : ""}
-                </td>
-                <td className="px-3 py-3 text-right font-bold text-[#1A1A2E] whitespace-nowrap">{fmt(totalHt)}</td>
-                <td />
-                <td className="px-3 py-3 text-right font-bold text-[#6B7280] whitespace-nowrap">{fmt(totalTva)}</td>
-                <td className="px-3 py-3 text-right font-bold whitespace-nowrap text-[#C8924A]">{fmt(totalTtc)}</td>
-                <td colSpan={4} />
-              </tr>
-            </tfoot>
           </table>
         </div>
       </div>
@@ -924,17 +974,29 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
   const ocr = r.ocr_data;
   const amt = parseFloat(form.amount);
   const isExpense = isNaN(amt) ? true : amt < 0;
+  const isAvoir = (ocr as any).document_type === "avoir";
+  const emailProvider = (ocr as any).email_provider as string | undefined;
 
   return (
     <div
-      className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden transition-all duration-300"
+      className="bg-white overflow-hidden transition-all duration-300"
       style={{
         boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+        border: isAvoir ? "1px solid rgba(124,58,237,0.3)" : "1px solid rgba(0,0,0,0.08)",
+        borderRadius: "12px",
         transform: dismissing ? `translateX(${isExpense ? "-100%" : "100%"})` : "translateX(0)",
         opacity: dismissing ? 0 : 1,
         position: "relative",
       }}
     >
+      {isAvoir && (
+        <div className="px-4 pt-3 pb-0">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+            style={{ background: "rgba(124,58,237,0.10)", color: "#7C3AED" }}>
+            Avoir fournisseur détecté
+          </span>
+        </div>
+      )}
       <button
         onClick={onPreview}
         className={`absolute top-4 right-4 flex items-center gap-1 text-[12px] border rounded-md transition-colors ${
@@ -951,13 +1013,19 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
         <div className="flex-1 min-w-0 pr-20">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[13.5px] font-bold text-[#1A1A2E] truncate">
-              {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Reçu sans titre"}
+              {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Facture sans titre"}
             </span>
-            <ConfidenceBadge confidence={ocr.confidence} />
+            <ConfidenceBadge confidence={ocr.confidence} overallConfidence={(ocr as any).overall_confidence} />
+            <SourceBadge provider={emailProvider} />
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {ocr.date && <span className="text-[11px] text-[#9CA3AF]">{fmtDate(ocr.date)}</span>}
             {ocr.receipt_number && <span className="text-[11px] text-[#9CA3AF]">#{ocr.receipt_number}</span>}
+            {(ocr as any).email_from && (
+              <span className="text-[10.5px] text-[#9CA3AF] truncate max-w-[200px]">
+                De : {(ocr as any).email_from}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -1018,11 +1086,20 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
         </button>
         <button
           onClick={onConfirm}
-          disabled={saving || !form.description || !form.amount}
-          className="flex items-center gap-1.5 text-[13px] font-medium text-[#15803D] bg-white border border-[#15803D] rounded-lg transition-colors cursor-pointer hover:bg-[#F0FDF4] disabled:opacity-50"
-          style={{ padding: "8px 16px" }}
+          disabled={saving || (!isAvoir && (!form.description || !form.amount))}
+          className="flex items-center gap-1.5 text-[13px] font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+          style={{
+            padding: "8px 16px",
+            color: isAvoir ? "#7C3AED" : "#15803D",
+            background: "white",
+            border: `1px solid ${isAvoir ? "#7C3AED" : "#15803D"}`,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = isAvoir ? "rgba(124,58,237,0.06)" : "#F0FDF4")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "white")}
         >
-          {saving ? <Loader2 size={13} className="animate-spin" /> : "Confirmer"}
+          {saving
+            ? <Loader2 size={13} className="animate-spin" />
+            : isAvoir ? "Enregistrer l'avoir" : "Confirmer"}
         </button>
       </div>
     </div>
@@ -1044,13 +1121,17 @@ function ProcessedCard({
 }) {
   const ocr = r.ocr_data;
   const amt = typeof ocr.amount === "number" ? ocr.amount : null;
+  const emailProvider = (ocr as any).email_provider as string | undefined;
 
   return (
     <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-4 py-3 flex items-center gap-3" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
       <div className="flex-1 min-w-0">
-        <span className="text-[12.5px] font-medium text-[#1A1A2E] truncate block">
-          {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Reçu"}
-        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[12.5px] font-medium text-[#1A1A2E] truncate">
+            {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Facture"}
+          </span>
+          <SourceBadge provider={emailProvider} />
+        </div>
         <div className="flex items-center gap-2 mt-0.5">
           {ocr.date && <span className="text-[10.5px] text-[#9CA3AF]">{fmtDate(ocr.date)}</span>}
           {ocr.category && <span className="text-[10.5px] text-[#9CA3AF]">{ocr.category}</span>}

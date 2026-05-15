@@ -30,9 +30,11 @@ function toLines(items: any[]): LineItem[] {
 export default function EditInvoiceForm({
   invoice,
   clients,
+  backHref,
 }: {
   invoice: any;
   clients: Pick<Client, "id" | "name" | "email">[];
+  backHref?: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -92,7 +94,7 @@ export default function EditInvoiceForm({
 
     setSaving(false);
     if (err) { setError(translateError(err)); }
-    else { router.push(`/invoices/${invoice.id}`); router.refresh(); }
+    else { router.push(backHref ? `${backHref}/${invoice.id}` : `/invoices/${invoice.id}`); router.refresh(); }
   }
 
   return (

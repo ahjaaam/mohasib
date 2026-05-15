@@ -119,7 +119,7 @@ const EMPTY_EMP = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function PaiePage() {
+export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const supabase = createClient();
   const [userId, setUserId] = useState("");
   const [tab, setTab] = useState<Tab>("employes");
@@ -157,21 +157,23 @@ export default function PaiePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
-    const { data } = await supabase.from("employees").select("*")
-      .eq("user_id", user.id).order("nom");
+    let q = supabase.from("employees").select("*").eq("user_id", user.id);
+    if (dossierId) q = (q as any).eq("dossier_id", dossierId);
+    const { data } = await (q as any).order("nom");
     setEmployees(data ?? []);
     setEmpLoading(false);
-  }, []);
+  }, [dossierId]);
 
   const loadBulletins = useCallback(async () => {
     setBulletinsLoading(true);
-    const { data } = await supabase.from("bulletins_paie")
+    let q = supabase.from("bulletins_paie")
       .select("*, employees(nom, prenom, poste)")
-      .eq("mois", selectedMonth).eq("annee", selectedYear)
-      .order("created_at");
+      .eq("mois", selectedMonth).eq("annee", selectedYear);
+    if (dossierId) q = (q as any).eq("dossier_id", dossierId);
+    const { data } = await (q as any).order("created_at");
     setBulletins(data ?? []);
     setBulletinsLoading(false);
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, dossierId]);
 
   const loadCnss = useCallback(async () => {
     setCnssLoading(true);
@@ -261,6 +263,7 @@ export default function PaiePage() {
       cimr_taux_salarie: parseFloat(empForm.cimr_taux_salarie) || 3.00,
       cimr_taux_patronal: parseFloat(empForm.cimr_taux_patronal) || 3.90,
       statut: empForm.statut,
+      ...(dossierId ? { dossier_id: dossierId } : {}),
     };
     const { error } = empModal === "add"
       ? await supabase.from("employees").insert(payload)

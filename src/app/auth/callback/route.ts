@@ -31,7 +31,9 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      const { data: { user } } = await supabase.auth.getUser();
+      const dest = user?.user_metadata?.user_type === "fiduciaire" ? "/comptable-pro" : next;
+      return NextResponse.redirect(`${origin}${dest}`);
     }
 
     console.error("[auth/callback] exchangeCodeForSession failed:", error.message);

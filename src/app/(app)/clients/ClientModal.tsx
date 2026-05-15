@@ -8,6 +8,7 @@ import type { Client } from "@/types";
 
 interface Props {
   userId: string;
+  dossierId?: string | null;
   client?: Client | null;  // null/undefined = add mode, Client = edit mode
   open: boolean;
   onClose: () => void;
@@ -32,7 +33,7 @@ const EMPTY_FORM = {
 
 type FormState = typeof EMPTY_FORM;
 
-export default function ClientModal({ userId, client, open, onClose, onSaved, onDeleted }: Props) {
+export default function ClientModal({ userId, dossierId, client, open, onClose, onSaved, onDeleted }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +80,7 @@ export default function ClientModal({ userId, client, open, onClose, onSaved, on
 
     const payload = {
       user_id: userId,
+      ...(dossierId ? { dossier_id: dossierId } : {}),
       name: form.name.trim(),
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,

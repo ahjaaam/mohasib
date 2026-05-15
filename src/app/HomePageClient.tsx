@@ -164,6 +164,156 @@ export default function HomePageClient() {
         </div>
       </section>
 
+      {/* ── PRICING ─────────────────────────────────────────────────────────── */}
+      <section className="page-section" style={{ backgroundColor: "#FAFAF6" }}>
+        <style>{`
+          .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 900px; margin: 0 auto; }
+          @media (max-width: 720px) { .pricing-grid { grid-template-columns: 1fr; } }
+          .feat-group-label { font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(13,21,38,0.35); margin: 20px 0 8px; font-family: var(--font-jakarta), sans-serif; }
+          .feat-group-label-light { font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(13,21,38,0.35); margin: 20px 0 8px; font-family: var(--font-jakarta), sans-serif; }
+        `}</style>
+
+        {/* Section header */}
+        <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: GOLD, letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: FONT, margin: "0 0 10px" }}>Tarifs</p>
+          <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 700, color: "#0A0A0A", margin: "0 0 14px", letterSpacing: "-0.8px", fontFamily: FONT }}>
+            Choisissez le plan adapté<br />à votre activité
+          </h2>
+          <p style={{ fontSize: 15, color: "#6B7280", margin: 0, fontFamily: FONT }}>
+            Entrepreneur solo ou cabinet comptable — Mohasib s&apos;adapte à votre métier.
+          </p>
+        </div>
+
+        <div className="pricing-grid">
+
+          {/* ── Pro plan ── */}
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 0, border: "1.5px solid rgba(0,0,0,0.09)", padding: "28px 24px", display: "flex", flexDirection: "column" }}>
+            <div style={{ marginBottom: 20 }}>
+              <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, letterSpacing: "1.4px", textTransform: "uppercase", color: GOLD, fontFamily: FONT, marginBottom: 8 }}>
+                Entrepreneur / PME
+              </span>
+              <h3 style={{ fontSize: 24, fontWeight: 700, color: NAVY, margin: "0 0 6px", fontFamily: FONT }}>Business Pro</h3>
+              <p style={{ fontSize: 13, color: "#6B7280", margin: 0, fontFamily: FONT, lineHeight: 1.5 }}>
+                Tout ce qu&apos;il faut pour gérer votre comptabilité en autonomie.
+              </p>
+            </div>
+
+            <div style={{ height: 1, backgroundColor: "rgba(0, 0, 0, 0.07)", margin: "0 0 18px" }} />
+
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, flex: 1 }}>
+              {[
+                { group: "Documents & facturation", items: [
+                  "Boîte de réception — reçus automatiques Gmail / Outlook",
+                  "Facturation rapide, envoi email & WhatsApp",
+                  "Archivage de documents",
+                ]},
+                { group: "Comptabilité", items: [
+                  "Clients & fournisseurs",
+                  "Transactions bancaires",
+                  "Déclaration TVA — fichier EDI SIMPL",
+                  "La Paie — bulletins & déclaration CNSS",
+                  "Exports comptables",
+                ]},
+              ].map(({ group, items }) => (
+                <li key={group}>
+                  <div className="feat-group-label-light">{group}</div>
+                  {items.map(item => (
+                    <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
+                      <span style={{ width: 16, height: 16, borderRadius: "50%", backgroundColor: "rgba(200,146,74,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                        <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5l2 2 4-4" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </span>
+                      <span style={{ fontSize: 13, color: "#374151", fontFamily: FONT, lineHeight: 1.45 }}>{item}</span>
+                    </div>
+                  ))}
+                </li>
+              ))}
+            </ul>
+
+            <Link
+              href="/auth/signup"
+              style={{ marginTop: 24, display: "block", textAlign: "center", padding: "13px", borderRadius: 6, border: `1.5px solid ${NAVY}`, color: NAVY, backgroundColor: "transparent", fontSize: 14, fontWeight: 600, textDecoration: "none", fontFamily: FONT, transition: "all 0.15s" }}
+            >
+              Créer un compte Pro →
+            </Link>
+          </div>
+
+          {/* ── Comptable Pro plan ── */}
+          <div style={{ backgroundColor: "#ffffff", borderRadius: 0, border: `1.5px solid ${NAVY}`, padding: "28px 24px", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+            {/* Gold glow top-right */}
+            <div style={{ position: "absolute", top: -60, right: -60, width: 180, height: 180, borderRadius: "50%", background: "rgba(200,146,74,0.12)", pointerEvents: "none" }} />
+
+            <div style={{ marginBottom: 20 }}>
+              <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, letterSpacing: "1.4px", textTransform: "uppercase", color: GOLD, fontFamily: FONT, marginBottom: 8 }}>
+                Cabinet comptable
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <h3 style={{ fontSize: 24, fontWeight: 700, color: NAVY, margin: 0, fontFamily: FONT }}>Comptable Pro</h3>
+              </div>
+              <p style={{ fontSize: 13, color: "#6B7280", margin: 0, fontFamily: FONT, lineHeight: 1.5 }}>
+                Gérez tous vos dossiers clients depuis un seul tableau de bord.
+              </p>
+            </div>
+
+            <div style={{ height: 1, backgroundColor: "rgba(0, 0, 0, 0.07)", margin: "0 0 18px" }} />
+
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, flex: 1 }}>
+              {/* Cabinet-level */}
+              <li>
+                <div className="feat-group-label">Espace cabinet</div>
+                {[
+                  "Boîte de réception globale — routing IA des emails",
+                  "Calendrier comptable & fiscal",
+                  "Gestion des dossiers clients",
+                  "Paramètres du cabinet",
+                ].map(item => (
+                  <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: "50%", backgroundColor: "rgba(200,146,74,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                      <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5l2 2 4-4" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </span>
+                    <span style={{ fontSize: 13, color: "rgba(10, 8, 8, 0.8)", fontFamily: FONT, lineHeight: 1.45 }}>{item}</span>
+                  </div>
+                ))}
+              </li>
+
+              {/* Per-dossier */}
+              <li>
+                <div className="feat-group-label">Par dossier client</div>
+                {[
+                  "Boîte de réception + reçus automatiques",
+                  "Factures clients",
+                  "Clients & fournisseurs",
+                  "Transactions bancaires",
+                  "Saisie comptable automatique (IA)",
+                  "Déclaration TVA — fichier EDI",
+                  "Grand Livre CGNC",
+                  "Export CGNC",
+                  "Bilan & CPC",
+                  "Paie — bulletins & déclaration CNSS",
+                  "Archive documents",
+                ].map(item => (
+                  <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: "50%", backgroundColor: "rgba(200,146,74,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                      <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5l2 2 4-4" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </span>
+                    <span style={{ fontSize: 13, color: "rgba(0, 0, 0, 0.8)", fontFamily: FONT, lineHeight: 1.45 }}>{item}</span>
+                  </div>
+                ))}
+              </li>
+            </ul>
+
+            <a
+              href="https://wa.me/212777884056"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ marginTop: 24, display: "block", textAlign: "center", padding: "13px", borderRadius: 6, backgroundColor: GOLD, border: "none", color: "#FFFFFF", fontSize: 14, fontWeight: 600, textDecoration: "none", fontFamily: FONT }}
+            >
+              Demander une démo →
+            </a>
+          </div>
+
+        </div>
+      </section>
+
       {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
       <footer style={{ backgroundColor: "#ffffff", padding: "56px 32px 36px" }} className="footer-outer">
         <style>{`@media (max-width: 640px) { .footer-outer { padding: 40px 20px 28px !important; } }`}</style>

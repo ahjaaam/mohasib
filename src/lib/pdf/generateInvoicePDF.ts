@@ -36,6 +36,8 @@ function fmtDate(d: string): string {
 export interface GeneratePDFInput {
   invoice: {
     invoice_number: string;
+    invoice_type?: string | null;
+    avoir_reason?: string | null;
     issue_date: string;
     due_date?: string | null;
     subtotal: number;
@@ -93,8 +95,11 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     address: company?.address,
   }));
 
-  const accentHex = company?.invoice_color ?? GOLD;
-  const accentRgb = hexToRgb(accentHex);
+  const isAvoir = invoice.invoice_type === "avoir_client";
+  const AVOIR_RED = "#DC2626";
+  const AVOIR_RED_RGB: [number, number, number] = [220, 38, 38];
+  const accentHex = isAvoir ? AVOIR_RED : (company?.invoice_color ?? GOLD);
+  const accentRgb: [number, number, number] = isAvoir ? AVOIR_RED_RGB : hexToRgb(accentHex);
   const companyName = company?.raison_sociale ?? null;
   const pageW = 210; // A4 width mm
   const pageH = 297; // A4 height mm
@@ -137,12 +142,12 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     doc.text(companyName, marginL, 21);
   }
 
-  // FACTURE label (right side, dark navy)
-  const rightX = pageW - marginR - 2; // 2mm extra breathing room
+  // FACTURE / AVOIR label (right side)
+  const rightX = pageW - marginR - 2;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
-  doc.setTextColor(...NAVY_RGB);
-  doc.text("FACTURE", rightX, 14, { align: "right" });
+  doc.setTextColor(...(isAvoir ? AVOIR_RED_RGB : NAVY_RGB));
+  doc.text(isAvoir ? "AVOIR" : "FACTURE", rightX, 14, { align: "right" });
 
   // Invoice meta (muted gray)
   doc.setFont("helvetica", "normal");
@@ -150,8 +155,13 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   doc.setTextColor(...MUTED_RGB);
   doc.text(`N° ${invoice.invoice_number}`, rightX, 21, { align: "right" });
   doc.text(`Date : ${fmtDate(invoice.issue_date)}`, rightX, 27, { align: "right" });
-  if (invoice.due_date) {
+  if (!isAvoir && invoice.due_date) {
     doc.text(`Échéance : ${fmtDate(invoice.due_date)}`, rightX, 33, { align: "right" });
+  }
+  if (isAvoir && invoice.avoir_reason) {
+    doc.setTextColor(...AVOIR_RED_RGB);
+    doc.text(`Motif : ${invoice.avoir_reason}`, rightX, 33, { align: "right" });
+    doc.setTextColor(...MUTED_RGB);
   }
 
   // ── FROM / TO ───────────────────────────────────────────────

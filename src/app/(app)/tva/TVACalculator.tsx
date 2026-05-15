@@ -2,690 +2,811 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, FileText, CheckCircle, Send, Download } from "lucide-react";
 import {
-  fetchTVAData, markAsFiled, fetchDeclarationHistory,
-  type TVAData, type TVADeclaration,
+  ChevronLeft, ChevronRight, Receipt, CheckCircle,
+  Download, AlertTriangle, Info, ChevronDown, ChevronUp,
+} from "lucide-react";
+import {
+  calculateTVAForPeriod, saveDeclaration, fetchDeclarationHistory,
+  type TVACalcResult, type TVADeclaration,
 } from "./actions";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(n: number): string {
-  return n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function n(x: number) { return Number(x) || 0; }
+
+function fmtMAD(x: number) {
+  return n(x).toLocaleString("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " MAD";
 }
 
-function fmtMAD(n: number): string {
-  return n.toLocaleString("fr-MA", { maximumFractionDigits: 0 }) + " MAD";
+function fmtDate(d: string) {
+  if (!d) return "—";
+  return new Date(d + "T00:00:00").toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
-function toISO(d: Date): string {
-  return d.toISOString().split("T")[0];
-}
+const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-const MONTHS_FR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+function toISO(d: Date) { return d.toISOString().split("T")[0]; }
 
 function getPeriodDates(regime: string, year: number, month: number, quarter: number) {
   if (regime === "Mensuel") {
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0);
-    return { start: toISO(start), end: toISO(end) };
-  } else {
-    const qStartMonth = (quarter - 1) * 3; // 0-indexed
-    const qEndMonth = qStartMonth + 2;
-    const start = new Date(year, qStartMonth, 1);
-    const end = new Date(year, qEndMonth + 1, 0);
-    return { start: toISO(start), end: toISO(end) };
+    return { start: toISO(new Date(year, month - 1, 1)), end: toISO(new Date(year, month, 0)) };
   }
+  const qm = (quarter - 1) * 3;
+  return { start: toISO(new Date(year, qm, 1)), end: toISO(new Date(year, qm + 3, 0)) };
+}
+
+function getPeriodLabel(regime: string, year: number, month: number, quarter: number) {
+  if (regime === "Mensuel") return `${MONTHS_FR[month - 1]} ${year}`;
+  const labels = ["Jan–Mar","Avr–Jun","Jul–Sep","Oct–Déc"];
+  return `T${quarter} ${year} (${labels[quarter - 1]})`;
 }
 
 function getDeadline(regime: string, year: number, month: number, quarter: number): Date {
-  if (regime === "Mensuel") {
-    return new Date(year, month, 20); // 20th of following month (month is 1-indexed, so month as 0-indexed = next month)
-  }
-  const deadlineMonths = [3, 6, 9, 0]; // Apr, Jul, Oct, Jan (0-indexed)
-  const deadlineYear = quarter === 4 ? year + 1 : year;
-  return new Date(deadlineYear, deadlineMonths[quarter - 1], 20);
+  if (regime === "Mensuel") return new Date(year, month, 20);
+  const months = [3, 6, 9, 0];
+  return new Date(quarter === 4 ? year + 1 : year, months[quarter - 1], 20);
 }
 
-function getPeriodLabel(regime: string, year: number, month: number, quarter: number): string {
-  if (regime === "Mensuel") return `${MONTHS_FR[month - 1]} ${year}`;
-  const qLabels = ["Jan–Mar", "Avr–Jun", "Jul–Sep", "Oct–Déc"];
-  return `T${quarter} ${year} (${qLabels[quarter - 1]})`;
+function daysUntil(d: Date) { return Math.ceil((d.getTime() - Date.now()) / 86400000); }
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden mb-4"
+      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+      <div className="px-4 py-2.5 border-b border-[rgba(0,0,0,0.12)] bg-[#1A1A2E]">
+        <span className="text-[12px] font-bold text-white tracking-wide">{title}</span>
+      </div>
+      {children}
+    </div>
+  );
 }
 
-function daysUntil(d: Date): number {
-  return Math.ceil((d.getTime() - Date.now()) / 86400000);
+function TH({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return (
+    <th className={`text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] ${right ? "text-right" : "text-left"}`}>
+      {children}
+    </th>
+  );
+}
+
+function TD({ children, right, bold, color }: { children: React.ReactNode; right?: boolean; bold?: boolean; color?: string }) {
+  return (
+    <td className={`px-4 py-2.5 text-[12px] border-t border-[rgba(0,0,0,0.04)] ${right ? "text-right" : ""} ${bold ? "font-bold" : ""}`}
+      style={color ? { color } : undefined}>
+      {children}
+    </td>
+  );
+}
+
+function NumInput({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) {
+  return (
+    <input
+      type="number" step="0.01" min="0"
+      value={value || ""}
+      onChange={(e) => onChange(Number(e.target.value) || 0)}
+      disabled={disabled}
+      className="input text-right text-[12px] w-[140px]"
+      style={{ height: 30 }}
+    />
+  );
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Company {
-  raison_sociale?: string;
-  ice?: string;
-  if_number?: string;
-  rc?: string;
-  address?: string;
-  city?: string;
-  tva_regime?: string;
-  tva_assujetti?: boolean;
-  tva_taux_defaut?: number;
+  raison_sociale?: string; ice?: string; if_number?: string;
+  rc?: string; address?: string; city?: string;
+  tva_regime?: string; tva_assujetti?: boolean; tva_taux_defaut?: number;
 }
 
-interface Props {
-  company: Company | null;
-  userName: string;
-}
+interface Props { company: Company | null; userName: string; }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Default empty calc ───────────────────────────────────────────────────────
 
-export default function TVACalculator({ company, userName }: Props) {
-  const defaultRegime = company?.tva_regime === "Trimestriel" ? "Trimestriel" : "Mensuel";
+const EMPTY_CALC: TVACalcResult = {
+  ca_total: 0, ca_7: 0, ca_10: 0, ca_14: 0, ca_20: 0,
+  tva_7: 0, tva_10: 0, tva_14: 0, tva_20: 0, tva_collectee_total: 0,
+  deductions_charges: 0, deductions_immobilisations: 0, deductions_total: 0,
+  credit_reporte: 0, nb_factures: 0, droits_timbre: 0,
+  tva_nette_due: 0, credit_tva: 0, ca_exercice_annuel: 0,
+  invoices: [], deductions: [],
+};
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function TVACalculator({ company }: Props) {
+  const regime = company?.tva_regime === "Trimestriel" ? "Trimestriel" : "Mensuel";
   const now = new Date();
 
-  const [regime, setRegime] = useState(defaultRegime);
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1); // 1-indexed
+  const [year, setYear]       = useState(now.getFullYear());
+  const [month, setMonth]     = useState(now.getMonth() + 1);
   const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3));
-  const [data, setData] = useState<TVAData | null>(null);
+
+  const [calc, setCalc]       = useState<TVACalcResult>(EMPTY_CALC);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [expandInvoices, setExpandInvoices] = useState(false);
-  const [expandExpenses, setExpandExpenses] = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [lastCalc, setLastCalc] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [history, setHistory] = useState<TVADeclaration[]>([]);
-  const [filing, setFiling] = useState(false);
-  const [filedPeriods, setFiledPeriods] = useState<Set<string>>(new Set());
-  const [generatingPDF, setGeneratingPDF] = useState(false);
-  const [generatingEDI, setGeneratingEDI] = useState(false);
+  const [showInvoices, setShowInvoices] = useState(false);
+  const [showDeductions, setShowDeductions] = useState(false);
+  const [statut, setStatut]   = useState<"brouillon"|"validé"|"déposé">("brouillon");
+  const [confirmValidate, setConfirmValidate] = useState(false);
+
+  // Adjustable overrides (user can edit auto values)
+  const [caExporte, setCaExporte]     = useState(0);
+  const [caExonere, setCaExonere]     = useState(0);
+  const [caHorsChamp, setCaHorsChamp] = useState(0);
+  const [caSuspension, setCaSuspension] = useState(0);
+  const [odTva, setOdTva]             = useState(0);
+  const [odTvaNote, setOdTvaNote]     = useState("");
 
   const { start, end } = getPeriodDates(regime, year, month, quarter);
-  const deadline = getDeadline(regime, year, month, quarter);
-  const periodLabel = getPeriodLabel(regime, year, month, quarter);
-  const daysLeft = daysUntil(deadline);
-  const periodKey = `${start}|${end}`;
-  const isFiled = filedPeriods.has(periodKey);
+  const periodLabel    = getPeriodLabel(regime, year, month, quarter);
+  const deadline       = getDeadline(regime, year, month, quarter);
+  const daysLeft       = daysUntil(deadline);
 
-  // Load history once
-  useEffect(() => {
-    fetchDeclarationHistory().then((h) => {
-      setHistory(h);
-      const filed = new Set(h.filter((d) => d.status === "filed").map((d) => `${d.period_start}|${d.period_end}`));
-      setFiledPeriods(filed);
-    });
-  }, []);
-
-  // Fetch TVA data on period change
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setData(null);
-    const res = await fetchTVAData(start, end);
-    if (res.error) setError(res.error);
-    else setData(res.data ?? null);
-    setLoading(false);
-  }, [start, end]);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Period navigation
   function prevPeriod() {
     if (regime === "Mensuel") {
-      if (month === 1) { setMonth(12); setYear((y) => y - 1); }
-      else setMonth((m) => m - 1);
+      if (month === 1) { setMonth(12); setYear(y => y - 1); } else setMonth(m => m - 1);
     } else {
-      if (quarter === 1) { setQuarter(4); setYear((y) => y - 1); }
-      else setQuarter((q) => q - 1);
+      if (quarter === 1) { setQuarter(4); setYear(y => y - 1); } else setQuarter(q => q - 1);
     }
   }
   function nextPeriod() {
     if (regime === "Mensuel") {
-      if (month === 12) { setMonth(1); setYear((y) => y + 1); }
-      else setMonth((m) => m + 1);
+      if (month === 12) { setMonth(1); setYear(y => y + 1); } else setMonth(m => m + 1);
     } else {
-      if (quarter === 4) { setQuarter(1); setYear((y) => y + 1); }
-      else setQuarter((q) => q + 1);
+      if (quarter === 4) { setQuarter(1); setYear(y => y + 1); } else setQuarter(q => q + 1);
     }
   }
 
-  async function handleMarkFiled() {
-    if (!data) return;
-    setFiling(true);
-    await markAsFiled({
+  const recalculate = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    const res = await calculateTVAForPeriod(start, end);
+    if (res.error) { setFetchError(res.error); setLoading(false); return; }
+    if (res.data) {
+      setCalc(res.data);
+      setLastCalc(new Date().toLocaleTimeString("fr-MA", { hour: "2-digit", minute: "2-digit" }));
+    }
+    setLoading(false);
+  }, [start, end]);
+
+  useEffect(() => { recalculate(); }, [recalculate]);
+
+  useEffect(() => {
+    fetchDeclarationHistory().then(setHistory);
+  }, []);
+
+  // ── Derived totals ─────────────────────────────────────────────────────────
+  const caImposable   = calc.ca_total - caExporte - caExonere - caHorsChamp - caSuspension;
+  const tvaExigible   = calc.tva_collectee_total + n(odTva);
+  const totalDed      = calc.deductions_total + calc.credit_reporte;
+  const raw           = tvaExigible + calc.droits_timbre - totalDed;
+  const tvaNetteDue   = Math.max(0, raw);
+  const creditTVA     = Math.max(0, -raw);
+
+  // ── Save ───────────────────────────────────────────────────────────────────
+  async function handleSave(newStatut: "brouillon" | "validé" | "déposé") {
+    setSaving(true);
+    await saveDeclaration({
       periodStart: start, periodEnd: end, periodLabel, regime,
-      tvaCollectee: data.totalCollectee,
-      tvaDeductible: data.totalDeductible,
-      tvaNette: data.totalNette,
+      statut: newStatut,
+      calc, overrides: {},
+      odTva: n(odTva), odTvaNote,
+      caExporte: n(caExporte), caExonere: n(caExonere),
+      caHorsChamp: n(caHorsChamp), caSuspension: n(caSuspension),
     });
-    setFiledPeriods((prev) => new Set([...prev, periodKey]));
+    setStatut(newStatut);
+    setSaving(false);
+    setConfirmValidate(false);
     const h = await fetchDeclarationHistory();
     setHistory(h);
-    setFiling(false);
   }
 
-  async function handleGeneratePDF() {
-    if (!data) return;
-    setGeneratingPDF(true);
-    try {
-      const res = await fetch("/api/tva/declaration", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company, userName, periodLabel, regime,
-          periodStart: start, periodEnd: end,
-          deadline: deadline.toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" }),
-          collectee: data.collectee,
-          deductible: data.deductible,
-          totalCollectee: data.totalCollectee,
-          totalDeductible: data.totalDeductible,
-          totalNette: data.totalNette,
-        }),
-      });
-      if (!res.ok) throw new Error("Erreur génération PDF");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `TVA_${periodLabel.replace(/\s/g, "_")}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Erreur lors de la génération du PDF");
-    }
-    setGeneratingPDF(false);
-  }
+  // ── EDI export ─────────────────────────────────────────────────────────────
+  async function handleEDI() {
+    const JSZip = (await import("jszip")).default;
+    const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const n2  = (x: number) => n(x).toFixed(2);
+    const ifNum   = company?.if_number ?? "";
+    const ice     = company?.ice ?? "";
+    const rs      = company?.raison_sociale ?? "";
+    const yearStr = String(year);
+    const monthStr = String(regime === "Mensuel" ? month : (quarter - 1) * 3 + 1).padStart(2, "0");
 
-  async function handleGenerateEDI() {
-    if (!data) return;
-    setGeneratingEDI(true);
-    try {
-      const JSZip = (await import("jszip")).default;
+    const lignesB = [20,14,10,7].map(r => {
+      const ca  = r===20?calc.ca_20:r===14?calc.ca_14:r===10?calc.ca_10:calc.ca_7;
+      const tva = r===20?calc.tva_20:r===14?calc.tva_14:r===10?calc.tva_10:calc.tva_7;
+      return ca > 0 ? `\n    <LigneImposable taux="${r}"><BaseHT>${n2(ca)}</BaseHT><TVA>${n2(tva)}</TVA></LigneImposable>` : "";
+    }).join("");
 
-      const ifNum   = company?.if_number ?? "";
-      const ice     = company?.ice ?? "";
-      const rs      = company?.raison_sociale ?? "";
-      const yearStr = String(year);
-      const monthStr = String(regime === "Mensuel" ? month : (quarter - 1) * 3 + 1).padStart(2, "0");
-
-      // ── Build XML ──────────────────────────────────────────────────────────
-      const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-      const n2 = (n: number) => n.toFixed(2);
-
-      const caTotalHT    = data.invoices.reduce((s, i) => s + i.subtotal, 0);
-      const caImposable  = caTotalHT;
-
-      const lignesVente = data.collectee.map((r, i) => `
-    <LigneVente numero="${i + 1}" taux="${r.rate}">
-      <BaseImposableHT>${n2(r.baseHT)}</BaseImposableHT>
-      <MontantTVA>${n2(r.tvaAmount)}</MontantTVA>
-    </LigneVente>`).join("");
-
-      const lignesDeduction = data.expenses.map((e, i) => `
-    <Deduction numero="${i + 1}">
-      <DateFacture>${e.date_paiement ?? e.date}</DateFacture>
-      <Fournisseur>${esc(e.fournisseur ?? e.description)}</Fournisseur>
-      <IFFournisseur>${esc(e.if_fournisseur ?? "")}</IFFournisseur>
-      <ICEFournisseur>${esc(e.ice_fournisseur ?? "")}</ICEFournisseur>
-      <MontantHT>${n2(e.amount)}</MontantHT>
-      <TauxTVA>${e.tva_rate}</TauxTVA>
-      <MontantTVA>${n2(e.tva_amount)}</MontantTVA>
-      <ModePaiement>${esc(e.mode_paiement ?? "Virement")}</ModePaiement>
+    const lignesDed = calc.deductions.map((d,i) => `
+    <Deduction numero="${i+1}">
+      <DateFacture>${d.date_facture}</DateFacture>
+      <Fournisseur>${esc(d.fournisseur_nom)}</Fournisseur>
+      <IF>${esc(d.fournisseur_if)}</IF>
+      <ICE>${esc(d.fournisseur_ice)}</ICE>
+      <Designation>${esc(d.designation)}</Designation>
+      <MontantHT>${n2(d.montant_ht)}</MontantHT>
+      <Taux>${d.taux_tva}</Taux>
+      <MontantTVA>${n2(d.montant_tva)}</MontantTVA>
+      <TVADeductible>${n2(d.tva_deductible)}</TVADeductible>
+      <ModePaiement>${esc(d.mode_paiement||"Virement")}</ModePaiement>
     </Deduction>`).join("");
 
-      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <DeclarationTVA xmlns="http://www.tax.gov.ma/tva/2024" version="1.0">
   <Identification>
-    <IF>${esc(ifNum)}</IF>
-    <ICE>${esc(ice)}</ICE>
+    <IF>${esc(ifNum)}</IF><ICE>${esc(ice)}</ICE>
     <RaisonSociale>${esc(rs)}</RaisonSociale>
     <Periode>
-      <Annee>${yearStr}</Annee>
-      <Mois>${monthStr}</Mois>
+      <Annee>${yearStr}</Annee><Mois>${monthStr}</Mois>
       <Regime>${regime}</Regime>
-      <PeriodeDebut>${start}</PeriodeDebut>
-      <PeriodeFin>${end}</PeriodeFin>
+      <PeriodeDebut>${start}</PeriodeDebut><PeriodeFin>${end}</PeriodeFin>
     </Periode>
   </Identification>
-
-  <ChiffreAffaires>
-    <CATotalHT>${n2(caTotalHT)}</CATotalHT>
+  <SectionA>
+    <CATotal>${n2(calc.ca_total)}</CATotal>
+    <CAExporte>${n2(caExporte)}</CAExporte>
+    <CAExonere>${n2(caExonere)}</CAExonere>
+    <CAHorsChamp>${n2(caHorsChamp)}</CAHorsChamp>
     <CAImposable>${n2(caImposable)}</CAImposable>
-  </ChiffreAffaires>
-
-  <TVAExigible>${lignesVente}
-    <TotalTVAExigible>${n2(data.totalCollectee)}</TotalTVAExigible>
-  </TVAExigible>
-
-  <ReleveDeductions>${lignesDeduction}
-    <TotalTVADeductible>${n2(data.totalDeductible)}</TotalTVADeductible>
-  </ReleveDeductions>
-
-  <TVANette>
-    <TVAExigibleTotal>${n2(data.totalCollectee)}</TVAExigibleTotal>
-    <TVADeductibleTotal>${n2(data.totalDeductible)}</TVADeductibleTotal>
-    <TVANetteDue>${n2(Math.max(data.totalNette, 0))}</TVANetteDue>
-    <CreditTVA>${n2(Math.max(-data.totalNette, 0))}</CreditTVA>
-  </TVANette>
+  </SectionA>
+  <SectionB>${lignesB}
+    <TotalImposable>${n2(caImposable)}</TotalImposable>
+    <TotalTVA>${n2(calc.tva_collectee_total)}</TotalTVA>
+  </SectionB>
+  <SectionD>
+    <TVAExigible>${n2(tvaExigible)}</TVAExigible>
+    <ODTVA>${n2(odTva)}</ODTVA>
+  </SectionD>
+  <SectionE>
+    <DroitsTimbre>${n2(calc.droits_timbre)}</DroitsTimbre>
+    <ReleveDeductions>${lignesDed}
+    </ReleveDeductions>
+    <DeductionsTotal>${n2(calc.deductions_total)}</DeductionsTotal>
+    <CreditReporte>${n2(calc.credit_reporte)}</CreditReporte>
+  </SectionE>
+  <SectionF>
+    <TVANetteDue>${n2(tvaNetteDue)}</TVANetteDue>
+    <CreditTVA>${n2(creditTVA)}</CreditTVA>
+  </SectionF>
 </DeclarationTVA>`;
 
-      // ── Build ZIP ──────────────────────────────────────────────────────────
-      const zip = new JSZip();
-      zip.file("declaration.xml", xml);
-      const blob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `TVA_${ifNum || "DECLARATION"}_${yearStr}_${monthStr}.zip`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("[EDI]", err);
-      alert("Erreur lors de la génération du fichier EDI");
-    }
-    setGeneratingEDI(false);
+    const zip = new JSZip();
+    zip.file("declaration.xml", xml);
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = `TVA_${ifNum||"DECLARATION"}_${yearStr}_${monthStr}.zip`;
+    a.click(); URL.revokeObjectURL(url);
   }
 
-  const netColor = !data ? "" : data.totalNette > 0 ? "text-[#DC2626]" : data.totalNette < 0 ? "text-[#059669]" : "text-[#6B7280]";
+  const statutBadge = statut === "déposé"
+    ? "bg-[#D1FAE5] text-[#065F46]"
+    : statut === "validé"
+      ? "bg-[#FEF3C7] text-[#92400E]"
+      : "bg-[#F3F4F6] text-[#6B7280]";
+
+  const statutLabel = statut === "déposé" ? "✅ Déposée"
+    : statut === "validé" ? "🔒 Validée" : "📝 Brouillon";
+
+  const isFiled = statut === "déposé";
+
+  // Sync statut when period changes
+  useEffect(() => {
+    const found = history.find(d => d.period_start === start);
+    if (found) {
+      const s = found.statut ?? found.status;
+      setStatut(s === "filed" || s === "déposé" ? "déposé" : s === "validé" ? "validé" : "brouillon");
+    } else {
+      setStatut("brouillon");
+    }
+  }, [start, history]);
 
   return (
-    <div className="max-w-4xl">
-      {/* ─── Period Selector ───────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        {/* Regime tabs */}
-        <div className="flex border border-[rgba(0,0,0,0.1)] rounded-lg overflow-hidden w-fit">
-          {["Mensuel", "Trimestriel"].map((r) => (
-            <button
-              key={r}
-              onClick={() => { setRegime(r); setExpandInvoices(false); setExpandExpenses(false); }}
-              className={`px-4 py-2 text-[12.5px] font-medium transition-colors ${
-                regime === r
-                  ? "bg-[#0D1526] text-white"
-                  : "bg-white text-[#6B7280] hover:bg-[#F3F4F6]"
-              }`}
-            >
-              {r}
-            </button>
-          ))}
+    <div>
+      {/* ── Page header: title left, period nav right ───────────────────── */}
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(200,146,74,0.12)" }}>
+            <Receipt size={18} className="text-[#C8924A]" />
+          </div>
+          <div>
+            <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Déclaration TVA</h1>
+            <p className="text-[11px] text-[#9CA3AF] mt-0.5">
+              SIMPL-TVA · DGI Maroc
+              <span className="ml-2 inline-block bg-[#F3F4F6] text-[#374151] text-[10.5px] font-medium px-2 py-0.5 rounded-full">{regime}</span>
+            </p>
+          </div>
         </div>
-
-        {/* Period picker */}
-        <div className="flex items-center gap-2">
-          <button onClick={prevPeriod} className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
+        {/* Period navigator */}
+        <div className="flex items-center gap-1.5">
+          <button onClick={prevPeriod}
+            className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
             <ChevronLeft size={15} />
           </button>
-          <span className="text-[13.5px] font-semibold text-[#1A1A2E] min-w-[160px] text-center">{periodLabel}</span>
-          <button onClick={nextPeriod} className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
+          <span className="text-[13.5px] font-semibold text-[#1A1A2E] min-w-[130px] text-center">{periodLabel}</span>
+          <button onClick={nextPeriod}
+            className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
             <ChevronRight size={15} />
           </button>
         </div>
+      </div>
 
-        {/* Status badge */}
-        <div className={`flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-lg ${
-          isFiled
-            ? "bg-[#D1FAE5] text-[#065F46]"
-            : daysLeft < 0
-              ? "bg-[#FEE2E2] text-[#991B1B]"
-              : daysLeft <= 7
-                ? "bg-[#FEE2E2] text-[#991B1B]"
-                : "bg-[#FEF3C7] text-[#92400E]"
-        }`}>
-          {isFiled ? "✅ Déclarée" : daysLeft < 0 ? `🔴 En retard de ${Math.abs(daysLeft)}j` : `⏰ Due le ${deadline.toLocaleDateString("fr-MA", { day: "numeric", month: "short" })}`}
+      {/* ── Controls row: status + deadline + actions ────────────────────── */}
+      <div className="flex items-center justify-between gap-2 mb-4">
+        {lastCalc && !loading
+          ? <p className="text-[10.5px] text-[#9CA3AF]">Recalculé à {lastCalc}</p>
+          : <span />}
+        <div className="flex items-center gap-2">
+          <span className={`text-[11.5px] font-semibold px-3 py-1.5 rounded-lg ${statutBadge}`}>{statutLabel}</span>
+          {statut === "brouillon" && !isFiled && (
+            <button onClick={() => setConfirmValidate(true)} disabled={saving}
+              className="btn btn-outline flex items-center gap-1.5 text-[12px] border-[#C8924A] text-[#C8924A] hover:bg-[#FFF7ED]">
+              <CheckCircle size={12} /> Valider
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ─── Warning: overdue ──────────────────────────────────────────── */}
-      {!isFiled && daysLeft < 0 && (
-        <div className="bg-[#FEE2E2] border border-[rgba(220,38,38,0.2)] rounded-lg px-4 py-3 mb-4 text-[12px] text-[#991B1B]">
-          🔴 Cette déclaration était due le{" "}
-          <strong>{deadline.toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" })}</strong>.
-          Vous êtes en retard de <strong>{Math.abs(daysLeft)} jours</strong>.
-        </div>
-      )}
-      {!isFiled && daysLeft >= 0 && daysLeft <= 7 && (
-        <div className="bg-[#FEE2E2] border border-[rgba(220,38,38,0.15)] rounded-lg px-4 py-3 mb-4 text-[12px] text-[#991B1B]">
-          ⚠️ Date limite dans <strong>{daysLeft} jour{daysLeft > 1 ? "s" : ""}</strong> — {deadline.toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" })}
+      {fetchError && (
+        <div className="bg-[#FEE2E2] rounded-lg px-4 py-3 mb-4 text-[12px] text-[#991B1B]">
+          Erreur: {fetchError}
         </div>
       )}
 
-      {/* ─── Loading skeleton ──────────────────────────────────────────── */}
-      {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 animate-pulse">
-          {[1, 2].map((i) => (
-            <div key={i} className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl p-4 h-40">
-              <div className="h-3 bg-[#F3F4F6] rounded w-1/3 mb-4" />
-              <div className="h-3 bg-[#F3F4F6] rounded w-full mb-2" />
-              <div className="h-3 bg-[#F3F4F6] rounded w-3/4 mb-2" />
-              <div className="h-3 bg-[#F3F4F6] rounded w-full" />
+      {/* ── Confirm validate modal ────────────────────────────────────────── */}
+      {confirmValidate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <p className="text-[14px] font-bold text-[#1A1A2E] mb-2">Valider la déclaration ?</p>
+            <p className="text-[12.5px] text-[#6B7280] mb-5">
+              Une fois validée, les montants sont figés. Vous pourrez ensuite la marquer comme déposée.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmValidate(false)} className="btn btn-outline text-[12px]">Annuler</button>
+              <button onClick={() => handleSave("validé")} disabled={saving}
+                className="btn btn-gold text-[12px]">
+                {saving ? "…" : "Valider"}
+              </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-[1fr_300px] gap-5 items-start">
+        <div>
+      {loading ? (
+        <div className="animate-pulse space-y-3">
+          {[1,2,3].map(i => (
+            <div key={i} className="bg-white rounded-xl border border-[rgba(0,0,0,0.07)] h-28" />
           ))}
         </div>
-      )}
-
-      {error && (
-        <div className="bg-[#FEE2E2] border border-[rgba(220,38,38,0.2)] rounded-lg px-4 py-3 mb-4 text-[12px] text-[#991B1B]">
-          Erreur: {error}
-        </div>
-      )}
-
-      {!loading && data && (
+      ) : (
         <>
-          {data.invoices.length === 0 && (
-            <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-10 text-center mb-4" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <div className="text-3xl mb-2">📄</div>
-              <p className="text-[13px] font-medium text-[#6B7280]">Aucune facture trouvée pour cette période</p>
-              <p className="text-[11.5px] text-[#9CA3AF] mt-1">Créez des factures ou sélectionnez une autre période.</p>
-            </div>
-          )}
-
-          {/* ─── TVA Collectée ─────────────────────────────────────────── */}
-          {data.collectee.length > 0 && (
-            <div className="bg-white rounded-xl border border-[rgba(0,0,0,0.07)] mb-3 overflow-hidden" style={{ borderLeft: "3px solid #C8924A", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.06)]">
-                <div className="text-[12.5px] font-semibold text-[#1A1A2E]">TVA Collectée</div>
-                <div className="text-[11px] text-[#9CA3AF]">Sur vos ventes — {data.invoices.length} facture{data.invoices.length > 1 ? "s" : ""}</div>
-              </div>
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">Taux TVA</th>
-                    <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">Base HT</th>
-                    <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">TVA</th>
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* SECTION A — CA Total                                           */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <SectionCard title="A — Chiffre d'affaires total">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <TH>Ligne</TH>
+                  <TH>Désignation</TH>
+                  <TH right>Montant (MAD)</TH>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <TD>01</TD>
+                  <TD>CA total réalisé au titre de la période</TD>
+                  <TD right bold>{fmtMAD(calc.ca_total)}</TD>
+                </tr>
+                {[
+                  ["02","Dont : CA à l'exportation", caExporte, setCaExporte],
+                  ["03","Dont : CA exonéré (Art. 91, 92, 94, 95)", caExonere, setCaExonere],
+                  ["04","Dont : CA hors champ de la TVA", caHorsChamp, setCaHorsChamp],
+                  ["05","Dont : CA réalisé en suspension de TVA", caSuspension, setCaSuspension],
+                ].map(([code, label, val, setter]) => (
+                  <tr key={code as string}>
+                    <TD>{code as string}</TD>
+                    <TD><span className="text-[#6B7280]">{label as string}</span></TD>
+                    <TD right>
+                      <NumInput value={val as number} onChange={setter as (v:number)=>void} disabled={isFiled} />
+                    </TD>
                   </tr>
-                </thead>
-                <tbody>
-                  {data.collectee.map((row) => (
-                    <tr key={row.rate} className="border-t border-[rgba(0,0,0,0.05)]">
-                      <td className="px-4 py-2.5 text-[12.5px] text-[#1A1A2E]">Ventes à {row.rate}%</td>
-                      <td className="px-4 py-2.5 text-[12.5px] text-right text-[#374151]">{fmt(row.baseHT)}</td>
-                      <td className="px-4 py-2.5 text-[12.5px] text-right font-semibold text-[#1A1A2E]">{fmt(row.tvaAmount)}</td>
-                    </tr>
-                  ))}
-                  <tr className="border-t-2 border-[rgba(0,0,0,0.1)] bg-[#FAFAF6]">
-                    <td className="px-4 py-2.5 text-[12.5px] font-bold text-[#1A1A2E]">TOTAL</td>
-                    <td className="px-4 py-2.5 text-[12.5px] font-bold text-right">{fmt(data.collectee.reduce((s, r) => s + r.baseHT, 0))}</td>
-                    <td className="px-4 py-2.5 text-[12.5px] font-bold text-right text-[#C8924A]">{fmt(data.totalCollectee)}</td>
+                ))}
+                <tr className="bg-[#FAFAF6]">
+                  <TD bold>—</TD>
+                  <TD bold>CA imposable (01 − 02 − 03 − 04 − 05)</TD>
+                  <TD right bold color="#C8924A">{fmtMAD(caImposable)}</TD>
+                </tr>
+              </tbody>
+            </table>
+          </SectionCard>
+
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* SECTION B — CA Imposable par taux                              */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <SectionCard title="B — Chiffre d'affaires imposable par taux">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <TH>Taux TVA</TH>
+                  <TH right>Base imposable HT (MAD)</TH>
+                  <TH right>TVA correspondante (MAD)</TH>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { rate: 20, ca: calc.ca_20, tva: calc.tva_20 },
+                  { rate: 14, ca: calc.ca_14, tva: calc.tva_14 },
+                  { rate: 10, ca: calc.ca_10, tva: calc.tva_10 },
+                  { rate:  7, ca: calc.ca_7,  tva: calc.tva_7  },
+                ].map(({ rate, ca, tva }) => (
+                  <tr key={rate}>
+                    <TD>
+                      <span className="inline-block bg-[#F3F4F6] text-[#374151] text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                        {rate}%
+                      </span>
+                    </TD>
+                    <TD right>{ca > 0 ? fmtMAD(ca) : <span className="text-[#D1D5DB]">—</span>}</TD>
+                    <TD right>{tva > 0 ? fmtMAD(tva) : <span className="text-[#D1D5DB]">—</span>}</TD>
                   </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+                <tr className="bg-[#FAFAF6]">
+                  <TD bold>TOTAL</TD>
+                  <TD right bold>{fmtMAD(caImposable)}</TD>
+                  <TD right bold color="#C8924A">{fmtMAD(calc.tva_collectee_total)}</TD>
+                </tr>
+              </tbody>
+            </table>
+          </SectionCard>
 
-          {/* ─── Relevé des déductions ─────────────────────────────────── */}
-          {data.expenses.length > 0 && (
-            <div className="bg-white rounded-xl border border-[rgba(0,0,0,0.07)] mb-3 overflow-hidden" style={{ borderLeft: "3px solid #3B82F6", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.06)]">
-                <div className="text-[12.5px] font-semibold text-[#1A1A2E]">Relevé des déductions</div>
-                <div className="text-[11px] text-[#9CA3AF]">Dépenses déductibles — {data.expenses.length} ligne{data.expenses.length > 1 ? "s" : ""} (format DGI)</div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr>
-                      <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] whitespace-nowrap">Date</th>
-                      <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">Description</th>
-                      <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6]">Fournisseur</th>
-                      <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] whitespace-nowrap">Montant HT</th>
-                      <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] whitespace-nowrap">TVA %</th>
-                      <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] whitespace-nowrap">Montant TVA</th>
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* SECTION D — TVA Exigible                                       */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <SectionCard title="D — Calcul de la TVA exigible">
+            <table className="w-full">
+              <thead>
+                <tr><TH>Désignation</TH><TH right>Montant (MAD)</TH></tr>
+              </thead>
+              <tbody>
+                {[20,14,10,7].map(r => {
+                  const tva = r===20?calc.tva_20:r===14?calc.tva_14:r===10?calc.tva_10:calc.tva_7;
+                  if (tva === 0) return null;
+                  return (
+                    <tr key={r}>
+                      <TD>TVA facturée sur ventes à {r}%</TD>
+                      <TD right>{fmtMAD(tva)}</TD>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {data.expenses.map((exp) => (
-                      <tr key={exp.id} className="border-t border-[rgba(0,0,0,0.05)] hover:bg-[#FAFAF6]">
-                        <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280] whitespace-nowrap">
-                          {new Date(exp.date).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                        </td>
-                        <td className="px-4 py-2.5 text-[12px] text-[#1A1A2E] max-w-[180px] truncate">{exp.description || "—"}</td>
-                        <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280]">{exp.category || "—"}</td>
-                        <td className="px-4 py-2.5 text-[12px] text-right text-[#374151]">{fmt(exp.amount)}</td>
-                        <td className="px-4 py-2.5 text-[12px] text-right text-[#6B7280]">{exp.tva_rate ?? 20}%</td>
-                        <td className="px-4 py-2.5 text-[12px] text-right font-semibold text-[#3B82F6]">{fmt(exp.tva_amount)}</td>
-                      </tr>
-                    ))}
-                    <tr className="border-t-2 border-[rgba(0,0,0,0.1)] bg-[#FAFAF6]">
-                      <td colSpan={3} className="px-4 py-2.5 text-[12.5px] font-bold text-[#1A1A2E]">TOTAL</td>
-                      <td className="px-4 py-2.5 text-[12.5px] font-bold text-right">{fmt(data.expenses.reduce((s, e) => s + e.amount, 0))}</td>
-                      <td />
-                      <td className="px-4 py-2.5 text-[12.5px] font-bold text-right text-[#3B82F6]">{fmt(data.totalDeductible)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+                  );
+                })}
+                <tr>
+                  <TD>
+                    <div>
+                      <span className="text-[#6B7280]">Opérations Diverses TVA (OD)</span>
+                      <input className="input ml-2 text-[11.5px] w-[220px]" placeholder="Note justificative…"
+                        value={odTvaNote} onChange={e => setOdTvaNote(e.target.value)} disabled={isFiled} />
+                    </div>
+                  </TD>
+                  <TD right>
+                    <NumInput value={odTva} onChange={setOdTva} disabled={isFiled} />
+                  </TD>
+                </tr>
+                <tr className="bg-[#FAFAF6]">
+                  <TD bold>TVA exigible totale (= TVA collectée + OD)</TD>
+                  <TD right bold color="#C8924A">{fmtMAD(tvaExigible)}</TD>
+                </tr>
+              </tbody>
+            </table>
+          </SectionCard>
 
-          {/* ─── TVA Nette Summary ─────────────────────────────────────── */}
-          <div className="bg-white rounded-xl border border-[rgba(0,0,0,0.07)] mb-4 p-5" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-[#6B7280]">TVA Collectée</span>
-                <span className="font-medium text-[#1A1A2E]">+ {fmtMAD(data.totalCollectee)}</span>
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* SECTION E — Déductions                                         */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <SectionCard title="E — Les déductions">
+            <div className="p-4">
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-[#F3F4F6] rounded-lg p-3 text-center">
+                  <div className="text-[10.5px] font-medium text-[#6B7280] uppercase tracking-[0.5px] mb-1">Sur charges</div>
+                  <div className="text-[14px] font-bold text-[#1A1A2E]">{fmtMAD(calc.deductions_charges)}</div>
+                </div>
+                <div className="bg-[#F3F4F6] rounded-lg p-3 text-center">
+                  <div className="text-[10.5px] font-medium text-[#6B7280] uppercase tracking-[0.5px] mb-1">Sur immobilisations</div>
+                  <div className="text-[14px] font-bold text-[#1A1A2E]">{fmtMAD(calc.deductions_immobilisations)}</div>
+                </div>
+                <div className="bg-[#EFF6FF] rounded-lg p-3 text-center border border-[rgba(37,99,235,0.15)]">
+                  <div className="text-[10.5px] font-medium text-[#6B7280] uppercase tracking-[0.5px] mb-1">Crédit reporté</div>
+                  <div className="text-[14px] font-bold text-[#1D4ED8]">{fmtMAD(calc.credit_reporte)}</div>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-[#6B7280]">TVA Déductible</span>
-                <span className="font-medium text-[#1A1A2E]">− {fmtMAD(data.totalDeductible)}</span>
-              </div>
-              <div className="border-t border-[rgba(0,0,0,0.08)] pt-3 flex items-center justify-between">
-                <span className="text-[14px] font-bold text-[#1A1A2E]">TVA NETTE DUE</span>
-                <span className={`text-[20px] font-bold ${netColor}`}>
-                  {fmtMAD(Math.abs(data.totalNette))}
-                  {data.totalNette > 0 ? " à payer" : data.totalNette < 0 ? " crédit" : ""}
-                </span>
-              </div>
-            </div>
-            {data.totalNette < 0 && (
-              <div className="bg-[#D1FAE5] border border-[rgba(5,150,105,0.2)] rounded-lg px-3 py-2.5 text-[11.5px] text-[#065F46] mb-3">
-                💡 Vous avez un crédit TVA de <strong>{fmtMAD(Math.abs(data.totalNette))}</strong>. Ce montant sera reporté sur la prochaine période.
-              </div>
-            )}
-            {!isFiled && data.totalNette > 0 && (
-              <div className="flex items-center justify-between text-[12px] text-[#6B7280]">
-                <span>À payer avant le <strong className="text-[#1A1A2E]">{deadline.toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" })}</strong></span>
-                <span className={`font-semibold ${daysLeft < 0 ? "text-[#DC2626]" : daysLeft <= 7 ? "text-[#DC2626]" : daysLeft <= 30 ? "text-[#D97706]" : "text-[#059669]"}`}>
-                  {daysLeft < 0 ? `En retard de ${Math.abs(daysLeft)}j` : `Dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`}
-                </span>
-              </div>
-            )}
-          </div>
 
-          {/* ─── Collapsible details ───────────────────────────────────── */}
-          <div className="flex flex-col gap-2 mb-5">
-            {/* Invoices */}
-            <div className="bg-white rounded-xl border border-[rgba(0,0,0,0.07)] overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <button
-                onClick={() => setExpandInvoices((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#FAFAF6] transition-colors"
-              >
-                <span className="text-[12.5px] font-medium text-[#1A1A2E]">
-                  📄 Factures incluses ({data.invoices.length})
-                </span>
-                {expandInvoices ? <ChevronUp size={14} className="text-[#9CA3AF]" /> : <ChevronDown size={14} className="text-[#9CA3AF]" />}
+              {/* Relevé des déductions */}
+              <button onClick={() => setShowDeductions(v => !v)}
+                className="w-full flex items-center justify-between text-[12px] font-medium text-[#374151] mb-2 hover:text-[#C8924A] transition-colors">
+                <span>Relevé des déductions ({calc.deductions.length} ligne{calc.deductions.length !== 1 ? "s" : ""})</span>
+                {showDeductions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
-              {expandInvoices && (
-                <table className="w-full border-t border-[rgba(0,0,0,0.06)]">
-                  <thead>
-                    <tr>
-                      <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">N°</th>
-                      <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">Client</th>
-                      <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">Date</th>
-                      <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">Base HT</th>
-                      <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">TVA</th>
-                      <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">TTC</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.invoices.map((inv) => (
-                      <tr key={inv.id} className="border-t border-[rgba(0,0,0,0.05)] hover:bg-[#FAFAF6]">
-                        <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280] font-medium">
-                          <Link href={`/invoices/${inv.id}`} className="hover:text-[#C8924A]">{inv.invoice_number}</Link>
-                        </td>
-                        <td className="px-4 py-2.5 text-[12px] text-[#1A1A2E]">{inv.client_name}</td>
-                        <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280]">
-                          {new Date(inv.issue_date).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit" })}
-                        </td>
-                        <td className="px-4 py-2.5 text-[12px] text-right">{fmt(inv.subtotal)}</td>
-                        <td className="px-4 py-2.5 text-[12px] text-right text-[#C8924A]">{fmt(inv.tax_amount)}</td>
-                        <td className="px-4 py-2.5 text-[12px] text-right font-semibold">{fmt(inv.total)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* Expenses */}
-            {data.expenses.length > 0 && (
-              <div className="bg-white rounded-xl border border-[rgba(0,0,0,0.07)] overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                <button
-                  onClick={() => setExpandExpenses((v) => !v)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#FAFAF6] transition-colors"
-                >
-                  <span className="text-[12.5px] font-medium text-[#1A1A2E]">
-                    💸 Dépenses incluses ({data.expenses.length})
-                  </span>
-                  {expandExpenses ? <ChevronUp size={14} className="text-[#9CA3AF]" /> : <ChevronDown size={14} className="text-[#9CA3AF]" />}
-                </button>
-                {expandExpenses && (
-                  <table className="w-full border-t border-[rgba(0,0,0,0.06)]">
+              {showDeductions && calc.deductions.length > 0 && (
+                <div className="overflow-x-auto rounded-lg border border-[rgba(0,0,0,0.07)]">
+                  <table className="w-full">
                     <thead>
                       <tr>
-                        <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">Description</th>
-                        <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">Catégorie</th>
-                        <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">Date</th>
-                        <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">Montant HT</th>
-                        <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-2 bg-[#FAFAF6]">TVA ({`${data.expenses[0]?.tva_rate ?? 20}%`})</th>
+                        {["Date","N° Facture","Fournisseur","Désignation","HT","Taux","TVA","Mode pmt","Date pmt","Prorata","TVA déd.","Type"].map(h => (
+                          <th key={h} className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] px-3 py-2 bg-[#FAFAF6] whitespace-nowrap text-left">{h}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {data.expenses.map((exp) => (
-                        <tr key={exp.id} className="border-t border-[rgba(0,0,0,0.05)] hover:bg-[#FAFAF6]">
-                          <td className="px-4 py-2.5 text-[12px] text-[#1A1A2E] max-w-[160px] truncate">{exp.description}</td>
-                          <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280]">{exp.category}</td>
-                          <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280]">
-                            {new Date(exp.date).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit" })}
+                      {calc.deductions.map((d, i) => (
+                        <tr key={i} className="border-t border-[rgba(0,0,0,0.04)] hover:bg-[#FAFAF6]">
+                          <td className="px-3 py-2 text-[11px] text-[#6B7280] whitespace-nowrap">{fmtDate(d.date_facture)}</td>
+                          <td className="px-3 py-2 text-[11px] text-[#6B7280]">{d.numero_facture || "—"}</td>
+                          <td className="px-3 py-2 text-[11.5px] text-[#1A1A2E] max-w-[120px] truncate">{d.fournisseur_nom}</td>
+                          <td className="px-3 py-2 text-[11.5px] text-[#374151] max-w-[140px] truncate">{d.designation}</td>
+                          <td className="px-3 py-2 text-[11.5px] text-right font-medium">{fmtMAD(d.montant_ht)}</td>
+                          <td className="px-3 py-2 text-[11px] text-center text-[#6B7280]">{d.taux_tva}%</td>
+                          <td className="px-3 py-2 text-[11.5px] text-right font-medium text-[#3B82F6]">{fmtMAD(d.montant_tva)}</td>
+                          <td className="px-3 py-2 text-[11px] text-[#6B7280]">{d.mode_paiement || "—"}</td>
+                          <td className="px-3 py-2 text-[11px] text-[#6B7280] whitespace-nowrap">{fmtDate(d.date_paiement)}</td>
+                          <td className="px-3 py-2 text-[11px] text-center text-[#6B7280]">{d.prorata}%</td>
+                          <td className="px-3 py-2 text-[11.5px] text-right font-semibold text-[#059669]">{fmtMAD(d.tva_deductible)}</td>
+                          <td className="px-3 py-2">
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                              d.type_deduction === "immobilisation"
+                                ? "bg-[#EFF6FF] text-[#1D4ED8]"
+                                : "bg-[#F3F4F6] text-[#6B7280]"}`}>
+                              {d.type_deduction}
+                            </span>
                           </td>
-                          <td className="px-4 py-2.5 text-[12px] text-right">{fmt(exp.amount)}</td>
-                          <td className="px-4 py-2.5 text-[12px] text-right text-[#3B82F6]">{fmt(exp.tva_amount)}</td>
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot>
+                      <tr className="bg-[#FAFAF6] border-t-2 border-[rgba(0,0,0,0.08)]">
+                        <td colSpan={4} className="px-3 py-2 text-[12px] font-bold text-[#1A1A2E]">TOTAL</td>
+                        <td className="px-3 py-2 text-[12px] font-bold text-right">
+                          {fmtMAD(calc.deductions.reduce((s,d) => s+d.montant_ht, 0))}
+                        </td>
+                        <td />
+                        <td className="px-3 py-2 text-[12px] font-bold text-right text-[#3B82F6]">
+                          {fmtMAD(calc.deductions.reduce((s,d) => s+d.montant_tva, 0))}
+                        </td>
+                        <td /><td /><td />
+                        <td className="px-3 py-2 text-[12px] font-bold text-right text-[#059669]">
+                          {fmtMAD(calc.deductions_total)}
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
                   </table>
-                )}
+                </div>
+              )}
+              {showDeductions && calc.deductions.length === 0 && (
+                <p className="text-[12px] text-[#9CA3AF] py-3 text-center">Aucune déduction pour cette période</p>
+              )}
+            </div>
+          </SectionCard>
+
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* DROITS DE TIMBRE                                                */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <SectionCard title="Droits de timbre">
+            <div className="p-4 flex items-center justify-between gap-6">
+              <div>
+                <p className="text-[12.5px] text-[#374151]">
+                  <strong>{calc.nb_factures}</strong> facture{calc.nb_factures !== 1 ? "s" : ""} émise{calc.nb_factures !== 1 ? "s" : ""} sur la période
+                </p>
+                <p className="text-[11px] text-[#9CA3AF] mt-1">
+                  Droits de timbre = 2 MAD × {calc.nb_factures} facture{calc.nb_factures !== 1 ? "s" : ""}
+                </p>
+                <p className="text-[10.5px] text-[#9CA3AF] mt-0.5 flex items-center gap-1">
+                  <Info size={11} /> Dus sur chaque facture de vente (art. 252 CGI Maroc)
+                </p>
               </div>
-            )}
+              <div className="text-right flex-shrink-0">
+                <div className="text-[22px] font-bold text-[#1A1A2E]">{fmtMAD(calc.droits_timbre)}</div>
+              </div>
+            </div>
+          </SectionCard>
+
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* SECTION F — Résultat                                            */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <div className="bg-white rounded-xl overflow-hidden mb-4"
+            style={{ border: "2px solid #C8924A", boxShadow: "0 2px 8px rgba(200,146,74,0.15)" }}>
+            <div className="px-4 py-2.5 border-b border-[rgba(200,146,74,0.2)]"
+              style={{ background: "#C8924A" }}>
+              <span className="text-[12px] font-bold text-white tracking-wide">F — Résultat de la déclaration</span>
+            </div>
+            <div className="p-5">
+              <div className="space-y-2.5 mb-5">
+                {[
+                  ["TVA exigible totale", tvaExigible, "#DC2626"],
+                  ["(−) Déductions sur charges + immobilisations", calc.deductions_total, "#059669"],
+                  ["(−) Crédit reporté de la période précédente", calc.credit_reporte, "#059669"],
+                  ["(+) Droits de timbre", calc.droits_timbre, "#374151"],
+                ].map(([label, val, color]) => (
+                  <div key={label as string} className="flex items-center justify-between text-[12.5px]">
+                    <span className="text-[#6B7280]">{label as string}</span>
+                    <span className="font-semibold" style={{ color: color as string }}>{fmtMAD(val as number)}</span>
+                  </div>
+                ))}
+                <div className="border-t-2 border-[rgba(200,146,74,0.25)] pt-4">
+                  {tvaNetteDue > 0 ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[16px] font-bold text-[#1A1A2E]">TVA NETTE DUE</span>
+                      <span className="text-[28px] font-bold text-[#DC2626]">{fmtMAD(tvaNetteDue)}</span>
+                    </div>
+                  ) : creditTVA > 0 ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[16px] font-bold text-[#1A1A2E]">CRÉDIT DE TVA</span>
+                      <span className="text-[28px] font-bold text-[#059669]">{fmtMAD(creditTVA)}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[16px] font-bold text-[#1A1A2E]">TVA NETTE DUE</span>
+                      <span className="text-[28px] font-bold text-[#059669]">0,00 MAD</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {creditTVA > 0 && (
+                <div className="bg-[#EFF6FF] border border-[rgba(37,99,235,0.2)] rounded-lg px-4 py-3 text-[12px] text-[#1E40AF] mb-4">
+                  💡 Crédit de TVA de <strong>{fmtMAD(creditTVA)}</strong> — sera reporté sur la prochaine déclaration.
+                </div>
+              )}
+
+              {tvaNetteDue > 0 && !isFiled && (
+                <div className="border-t border-[rgba(0,0,0,0.07)] pt-4">
+                  <div className="flex items-start gap-2 mb-3">
+                    <AlertTriangle size={14} className="text-[#D97706] flex-shrink-0 mt-0.5" />
+                    <p className="text-[12px] text-[#374151]">
+                      Échéance de paiement : <strong>20 {MONTHS_FR[deadline.getMonth()]} {deadline.getFullYear()}</strong>
+                      {daysLeft < 0
+                        ? <span className="text-[#DC2626]"> (en retard de {Math.abs(daysLeft)} jours)</span>
+                        : <span className={daysLeft <= 7 ? "text-[#DC2626]" : "text-[#D97706]"}> ({daysLeft} jours restants)</span>}
+                    </p>
+                  </div>
+                  <div className="bg-[#FAFAF6] rounded-lg p-3 space-y-1.5">
+                    <p className="text-[11.5px] text-[#374151]">💳 Paiement par carte bancaire sur SIMPL-TVA</p>
+                    <p className="text-[11.5px] text-[#374151]">🏦 Paiement par prélèvement bancaire (RIB requis)</p>
+                    <p className="text-[11.5px] text-[#374151]">📱 Paiement Multicanal (référence à télécharger)</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[rgba(0,0,0,0.07)]">
+                <button onClick={handleEDI}
+                  className="btn btn-gold flex items-center gap-1.5 text-[12px]">
+                  <Download size={13} /> Fichier EDI (XML)
+                </button>
+                {statut !== "déposé" && (
+                  <button onClick={() => handleSave("déposé")} disabled={saving}
+                    className="btn btn-outline flex items-center gap-1.5 text-[12px]">
+                    <CheckCircle size={13} />
+                    {saving ? "…" : "Marquer comme déposée"}
+                  </button>
+                )}
+                <a href="https://simpl.tax.gov.ma" target="_blank" rel="noopener noreferrer"
+                  className="btn btn-outline flex items-center gap-1.5 text-[12px] text-[#065F46] border-[rgba(5,150,105,0.3)] hover:bg-[#DCFCE7]">
+                  Ouvrir SIMPL-TVA →
+                </a>
+              </div>
+            </div>
           </div>
 
-          {/* ─── Actions ───────────────────────────────────────────────── */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            <button
-              onClick={handleGeneratePDF}
-              disabled={generatingPDF}
-              className="btn btn-gold"
-            >
-              <FileText size={13} />
-              {generatingPDF ? "Génération…" : "Préparer ma déclaration TVA"}
-            </button>
-            <button
-              onClick={handleGenerateEDI}
-              disabled={generatingEDI}
-              className="btn btn-outline"
-            >
-              <Download size={13} />
-              {generatingEDI ? "Génération…" : "Télécharger fichier EDI (XML)"}
-            </button>
-            {!isFiled && (
-              <button
-                onClick={handleMarkFiled}
-                disabled={filing}
-                className="btn btn-outline"
-              >
-                <CheckCircle size={13} />
-                {filing ? "Enregistrement…" : "Marquer comme déclarée"}
-              </button>
-            )}
-            <button
-              onClick={async () => {
-                await handleGeneratePDF();
-                window.open(`https://wa.me/?text=${encodeURIComponent(`Déclaration TVA ${periodLabel} — Voir pièce jointe générée par Mohasib`)}`);
-              }}
-              className="btn btn-outline"
-            >
-              <Send size={13} />
-              Envoyer au fiduciaire
-            </button>
-          </div>
-
-          {/* ─── EDI + SIMPL notes ─────────────────────────────────────── */}
-          <div className="bg-[#F0FDF4] border border-[rgba(5,150,105,0.15)] rounded-xl px-4 py-3.5 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-[12.5px] text-[#065F46] leading-relaxed">
-              📦 Téléchargez le fichier ZIP et importez-le sur SIMPL-TVA via <strong>EDI → Envoi EDI</strong>.
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* ANNUAL SUMMARY                                                  */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 mb-4">
+            <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-3">
+              Situation de l'exercice {year}
             </p>
-            <a
-              href="https://simpl.tax.gov.ma"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline flex-shrink-0 text-[12px] text-[#065F46] border-[rgba(5,150,105,0.3)] hover:bg-[#DCFCE7]"
-            >
-              Ouvrir SIMPL-TVA →
-            </a>
+            <div className="flex gap-6">
+              <div>
+                <div className="text-[11px] text-[#9CA3AF]">CA exercice (Jan–Déc {year})</div>
+                <div className="text-[16px] font-bold text-[#1A1A2E]">{fmtMAD(calc.ca_exercice_annuel)}</div>
+              </div>
+            </div>
           </div>
 
-          {/* ─── SIMPL note ────────────────────────────────────────────── */}
-          <div className="bg-[#EFF6FF] border border-[rgba(37,99,235,0.15)] rounded-xl px-4 py-3.5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-[12.5px] text-[#1E40AF] leading-relaxed">
-              📋 Votre déclaration est prête. Connectez-vous sur <strong>simpl.tax.gov.ma</strong> pour la déposer.
-            </p>
-            <a
-              href="https://simpl.tax.gov.ma"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline flex-shrink-0 text-[12px] text-[#1E40AF] border-[rgba(37,99,235,0.3)] hover:bg-[#DBEAFE]"
-            >
-              Ouvrir SIMPL-TVA →
-            </a>
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* DETAIL COLLAPSIBLES                                             */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl overflow-hidden mb-4">
+            <button onClick={() => setShowInvoices(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#FAFAF6] transition-colors">
+              <span className="text-[12.5px] font-medium text-[#1A1A2E]">
+                📄 Factures incluses ({calc.invoices.length})
+              </span>
+              {showInvoices ? <ChevronUp size={14} className="text-[#9CA3AF]" /> : <ChevronDown size={14} className="text-[#9CA3AF]" />}
+            </button>
+            {showInvoices && (
+              <table className="w-full border-t border-[rgba(0,0,0,0.06)]">
+                <thead>
+                  <tr>
+                    {["N°","Client","Date","Base HT","TVA","TTC"].map((h,i) => (
+                      <th key={h} className={`text-[10.5px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] px-4 py-2.5 bg-[#FAFAF6] ${i>2?"text-right":"text-left"}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {calc.invoices.length === 0
+                    ? <tr><td colSpan={6} className="px-4 py-6 text-center text-[12px] text-[#9CA3AF]">Aucune facture pour cette période</td></tr>
+                    : calc.invoices.map(inv => (
+                      <tr key={inv.id} className="border-t border-[rgba(0,0,0,0.04)] hover:bg-[#FAFAF6]">
+                        <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280]">
+                          <Link href={`/invoices/${inv.id}`} className="hover:text-[#C8924A]">{inv.invoice_number}</Link>
+                        </td>
+                        <td className="px-4 py-2.5 text-[12px]">{inv.client_name}</td>
+                        <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280]">{fmtDate(inv.issue_date)}</td>
+                        <td className="px-4 py-2.5 text-[12px] text-right">{fmtMAD(inv.subtotal)}</td>
+                        <td className="px-4 py-2.5 text-[12px] text-right text-[#C8924A]">{fmtMAD(inv.tax_amount)}</td>
+                        <td className="px-4 py-2.5 text-[12px] text-right font-semibold">{fmtMAD(inv.total)}</td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}
 
-      {/* ─── Declaration History ──────────────────────────────────────── */}
-      {history.length > 0 && (
+        </div>
+
+        {/* RIGHT: history panel */}
         <div>
-          <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.7px] mb-2.5 pl-2.5 border-l-[3px] border-[#C8924A] mt-7">
-            Historique des déclarations
-          </div>
-          <div className="bg-white rounded-xl border border-[rgba(0,0,0,0.07)] overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-3 bg-[#FAFAF6]">Période</th>
-                  <th className="text-right text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-3 bg-[#FAFAF6]">TVA due</th>
-                  <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-3 bg-[#FAFAF6]">Statut</th>
-                  <th className="text-left text-[10.5px] text-[#9CA3AF] font-medium uppercase tracking-[0.5px] px-4 py-3 bg-[#FAFAF6]">Déclarée le</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((decl) => (
-                  <tr key={decl.id} className="border-t border-[rgba(0,0,0,0.05)] hover:bg-[#FAFAF6]">
-                    <td className="px-4 py-3 text-[12.5px] font-medium text-[#1A1A2E]">{decl.period_label}</td>
-                    <td className={`px-4 py-3 text-[12.5px] font-semibold text-right ${Number(decl.tva_nette) >= 0 ? "text-[#DC2626]" : "text-[#059669]"}`}>
-                      {fmtMAD(Math.abs(Number(decl.tva_nette)))}
-                    </td>
-                    <td className="px-4 py-3">
-                      {decl.status === "filed"
-                        ? <span className="text-[11px] font-semibold text-[#065F46] bg-[#D1FAE5] px-2 py-0.5 rounded-full">✅ Déclarée</span>
-                        : <span className="text-[11px] font-semibold text-[#6B7280] bg-[#F3F4F6] px-2 py-0.5 rounded-full">📝 En attente</span>
-                      }
-                    </td>
-                    <td className="px-4 py-3 text-[12px] text-[#6B7280]">
-                      {decl.filed_at
-                        ? new Date(decl.filed_at).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "numeric" })
-                        : "—"}
-                    </td>
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden"
+            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <div className="px-4 py-2.5 border-b border-[rgba(0,0,0,0.07)] bg-[#F3F4F6]">
+              <span className="text-[12px] font-bold text-[#374151] tracking-wide">Historique des déclarations</span>
+            </div>
+            {history.length > 0 ? (
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] px-3 py-2.5 bg-[#FAFAF6] text-left">Période</th>
+                    <th className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] px-3 py-2.5 bg-[#FAFAF6] text-right">TVA due</th>
+                    <th className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] px-3 py-2.5 bg-[#FAFAF6] text-right">Statut</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {history.map(decl => {
+                    const due = Number(decl.tva_nette_due ?? decl.tva_nette ?? 0);
+                    const st = decl.statut ?? decl.status;
+                    return (
+                      <tr key={decl.id} className="border-t border-[rgba(0,0,0,0.05)] hover:bg-[#FAFAF6]">
+                        <td className="px-3 py-2.5 text-[12px] font-medium text-[#1A1A2E]">{decl.period_label}</td>
+                        <td className="px-3 py-2.5 text-[11.5px] font-semibold text-right text-[#DC2626]">{fmtMAD(due)}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          {(st === "filed" || st === "déposé")
+                            ? <span className="text-[10px] font-semibold text-[#065F46] bg-[#D1FAE5] px-1.5 py-0.5 rounded-full whitespace-nowrap">✅ Déposée</span>
+                            : st === "validé"
+                              ? <span className="text-[10px] font-semibold text-[#92400E] bg-[#FEF3C7] px-1.5 py-0.5 rounded-full whitespace-nowrap">🔒 Validée</span>
+                              : <span className="text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 rounded-full whitespace-nowrap">📝 Brouillon</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-[12px] text-[#9CA3AF] p-4 text-center">Aucune déclaration enregistrée.</p>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
-import { BarChart2, Lock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { BarChart2, Lock, ChevronLeft, ChevronRight, Loader2, BookOpen, Scale } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,6 +144,30 @@ export default function RapportsPage() {
         <span className="inline-block text-[12px] font-medium text-[#C8924A] border border-[#C8924A] rounded-full px-4 py-1 mb-6">
           Disponible prochainement
         </span>
+
+        {/* Accounting reports — live */}
+        <div className="text-left space-y-2 mb-5">
+          <Link href="/rapports/grand-livre"
+            className="flex items-center gap-3 bg-[#FAFAF6] border border-[rgba(200,146,74,0.3)] rounded-lg px-4 py-3 hover:border-[#C8924A] transition-colors"
+            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+            <BookOpen size={14} className="text-[#C8924A] flex-shrink-0" />
+            <div>
+              <p className="text-[13px] font-medium text-[#1A1A2E]">Grand Livre</p>
+              <p className="text-[11.5px] text-[#6B7280]">Journal des écritures par compte CGNC</p>
+            </div>
+            <span className="ml-auto text-[11px] font-semibold text-[#059669] bg-[#D1FAE5] px-2 py-0.5 rounded-full">Disponible</span>
+          </Link>
+          <Link href="/rapports/balance"
+            className="flex items-center gap-3 bg-[#FAFAF6] border border-[rgba(200,146,74,0.3)] rounded-lg px-4 py-3 hover:border-[#C8924A] transition-colors"
+            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+            <Scale size={14} className="text-[#C8924A] flex-shrink-0" />
+            <div>
+              <p className="text-[13px] font-medium text-[#1A1A2E]">Balance comptable</p>
+              <p className="text-[11.5px] text-[#6B7280]">Totaux débit/crédit par compte — export CSV</p>
+            </div>
+            <span className="ml-auto text-[11px] font-semibold text-[#059669] bg-[#D1FAE5] px-2 py-0.5 rounded-full">Disponible</span>
+          </Link>
+        </div>
 
         {/* Locked reports */}
         <div className="text-left space-y-2 mb-6">

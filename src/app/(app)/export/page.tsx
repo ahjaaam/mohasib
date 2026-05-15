@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
-import { Download, Package, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { Download, Package, CheckCircle, AlertCircle, RefreshCw, BookMarked } from "lucide-react";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -527,6 +527,18 @@ export default function ExportPage() {
   return (
     <div className="max-w-3xl">
 
+      {/* ─── Page header ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(200,146,74,0.12)" }}>
+          <BookMarked size={18} className="text-[#C8924A]" />
+        </div>
+        <div>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Exports</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Exportez vos données comptables</p>
+        </div>
+      </div>
+
       {/* ── Period selector ── */}
       <div className="card p-5 mb-4">
         <div className="text-[13px] font-semibold text-[#1A1A2E] mb-3">Période comptable</div>
@@ -702,7 +714,7 @@ export default function ExportPage() {
           disabled={!canGenerate}
         >
           <Download size={16} />
-          {generating ? "Génération en cours..." : "Générer le package fiduciaire"}
+          {generating ? "Génération en cours..." : "Générer le package d'export"}
         </button>
 
         {!generating && period.start && period.end && (

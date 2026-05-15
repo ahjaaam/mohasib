@@ -9,7 +9,7 @@ import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight, ArrowRightLeft,
   MessageSquare, LogOut, Menu, Plus, Inbox, Download,
-  Settings, Receipt, FolderOpen, BarChart2, Banknote,
+  Settings, Receipt, FolderOpen, BarChart2, Banknote, Briefcase,
 } from "lucide-react";
 
 const NAV_MAIN = [
@@ -20,7 +20,7 @@ const NAV_MAIN = [
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions" },
   { href: "/tva",          icon: Receipt,         label: "Déclarations TVA",   key: "tva" },
   { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie" },
-  { href: "/export",       icon: Download,        label: "Export Fiduciaire",  key: "export" },
+  { href: "/export",       icon: Download,        label: "Exports",            key: "export" },
   { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive" },
 ];
 
@@ -48,7 +48,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/rapprochement":  "Rapprochement Bancaire",  
   "/tva":            "Déclarations TVA",
   "/paie":         "Paie",
-  "/export":       "Export Fiduciaire",
+  "/export":       "Exports",
   "/archive":      "Archive",
   "/chat":         "Mohasib Chat",
   "/rapports":     "Rapports",
@@ -62,9 +62,10 @@ interface Props {
   userEmail?: string | null;
   userName?: string | null;
   userCompany?: string | null;
+  isFiduciaire?: boolean;
 }
 
-export default function AppShell({ children, userEmail, userName, userCompany }: Props) {
+export default function AppShell({ children, userEmail, userName, userCompany, isFiduciaire }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -130,6 +131,18 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
         ))}
       </nav>
 
+      {isFiduciaire && (
+        <div className="border-t border-white/[0.07] px-[18px] py-[7px]">
+          <Link href="/comptable-pro"
+            className={`flex items-center gap-2.5 px-0 py-[7px] text-[13px] transition-all ${
+              pathname.startsWith("/comptable-pro") ? "text-[#C8924A]" : "text-white/40 hover:text-white/75"
+            }`}>
+            <Briefcase size={15} />
+            Comptable Pro
+          </Link>
+        </div>
+      )}
+
       <div className="border-t border-white/[0.07] px-[18px] py-[7px]">
         <Link href="/chat"
           className={`flex items-center gap-2.5 px-0 py-[7px] text-[13px] transition-all ${
@@ -178,7 +191,7 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
         <div className="flex flex-col flex-1 md:ml-[210px] min-w-0 h-screen overflow-hidden">
 
           {/* Topbar — hidden on mobile (bottom nav handles navigation) */}
-          {pathname !== "/dashboard" && pathname !== "/chat" && pathname !== "/inbox" && pathname !== "/paie" && (
+          {pathname !== "/dashboard" && pathname !== "/chat" && pathname !== "/inbox" && pathname !== "/paie" && pathname !== "/invoices" && pathname !== "/clients" && pathname !== "/transactions" && pathname !== "/tva" && pathname !== "/export" && pathname !== "/archive" && pathname !== "/settings" && (
             <div className="hidden md:flex items-center justify-between px-[22px] h-[52px] border-b border-[rgba(0,0,0,0.08)] bg-white flex-shrink-0">
               <span className="text-[14px] font-semibold text-[#1A1A2E]">{pageTitle}</span>
               <div className="flex items-center gap-2">
@@ -321,6 +334,19 @@ export default function AppShell({ children, userEmail, userName, userCompany }:
                     )}
                   </Link>
                 ))}
+
+                {/* Fiduciaire */}
+                {isFiduciaire && (
+                  <>
+                    <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)", margin: "8px 20px" }} />
+                    <Link href="/comptable-pro" onClick={() => setDrawerOpen(false)}
+                      className="flex items-center gap-3 px-[20px] py-[12px] transition-colors"
+                      style={{ color: pathname.startsWith("/comptable-pro") ? "#C8924A" : "rgba(255,255,255,0.7)" }}>
+                      <Briefcase size={16} />
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>Comptable Pro</span>
+                    </Link>
+                  </>
+                )}
 
                 {/* Sign out */}
                 <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)", margin: "8px 20px" }} />

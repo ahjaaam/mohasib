@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Toaster } from "react-hot-toast";
-import { Building2, User, Palette, CreditCard, Plug } from "lucide-react";
+import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
 import ApparenceTab from "./ApparenceTab";
 import AbonnementTab from "./AbonnementTab";
 import IntegrationsTab from "./IntegrationsTab";
+import MessagesTab from "./MessagesTab";
 
 interface Props {
   userId: string;
@@ -24,6 +25,7 @@ const TABS = [
   { id: "apparence", label: "Apparence", icon: Palette },
   { id: "abonnement", label: "Abonnement", icon: CreditCard },
   { id: "integrations", label: "Intégrations", icon: Plug },
+  { id: "messages",     label: "Messages",     icon: MessageSquare },
 ];
 
 export default function SettingsShell({ userId, userEmail, companyId, profile, company, prefs }: Props) {
@@ -38,6 +40,19 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
   return (
     <>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
+
+      {/* Page header */}
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(200,146,74,0.12)" }}>
+          <Settings size={18} className="text-[#C8924A]" />
+        </div>
+        <div>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Paramètres</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Gérez votre profil, entreprise et préférences</p>
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row gap-4 items-start">
         {/* Left tab nav */}
         <div className="w-full md:w-[188px] flex-shrink-0">
@@ -87,6 +102,7 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
           {tab === "apparence" && <ApparenceTab userId={userId} company={company} />}
           {tab === "abonnement" && <AbonnementTab userId={userId} userEmail={userEmail} companyId={companyId} />}
           {tab === "integrations" && <IntegrationsTab company={company} />}
+          {tab === "messages"     && <MessagesTab userId={userId} companyId={companyId} company={company} />}
         </div>
       </div>
     </>

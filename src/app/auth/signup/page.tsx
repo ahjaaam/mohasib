@@ -1,25 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
 import Link from "next/link";
 import Image from "next/image";
-import { Eye, EyeOff, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, CheckCircle, Building2, Briefcase } from "lucide-react";
+
+type UserType = "entrepreneur" | "fiduciaire";
 
 export default function SignupPage() {
-  const [form, setForm] = useState({
-    full_name: "",
-    company: "",
-    email: "",
-    password: "",
-  });
+  const [step, setStep] = useState<1 | 2>(1);
+  const [userType, setUserType] = useState<UserType>("entrepreneur");
+  const [form, setForm] = useState({ full_name: "", company: "", email: "", password: "" });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const router = useRouter();
   const supabase = createClient();
 
   async function handleSignup(e: React.FormEvent) {
@@ -34,6 +31,7 @@ export default function SignupPage() {
         data: {
           full_name: form.full_name,
           company: form.company,
+          user_type: userType,
         },
       },
     });
@@ -67,43 +65,91 @@ export default function SignupPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen flex" style={{ backgroundColor: "#FAFAF6" }}>
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12"
-        style={{ backgroundColor: "#0D1526" }}>
-        <div>
-          <Image src="/logo.png" alt="Mohasib" width={140} height={42} style={{ height: "auto", objectFit: "contain" }} />
-        </div>
-        <div>
-          <h2 className="text-3xl font-bold text-white leading-tight mb-4">
-            Démarrez votre comptabilité<br />en quelques minutes
-          </h2>
-          <p className="text-gray-400 text-sm leading-relaxed">
-            Rejoignez des centaines de PME marocaines qui font confiance à Mohasib
-            pour gérer leur comptabilité simplement et efficacement.
-          </p>
-        </div>
-        <p className="text-xs text-gray-600">© {new Date().getFullYear()} Mohasib.</p>
-      </div>
-
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-sm">
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: "#C8924A" }}>
-              <span className="text-white font-bold text-sm">م</span>
+  if (step === 1) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#FAFAF6" }}>
+          <div className="w-full max-w-sm">
+            <div className="mb-8">
+              <Image src="/logo2.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain", height: "auto" }} />
             </div>
-            <span className="font-bold text-navy text-lg">Mohasib</span>
+
+            <h1 className="text-2xl font-bold text-navy mb-1">Je suis...</h1>
+            <p className="text-sm text-gray-500 mb-7">
+              Déjà inscrit ?{" "}
+              <Link href="/auth/login" className="text-gold hover:underline font-medium">Se connecter</Link>
+            </p>
+
+            <div className="space-y-3 mb-7">
+              <button
+                onClick={() => { setUserType("entrepreneur"); setStep(2); }}
+                className="w-full p-4 rounded-xl border-2 text-left transition-all hover:-translate-y-0.5"
+                style={{
+                  borderColor: "rgba(0,0,0,0.1)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  backgroundColor: "white",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "#C8924A")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(0,0,0,0.1)")}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
+                    <Briefcase size={18} className="text-[#C8924A]" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-[#1A1A2E] text-[14px]">Un entrepreneur / freelance</div>
+                    <div className="text-[12px] text-[#6B7280] mt-0.5">Gérez votre propre comptabilité</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => { setUserType("fiduciaire"); setStep(2); }}
+                className="w-full p-4 rounded-xl border-2 text-left transition-all hover:-translate-y-0.5"
+                style={{
+                  borderColor: "rgba(0,0,0,0.1)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  backgroundColor: "white",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "#C8924A")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(0,0,0,0.1)")}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[rgba(13,21,38,0.06)] flex items-center justify-center flex-shrink-0">
+                    <Building2 size={18} className="text-[#0D1526]" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-[#1A1A2E] text-[14px]">Un comptable / Expert-comptable</div>
+                    <div className="text-[12px] text-[#6B7280] mt-0.5">Gérez plusieurs dossiers clients</div>
+                  </div>
+                  <span className="ml-auto flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#0D1526] text-white">
+                    Nouveau
+                  </span>
+                </div>
+              </button>
+            </div>
           </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#FAFAF6" }}>
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <Image src="/logo2.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain", height: "auto" }} />
+          </div>
+
+          <button
+            onClick={() => setStep(1)}
+            className="flex items-center gap-1.5 text-[12px] text-[#6B7280] hover:text-[#1A1A2E] mb-5 transition-colors"
+          >
+            ← {userType === "fiduciaire" ? "Comptable Pro" : "Entrepreneur / freelance"}
+          </button>
 
           <h1 className="text-2xl font-bold text-navy mb-1">Créer un compte</h1>
           <p className="text-sm text-gray-500 mb-7">
             Déjà inscrit ?{" "}
-            <Link href="/auth/login" className="text-gold hover:underline font-medium">
-              Se connecter
-            </Link>
+            <Link href="/auth/login" className="text-gold hover:underline font-medium">Se connecter</Link>
           </p>
 
           <form onSubmit={handleSignup} className="space-y-4">
@@ -114,8 +160,11 @@ export default function SignupPage() {
                 onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
             </div>
             <div>
-              <label className="label">Entreprise</label>
-              <input className="input" placeholder="Ma Société SARL"
+              <label className="label">
+                {userType === "fiduciaire" ? "Nom du cabinet" : "Entreprise"}
+              </label>
+              <input className="input"
+                placeholder={userType === "fiduciaire" ? "Cabinet Dupont & Associés" : "Ma Société SARL"}
                 value={form.company}
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
             </div>
@@ -140,9 +189,7 @@ export default function SignupPage() {
             </div>
 
             {error && (
-              <p className="text-xs text-red-500 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">
-                {error}
-              </p>
+              <p className="text-xs text-red-500 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">{error}</p>
             )}
 
             <button type="submit" disabled={loading}
@@ -157,7 +204,6 @@ export default function SignupPage() {
             </p>
           </form>
         </div>
-      </div>
     </div>
   );
 }

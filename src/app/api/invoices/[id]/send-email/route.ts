@@ -108,22 +108,45 @@ export async function POST(
     const safeClientName = clientName.replace(/[^a-zA-Z0-9\u00C0-\u024F\s-]/g, "").trim().replace(/\s+/g, "-");
     const filename = `Facture-${inv.invoice_number}-${safeClientName}.pdf`;
 
+    const ttc = fmtAmount(Number(inv.total));
+    const dueDate = inv.due_date ? fmtDate(inv.due_date) : null;
+
+    let bodyHtml: string;
+    if (company?.email_template) {
+      const text = company.email_template
+        .replace(/\{\{nom_client\}\}/g,     clientName)
+        .replace(/\{\{numero_facture\}\}/g,  inv.invoice_number)
+        .replace(/\{\{montant_ttc\}\}/g,     ttc)
+        .replace(/\{\{date_echeance\}\}/g,   dueDate ? `Date d'\u00E9ch\u00E9ance : ${dueDate}` : "")
+        .replace(/\{\{nom_entreprise\}\}/g,  companyName)
+        .replace(/\{\{telephone\}\}/g,       company?.phone ?? "");
+      bodyHtml = text
+        .split("\n")
+        .map((line: string) => line.trim() === ""
+          ? `<p style="margin:0 0 12px;"></p>`
+          : `<p style="margin:0 0 12px;">${line}</p>`)
+        .join("");
+    } else {
+      bodyHtml = `
+  <p style="margin: 0 0 20px;">Bonjour ${clientName},</p>
+  <p style="margin: 0 0 20px;">
+    Veuillez trouver ci-joint votre facture <strong>${inv.invoice_number}</strong>
+    d'un montant de <strong>${ttc}</strong>.
+  </p>
+  ${dueDate ? `<p style="margin: 0 0 20px;">Date d'\u00E9ch\u00E9ance : <strong>${dueDate}</strong></p>` : ""}
+  <p style="margin: 0 0 32px;">Pour toute question, n'h\u00E9sitez pas \u00E0 nous contacter.</p>
+  <p style="margin: 0 0 4px;">Cordialement,</p>
+  <p style="margin: 0 0 4px; font-weight: 600;">${companyName}</p>
+  ${company?.phone ? `<p style="margin: 0 0 4px; color: #6B7280;">${company.phone}</p>` : ""}
+  ${company?.email ? `<p style="margin: 0; color: #6B7280;">${company.email}</p>` : ""}`;
+    }
+
     const emailHtml = `
 <!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8" /></head>
 <body style="font-family: Arial, sans-serif; color: #1A1A2E; max-width: 600px; margin: 0 auto; padding: 32px 24px;">
-  <p style="margin: 0 0 20px;">Bonjour ${clientName},</p>
-  <p style="margin: 0 0 20px;">
-    Veuillez trouver ci-joint votre facture <strong>${inv.invoice_number}</strong>
-    d'un montant de <strong>${fmtAmount(Number(inv.total))}</strong>.
-  </p>
-  ${inv.due_date ? `<p style="margin: 0 0 20px;">Date d'échéance : <strong>${fmtDate(inv.due_date)}</strong></p>` : ""}
-  <p style="margin: 0 0 32px;">Pour toute question, n'hésitez pas à nous contacter.</p>
-  <p style="margin: 0 0 4px;">Cordialement,</p>
-  <p style="margin: 0 0 4px; font-weight: 600;">${companyName}</p>
-  ${company?.phone ? `<p style="margin: 0 0 4px; color: #6B7280;">${company.phone}</p>` : ""}
-  ${company?.email ? `<p style="margin: 0; color: #6B7280;">${company.email}</p>` : ""}
+  ${bodyHtml}
   <hr style="margin: 32px 0; border: none; border-top: 1px solid #E5E7EB;" />
   <p style="margin: 0; font-size: 11px; color: #9CA3AF;">
     Facture générée via <a href="https://mohasibai.com" style="color: #C8924A; text-decoration: none;">Mohasib AI</a> — mohasibai.com
