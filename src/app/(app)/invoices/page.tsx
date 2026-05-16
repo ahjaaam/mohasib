@@ -39,6 +39,12 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "draft",              label: "Brouillons" },
 ];
 
+const AVOIR_TABS: { key: TabKey; label: string }[] = [
+  { key: "all",   label: "Tous" },
+  { key: "draft", label: "Brouillons" },
+  { key: "sent",  label: "Envoyés" },
+];
+
 // Badge: [bg, textColor, label]
 const BADGE: Record<string, [string, string, string]> = {
   paid:                 ["#D1FAE5", "#065F46",  "Payée"],
@@ -47,6 +53,11 @@ const BADGE: Record<string, [string, string, string]> = {
   draft:                ["#F3F4F6", "#6B7280",  "Brouillon"],
   cancelled:            ["#F3F4F6", "#6B7280",  "Annulée"],
   partiellement_payee:  ["#FEF3C7", "#92400E",  "Partiel"],
+};
+
+const AVOIR_BADGE: Record<string, [string, string, string]> = {
+  draft: ["#F3F4F6", "#6B7280", "Brouillon"],
+  sent:  ["#DCFCE7", "#166534", "Envoyé"],
 };
 
 const MODES_PAIEMENT = ["Virement", "Chèque", "Espèces", "Carte bancaire"];
@@ -503,7 +514,9 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
 
   const modeInvoices = mode === "avoirs" ? avoirs : factures;
 
-  const tabCounts = TABS.reduce((acc, t) => {
+  const activeTabs = mode === "avoirs" ? AVOIR_TABS : TABS;
+
+  const tabCounts = activeTabs.reduce((acc, t) => {
     acc[t.key] = t.key === "all"
       ? modeInvoices.length
       : modeInvoices.filter((i) => i.status === t.key).length;
@@ -570,7 +583,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
         ] as { key: PageMode; label: string; count: number }[]).map(({ key, label, count }) => (
           <button
             key={key}
-            onClick={() => { setMode(key); setTab("all"); }}
+            onClick={() => { setMode(key); setTab("all"); setSearch(""); setDateFrom(""); setDateTo(""); }}
             className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all select-none flex items-center gap-1.5 ${
               mode === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
             }`}
@@ -587,7 +600,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
 
       {/* ─── Pill tabs ────────────────────────────────────────────────────── */}
       <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-4 w-fit flex-wrap">
-        {TABS.map(({ key, label }) => (
+        {activeTabs.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
             className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all select-none ${
               tab === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
@@ -688,7 +701,8 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
             )}
             {filtered.map((inv) => {
               const status = inv.status as string;
-              const [bg, color, label] = BADGE[status] ?? ["#F3F4F6", "#6B7280", status];
+              const badgeMap = mode === "avoirs" ? AVOIR_BADGE : BADGE;
+              const [bg, color, label] = badgeMap[status] ?? ["#F3F4F6", "#6B7280", status];
               const isPartial = status === "partiellement_payee";
               const totalTtc = Number(inv.total);
               const montantPaye = Number(inv.montant_paye ?? 0);
