@@ -264,23 +264,23 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); }}
         />
         <div className="flex items-center gap-1">
+          <div className="relative group">
+            <button className="w-5 h-5 flex items-center justify-center rounded-full text-[#9CA3AF] hover:text-[#6B7280] transition-colors">
+              <Info size={14} />
+            </button>
+            <div className="absolute left-0 top-7 z-50 w-72 bg-[#1A1A2E] text-white text-[11.5px] rounded-xl px-3.5 py-3 shadow-xl leading-relaxed pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              <p className="font-semibold mb-1.5 text-[#C8924A]">Colonnes acceptées (dans l&apos;ordre)</p>
+              <p className="font-mono text-[11px] text-[#E5E7EB]">Nom *, Email, Téléphone, Adresse, Ville, Code postal, ICE, RC, Notes</p>
+              <p className="mt-2 text-[#9CA3AF]">Seule la colonne <span className="text-white font-semibold">Nom</span> est obligatoire. Les cellules vides sont ignorées.</p>
+              <div className="absolute -top-1.5 left-2 w-3 h-3 bg-[#1A1A2E] rotate-45 rounded-sm" />
+            </div>
+          </div>
           <button
             onClick={() => importInputRef.current?.click()}
             className="btn btn-outline flex items-center gap-1.5"
           >
             <Upload size={13} /> Importer Excel
           </button>
-          <div className="relative group">
-            <button className="w-5 h-5 flex items-center justify-center rounded-full text-[#9CA3AF] hover:text-[#6B7280] transition-colors">
-              <Info size={14} />
-            </button>
-            <div className="absolute right-0 top-7 z-50 w-72 bg-[#1A1A2E] text-white text-[11.5px] rounded-xl px-3.5 py-3 shadow-xl leading-relaxed pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-              <p className="font-semibold mb-1.5 text-[#C8924A]">Colonnes acceptées (dans l&apos;ordre)</p>
-              <p className="font-mono text-[11px] text-[#E5E7EB]">Nom *, Email, Téléphone, Adresse, Ville, Code postal, ICE, RC, Notes</p>
-              <p className="mt-2 text-[#9CA3AF]">Seule la colonne <span className="text-white font-semibold">Nom</span> est obligatoire. Les cellules vides sont ignorées.</p>
-              <div className="absolute -top-1.5 right-2 w-3 h-3 bg-[#1A1A2E] rotate-45 rounded-sm" />
-            </div>
-          </div>
         </div>
         <button onClick={openAdd} className="btn btn-gold flex items-center gap-1.5">
           <Plus size={13} /> Nouveau client
