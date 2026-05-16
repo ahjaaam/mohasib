@@ -96,8 +96,10 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     }
   }
 
-  const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
-  const expense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+  const currentMonth = today.slice(0, 7); // "YYYY-MM"
+  const monthlyTx = transactions.filter((t) => t.date.slice(0, 7) === currentMonth);
+  const income  = monthlyTx.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+  const expense = monthlyTx.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
   const balance = income - expense;
 
   const allFormCats = [...TRANSACTION_CATEGORIES.income, ...TRANSACTION_CATEGORIES.expense];
@@ -147,18 +149,18 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — current month */}
       <div className="grid grid-cols-3 gap-2.5 mb-4">
         <div className="kpi">
-          <div className="kpi-label">Encaissé</div>
+          <div className="kpi-label">Encaissé <span className="text-[10px] font-normal text-[#9CA3AF] ml-1">ce mois</span></div>
           <div className="kpi-value text-[#059669]">{fmt(income)}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Dépensé</div>
+          <div className="kpi-label">Dépensé <span className="text-[10px] font-normal text-[#9CA3AF] ml-1">ce mois</span></div>
           <div className="kpi-value text-[#DC2626]">{fmt(expense)}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Solde net</div>
+          <div className="kpi-label">Solde net <span className="text-[10px] font-normal text-[#9CA3AF] ml-1">ce mois</span></div>
           <div className={`kpi-value ${balance >= 0 ? "text-[#1A1A2E]" : "text-[#DC2626]"}`}>{fmt(balance)}</div>
         </div>
       </div>
