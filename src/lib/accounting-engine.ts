@@ -333,3 +333,76 @@ export async function bookBankTransaction(
   validateBalance(entries);
   await insertEntries(supabase, entries, companyId, dossierId);
 }
+
+// ── bookAvoirClient ───────────────────────────────────────────────────────────
+// Mirror of bookSalesInvoice: debits revenue/TVA, credits client receivable.
+
+export async function bookAvoirClient(
+  supabase: any,
+  avoir: BookableInvoice,
+  companyId?: string | null,
+  dossierId?: string | null,
+) {
+  if (await isAlreadyBooked(supabase, avoir.id)) return;
+
+  const clientName = avoir.clients?.name ?? "Client";
+  const entries: JournalEntry[] = [];
+
+  // 1 — Credit 3421 (reduce client receivable) for TTC
+  entries.push({
+    journal: "VT",
+    compte: "3421",
+    compte_label: getAccountLabel("3421"),
+    debit: 0,
+    credit: avoir.total,
+    libelle: `Avoir ${avoir.invoice_number} — ${clientName}`,
+    source_type: "avoir_client",
+    source_id: avoir.id,
+    date_ecriture: avoir.issue_date,
+    numero_piece: avoir.invoice_number,
+  });
+
+  // 2 — Debit revenue accounts per line (reverse revenue)
+  const groupedByRate: Record<number, number> = {};
+  for (const line of avoir.items) {
+    const rate = line.tva_rate ?? 20;
+    groupedByRate[rate] = (groupedByRate[rate] ?? 0) + line.amount;
+  }
+  if (avoir.items.length === 0) groupedByRate[20] = avoir.subtotal;
+
+  for (const [rateStr, htAmount] of Object.entries(groupedByRate)) {
+    const rate = Number(rateStr);
+    const revenueAccount = getRevenueAccount("Services", rate);
+    entries.push({
+      journal: "VT",
+      compte: revenueAccount,
+      compte_label: getAccountLabel(revenueAccount),
+      debit: Math.round(htAmount * 100) / 100,
+      credit: 0,
+      libelle: `Avoir ventes ${avoir.invoice_number} — TVA ${rate}%`,
+      source_type: "avoir_client",
+      source_id: avoir.id,
+      date_ecriture: avoir.issue_date,
+      numero_piece: avoir.invoice_number,
+    });
+  }
+
+  // 3 — Debit 4455 (reverse TVA collectée)
+  if (avoir.tax_amount > 0) {
+    entries.push({
+      journal: "VT",
+      compte: getTVACollectedAccount(20),
+      compte_label: getAccountLabel("4455"),
+      debit: avoir.tax_amount,
+      credit: 0,
+      libelle: `TVA collectée annulée — ${avoir.invoice_number}`,
+      source_type: "avoir_client",
+      source_id: avoir.id,
+      date_ecriture: avoir.issue_date,
+      numero_piece: avoir.invoice_number,
+    });
+  }
+
+  validateBalance(entries);
+  await insertEntries(supabase, entries, companyId, dossierId);
+}

@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { Receipt, OcrData, Transaction } from "@/types";
+import type { Receipt, OcrData } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 
@@ -120,10 +121,11 @@ function SourceBadge({ provider }: { provider?: string }) {
 
 export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: string; inboxEmail?: string | null } = {}) {
   const supabase = createClient();
+  const router = useRouter();
   const [userId, setUserId] = useState("");
   const [receipts, setReceipts] = useState<ReceiptWithUrl[]>([]);
-  const [transactions, setTransactions] = useState<Record<string, Transaction>>({});
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState<Tab>("pending");
   const [forms, setForms] = useState<Record<string, CardForm>>({});
   const [saving, setSaving] = useState<Set<string>>(new Set());
@@ -143,7 +145,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     const receiptsQuery = supabase.from("receipts").select("*").order("created_at", { ascending: false });
     const { data } = await (dossierId
       ? receiptsQuery.eq("dossier_id", dossierId)
-      : receiptsQuery.eq("user_id", user.id));
+      : receiptsQuery.eq("user_id", user.id).is("dossier_id", null));
     const list: Receipt[] = data ?? [];
     const withUrls: ReceiptWithUrl[] = await Promise.all(list.map(async (r) => {
       let signedUrl: string | undefined;
@@ -163,19 +165,6 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       return next;
     });
 
-    // Fetch linked transactions for matched receipts
-    const matchedIds = list.filter((r) => r.status === "matched").map((r) => r.id);
-    if (matchedIds.length > 0) {
-      const { data: txData } = await supabase
-        .from("transactions")
-        .select("*")
-        .in("receipt_id", matchedIds);
-      const txMap: Record<string, Transaction> = {};
-      for (const tx of txData ?? []) {
-        if (tx.receipt_id) txMap[tx.receipt_id] = tx;
-      }
-      setTransactions(txMap);
-    }
 
     setLoading(false);
   }, [dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -225,6 +214,27 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   }
 
   // ── Confirm / Ignore ──────────────────────────────────────────────────────
+
+  async function handleEmailSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/email/sync", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (json.imported > 0) {
+        toast.success(`${json.imported} email(s) importé(s)`);
+        await load();
+      } else if (json.not_connected) {
+        toast("Connectez votre email dans Paramètres → Intégrations", { icon: "📧" });
+        router.push("/settings?tab=integrations");
+      } else {
+        toast("Aucun nouvel email");
+      }
+    } catch {
+      toast.error("Erreur de synchronisation");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function confirmReceipt(id: string) {
     const receipt = receipts.find((r) => r.id === id);
@@ -283,36 +293,32 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
-    const row = {
-      user_id: userId,
-      ...(dossierId ? { dossier_id: dossierId } : {}),
+    const confirmedOcr = {
+      ...receipt.ocr_data,
+      amount: amt,
       type: amt >= 0 ? "income" : "expense",
-      description: form.description || "Dépense",
-      amount: Math.abs(amt),
       date: form.date,
-      category: form.category || null,
-      currency: "MAD",
-      receipt_id: id,
-      compte_comptable: form.compte_comptable || null,
+      category: form.category || receipt.ocr_data.category || null,
+      description: form.description || receipt.ocr_data.description || null,
+      tva_rate: form.tva_rate ? parseFloat(form.tva_rate) : receipt.ocr_data.tva_rate,
+      compte: form.compte_comptable || (receipt.ocr_data as any).compte || null,
     };
-    let { error } = await supabase.from("transactions").insert(row);
-    if (error?.message.includes("compte_comptable")) {
-      const { compte_comptable: _c, ...rowWithout } = row;
-      ({ error } = await supabase.from("transactions").insert(rowWithout));
-    }
+    const { error } = await supabase
+      .from("receipts")
+      .update({ status: "matched", ocr_data: confirmedOcr })
+      .eq("id", id);
     if (error) {
-      toast.error("Erreur lors de la création");
+      toast.error("Erreur lors de la confirmation");
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
-    await supabase.from("receipts").update({ status: "matched" }).eq("id", id);
     if (dossierId) {
       await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
     }
     setSaving((s) => { s.delete(id); return new Set(s); });
     if (previewReceipt?.id === id) setPreviewReceipt(null);
     dismissCard(id, "right");
-    toast.success("Transaction créée !");
+    toast.success("Facture confirmée !");
   }
 
   async function ignoreReceipt(id: string) {
@@ -340,37 +346,18 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   async function confirmAll() {
     setBatchSaving(true);
     const pend = receipts.filter((r) => r.status === "pending");
-    const rows = pend.map((r) => {
-      const form = forms[r.id] ?? initForm(r.ocr_data);
-      const amt = parseFloat(form.amount);
-      return {
-        user_id: userId,
-        ...(dossierId ? { dossier_id: dossierId } : {}),
-        type: isNaN(amt) || amt >= 0 ? "income" : "expense" as const,
-        description: form.description || "Dépense",
-        amount: isNaN(amt) ? 0 : Math.abs(amt),
-        date: form.date,
-        category: form.category || null,
-        currency: "MAD",
-        receipt_id: r.id,
-        compte_comptable: form.compte_comptable || null,
-      };
-    });
-    let { error: batchErr } = await supabase.from("transactions").insert(rows);
-    if (batchErr?.message.includes("compte_comptable")) {
-      const simpleRows = rows.map(({ compte_comptable: _c, ...r }) => r);
-      ({ error: batchErr } = await supabase.from("transactions").insert(simpleRows));
-    }
-    if (batchErr) { toast.error(translateError(batchErr)); setBatchSaving(false); return; }
     const matchQuery = supabase.from("receipts").update({ status: "matched" }).eq("status", "pending");
-    await (dossierId ? matchQuery.eq("dossier_id", dossierId) : matchQuery.eq("user_id", userId));
+    const { error: batchErr } = await (dossierId
+      ? matchQuery.eq("dossier_id", dossierId)
+      : matchQuery.eq("user_id", userId));
+    if (batchErr) { toast.error(translateError(batchErr)); setBatchSaving(false); return; }
     if (dossierId) {
       await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
     }
     setBatchSaving(false);
     setBatchModal(false);
     setPreviewReceipt(null);
-    toast.success(`${rows.length} transactions créées !`);
+    toast.success(`${pend.length} facture${pend.length > 1 ? "s" : ""} confirmée${pend.length > 1 ? "s" : ""} !`);
     await load();
   }
 
@@ -456,6 +443,13 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                 <Camera size={13} /> Prendre une photo
               </button>
+              {!dossierId && (
+                <button onClick={handleEmailSync} disabled={syncing}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors disabled:opacity-50">
+                  <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
+                  {syncing ? "Synchronisation…" : "Sync emails"}
+                </button>
+              )}
             </div>
 
             <div className="text-center mt-3 text-[10.5px] text-[#9CA3AF]">
@@ -513,7 +507,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
       {/* ─── Traités: accounting ledger ──────────────────────────────────── */}
       {!loading && tab === "matched" && (
-        <LedgerView receipts={matched} transactions={transactions} />
+        <LedgerView receipts={matched} />
       )}
 
       {/* ─── Pending / Ignored: empty state ─────────────────────────────── */}
@@ -593,7 +587,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
             <h3 className="text-[14px] font-bold text-[#1A1A2E] mb-4">
-              Confirmer {pending.length} transactions ?
+              Confirmer {pending.length} facture{pending.length > 1 ? "s" : ""} ?
             </h3>
             <div className="flex flex-col gap-1.5 mb-4 max-h-48 overflow-y-auto">
               {pending.map((r) => {
@@ -646,32 +640,25 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
 // ─── Accounting Ledger View ───────────────────────────────────────────────────
 
-function LedgerView({
-  receipts,
-  transactions,
-}: {
-  receipts: ReceiptWithUrl[];
-  transactions: Record<string, Transaction>;
-}) {
+function LedgerView({ receipts }: { receipts: ReceiptWithUrl[] }) {
   const rows = receipts.map((r) => {
     const ocr = r.ocr_data;
-    const tx = transactions[r.id];
     const { ht, tva, ttc } = computeAmounts(ocr);
-    const journal = (ocr.type === "income" || (tx?.type === "income")) ? "VTE" : "ACH";
+    const journal = ocr.type === "income" ? "VTE" : "ACH";
     return {
       id: r.id,
       journal,
-      date: ocr.date ?? tx?.date ?? r.created_at?.split("T")[0] ?? "",
+      date: ocr.date ?? r.created_at?.split("T")[0] ?? "",
       vendor: ocr.vendor_name ?? ocr.vendor ?? "",
       ref: ocr.receipt_number ?? "",
-      description: tx?.description ?? ocr.description ?? "",
+      description: (ocr.description as string | null) ?? "",
       ht,
       tva,
       ttc,
       tvaRate: ocr.tva_rate ?? 0,
-      category: tx?.category ?? ocr.category ?? "",
-      compte: tx?.compte_comptable ?? ocr.compte ?? "",
-      paymentMethod: ocr.payment_method ?? tx?.payment_method ?? "",
+      category: (ocr.category as string | null) ?? "",
+      compte: (ocr as any).compte ?? "",
+      paymentMethod: (ocr.payment_method as string | null) ?? "",
     };
   });
 

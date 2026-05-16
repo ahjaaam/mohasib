@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { bookSalesInvoice, bookPurchaseInvoice, bookBankTransaction } from "@/lib/accounting-engine";
+import { bookSalesInvoice, bookPurchaseInvoice, bookBankTransaction, bookAvoirClient } from "@/lib/accounting-engine";
 import { autoLettrage } from "@/lib/lettrage";
 
 export async function POST(req: NextRequest) {
@@ -110,6 +110,32 @@ export async function POST(req: NextRequest) {
         category: ocr.category ?? null,
         supplier_name: ocr.vendor ?? ocr.vendor_name ?? null,
         reference: ocr.receipt_number ?? null,
+      }, companyId, dossierId ?? null);
+
+      await autoLettrage(supabase, companyId, dossierId ?? null);
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── Avoir client booking ──────────────────────────────────────────────────
+    if (type === "avoir") {
+      const { invoiceId } = body as { invoiceId: string };
+      const { data: inv } = await supabase
+        .from("invoices")
+        .select("id, invoice_number, issue_date, total, subtotal, tax_amount, tax_rate, items, clients(name)")
+        .eq("id", invoiceId)
+        .single();
+
+      if (!inv) return NextResponse.json({ error: "Avoir introuvable" }, { status: 404 });
+
+      await bookAvoirClient(supabase, {
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        issue_date: inv.issue_date,
+        total: Number(inv.total),
+        subtotal: Number(inv.subtotal),
+        tax_amount: Number(inv.tax_amount),
+        items: (inv.items ?? []) as any[],
+        clients: (inv as any).clients,
       }, companyId, dossierId ?? null);
 
       await autoLettrage(supabase, companyId, dossierId ?? null);

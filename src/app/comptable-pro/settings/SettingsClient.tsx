@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
-import { Building2, Route, Plus, Trash2, ChevronDown, Plug2, Mail, Copy } from "lucide-react";
+import { Building2, Plug2, Mail, Copy } from "lucide-react";
 import type { Cabinet } from "@/types/fiduciaire";
 
 interface Props {
@@ -12,32 +12,6 @@ interface Props {
   cabinet: Cabinet | null;
 }
 
-interface RoutingRule {
-  id: string;
-  dossier_id: string;
-  rule_type: string;
-  rule_value: string;
-  is_active: boolean;
-  dossier?: { raison_sociale: string };
-}
-
-interface Dossier {
-  id: string;
-  raison_sociale: string;
-}
-
-const RULE_TYPE_LABELS: Record<string, string> = {
-  sender_email:    "Email exact",
-  sender_domain:   "Domaine",
-  subject_keyword: "Mot-clé dans l'objet",
-};
-
-const RULE_PLACEHOLDERS: Record<string, string> = {
-  sender_email:    "supplier@orange.ma",
-  sender_domain:   "@lydec.ma",
-  subject_keyword: "Atlas SARL",
-};
-
 interface DossierWithEmail {
   id: string;
   raison_sociale: string;
@@ -45,14 +19,15 @@ interface DossierWithEmail {
 }
 
 export default function SettingsClient({ userId, profile, cabinet }: Props) {
-  const [activeTab, setActiveTab] = useState<"cabinet" | "routing" | "integrations">("cabinet");
+  const [activeTab, setActiveTab] = useState<"cabinet" | "integrations">("cabinet");
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const tab = p.get("tab");
-    if (tab === "routing" || tab === "integrations") setActiveTab(tab);
+    if (tab === "integrations") setActiveTab("integrations");
     if (tab) window.history.replaceState({}, "", window.location.pathname);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [form, setForm] = useState({
     nom_cabinet: cabinet?.nom_cabinet ?? profile?.company ?? "",
     ice: cabinet?.ice ?? "",
@@ -65,9 +40,10 @@ export default function SettingsClient({ userId, profile, cabinet }: Props) {
   });
   const [saving, setSaving] = useState(false);
 
-  // Dossiers with inbox email for integrations tab
   const [dossiersWithEmail, setDossiersWithEmail] = useState<DossierWithEmail[]>([]);
   const [loadingEmails, setLoadingEmails] = useState(false);
+
+  const supabase = createClient();
 
   useEffect(() => {
     if (activeTab !== "integrations") return;
@@ -84,35 +60,9 @@ export default function SettingsClient({ userId, profile, cabinet }: Props) {
       });
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Routing rules state
-  const [rules, setRules] = useState<RoutingRule[]>([]);
-  const [dossiers, setDossiers] = useState<Dossier[]>([]);
-  const [newRule, setNewRule] = useState({ rule_type: "sender_email", rule_value: "", dossier_id: "" });
-  const [addingRule, setAddingRule] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-
-  const supabase = createClient();
-
   function set(key: string, value: string) {
     setForm(f => ({ ...f, [key]: value }));
   }
-
-  // Load routing rules + dossiers when tab opens
-  useEffect(() => {
-    if (activeTab !== "routing") return;
-    supabase
-      .from("email_routing_rules")
-      .select("*, dossier:dossier_id(raison_sociale)")
-      .order("created_at")
-      .then(({ data }) => setRules((data ?? []) as RoutingRule[]));
-    supabase
-      .from("dossiers")
-      .select("id, raison_sociale")
-      .eq("fiduciaire_user_id", userId)
-      .eq("statut", "actif")
-      .order("raison_sociale")
-      .then(({ data }) => setDossiers((data ?? []) as Dossier[]));
-  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function saveCabinet(e: React.FormEvent) {
     e.preventDefault();
@@ -137,59 +87,9 @@ export default function SettingsClient({ userId, profile, cabinet }: Props) {
     toast.success("Cabinet mis à jour");
   }
 
-  function validateRuleValue(type: string, value: string): string | null {
-    const v = value.trim();
-    if (!v) return "La valeur ne peut pas être vide";
-    if (type === "sender_email") {
-      if (!v.includes("@") || !v.includes(".")) return "Format invalide — ex: supplier@orange.ma";
-    } else if (type === "sender_domain") {
-      const domain = v.startsWith("@") ? v.slice(1) : v;
-      if (!domain.includes(".")) return "Format invalide — ex: @lydec.ma ou lydec.ma";
-    }
-    return null;
-  }
-
-  async function createRule() {
-    if (!newRule.dossier_id) {
-      toast.error("Sélectionnez un dossier");
-      return;
-    }
-    const validationError = validateRuleValue(newRule.rule_type, newRule.rule_value);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-    setAddingRule(true);
-    const { data, error } = await supabase
-      .from("email_routing_rules")
-      .insert({
-        fiduciaire_user_id: userId,
-        dossier_id: newRule.dossier_id,
-        rule_type: newRule.rule_type,
-        rule_value: newRule.rule_value.trim(),
-        is_active: true,
-      })
-      .select("*, dossier:dossier_id(raison_sociale)")
-      .single();
-    setAddingRule(false);
-    if (error) { toast.error(error.message); return; }
-    setRules(r => [...r, data as RoutingRule]);
-    setNewRule({ rule_type: "sender_email", rule_value: "", dossier_id: "" });
-    setShowForm(false);
-    const dossierName = dossiers.find(d => d.id === newRule.dossier_id)?.raison_sociale ?? "le dossier";
-    toast.success(`Règle créée pour ${dossierName}.`);
-  }
-
-  async function deleteRule(id: string) {
-    await supabase.from("email_routing_rules").delete().eq("id", id);
-    setRules(r => r.filter(x => x.id !== id));
-    toast.success("Règle supprimée");
-  }
-
   const TABS = [
-    { key: "cabinet",      label: "Informations",          icon: Building2 },
-    { key: "integrations", label: "Intégrations",          icon: Plug2 },
-    { key: "routing",      label: "Règles d'acheminement", icon: Route },
+    { key: "cabinet",      label: "Informations", icon: Building2 },
+    { key: "integrations", label: "Intégrations",  icon: Plug2 },
   ] as const;
 
   return (
@@ -210,7 +110,6 @@ export default function SettingsClient({ userId, profile, cabinet }: Props) {
 
         {/* Left tab nav */}
         <div className="w-full md:w-[188px] flex-shrink-0">
-          {/* Mobile: horizontal scroll */}
           <div className="md:hidden flex gap-1 overflow-x-auto pb-1">
             {TABS.map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
@@ -224,7 +123,6 @@ export default function SettingsClient({ userId, profile, cabinet }: Props) {
               </button>
             ))}
           </div>
-          {/* Desktop: vertical nav */}
           <div className="hidden md:flex flex-col bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
             {TABS.map((t, i) => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
@@ -378,118 +276,6 @@ export default function SettingsClient({ userId, profile, cabinet }: Props) {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Routing rules tab ── */}
-      {activeTab === "routing" && (
-        <div className="space-y-4">
-          <div className="card overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(0,0,0,0.06)]">
-              <div>
-                <div className="text-[13.5px] font-semibold text-[#1A1A2E]">Règles d'acheminement</div>
-                <div className="text-[11.5px] text-[#6B7280]">Les emails entrants sont routés automatiquement selon ces règles</div>
-              </div>
-              <button onClick={() => setShowForm(v => !v)} className="btn btn-gold btn-sm flex items-center gap-1">
-                <Plus size={13} /> Nouvelle règle
-              </button>
-            </div>
-
-            {/* New rule form */}
-            {showForm && (
-              <div className="p-4 bg-[#FAFAF6] border-b border-[rgba(0,0,0,0.06)]">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                  <div>
-                    <label className="block text-[11.5px] font-medium text-[#374151] mb-1">Type</label>
-                    <div className="relative">
-                      <select
-                        className="input pr-7 appearance-none text-[12.5px]"
-                        value={newRule.rule_type}
-                        onChange={e => setNewRule(r => ({ ...r, rule_type: e.target.value, rule_value: "" }))}
-                      >
-                        {Object.entries(RULE_TYPE_LABELS).map(([v, l]) => (
-                          <option key={v} value={v}>{l}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6B7280] pointer-events-none" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[11.5px] font-medium text-[#374151] mb-1">Valeur</label>
-                    <input
-                      className="input text-[12.5px]"
-                      value={newRule.rule_value}
-                      onChange={e => setNewRule(r => ({ ...r, rule_value: e.target.value }))}
-                      placeholder={RULE_PLACEHOLDERS[newRule.rule_type]}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11.5px] font-medium text-[#374151] mb-1">Dossier</label>
-                    <div className="relative">
-                      <select
-                        className="input pr-7 appearance-none text-[12.5px]"
-                        value={newRule.dossier_id}
-                        onChange={e => setNewRule(r => ({ ...r, dossier_id: e.target.value }))}
-                      >
-                        <option value="">Choisir…</option>
-                        {dossiers.map(d => <option key={d.id} value={d.id}>{d.raison_sociale}</option>)}
-                      </select>
-                      <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6B7280] pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => setShowForm(false)} className="btn btn-outline btn-sm">Annuler</button>
-                  <button onClick={createRule} disabled={addingRule} className="btn btn-gold btn-sm">
-                    {addingRule ? "…" : "Créer"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Rules table */}
-            {rules.length === 0 && !showForm ? (
-              <div className="py-10 text-center text-[12.5px] text-[#9CA3AF]">
-                Aucune règle — les emails sont routés par IA
-              </div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>De (expéditeur)</th>
-                    <th>Dossier</th>
-                    <th>Type</th>
-                    <th className="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rules.map(rule => (
-                    <tr key={rule.id}>
-                      <td className="font-mono text-[12px]">{rule.rule_value}</td>
-                      <td className="text-[12.5px]">{rule.dossier?.raison_sociale ?? "—"}</td>
-                      <td>
-                        <span className="tag tag-gray">{RULE_TYPE_LABELS[rule.rule_type] ?? rule.rule_type}</span>
-                      </td>
-                      <td className="text-right">
-                        <button
-                          onClick={() => deleteRule(rule.id)}
-                          className="btn btn-outline btn-sm text-[#DC2626] hover:bg-[#FEE2E2]"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <div className="card p-4 bg-[#F0F9FF] border-[#BAE6FD]">
-            <p className="text-[12px] text-[#0369A1]">
-              <strong>Comment ça marche :</strong> Chaque règle cible un dossier précis. Lorsqu&apos;un email arrive sur l&apos;adresse dédiée du dossier, Mohasib applique ces règles pour l&apos;acheminer automatiquement. Les pièces jointes PDF/image sont importées et l&apos;IA extrait les données (montant, TVA, fournisseur).
-            </p>
           </div>
         </div>
       )}

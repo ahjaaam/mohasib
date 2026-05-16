@@ -24,9 +24,21 @@ export async function POST(request: Request) {
       raw: string;
     };
 
-    const recipientEmail = (to.match(/<([^>]+)>/) ?? [])[1]?.toLowerCase() ?? to.toLowerCase();
+    const rawTo = Array.isArray(to) ? to[0] : to;
+    const recipientEmail = (rawTo.match(/<([^>]+)>/) ?? [])[1]?.toLowerCase()
+      ?? rawTo.toLowerCase().trim();
 
     console.log("[inbound]", { to: recipientEmail, from, subject });
+
+    // Only process dedicated dossier addresses (factures-XXXXXX@mohasibai.com).
+    // Anything else is silently acknowledged — never write to receipts.
+    const isDossierEmail =
+      /^factures-[a-z0-9]+@mohasibai\.com$/.test(recipientEmail);
+
+    if (!isDossierEmail) {
+      console.log("[inbound] Not a dossier address, ignoring:", recipientEmail);
+      return Response.json({ received: true, routed: false, reason: "Not a dossier address" });
+    }
 
     const parsed = await simpleParser(raw);
 
@@ -38,7 +50,7 @@ export async function POST(request: Request) {
 
     if (!dossier) {
       console.log("[inbound] No dossier for:", recipientEmail);
-      return Response.json({ received: true, routed: false });
+      return Response.json({ received: true, routed: false, reason: "No dossier found" });
     }
 
     const attachments = parsed.attachments ?? [];

@@ -84,7 +84,7 @@ export default function NewAvoirForm({
   const totalTVA = lineAmounts.reduce((s, l) => s + l.tva, 0);
   const totalTTC = totalHT + totalTVA;
 
-  async function save() {
+  async function save(status: "draft" | "sent") {
     if (!form.client_id) { setError("Veuillez sélectionner un client."); return; }
     if (totalHT <= 0) { setError("Le montant de l'avoir doit être supérieur à 0."); return; }
 
@@ -111,7 +111,7 @@ export default function NewAvoirForm({
         invoice_type: "avoir_client",
         linked_invoice_id: form.linked_invoice_id || null,
         avoir_reason: form.motif,
-        status: "sent",
+        status,
         issue_date: form.date,
         due_date: null,
         subtotal: totalHT,
@@ -125,14 +125,37 @@ export default function NewAvoirForm({
       .select("id, invoice_number")
       .single();
 
-    setSaving(false);
     if (err) {
+      setSaving(false);
       setError(translateError(err));
-    } else {
-      toast.success(`Avoir ${row.invoice_number} créé avec succès`);
-      router.push(backHref ?? "/invoices?mode=avoirs");
-      router.refresh();
+      return;
     }
+
+    // Book in saisie comptable when emitting (not draft)
+    if (status === "sent") {
+      try {
+        await fetch("/api/accounting/book", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "avoir",
+            invoiceId: row.id,
+            ...(dossierId ? { dossierId } : {}),
+          }),
+        });
+      } catch {
+        // Booking failure is non-blocking — avoir is still created
+      }
+    }
+
+    setSaving(false);
+    toast.success(
+      status === "sent"
+        ? `Avoir ${row.invoice_number} émis et comptabilisé`
+        : `Brouillon ${row.invoice_number} enregistré`
+    );
+    router.push(backHref ?? "/invoices?mode=avoirs");
+    router.refresh();
   }
 
   return (
@@ -301,7 +324,14 @@ export default function NewAvoirForm({
           Annuler
         </button>
         <button
-          onClick={save}
+          onClick={() => save("draft")}
+          disabled={saving}
+          className="btn btn-outline flex items-center gap-1.5 disabled:opacity-60"
+        >
+          {saving ? <Loader2 size={13} className="animate-spin" /> : "Enregistrer brouillon"}
+        </button>
+        <button
+          onClick={() => save("sent")}
           disabled={saving}
           className="btn flex items-center gap-1.5 disabled:opacity-60"
           style={{ background: "#DC2626", color: "white", borderColor: "#DC2626" }}
