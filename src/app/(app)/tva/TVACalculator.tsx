@@ -327,15 +327,13 @@ export default function TVACalculator({ company }: Props) {
           </div>
         </div>
         {/* Period navigator */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
+          <span className={`text-[10.5px] font-semibold px-2.5 py-1 rounded-lg ${statutBadge}`}>{statutLabel}</span>
           <button onClick={prevPeriod}
             className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
             <ChevronLeft size={15} />
           </button>
-          <div className="flex flex-col items-center min-w-[130px]">
-            <span className="text-[13.5px] font-semibold text-[#1A1A2E]">{periodLabel}</span>
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5 ${statutBadge}`}>{statutLabel}</span>
-          </div>
+          <span className="text-[13.5px] font-semibold text-[#1A1A2E] min-w-[130px] text-center">{periodLabel}</span>
           <button onClick={nextPeriod}
             className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
             <ChevronRight size={15} />
