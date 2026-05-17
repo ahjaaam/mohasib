@@ -106,15 +106,6 @@ export default function ApparenceTab({ userId, company }: Props) {
         <Toggle k="show_page_number" label="Afficher le numéro de page" />
       </div>
 
-      {/* Dark mode coming soon */}
-      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-5 opacity-60">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-[13px] font-semibold text-[#1A1A2E]">Thème de l&apos;application</h3>
-          <span className="text-[10px] px-2 py-0.5 bg-[#F3F4F6] text-[#6B7280] rounded-full font-medium">Bientôt disponible</span>
-        </div>
-        <p className="text-[12px] text-[#9CA3AF]">🌙 Thème sombre — Bientôt disponible</p>
-      </div>
-
       <button onClick={save} disabled={saving} className="btn btn-gold w-full justify-center py-2.5 disabled:opacity-60">
         {saving ? "Enregistrement..." : "Enregistrer l'apparence"}
       </button>

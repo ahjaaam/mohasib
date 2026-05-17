@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
-  LayoutDashboard, FileText, Users, ArrowLeftRight, ArrowRightLeft,
+  LayoutDashboard, FileText, Users, ArrowLeftRight,
   MessageSquare, LogOut, Menu, Plus, Inbox, Download,
   Settings, Receipt, FolderOpen, BarChart2, Banknote, Briefcase,
 } from "lucide-react";
@@ -24,10 +24,7 @@ const NAV_MAIN = [
   { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive" },
 ];
 
-const NAV_SOON = [
-  { href: "/rapprochement", icon: ArrowRightLeft, label: "Rapprochement", key: "rapprochement", soon: true, iconSize: 16, iconStrokeWidth: 1.5 },
-  { href: "/rapports",      icon: BarChart2,      label: "Rapports",      key: "rapports",      soon: true },
-];
+const NAV_SOON: typeof NAV_MAIN = [];
 
 const ALL_NAV = [
   ...NAV_MAIN,
@@ -119,16 +116,6 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
           </Link>
         ))}
 
-        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: "rgba(255, 255, 255, 0.14)", padding: "14px 18px 6px" }}>Très prochainement</div>
-        {NAV_SOON.map(({ href, icon: Icon, label, iconSize, iconStrokeWidth }: any) => (
-          <Link key={href} href={href}
-            className="flex items-center gap-2.5 px-[18px] py-[10px] text-[13px] transition-all border-r-2 opacity-60 text-white/20 hover:text-white/85 hover:bg-white/5 border-transparent">
-            <div style={{ width: 16, height: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Icon size={iconSize ?? 15} strokeWidth={iconStrokeWidth ?? 2} />
-            </div>
-            {label}
-          </Link>
-        ))}
       </nav>
 
       {isFiduciaire && (
