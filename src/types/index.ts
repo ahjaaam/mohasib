@@ -130,6 +130,11 @@ export interface OcrData {
   receipt_number?: string | null;
   confidence?: number | null;
   compte?: string | null;
+  due_date?: string | null;
+  due_date_confidence?: string | null;
+  is_supplier_invoice?: boolean | null;
+  montant_paye?: number | null;
+  payment_status?: string | null;
 }
 
 export interface Receipt {

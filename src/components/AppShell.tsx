@@ -9,14 +9,15 @@ import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
   MessageSquare, LogOut, Menu, Plus, Inbox, Download,
-  Settings, Receipt, FolderOpen, BarChart2, Banknote, Briefcase,
+  Settings, Receipt, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard,
 } from "lucide-react";
 
 const NAV_MAIN = [
   { href: "/dashboard",    icon: LayoutDashboard, label: "Tableau de bord",    key: "dashboard" },
   { href: "/inbox",        icon: Inbox,           label: "Boîte de réception", key: "inbox" },
-  { href: "/invoices",     icon: FileText,        label: "Factures",           key: "invoices" },
-  { href: "/clients",      icon: Users,           label: "Clients",            key: "clients" },
+  { href: "/invoices",          icon: FileText,   label: "Factures",            key: "invoices" },
+  { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des paiements", key: "suivi-paiements" },
+  { href: "/clients",           icon: Users,      label: "Clients",             key: "clients" },
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions" },
   { href: "/tva",          icon: Receipt,         label: "Déclarations TVA",   key: "tva" },
   { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie" },
@@ -77,10 +78,15 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
     }
   }, [pathname]);
 
-  const isActive = (href: string) =>
-    href === "/invoices"
-      ? pathname === "/invoices" || pathname.startsWith("/invoices/")
-      : pathname === href;
+  const isActive = (href: string) => {
+    if (href === "/invoices") {
+      return pathname === "/invoices" || pathname.startsWith("/invoices/");
+    }
+    if (href === "/suivi-paiements") {
+      return pathname.startsWith("/suivi-paiements");
+    }
+    return pathname === href;
+  };
 
   const pageTitle = PAGE_TITLES[pathname] ?? "Mohasib";
 

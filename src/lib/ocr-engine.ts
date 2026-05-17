@@ -45,6 +45,8 @@ Extract:
 9. payment_method: Cash, Virement, Chèque, or Carte
 10. category: Best guess from: Achats, Salaires, Loyer, Fournitures, Transport, Communication, Fiscalité, Autre dépense
 11. document_type: Use "avoir" if the document is a credit note / avoir fournisseur (keywords: AVOIR, Note de crédit, Credit Note, Avoir N°, rectificatif)
+12. due_date: Payment due date — look for: "Date d'échéance", "Payable avant", "À régler avant", "Due date", "Net 30/60", "Échéance", "Paiement à X jours" (add X days to invoice date). Format: DD/MM/YYYY. Return null if not found.
+13. is_supplier_invoice: true if this document was issued BY a supplier TO you (you are the buyer/recipient — check the "À:" section). true for receipts/tickets. false if your company is in the "De:" section (it's your own invoice). Default: true.
 
 IMPORTANT RULES:
 - If you can only read SOME fields, return what you can
@@ -71,6 +73,8 @@ Return ONLY this JSON, nothing else:
   "description": {"value": "...", "confidence": "high|medium|low"},
   "payment_method": {"value": "...", "confidence": "high|medium|low"},
   "category": {"value": "...", "confidence": "high|medium|low"},
+  "due_date": {"value": "DD/MM/YYYY or null", "confidence": "high|medium|low"},
+  "is_supplier_invoice": {"value": true, "confidence": "high|medium|low"},
   "document_type": "invoice|receipt|avoir|bank_statement|other",
   "overall_confidence": "high|medium|low",
   "extraction_notes": "Any issues noticed with the document"
@@ -97,6 +101,8 @@ Return ONLY this JSON, nothing else:
   "description": {"value": "...", "confidence": "high|medium|low"},
   "payment_method": {"value": "...", "confidence": "high|medium|low"},
   "category": {"value": "Achats|Salaires|Loyer|Fournitures|Transport|Communication|Fiscalité|Autre dépense", "confidence": "high|medium|low"},
+  "due_date": {"value": "DD/MM/YYYY or null", "confidence": "high|medium|low"},
+  "is_supplier_invoice": {"value": true, "confidence": "high|medium|low"},
   "document_type": "invoice|receipt|avoir|bank_statement|other",
   "overall_confidence": "high|medium|low",
   "extraction_notes": "..."
@@ -124,7 +130,7 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
   function conf(f: any): string | undefined { return (typeof f === "object" && f !== null) ? f.confidence : undefined; }
 
   const fieldConf: Record<string, string> = {};
-  for (const k of ["vendor_name", "date", "amount_ttc", "tva_rate", "tva_amount", "amount_ht", "description", "category", "payment_method", "invoice_number"]) {
+  for (const k of ["vendor_name", "date", "amount_ttc", "tva_rate", "tva_amount", "amount_ht", "description", "category", "payment_method", "invoice_number", "due_date", "is_supplier_invoice"]) {
     const c = conf(raw[k]);
     if (c) fieldConf[k] = c;
   }
@@ -150,6 +156,9 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
     category:    val(raw.category)    ?? null,
     payment_method: val(raw.payment_method) ?? null,
     receipt_number: val(raw.invoice_number) ?? null,
+    due_date:       parseDate(val(raw.due_date)) ?? null,
+    due_date_confidence: conf(raw.due_date) ?? null,
+    is_supplier_invoice: val(raw.is_supplier_invoice) ?? true,
     document_type:  raw.document_type ?? null,
     overall_confidence: overall,
     confidence: overall === "high" ? 0.9 : overall === "medium" ? 0.6 : 0.3,

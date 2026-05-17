@@ -54,6 +54,7 @@ interface CardForm {
   category: string;
   description: string;
   date: string;
+  due_date: string;
   tva_rate: string;
   compte_comptable: string;
 }
@@ -81,6 +82,7 @@ function initForm(ocr: OcrData): CardForm {
     category,
     description: vendor ? (desc ? `${vendor} — ${desc}` : vendor) : desc,
     date: ocr.date ?? new Date().toISOString().split("T")[0],
+    due_date: ocr.due_date ?? "",
     tva_rate: String(ocr.tva_rate ?? ""),
     compte_comptable: compte,
   };
@@ -298,6 +300,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       amount: amt,
       type: amt >= 0 ? "income" : "expense",
       date: form.date,
+      due_date: form.due_date || receipt.ocr_data.due_date || null,
+      is_supplier_invoice: receipt.ocr_data.is_supplier_invoice ?? true,
       category: form.category || receipt.ocr_data.category || null,
       description: form.description || receipt.ocr_data.description || null,
       tva_rate: form.tva_rate ? parseFloat(form.tva_rate) : receipt.ocr_data.tva_rate,
@@ -318,7 +322,11 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     setSaving((s) => { s.delete(id); return new Set(s); });
     if (previewReceipt?.id === id) setPreviewReceipt(null);
     dismissCard(id, "right");
-    toast.success("Facture confirmée !");
+    if (confirmedOcr.is_supplier_invoice !== false) {
+      toast.success("✅ Ajoutée au suivi des paiements fournisseurs !");
+    } else {
+      toast.success("Facture confirmée !");
+    }
   }
 
   async function ignoreReceipt(id: string) {
@@ -1036,6 +1044,24 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
         <div>
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Date</label>
           <input type="date" className="input" value={form.date} onChange={(e) => onFormChange("date", e.target.value)} />
+        </div>
+
+        <div>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block flex items-center gap-1">
+            Échéance
+            {form.due_date && (() => {
+              const days = Math.ceil((new Date(form.due_date).getTime() - Date.now()) / 86400000);
+              if (days < 0) return <span className="text-[9px] font-bold text-[#DC2626]">En retard</span>;
+              if (days <= 7) return <span className="text-[9px] font-bold text-[#D97706]">{days}j</span>;
+              return null;
+            })()}
+          </label>
+          <input
+            type="date"
+            className={`input ${form.due_date && Math.ceil((new Date(form.due_date).getTime() - Date.now()) / 86400000) < 0 ? "border-[#FCA5A5] bg-[#FEF2F2]" : form.due_date && Math.ceil((new Date(form.due_date).getTime() - Date.now()) / 86400000) <= 7 ? "border-[#FDE68A] bg-[#FFFBEB]" : ""}`}
+            value={form.due_date}
+            onChange={(e) => onFormChange("due_date", e.target.value)}
+          />
         </div>
 
         <div className="col-span-2">

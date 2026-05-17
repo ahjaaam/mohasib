@@ -44,7 +44,7 @@ export default async function DashboardPage() {
       .order("date", { ascending: false }).limit(6),
     supabase.from("clients").select("id", { count: "exact" }).eq("user_id", user!.id),
     supabase.from("users").select("full_name").eq("id", user!.id).single(),
-    supabase.from("invoices").select("total, status").eq("user_id", user!.id).in("status", ["sent", "overdue"]),
+    supabase.from("invoices").select("total, status, due_date, montant_recu").eq("user_id", user!.id).in("status", ["sent", "overdue"]),
     supabase.from("invoices").select("tax_amount").eq("user_id", user!.id).in("status", ["paid", "sent"]),
   ]);
 
@@ -68,6 +68,11 @@ export default async function DashboardPage() {
   const tvaEstimate = (tvaRes.data ?? []).reduce((s, i) => s + Number(i.tax_amount), 0);
 
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 20);
+
+  const todayStr = now.toISOString().slice(0, 10);
+  const totalAEncaisser = pendingInvs.reduce((s, i) => s + Math.max(Number(i.total) - Number((i as any).montant_recu ?? 0), 0), 0);
+  const overdueInvs = pendingInvs.filter((i: any) => i.due_date && i.due_date < todayStr);
+  const overdueCount = overdueInvs.length;
 
   return (
     <div>
@@ -172,6 +177,34 @@ export default async function DashboardPage() {
               {clientCount === 0 ? "Aucun client" : `${clientCount} client${clientCount > 1 ? "s" : ""} actif${clientCount > 1 ? "s" : ""}`}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Suivi des paiements widget */}
+      <div className="mb-8">
+        <SectionLabel>💰 Suivi des paiements</SectionLabel>
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 flex items-center gap-6 flex-wrap" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div className="flex-1 min-w-[160px]">
+            <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-1">Clients — À encaisser</div>
+            <div className="text-[18px] font-bold text-[#1A1A2E]">{fmt(totalAEncaisser)}</div>
+            {overdueCount > 0 ? (
+              <div className="text-[11px] text-[#DC2626] mt-0.5 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] inline-block animate-pulse" />
+                {overdueCount} facture{overdueCount > 1 ? "s" : ""} en retard
+              </div>
+            ) : (
+              <div className="text-[11px] text-[#059669] mt-0.5">Aucun retard</div>
+            )}
+          </div>
+          <div className="w-px h-10 bg-[rgba(0,0,0,0.08)] hidden md:block" />
+          <div className="flex-1 min-w-[160px]">
+            <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-1">Fournisseurs — À payer</div>
+            <div className="text-[15px] font-semibold text-[#6B7280]">Voir le suivi complet</div>
+            <div className="text-[11px] text-[#9CA3AF] mt-0.5">Factures fournisseurs de la boîte de réception</div>
+          </div>
+          <Link href="/suivi-paiements" className="btn btn-gold flex-shrink-0 flex items-center gap-1.5">
+            Voir le suivi complet <ArrowRight size={12} />
+          </Link>
         </div>
       </div>
 
