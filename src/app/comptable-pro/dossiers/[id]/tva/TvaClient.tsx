@@ -452,7 +452,8 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
+          <span className={`text-[10.5px] font-semibold px-2.5 py-1 rounded-lg ${statutBadge}`}>{statutLabel}</span>
           <button onClick={prevPeriod}
             className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
             <ChevronLeft size={15} />
@@ -465,21 +466,10 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
         </div>
       </div>
 
-      {/* ── Controls row: status + deadline + actions ────────────────────── */}
-      <div className="flex items-center justify-between gap-2 mb-4">
-        {lastCalc && !loading
-          ? <p className="text-[10.5px] text-[#9CA3AF]">Recalculé à {lastCalc}</p>
-          : <span />}
-        <div className="flex items-center gap-2">
-          <span className={`text-[11.5px] font-semibold px-3 py-1.5 rounded-lg ${statutBadge}`}>{statutLabel}</span>
-          {statut === "brouillon" && !isFiled && (
-            <button onClick={() => setConfirmValidate(true)} disabled={saving}
-              className="btn btn-outline flex items-center gap-1.5 text-[12px] border-[#C8924A] text-[#C8924A] hover:bg-[#FFF7ED]">
-              <CheckCircle size={12} /> Valider
-            </button>
-          )}
-        </div>
-      </div>
+      {/* ── Controls row ─────────────────────────────────────────────────── */}
+      {lastCalc && !loading && (
+        <p className="text-[10.5px] text-[#9CA3AF] mb-4">Recalculé à {lastCalc}</p>
+      )}
 
       {/* ── Confirm validate ────────────────────────────────────────────────── */}
       {confirmValidate && (
@@ -755,6 +745,12 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
               )}
 
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[rgba(0,0,0,0.07)]">
+                {statut === "brouillon" && !isFiled && (
+                  <button onClick={() => setConfirmValidate(true)} disabled={saving}
+                    className="btn btn-outline flex items-center gap-1.5 text-[12px] border-[#C8924A] text-[#C8924A] hover:bg-[#FFF7ED]">
+                    <CheckCircle size={12} /> Valider
+                  </button>
+                )}
                 <button onClick={handleEDI} disabled={generatingEDI}
                   className="btn btn-gold flex items-center gap-1.5 text-[12px]">
                   <Download size={13} /> {generatingEDI ? "Génération…" : "Fichier EDI (XML)"}
