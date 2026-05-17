@@ -38,6 +38,9 @@ export interface GeneratePDFInput {
     invoice_number: string;
     invoice_type?: string | null;
     avoir_reason?: string | null;
+    devis_objet?: string | null;
+    devis_expiry_date?: string | null;
+    devis_conditions?: string | null;
     issue_date: string;
     due_date?: string | null;
     subtotal: number;
@@ -96,6 +99,7 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   }));
 
   const isAvoir = invoice.invoice_type === "avoir_client";
+  const isDevis = invoice.invoice_type === "devis";
   const AVOIR_RED = "#DC2626";
   const AVOIR_RED_RGB: [number, number, number] = [220, 38, 38];
   const accentHex = isAvoir ? AVOIR_RED : (company?.invoice_color ?? GOLD);
@@ -142,12 +146,12 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     doc.text(companyName, marginL, 21);
   }
 
-  // FACTURE / AVOIR label (right side)
+  // FACTURE / AVOIR / DEVIS label (right side)
   const rightX = pageW - marginR - 2;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
   doc.setTextColor(...(isAvoir ? AVOIR_RED_RGB : NAVY_RGB));
-  doc.text(isAvoir ? "AVOIR" : "FACTURE", rightX, 14, { align: "right" });
+  doc.text(isAvoir ? "AVOIR" : isDevis ? "DEVIS" : "FACTURE", rightX, 14, { align: "right" });
 
   // Invoice meta (muted gray)
   doc.setFont("helvetica", "normal");
@@ -155,8 +159,17 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   doc.setTextColor(...MUTED_RGB);
   doc.text(`N° ${invoice.invoice_number}`, rightX, 21, { align: "right" });
   doc.text(`Date : ${fmtDate(invoice.issue_date)}`, rightX, 27, { align: "right" });
-  if (!isAvoir && invoice.due_date) {
+  if (!isAvoir && !isDevis && invoice.due_date) {
     doc.text(`Échéance : ${fmtDate(invoice.due_date)}`, rightX, 33, { align: "right" });
+  }
+  if (isDevis && invoice.devis_expiry_date) {
+    doc.text(`Expire le : ${fmtDate(invoice.devis_expiry_date)}`, rightX, 33, { align: "right" });
+  }
+  if (isDevis && invoice.devis_objet) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.text(`Objet : ${invoice.devis_objet}`, rightX, 39, { align: "right" });
+    doc.setFont("helvetica", "normal");
   }
   if (isAvoir && invoice.avoir_reason) {
     doc.setTextColor(...AVOIR_RED_RGB);
@@ -300,9 +313,9 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
 
   y += 30;
 
-  // ── PAYMENT INFO ────────────────────────────────────────────
-  const payDelay = company?.invoice_payment_delay ?? "30 jours";
-  if (payDelay || company?.rib || company?.bank_name) {
+  // ── PAYMENT INFO / DEVIS CONDITIONS ────────────────────────
+  if (isDevis) {
+    const conditions = invoice.devis_conditions ?? "Ce devis est valable jusqu'à la date d'expiration indiquée. Tout accord doit être confirmé par écrit.";
     doc.setDrawColor(229, 231, 235);
     doc.line(marginL, y, pageW - marginR, y);
     y += 5;
@@ -310,27 +323,46 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
     doc.setTextColor(...accentRgb);
-    doc.text("CONDITIONS DE PAIEMENT", marginL, y + 4);
+    doc.text("CONDITIONS DU DEVIS", marginL, y + 4);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...MUTED_RGB);
-    doc.text(`Paiement à ${payDelay} — Virement bancaire`, marginL, y + 9);
+    const condLines = doc.splitTextToSize(conditions, contentW - 8);
+    doc.text(condLines, marginL, y + 9);
+    y += 9 + condLines.length * 4 + 5;
+  } else {
+    const payDelay = company?.invoice_payment_delay ?? "30 jours";
+    if (payDelay || company?.rib || company?.bank_name) {
+      doc.setDrawColor(229, 231, 235);
+      doc.line(marginL, y, pageW - marginR, y);
+      y += 5;
 
-    if (company?.bank_name || company?.rib) {
-      const bX = marginL + contentW / 2;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(...accentRgb);
-      doc.text("COORDONNÉES BANCAIRES", bX, y + 4);
+      doc.text("CONDITIONS DE PAIEMENT", marginL, y + 4);
+
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
       doc.setTextColor(...MUTED_RGB);
-      if (company?.bank_name) doc.text(`Banque : ${company.bank_name}`, bX, y + 9);
-      if (company?.rib) doc.text(`RIB : ${company.rib}`, bX, y + 13);
-    }
+      doc.text(`Paiement à ${payDelay} — Virement bancaire`, marginL, y + 9);
 
-    y += 18;
+      if (company?.bank_name || company?.rib) {
+        const bX = marginL + contentW / 2;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(...accentRgb);
+        doc.text("COORDONNÉES BANCAIRES", bX, y + 4);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...MUTED_RGB);
+        if (company?.bank_name) doc.text(`Banque : ${company.bank_name}`, bX, y + 9);
+        if (company?.rib) doc.text(`RIB : ${company.rib}`, bX, y + 13);
+      }
+
+      y += 18;
+    }
   }
 
   // ── NOTES ───────────────────────────────────────────────────

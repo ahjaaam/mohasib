@@ -49,7 +49,9 @@ export interface PartialPayment {
   note?: string;
 }
 
-export type InvoiceType = "facture" | "avoir_client" | "proforma";
+export type InvoiceType = "facture" | "avoir_client" | "proforma" | "devis";
+
+export type DevisStatus = "brouillon" | "envoyé" | "accepté" | "refusé" | "expiré";
 
 export interface Invoice {
   id: string;
@@ -74,6 +76,17 @@ export interface Invoice {
   paiements?: PartialPayment[];
   whatsapp_sent_at?: string | null;
   whatsapp_sent_count?: number;
+  // Devis-specific fields
+  devis_status?: DevisStatus;
+  devis_validity_days?: number | null;
+  devis_expiry_date?: string | null;
+  devis_accepted_at?: string | null;
+  devis_refused_at?: string | null;
+  devis_refused_reason?: string | null;
+  devis_notes?: string | null;
+  devis_conditions?: string | null;
+  devis_objet?: string | null;
+  converted_to_invoice_id?: string | null;
   created_at: string;
   updated_at: string;
   clients?: Pick<Client, "id" | "name" | "email" | "phone">;

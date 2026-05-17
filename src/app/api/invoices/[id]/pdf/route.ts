@@ -48,6 +48,9 @@ async function buildInput(inv: any, company: any) {
         invoice_number: inv.invoice_number,
         invoice_type: (inv as any).invoice_type ?? "facture",
         avoir_reason: (inv as any).avoir_reason ?? null,
+        devis_objet: (inv as any).devis_objet ?? null,
+        devis_expiry_date: (inv as any).devis_expiry_date ?? null,
+        devis_conditions: (inv as any).devis_conditions ?? null,
         issue_date: inv.issue_date,
         due_date: inv.due_date ?? null,
         subtotal: Number(inv.subtotal),
@@ -156,8 +159,10 @@ export async function POST(
     const { input, client } = await buildInput(inv, company);
     const arrayBuffer = generateInvoicePDF(input);
 
-    // Build share URL from short ID — no storage upload required for WhatsApp
-    const shareUrl = `https://www.mohasibai.com/f/${id}`;
+    // For devis, use the public acceptance page; for invoices use the PDF short link
+    const shareUrl = (inv as any).invoice_type === "devis"
+      ? `https://www.mohasibai.com/devis/${id}`
+      : `https://www.mohasibai.com/f/${id}`;
 
     // Upload PDF to storage in the background — failures are silent and never block WhatsApp
     const storagePath = `${user.id}/${inv.invoice_number}.pdf`;
@@ -186,14 +191,18 @@ export async function POST(
         .replace(/\{\{nom_entreprise\}\}/g,  companyName)
         .replace(/\{\{telephone\}\}/g,       companyPhone);
     } else {
+      const isDevis = (inv as any).invoice_type === "devis";
+      const docLabel = isDevis ? "devis" : "facture";
       const lines = [
         `Bonjour ${clientName},`,
         "",
-        `Veuillez trouver ci-joint votre facture *${inv.invoice_number}* d'un montant de *${ttc} MAD*.`,
+        isDevis
+          ? `Veuillez trouver ci-joint votre *${docLabel} ${inv.invoice_number}* d'un montant de *${ttc} MAD*.`
+          : `Veuillez trouver ci-joint votre facture *${inv.invoice_number}* d'un montant de *${ttc} MAD*.`,
         "",
-        `Télécharger la facture :`,
+        isDevis ? `Consulter et accepter le devis :` : `Télécharger la facture :`,
         shareUrl,
-        ...(dueDate ? ["", `Date d'échéance : ${dueDate}`] : []),
+        ...(dueDate && !isDevis ? ["", `Date d'échéance : ${dueDate}`] : []),
         "",
         "Merci pour votre confiance.",
         ...(companyName ? [companyName] : []),

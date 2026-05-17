@@ -68,6 +68,11 @@ export async function GET(
     const arrayBuffer = generateInvoicePDF({
       invoice: {
         invoice_number: inv.invoice_number,
+        invoice_type: (inv as any).invoice_type ?? "facture",
+        avoir_reason: (inv as any).avoir_reason ?? null,
+        devis_objet: (inv as any).devis_objet ?? null,
+        devis_expiry_date: (inv as any).devis_expiry_date ?? null,
+        devis_conditions: (inv as any).devis_conditions ?? null,
         issue_date: inv.issue_date,
         due_date: inv.due_date ?? null,
         subtotal: Number(inv.subtotal),
