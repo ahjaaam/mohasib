@@ -25,7 +25,7 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.511.0",
     "mailparser": "^3.9.8",
-    "next": "^16.2.2",
+    "next": "^16.2.7",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.6.205",
     "react": "^18",
