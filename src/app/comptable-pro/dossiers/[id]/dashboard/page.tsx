@@ -8,7 +8,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/connexion");
 
   const [dossierRes, ecrRes, invRes, txRes] = await Promise.all([
     supabase.from("dossiers").select("*").eq("id", id).eq("fiduciaire_user_id", user.id).single(),

@@ -8,7 +8,7 @@ export default async function BilanPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/connexion");
 
   const [dossierRes, ecrRes, invRes, txRes, cabinetRes] = await Promise.all([
     supabase.from("dossiers")

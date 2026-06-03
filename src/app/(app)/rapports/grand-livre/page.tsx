@@ -7,7 +7,7 @@ import GrandLivreView from "@/components/GrandLivreView";
 export default async function GrandLivrePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/connexion");
 
   const { data: company } = await supabase
     .from("companies")

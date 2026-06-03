@@ -8,7 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/connexion");
 
   const cookieStore = await cookies();
   const activeDossierId = cookieStore.get("active_dossier_id")?.value;

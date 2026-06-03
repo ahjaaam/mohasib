@@ -97,7 +97,7 @@ export default function HomePageClient() {
           </Link>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Link href="/auth/login" style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF", backgroundColor: GOLD, padding: "9px 20px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
+            <Link href="/connexion" style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF", backgroundColor: GOLD, padding: "9px 20px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
               Se Connecter
             </Link>
           </div>
@@ -230,7 +230,7 @@ export default function HomePageClient() {
             </ul>
 
             <Link
-              href="/auth/signup"
+              href="/inscription"
               style={{ marginTop: 24, display: "block", textAlign: "center", padding: "13px", borderRadius: 6, border: `1.5px solid ${NAVY}`, color: NAVY, backgroundColor: "transparent", fontSize: 14, fontWeight: 600, textDecoration: "none", fontFamily: FONT, transition: "all 0.15s" }}
             >
               Créer un compte Pro →

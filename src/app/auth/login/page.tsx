@@ -52,7 +52,7 @@ export default function LoginPage() {
       setCaptchaToken(null); // force re-solve on next attempt
       setError(translateError(data));
     } else {
-      router.push("/dashboard");
+      router.push("/tableau-de-bord");
       router.refresh();
     }
   }
@@ -67,7 +67,7 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold text-navy mb-1">Connexion</h1>
           <p className="text-sm text-gray-500 mb-7">
             Pas encore inscrit ?{" "}
-            <Link href="/auth/signup" className="text-gold hover:underline font-medium">
+            <Link href="/inscription" className="text-gold hover:underline font-medium">
               Créer un compte
             </Link>
           </p>

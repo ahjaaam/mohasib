@@ -8,7 +8,7 @@ export default async function ExportPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/connexion");
 
   const { data: dossier } = await supabase
     .from("dossiers")

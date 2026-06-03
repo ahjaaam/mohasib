@@ -136,7 +136,7 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
 
   async function signOut() {
     await supabase.auth.signOut();
-    router.push("/auth/login");
+    router.push("/connexion");
     router.refresh();
   }
 

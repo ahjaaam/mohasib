@@ -6,7 +6,7 @@ export default async function FiduciaireLayout({ children }: { children: React.R
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/connexion");
 
   const [profileRes, cabinetRes] = await Promise.all([
     supabase.from("users").select("full_name, company").eq("id", user.id).single(),

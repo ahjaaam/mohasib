@@ -55,7 +55,7 @@ export default function SignupPage() {
           <p className="text-sm text-gray-500 mb-5">
             Vérifiez votre boîte mail et cliquez sur le lien de confirmation pour activer votre compte.
           </p>
-          <Link href="/auth/login"
+          <Link href="/connexion"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white"
             style={{ backgroundColor: "#C8924A" }}>
             Aller à la connexion
@@ -76,7 +76,7 @@ export default function SignupPage() {
             <h1 className="text-2xl font-bold text-navy mb-1">Je suis...</h1>
             <p className="text-sm text-gray-500 mb-7">
               Déjà inscrit ?{" "}
-              <Link href="/auth/login" className="text-gold hover:underline font-medium">Se connecter</Link>
+              <Link href="/connexion" className="text-gold hover:underline font-medium">Se connecter</Link>
             </p>
 
             <div className="space-y-3 mb-7">
@@ -149,7 +149,7 @@ export default function SignupPage() {
           <h1 className="text-2xl font-bold text-navy mb-1">Créer un compte</h1>
           <p className="text-sm text-gray-500 mb-7">
             Déjà inscrit ?{" "}
-            <Link href="/auth/login" className="text-gold hover:underline font-medium">Se connecter</Link>
+            <Link href="/connexion" className="text-gold hover:underline font-medium">Se connecter</Link>
           </p>
 
           <form onSubmit={handleSignup} className="space-y-4">

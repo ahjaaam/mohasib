@@ -8,7 +8,7 @@ export default async function SaisiePage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/connexion");
 
   const [dossierRes, ecrRes] = await Promise.all([
     supabase.from("dossiers").select("id, raison_sociale").eq("id", id).eq("fiduciaire_user_id", user.id).single(),

@@ -30,20 +30,31 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  const publicRoutes = [
+    "/",
+    "/connexion",
+    "/inscription",
+    "/tarifs",
+    "/ressources",
+    "/auth/callback",
+    "/f",
+  ];
   const isAuthPage = path.startsWith("/auth");
   const isApiRoute = path.startsWith("/api");
-  const isPublic = path === "/" || path.startsWith("/f/");
+  const isPublic = publicRoutes.some((route) =>
+    path === route || path.startsWith(`${route}/`)
+  );
 
   // API routes handle their own auth — never redirect them
   if (!user && !isAuthPage && !isApiRoute && !isPublic) {
     const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
+    url.pathname = "/connexion";
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthPage) {
+  if (user && (isAuthPage || path === "/connexion" || path === "/inscription")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/tableau-de-bord";
     return NextResponse.redirect(url);
   }
 

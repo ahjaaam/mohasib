@@ -49,7 +49,7 @@ export default function AuthErrorPage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <Link
-            href="/auth/login"
+            href="/connexion"
             style={{
               display: "block",
               padding: "12px",

@@ -7,7 +7,7 @@ import InboxGlobalClient from "./InboxGlobalClient";
 export default async function InboxGlobalPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/connexion");
 
   const [itemsRes, dossiersRes] = await Promise.all([
     supabase

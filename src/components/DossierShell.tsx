@@ -88,7 +88,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
 
   async function signOut() {
     await supabase.auth.signOut();
-    router.push("/auth/login");
+    router.push("/connexion");
     router.refresh();
   }
 

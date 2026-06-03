@@ -15,7 +15,7 @@ export default async function DossierLayout({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/connexion");
 
   const [dossierRes, dossiersRes, profileRes] = await Promise.all([
     supabase

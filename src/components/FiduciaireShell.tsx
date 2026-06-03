@@ -83,7 +83,7 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
 
   async function signOut() {
     await supabase.auth.signOut();
-    router.push("/auth/login");
+    router.push("/connexion");
     router.refresh();
   }
 
