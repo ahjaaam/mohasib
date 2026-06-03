@@ -6,7 +6,7 @@ const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Aoû
 
 export async function POST(req: NextRequest) {
   try {
-    const { mois, annee } = await req.json();
+    const { mois, annee, dossierId } = await req.json();
     if (!mois || !annee)
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
 
@@ -14,11 +14,14 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-    const { data: employees, error: empErr } = await supabase
+    let empQuery = supabase
       .from("employees")
       .select("*")
       .eq("user_id", user.id)
       .eq("statut", "actif");
+    if (dossierId) empQuery = (empQuery as any).eq("dossier_id", dossierId);
+
+    const { data: employees, error: empErr } = await empQuery;
 
     if (empErr) return NextResponse.json({ error: empErr.message }, { status: 500 });
     if (!employees?.length)
@@ -40,6 +43,7 @@ export async function POST(req: NextRequest) {
       return {
         employee_id: emp.id,
         company_id: company?.id ?? null,
+        ...(dossierId ? { dossier_id: dossierId } : {}),
         mois, annee, period_label,
         salaire_brut: calc.salaire_brut,
         heures_sup: calc.heures_sup,

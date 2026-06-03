@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Toaster } from "react-hot-toast";
-import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings } from "lucide-react";
+import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
 import ApparenceTab from "./ApparenceTab";
 import AbonnementTab from "./AbonnementTab";
 import IntegrationsTab from "./IntegrationsTab";
 import MessagesTab from "./MessagesTab";
+import TVAConfigTab from "@/components/parametres/TVAConfigTab";
 
 interface Props {
   userId: string;
@@ -25,6 +26,7 @@ const TABS = [
   { id: "apparence", label: "Apparence", icon: Palette },
   { id: "abonnement", label: "Abonnement", icon: CreditCard },
   { id: "integrations", label: "Intégrations", icon: Plug },
+  { id: "tva",          label: "Déclaration TVA", icon: FileText },
   { id: "messages",     label: "Messages",     icon: MessageSquare },
 ];
 
@@ -102,6 +104,7 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
           {tab === "apparence" && <ApparenceTab userId={userId} company={company} />}
           {tab === "abonnement" && <AbonnementTab userId={userId} userEmail={userEmail} companyId={companyId} />}
           {tab === "integrations" && <IntegrationsTab company={company} />}
+          {tab === "tva"          && <TVAConfigTab companyId={companyId} />}
           {tab === "messages"     && <MessagesTab userId={userId} companyId={companyId} company={company} />}
         </div>
       </div>

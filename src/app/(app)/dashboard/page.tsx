@@ -30,6 +30,18 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function supplierTotal(item: any) {
+  return Math.abs(Number(item.ocr_data?.amount ?? 0));
+}
+
+function supplierPaid(item: any) {
+  return Number(item.ocr_data?.montant_paye ?? 0);
+}
+
+function isSupplierPaid(item: any) {
+  return item.ocr_data?.payment_status === "paid" || item.status === "paid";
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -37,7 +49,7 @@ export default async function DashboardPage() {
   const companyRes = await supabase.from("companies").select("id").eq("user_id", user!.id).single();
   const companyId = companyRes.data?.id ?? null;
 
-  const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes, tvaRes] = await Promise.all([
+  const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes] = await Promise.all([
     supabase.from("invoices").select("*, clients(id,name)").eq("user_id", user!.id)
       .order("created_at", { ascending: false }).limit(5),
     supabase.from("transactions").select("*").eq("user_id", user!.id)
@@ -46,6 +58,7 @@ export default async function DashboardPage() {
     supabase.from("users").select("full_name").eq("id", user!.id).single(),
     supabase.from("invoices").select("total, status, due_date, montant_recu").eq("user_id", user!.id).in("status", ["sent", "overdue"]),
     supabase.from("invoices").select("tax_amount").eq("user_id", user!.id).in("status", ["paid", "sent"]),
+    supabase.from("receipts").select("id, status, ocr_data").eq("user_id", user!.id).eq("status", "matched"),
   ]);
 
   const usageData = companyId ? await getMonthlyUsage(companyId) : null;
@@ -61,7 +74,6 @@ export default async function DashboardPage() {
 
   const revenue = transactions.filter((t) => t.type === "income" && t.date >= monthStart)
     .reduce((s, t) => s + Number(t.amount), 0);
-  console.log("[dashboard] pendingRes:", JSON.stringify(pendingRes));
   const pendingInvs = pendingRes.data ?? [];
   const pendingTotal = pendingInvs.reduce((s, i) => s + Number(i.total), 0);
 
@@ -73,6 +85,18 @@ export default async function DashboardPage() {
   const totalAEncaisser = pendingInvs.reduce((s, i) => s + Math.max(Number(i.total) - Number((i as any).montant_recu ?? 0), 0), 0);
   const overdueInvs = pendingInvs.filter((i: any) => i.due_date && i.due_date < todayStr);
   const overdueCount = overdueInvs.length;
+  const supplierItems = (supplierRes.data ?? []).filter((r: any) => {
+    if (r.ocr_data?.document_type === "avoir") return false;
+    return r.ocr_data?.is_supplier_invoice !== false;
+  });
+  const unpaidSuppliers = supplierItems.filter((item: any) => !isSupplierPaid(item));
+  const totalAPayer = unpaidSuppliers.reduce((s: number, item: any) => {
+    return s + Math.max(supplierTotal(item) - supplierPaid(item), 0);
+  }, 0);
+  const overdueSuppliers = unpaidSuppliers.filter((item: any) => {
+    const dueDate = item.ocr_data?.due_date;
+    return dueDate && dueDate < todayStr;
+  });
 
   return (
     <div>
@@ -114,14 +138,6 @@ export default async function DashboardPage() {
               <div className="flex-1 min-w-0">
                 <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Enregistrer une dépense</div>
                 <div className="text-[11px] text-[#6B7280] leading-snug">Ajout rapide au journal</div>
-              </div>
-              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
-            </Link>
-            <Link href="/chat" className="qa-card">
-              <div className="text-2xl flex-shrink-0">💬</div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Demander à Mohasib Chat</div>
-                <div className="text-[11px] text-[#6B7280] leading-snug">Votre comptable 24h/24</div>
               </div>
               <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
             </Link>
@@ -182,7 +198,7 @@ export default async function DashboardPage() {
 
       {/* Suivi des paiements widget */}
       <div className="mb-8">
-        <SectionLabel>💰 Suivi des paiements</SectionLabel>
+        <SectionLabel>Suivi des paiements</SectionLabel>
         <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 flex items-center gap-6 flex-wrap" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div className="flex-1 min-w-[160px]">
             <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-1">Clients — À encaisser</div>
@@ -199,8 +215,19 @@ export default async function DashboardPage() {
           <div className="w-px h-10 bg-[rgba(0,0,0,0.08)] hidden md:block" />
           <div className="flex-1 min-w-[160px]">
             <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-1">Fournisseurs — À payer</div>
-            <div className="text-[15px] font-semibold text-[#6B7280]">Voir le suivi complet</div>
-            <div className="text-[11px] text-[#9CA3AF] mt-0.5">Factures fournisseurs de la boîte de réception</div>
+            <div className="text-[18px] font-bold text-[#1A1A2E]">{fmt(totalAPayer)}</div>
+            {overdueSuppliers.length > 0 ? (
+              <div className="text-[11px] text-[#DC2626] mt-0.5 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] inline-block animate-pulse" />
+                {overdueSuppliers.length} facture{overdueSuppliers.length > 1 ? "s" : ""} en retard
+              </div>
+            ) : unpaidSuppliers.length > 0 ? (
+              <div className="text-[11px] text-[#D97706] mt-0.5">
+                {unpaidSuppliers.length} facture{unpaidSuppliers.length > 1 ? "s" : ""} à payer
+              </div>
+            ) : (
+              <div className="text-[11px] text-[#059669] mt-0.5">Aucun paiement fournisseur</div>
+            )}
           </div>
           <Link href="/suivi-paiements" className="btn btn-gold flex-shrink-0 flex items-center gap-1.5">
             Voir le suivi complet <ArrowRight size={12} />

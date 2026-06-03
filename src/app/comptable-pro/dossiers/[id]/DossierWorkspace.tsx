@@ -26,7 +26,7 @@ const TABS = [
   { key: "tva", label: "Déclaration TVA", icon: Receipt },
   { key: "paie", label: "Paie", icon: Banknote },
   { key: "bilan", label: "Bilan / CPC", icon: BarChart2 },
-  { key: "documents", label: "Documents", icon: FolderOpen },
+  { key: "documents", label: "Archive", icon: FolderOpen },
   { key: "export", label: "Export CGNC", icon: Package },
 ] as const;
 
@@ -659,7 +659,7 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
       {activeTab === "documents" && (
         <div className="text-center py-16 card">
           <FolderOpen size={36} className="text-[#D1D5DB] mx-auto mb-3" />
-          <p className="text-[13px] font-medium text-[#6B7280] mb-1">Documents de {dossier.raison_sociale}</p>
+          <p className="text-[13px] font-medium text-[#6B7280] mb-1">Archive de {dossier.raison_sociale}</p>
           <p className="text-[12px] text-[#9CA3AF]">
             Les documents importés dans la Boîte de réception apparaîtront ici.
           </p>

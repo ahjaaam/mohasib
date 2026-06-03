@@ -17,13 +17,18 @@ export default async function DossierLayout({
 
   if (!user) redirect("/auth/login");
 
-  const [dossierRes, profileRes] = await Promise.all([
+  const [dossierRes, dossiersRes, profileRes] = await Promise.all([
     supabase
       .from("dossiers")
       .select("id, raison_sociale, ice, regime_tva")
       .eq("id", id)
       .eq("fiduciaire_user_id", user.id)
       .single(),
+    supabase
+      .from("dossiers")
+      .select("id, raison_sociale, ice, regime_tva")
+      .eq("fiduciaire_user_id", user.id)
+      .order("raison_sociale"),
     supabase.from("users").select("full_name").eq("id", user.id).single(),
   ]);
 
@@ -32,6 +37,7 @@ export default async function DossierLayout({
   return (
     <DossierShell
       dossier={dossierRes.data}
+      dossiers={dossiersRes.data ?? [dossierRes.data]}
       userName={profileRes.data?.full_name}
       userEmail={user.email}
     >

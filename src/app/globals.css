@@ -98,9 +98,6 @@
   .total-row { @apply flex justify-between text-[12.5px] py-0.5 text-[#6B7280]; }
   .total-row.grand { @apply font-bold text-sm border-t border-[rgba(0,0,0,0.08)] mt-1.5 pt-2 text-[#1A1A2E]; }
 
-  /* Chat */
-  .chat-bubble-ai { @apply bg-white border border-[rgba(0,0,0,0.08)] text-[#1A1A2E] rounded-[3px_10px_10px_10px]; }
-  .chat-bubble-user { background: var(--navy); @apply text-white rounded-[10px_3px_10px_10px]; }
   .sug-chip { @apply text-[11px] px-2.5 py-1 rounded-full bg-[#F0EDE5] border border-[rgba(0,0,0,0.08)] cursor-pointer text-[#6B7280] transition-all font-sans; }
   .sug-chip:hover { @apply border-[#C8924A] text-[#C8924A] bg-white; }
 }

@@ -7,6 +7,7 @@ import {
   Users, ChevronLeft, ChevronRight, Plus, Edit2, Trash2,
   FileText, CheckCircle, DollarSign, Download, ExternalLink,
   Loader2, X, ChevronDown, ChevronUp, Banknote,
+  CalendarDays, Clock, Briefcase, FolderOpen,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -14,20 +15,30 @@ import toast from "react-hot-toast";
 
 interface Employee {
   id: string;
+  matricule?: string;
   nom: string;
   prenom: string;
   cin?: string;
+  adresse?: string;
+  cnss_number?: string;
   date_naissance?: string;
   date_embauche: string;
+  date_fin_contrat?: string;
   poste?: string;
   departement?: string;
   type_contrat: string;
+  salaire_base?: number;
   salaire_brut: number;
+  mode_paiement?: string;
   situation_familiale: string;
   nombre_enfants: number;
   banque?: string;
   rib?: string;
   numero_cnss?: string;
+  heures_travail_semaine?: number;
+  jours_travail_semaine?: number;
+  is_active?: boolean;
+  notes?: string;
   has_mutuelle: boolean;
   mutuelle_taux_salarie: number;
   mutuelle_taux_patronal: number;
@@ -35,6 +46,55 @@ interface Employee {
   cimr_taux_salarie: number;
   cimr_taux_patronal: number;
   statut: string;
+}
+
+interface LeaveType {
+  id: string;
+  name: string;
+  code?: string | null;
+  is_paid: boolean;
+  days_per_year?: number | null;
+  color?: string | null;
+}
+
+interface EmployeeLeave {
+  id: string;
+  employee_id: string;
+  leave_type_id: string | null;
+  date_debut: string;
+  date_fin: string;
+  nombre_jours: number;
+  statut: string;
+  is_paid: boolean;
+  impact_salaire: number;
+  notes?: string | null;
+  employees?: { nom: string; prenom: string };
+  leave_types?: { name: string; color?: string | null; is_paid?: boolean | null };
+}
+
+interface EmployeeHours {
+  id: string;
+  employee_id: string;
+  mois: number;
+  annee: number;
+  heures_normales: number;
+  heures_theoriques: number;
+  heures_sup_25: number;
+  heures_sup_50: number;
+  heures_sup_100: number;
+  jours_absence: number;
+  heures_absence: number;
+  montant_heures_sup: number;
+  montant_absence_deduit: number;
+  notes?: string | null;
+}
+
+interface Holiday {
+  id: string;
+  date: string;
+  name: string;
+  name_ar?: string | null;
+  is_national?: boolean | null;
 }
 
 interface Bulletin {
@@ -93,7 +153,7 @@ function initials(prenom: string, nom: string) {
   return `${(prenom[0] ?? "").toUpperCase()}${(nom[0] ?? "").toUpperCase()}`;
 }
 
-type Tab = "employes" | "bulletins" | "cnss";
+type Tab = "employes" | "conges" | "heures" | "bulletins" | "cnss";
 
 const STATUT_COLORS: Record<string, string> = {
   brouillon: "bg-[#F3F4F6] text-[#6B7280]",
@@ -108,14 +168,43 @@ const STATUT_COLORS: Record<string, string> = {
 // ─── Empty employee form ──────────────────────────────────────────────────────
 
 const EMPTY_EMP = {
-  nom: "", prenom: "", cin: "", date_naissance: "", date_embauche: "",
-  poste: "", departement: "", type_contrat: "CDI", salaire_brut: "",
+  nom: "", prenom: "", matricule: "", cin: "", date_naissance: "", date_embauche: "",
+  adresse: "",
+  date_fin_contrat: "", poste: "", departement: "", type_contrat: "CDI", salaire_brut: "",
   situation_familiale: "Célibataire", nombre_enfants: "0",
-  banque: "", rib: "", numero_cnss: "",
+  mode_paiement: "virement", banque: "", rib: "", numero_cnss: "", heures_travail_semaine: "44", jours_travail_semaine: "6", notes: "",
   has_mutuelle: false, mutuelle_taux_salarie: "2.59", mutuelle_taux_patronal: "2.59",
   has_cimr: false, cimr_taux_salarie: "3.00", cimr_taux_patronal: "3.90",
   statut: "actif", showBenefits: false,
 };
+
+const DEFAULT_LEAVE_TYPES = [
+  { id: "", name: "Congé annuel", code: "annuel", is_paid: true, days_per_year: 18, color: "#C8924A" },
+  { id: "maladie", name: "Maladie", code: "maladie", is_paid: true, days_per_year: null, color: "#2563EB" },
+  { id: "maternite", name: "Maternité", code: "maternite", is_paid: true, days_per_year: 98, color: "#7C3AED" },
+  { id: "paternite", name: "Paternité", code: "paternite", is_paid: true, days_per_year: 3, color: "#7C3AED" },
+  { id: "sans_solde", name: "Sans solde", code: "sans_solde", is_paid: false, days_per_year: null, color: "#111827" },
+  { id: "absence", name: "Absence non justifiée", code: "absence", is_paid: false, days_per_year: null, color: "#DC2626" },
+];
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function countWorkingDays(start: string, end: string, holidays: Set<string>) {
+  if (!start || !end) return 0;
+  const first = new Date(start);
+  const last = new Date(end);
+  if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime()) || first > last) return 0;
+  let days = 0;
+  const d = new Date(first);
+  while (d <= last) {
+    const iso = d.toISOString().slice(0, 10);
+    if (d.getDay() !== 0 && !holidays.has(iso)) days += 1;
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -136,6 +225,28 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const [empSaving, setEmpSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Congés
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [leaves, setLeaves] = useState<EmployeeLeave[]>([]);
+  const [holidays, setHolidays] = useState<Set<string>>(new Set());
+  const [holidayRows, setHolidayRows] = useState<Holiday[]>([]);
+  const [leavesLoading, setLeavesLoading] = useState(false);
+  const [leaveModal, setLeaveModal] = useState(false);
+  const [leaveSaving, setLeaveSaving] = useState(false);
+  const [leaveForm, setLeaveForm] = useState<any>({
+    employee_id: "",
+    leave_type_id: "",
+    date_debut: "",
+    date_fin: "",
+    is_paid: true,
+    notes: "",
+  });
+
+  // Heures
+  const [hoursRows, setHoursRows] = useState<Record<string, EmployeeHours>>({});
+  const [hoursLoading, setHoursLoading] = useState(false);
+  const [savingHoursId, setSavingHoursId] = useState<string | null>(null);
+
   // Bulletins
   const [bulletins, setBulletins] = useState<Bulletin[]>([]);
   const [bulletinsLoading, setBulletinsLoading] = useState(false);
@@ -144,6 +255,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
 
   // CNSS
   const [cnssDecl, setCnssDecl] = useState<CnssDeclaration | null>(null);
+  const [cnssDeclaration, setCnssDeclaration] = useState<any | null>(null);
+  const [cnssDeclarationLoading, setCnssDeclarationLoading] = useState(false);
   const [cnssLoading, setCnssLoading] = useState(false);
   const [cnssGenerating, setCnssGenerating] = useState(false);
   const [cnssHistory, setCnssHistory] = useState<CnssDeclaration[]>([]);
@@ -163,6 +276,48 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     setEmployees(data ?? []);
     setEmpLoading(false);
   }, [dossierId]);
+
+  const scopeInsert = useCallback((payload: any) => ({
+    ...payload,
+    ...(dossierId ? { dossier_id: dossierId } : {}),
+  }), [dossierId]);
+
+  const loadLeaveData = useCallback(async () => {
+    setLeavesLoading(true);
+    const [{ data: typeData }, { data: leaveData }, { data: holidayData }] = await Promise.all([
+      supabase.from("leave_types").select("*").or(dossierId ? `dossier_id.eq.${dossierId},is_default.eq.true` : "is_default.eq.true").order("name"),
+      (() => {
+        let q = supabase
+          .from("employee_leaves")
+          .select("*, employees(nom, prenom), leave_types(name, color, is_paid)")
+          .gte("date_fin", `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`)
+          .lte("date_debut", `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-31`);
+        if (dossierId) q = (q as any).eq("dossier_id", dossierId);
+        return (q as any).order("date_debut", { ascending: false });
+      })(),
+      supabase.from("jours_feries").select("*").gte("date", `${selectedYear}-01-01`).lte("date", `${selectedYear}-12-31`),
+    ]);
+
+    setLeaveTypes((typeData?.length ? typeData : DEFAULT_LEAVE_TYPES) as LeaveType[]);
+    setLeaves((leaveData ?? []) as EmployeeLeave[]);
+    setHolidayRows(((holidayData ?? []) as Holiday[]).sort((a, b) => a.date.localeCompare(b.date)));
+    setHolidays(new Set((holidayData ?? []).map((h: any) => h.date)));
+    setLeavesLoading(false);
+  }, [dossierId, selectedMonth, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadHours = useCallback(async () => {
+    setHoursLoading(true);
+    let q = supabase.from("employee_heures")
+      .select("*")
+      .eq("mois", selectedMonth)
+      .eq("annee", selectedYear);
+    if (dossierId) q = (q as any).eq("dossier_id", dossierId);
+    const { data } = await (q as any);
+    const byEmployee: Record<string, EmployeeHours> = {};
+    for (const row of (data ?? []) as EmployeeHours[]) byEmployee[row.employee_id] = row;
+    setHoursRows(byEmployee);
+    setHoursLoading(false);
+  }, [dossierId, selectedMonth, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadBulletins = useCallback(async () => {
     setBulletinsLoading(true);
@@ -194,9 +349,25 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     setCnssLoading(false);
   }, [selectedMonth, selectedYear]);
 
+  const loadCnssDeclaration = useCallback(async () => {
+    setCnssDeclarationLoading(true);
+    const params = new URLSearchParams({
+      mois: String(selectedMonth),
+      annee: String(selectedYear),
+      ...(dossierId ? { dossierId } : {}),
+    });
+    const res = await fetch(`/api/paie/cnss-declaration?${params.toString()}`);
+    const json = await res.json();
+    if (res.ok) setCnssDeclaration(json);
+    else toast.error(json.error ?? "Erreur déclaration CNSS");
+    setCnssDeclarationLoading(false);
+  }, [selectedMonth, selectedYear, dossierId]);
+
   useEffect(() => { loadEmployees(); }, [loadEmployees]);
+  useEffect(() => { if (tab === "conges") loadLeaveData(); }, [tab, loadLeaveData]);
+  useEffect(() => { if (tab === "heures") loadHours(); }, [tab, loadHours]);
   useEffect(() => { if (tab === "bulletins") loadBulletins(); }, [tab, loadBulletins]);
-  useEffect(() => { if (tab === "cnss") loadCnss(); }, [tab, loadCnss]);
+  useEffect(() => { if (tab === "cnss") loadCnssDeclaration(); }, [tab, loadCnssDeclaration, bulletins]);
 
   // ── Month navigation ────────────────────────────────────────────────────────
 
@@ -213,7 +384,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
 
   function openAddModal() {
     setEditingEmp(null);
-    setEmpForm({ ...EMPTY_EMP });
+    const nextNumber = employees.length + 1;
+    setEmpForm({ ...EMPTY_EMP, matricule: `EMP-${String(nextNumber).padStart(3, "0")}` });
     setEmpModal("add");
   }
 
@@ -221,10 +393,15 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     setEditingEmp(emp);
     setEmpForm({
       nom: emp.nom, prenom: emp.prenom, cin: emp.cin ?? "", date_naissance: emp.date_naissance ?? "",
-      date_embauche: emp.date_embauche, poste: emp.poste ?? "", departement: emp.departement ?? "",
+      adresse: emp.adresse ?? "",
+      matricule: emp.matricule ?? "", date_embauche: emp.date_embauche, date_fin_contrat: emp.date_fin_contrat ?? "",
+      poste: emp.poste ?? "", departement: emp.departement ?? "",
       type_contrat: emp.type_contrat, salaire_brut: String(emp.salaire_brut),
       situation_familiale: emp.situation_familiale, nombre_enfants: String(emp.nombre_enfants),
-      banque: emp.banque ?? "", rib: emp.rib ?? "", numero_cnss: emp.numero_cnss ?? "",
+      mode_paiement: emp.mode_paiement ?? "virement", banque: emp.banque ?? "", rib: emp.rib ?? "", numero_cnss: emp.numero_cnss ?? emp.cnss_number ?? "",
+      heures_travail_semaine: String(emp.heures_travail_semaine ?? 44),
+      jours_travail_semaine: String(emp.jours_travail_semaine ?? 6),
+      notes: emp.notes ?? "",
       has_mutuelle: emp.has_mutuelle, mutuelle_taux_salarie: String(emp.mutuelle_taux_salarie),
       mutuelle_taux_patronal: String(emp.mutuelle_taux_patronal),
       has_cimr: emp.has_cimr, cimr_taux_salarie: String(emp.cimr_taux_salarie),
@@ -242,20 +419,30 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     setEmpSaving(true);
     const payload = {
       user_id: userId,
+      matricule: empForm.matricule || null,
       nom: empForm.nom.trim(),
       prenom: empForm.prenom.trim(),
       cin: empForm.cin || null,
+      adresse: empForm.adresse || null,
+      cnss_number: empForm.numero_cnss || null,
       date_naissance: empForm.date_naissance || null,
       date_embauche: empForm.date_embauche,
+      date_fin_contrat: empForm.date_fin_contrat || null,
       poste: empForm.poste || null,
       departement: empForm.departement || null,
       type_contrat: empForm.type_contrat,
+      salaire_base: parseFloat(empForm.salaire_brut) || 0,
       salaire_brut: parseFloat(empForm.salaire_brut) || 0,
+      mode_paiement: empForm.mode_paiement,
       situation_familiale: empForm.situation_familiale,
       nombre_enfants: parseInt(empForm.nombre_enfants) || 0,
       banque: empForm.banque || null,
       rib: empForm.rib || null,
       numero_cnss: empForm.numero_cnss || null,
+      heures_travail_semaine: parseFloat(empForm.heures_travail_semaine) || 44,
+      jours_travail_semaine: parseFloat(empForm.jours_travail_semaine) || 6,
+      is_active: empForm.statut === "actif",
+      notes: empForm.notes || null,
       has_mutuelle: empForm.has_mutuelle,
       mutuelle_taux_salarie: parseFloat(empForm.mutuelle_taux_salarie) || 2.59,
       mutuelle_taux_patronal: parseFloat(empForm.mutuelle_taux_patronal) || 2.59,
@@ -275,6 +462,82 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     loadEmployees();
   }
 
+  function openLeaveModal() {
+    setLeaveForm({
+      employee_id: employees[0]?.id ?? "",
+      leave_type_id: leaveTypes[0]?.id ?? "",
+      date_debut: "",
+      date_fin: "",
+      is_paid: leaveTypes[0]?.is_paid ?? true,
+      notes: "",
+    });
+    setLeaveModal(true);
+  }
+
+  async function saveLeave() {
+    if (!leaveForm.employee_id || !leaveForm.date_debut || !leaveForm.date_fin) {
+      toast.error("Choisissez un employé et une période");
+      return;
+    }
+    const selectedType = leaveTypes.find(t => t.id === leaveForm.leave_type_id);
+    const jours = countWorkingDays(leaveForm.date_debut, leaveForm.date_fin, holidays);
+    if (jours <= 0) {
+      toast.error("La période ne contient aucun jour ouvrable");
+      return;
+    }
+    setLeaveSaving(true);
+    const employee = employees.find(e => e.id === leaveForm.employee_id);
+    const dailyRate = Number(employee?.salaire_brut ?? 0) / 26;
+    const { error } = await supabase.from("employee_leaves").insert(scopeInsert({
+      employee_id: leaveForm.employee_id,
+      leave_type_id: isUuid(leaveForm.leave_type_id) ? leaveForm.leave_type_id : null,
+      date_debut: leaveForm.date_debut,
+      date_fin: leaveForm.date_fin,
+      nombre_jours: jours,
+      statut: "approuvé",
+      is_paid: leaveForm.is_paid,
+      impact_salaire: leaveForm.is_paid ? 0 : Math.round(dailyRate * jours * 100) / 100,
+      notes: leaveForm.notes || null,
+    }));
+    setLeaveSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${selectedType?.name ?? "Absence"} enregistrée`);
+    setLeaveModal(false);
+    loadLeaveData();
+  }
+
+  async function saveHours(employee: Employee, patch: Partial<EmployeeHours>) {
+    setSavingHoursId(employee.id);
+    const base = hoursRows[employee.id];
+    const theoretical = Number(patch.heures_theoriques ?? base?.heures_theoriques ?? 191.33);
+    const salary = Number(employee.salaire_brut ?? 0);
+    const hourlyRate = theoretical > 0 ? salary / theoretical : 0;
+    const h25 = Number(patch.heures_sup_25 ?? base?.heures_sup_25 ?? 0);
+    const h50 = Number(patch.heures_sup_50 ?? base?.heures_sup_50 ?? 0);
+    const h100 = Number(patch.heures_sup_100 ?? base?.heures_sup_100 ?? 0);
+    const absenceHours = Number(patch.heures_absence ?? base?.heures_absence ?? 0);
+    const payload = scopeInsert({
+      employee_id: employee.id,
+      mois: selectedMonth,
+      annee: selectedYear,
+      heures_theoriques: theoretical,
+      heures_normales: Number(patch.heures_normales ?? base?.heures_normales ?? theoretical),
+      heures_sup_25: h25,
+      heures_sup_50: h50,
+      heures_sup_100: h100,
+      jours_absence: Number(patch.jours_absence ?? base?.jours_absence ?? 0),
+      heures_absence: absenceHours,
+      montant_heures_sup: Math.round((h25 * hourlyRate * 1.25 + h50 * hourlyRate * 1.5 + h100 * hourlyRate * 2) * 100) / 100,
+      montant_absence_deduit: Math.round(absenceHours * hourlyRate * 100) / 100,
+      notes: patch.notes ?? base?.notes ?? null,
+    });
+    const { data, error } = await supabase.from("employee_heures").upsert(payload, { onConflict: "employee_id,mois,annee" }).select().single();
+    setSavingHoursId(null);
+    if (error) { toast.error(error.message); return; }
+    setHoursRows(prev => ({ ...prev, [employee.id]: data as EmployeeHours }));
+    toast.success("Heures enregistrées");
+  }
+
   async function deleteEmployee(id: string) {
     if (!confirm("Supprimer cet employé ? Ses bulletins seront conservés.")) return;
     setDeletingId(id);
@@ -292,7 +555,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       const res = await fetch("/api/paie/generate-bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mois: selectedMonth, annee: selectedYear }),
+        body: JSON.stringify({ mois: selectedMonth, annee: selectedYear, dossierId }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -385,10 +648,14 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   }
 
   async function downloadCnssPdf() {
-    if (!cnssDecl) return;
     setActionLoading("cnss-pdf");
     try {
-      const res = await fetch(`/api/paie/cnss/${cnssDecl.id}/pdf`);
+      const params = new URLSearchParams({
+        mois: String(selectedMonth),
+        annee: String(selectedYear),
+        ...(dossierId ? { dossierId } : {}),
+      });
+      const res = await fetch(`/api/paie/cnss-declaration/pdf?${params.toString()}`);
       if (!res.ok) throw new Error("Erreur PDF");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -402,10 +669,14 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   }
 
   async function downloadCnssExcel() {
-    if (!cnssDecl) return;
     setActionLoading("cnss-excel");
     try {
-      const res = await fetch(`/api/paie/cnss/${cnssDecl.id}/excel`);
+      const params = new URLSearchParams({
+        mois: String(selectedMonth),
+        annee: String(selectedYear),
+        ...(dossierId ? { dossierId } : {}),
+      });
+      const res = await fetch(`/api/paie/cnss-declaration/excel?${params.toString()}`);
       if (!res.ok) throw new Error("Erreur Excel");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -462,13 +733,15 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
             <Plus size={14} /> Ajouter un employé
           </button>
         )}
+        {tab === "conges" && (
+          <button onClick={openLeaveModal} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white transition-colors" style={{ backgroundColor: "#C8924A" }}>
+            <Plus size={14} /> Nouvelle absence
+          </button>
+        )}
         {tab === "bulletins" && bulletins.length > 0 && (
           <div className="flex gap-2">
             <button onClick={validateAll} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#1D4ED8] border border-[#BFDBFE] bg-[#EFF6FF] hover:bg-[#DBEAFE] transition-colors">
               <CheckCircle size={13} /> Tout valider
-            </button>
-            <button onClick={() => setTab("cnss")} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.12)] bg-white hover:bg-[#F9F9F6] transition-colors">
-              Déclaration CNSS →
             </button>
           </div>
         )}
@@ -476,10 +749,16 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
 
       {/* Pill tabs */}
       <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-5 w-fit">
-        {([["employes","Employés"],["bulletins","Bulletins de paie"],["cnss","Déclaration CNSS"]] as const).map(([key, label]) => (
+        {([
+          ["employes","Employés", Users],
+          ["conges","Congés & Absences", CalendarDays],
+          ["heures","Heures", Clock],
+          ["bulletins","Bulletins", FileText],
+          ["cnss","CNSS", FileText],
+        ] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-1.5 rounded-lg text-[12.5px] font-medium transition-all ${tab === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"}`}>
-            {label}
+            className={`px-4 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 ${tab === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"}`}>
+            <Icon size={13} /> {label}
           </button>
         ))}
       </div>
@@ -497,50 +776,74 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
         />
       )}
 
-      {/* ── TAB 2: BULLETINS ── */}
-      {tab === "bulletins" && (
-        <BulletinsTab
-          bulletins={bulletins}
+      {/* ── TAB 2: CONGÉS ── */}
+      {tab === "conges" && (
+        <CongesTab
           employees={employees}
-          loading={bulletinsLoading}
-          generating={generating}
-          actionLoading={actionLoading}
+          leaveTypes={leaveTypes}
+          leaves={leaves}
+          holidays={holidays}
+          holidayRows={holidayRows}
+          loading={leavesLoading}
           periodLabel={periodLabel}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
-          masseSalariale={masseSalariale}
-          chargesPatronales={chargesPatronales}
-          irTotal={irTotal}
-          cnssTotal={cnssTotal}
-          dueDay15={dueDay15}
-          dueDay28={dueDay28}
           onPrev={prevMonth}
           onNext={nextMonth}
-          onGenerate={generateBulletins}
-          onUpdateStatus={updateBulletinStatus}
-          onDelete={deleteBulletin}
-          onDownloadPdf={downloadPdf}
-          onValidateAll={validateAll}
-          onGoToCnss={() => setTab("cnss")}
         />
       )}
 
-      {/* ── TAB 3: CNSS ── */}
+      {/* ── TAB 3: HEURES ── */}
+      {tab === "heures" && (
+        <HeuresTab
+          employees={employees}
+          hoursRows={hoursRows}
+          loading={hoursLoading}
+          savingId={savingHoursId}
+          periodLabel={periodLabel}
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+          onPrev={prevMonth}
+          onNext={nextMonth}
+          onSave={saveHours}
+        />
+      )}
+
+      {/* ── TAB 4: BULLETINS ── */}
+      {tab === "bulletins" && (
+        <div className="space-y-5">
+          <BulletinsTab
+            bulletins={bulletins}
+            employees={employees}
+            loading={bulletinsLoading}
+            generating={generating}
+            periodLabel={periodLabel}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            masseSalariale={masseSalariale}
+            irTotal={irTotal}
+            onPrev={prevMonth}
+            onNext={nextMonth}
+            onGenerate={generateBulletins}
+            onUpdateStatus={updateBulletinStatus}
+            onDelete={deleteBulletin}
+            onDownloadPdf={downloadPdf}
+            onValidateAll={validateAll}
+          />
+        </div>
+      )}
+
+      {/* ── TAB 5: CNSS ── */}
       {tab === "cnss" && (
         <CnssTab
-          decl={cnssDecl}
-          history={cnssHistory}
-          loading={cnssLoading}
-          generating={cnssGenerating}
+          declaration={cnssDeclaration}
+          loading={cnssDeclarationLoading}
           actionLoading={actionLoading}
           periodLabel={periodLabel}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
-          employeeBreakdown={cnssBreakdownFromBulletins}
           onPrev={prevMonth}
           onNext={nextMonth}
-          onGenerate={generateCnss}
-          onUpdateStatus={updateCnssStatus}
           onDownloadPdf={downloadCnssPdf}
           onDownloadExcel={downloadCnssExcel}
         />
@@ -555,6 +858,25 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           onChange={(k, v) => setEmpForm((f: any) => ({ ...f, [k]: v }))}
           onSave={saveEmployee}
           onClose={() => setEmpModal(null)}
+        />
+      )}
+      {leaveModal && (
+        <LeaveModal
+          employees={employees}
+          leaveTypes={leaveTypes}
+          form={leaveForm}
+          holidays={holidays}
+          saving={leaveSaving}
+          onChange={(k: string, v: any) => {
+            const patch: any = { [k]: v };
+            if (k === "leave_type_id") {
+              const t = leaveTypes.find(type => type.id === v);
+              if (t) patch.is_paid = t.is_paid;
+            }
+            setLeaveForm((f: any) => ({ ...f, ...patch }));
+          }}
+          onSave={saveLeave}
+          onClose={() => setLeaveModal(false)}
         />
       )}
     </div>
@@ -625,11 +947,272 @@ function EmployesTab({ employees, loading, deletingId, onAdd, onEdit, onDelete, 
   );
 }
 
+// ─── Congés & Absences Tab ───────────────────────────────────────────────────
+
+function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loading, periodLabel, selectedMonth, selectedYear, onPrev, onNext }: any) {
+  const monthPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`;
+  const leavesByEmployee = new Map<string, EmployeeLeave[]>();
+  for (const leave of leaves as EmployeeLeave[]) {
+    const list = leavesByEmployee.get(leave.employee_id) ?? [];
+    list.push(leave);
+    leavesByEmployee.set(leave.employee_id, list);
+  }
+
+  const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+  const calendarDays = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const iso = `${monthPrefix}-${String(day).padStart(2, "0")}`;
+    const date = new Date(iso);
+    const dayLeaves = (leaves as EmployeeLeave[]).filter(l => l.date_debut <= iso && l.date_fin >= iso);
+    return { day, iso, isSunday: date.getDay() === 0, isHoliday: holidays.has(iso), dayLeaves };
+  });
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-[14px] font-semibold text-[#1A1A2E] min-w-[130px] text-center">{periodLabel}</span>
+          <button onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Absences du mois", value: leaves.length, color: "#1A1A2E" },
+          { label: "Jours déclarés", value: leaves.reduce((s: number, l: EmployeeLeave) => s + Number(l.nombre_jours), 0), color: "#C8924A" },
+          { label: "Sans solde", value: leaves.filter((l: EmployeeLeave) => !l.is_paid).length, color: "#DC2626" },
+          { label: "Jours fériés", value: calendarDays.filter(d => d.isHoliday).length, color: "#059669" },
+        ].map(card => (
+          <div key={card.label} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-3.5">
+            <div className="text-[10.5px] text-[#9CA3AF] uppercase tracking-[0.4px] mb-1.5">{card.label}</div>
+            <div className="text-[20px] font-bold" style={{ color: card.color }}>{card.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start">
+        <div className="space-y-4 min-w-0">
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.07)] flex items-center justify-between">
+            <h2 className="text-[13px] font-semibold text-[#1A1A2E]">Calendrier des absences</h2>
+            <div className="flex flex-wrap gap-2 text-[10.5px] text-[#6B7280]">
+              {leaveTypes.slice(0, 5).map((t: LeaveType) => (
+                <span key={t.id ?? t.name} className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full" style={{ background: t.color ?? "#C8924A" }} /> {t.name}
+                </span>
+              ))}
+            </div>
+          </div>
+          {loading ? (
+            <div className="h-40 animate-pulse bg-[#F9F9F6]" />
+          ) : (
+            <div className="grid grid-cols-7 gap-px bg-[rgba(0,0,0,0.06)] text-[11px]">
+              {calendarDays.map(day => (
+                <div key={day.iso} className={`min-h-[74px] p-2 ${day.isSunday ? "bg-[#F3F4F6]" : day.isHoliday ? "bg-[#FEF3C7]" : "bg-white"}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-[#1A1A2E]">{day.day}</span>
+                    {day.isHoliday && <span className="text-[9px] text-[#92400E]">Férié</span>}
+                  </div>
+                  <div className="space-y-1">
+                    {day.dayLeaves.slice(0, 3).map((leave: EmployeeLeave) => (
+                      <div key={leave.id} className="truncate rounded px-1.5 py-0.5 text-[10px] text-white"
+                        style={{ background: leave.leave_types?.color ?? "#C8924A" }}>
+                        {leave.employees?.prenom?.[0] ?? ""}. {leave.employees?.nom ?? ""}
+                      </div>
+                    ))}
+                    {day.dayLeaves.length > 3 && <div className="text-[9px] text-[#6B7280]">+{day.dayLeaves.length - 3}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          </div>
+
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.07)]">
+              <h2 className="text-[13px] font-semibold text-[#1A1A2E]">Résumé mensuel</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px] min-w-[620px]">
+                <thead>
+                  <tr className="bg-[#F9F9F6]">
+                    {["Employé", "Congés/absences", "Jours", "Sans solde", "Impact salaire"].map(h => (
+                      <th key={h} className="text-left px-4 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px]">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.map((emp: Employee) => {
+                    const empLeaves = leavesByEmployee.get(emp.id) ?? [];
+                    const unpaid = empLeaves.filter(l => !l.is_paid);
+                    return (
+                      <tr key={emp.id} className="border-t border-[rgba(0,0,0,0.05)]">
+                        <td className="px-4 py-3 font-medium text-[#1A1A2E]">{emp.prenom} {emp.nom}</td>
+                        <td className="px-4 py-3 text-[#6B7280]">{empLeaves.length}</td>
+                        <td className="px-4 py-3 text-[#374151]">{empLeaves.reduce((s, l) => s + Number(l.nombre_jours), 0)}</td>
+                        <td className="px-4 py-3 text-[#DC2626]">{unpaid.reduce((s, l) => s + Number(l.nombre_jours), 0)}</td>
+                        <td className="px-4 py-3 text-[#DC2626]">{fmtAmt(unpaid.reduce((s, l) => s + Number(l.impact_salaire), 0))} MAD</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.07)]">
+            <h2 className="text-[13px] font-semibold text-[#1A1A2E]">Jours fériés {selectedYear}</h2>
+            <p className="text-[11px] text-[#9CA3AF] mt-0.5">Dates nationales enregistrées</p>
+          </div>
+          {loading ? (
+            <div className="h-40 animate-pulse bg-[#F9F9F6]" />
+          ) : holidayRows.length === 0 ? (
+            <div className="px-4 py-10 text-center">
+              <CalendarDays size={28} className="text-[#D1D5DB] mx-auto mb-2" />
+              <p className="text-[12.5px] text-[#6B7280]">Aucun jour férié enregistré</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[rgba(0,0,0,0.05)] max-h-[520px] overflow-y-auto">
+              {holidayRows.map((holiday: Holiday) => {
+                const date = new Date(holiday.date);
+                const isThisMonth = date.getMonth() + 1 === selectedMonth;
+                return (
+                  <div key={holiday.id ?? holiday.date} className={`px-4 py-3 ${isThisMonth ? "bg-[#FFFBEB]" : "bg-white"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[12.5px] font-semibold text-[#1A1A2E] leading-tight">{holiday.name}</p>
+                        {holiday.name_ar && <p className="text-[11px] text-[#9CA3AF] mt-0.5">{holiday.name_ar}</p>}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-[12px] font-semibold text-[#C8924A]">
+                          {date.toLocaleDateString("fr-MA", { day: "2-digit", month: "short" })}
+                        </p>
+                        <p className="text-[10px] text-[#9CA3AF]">
+                          {date.toLocaleDateString("fr-MA", { weekday: "short" })}
+                        </p>
+                      </div>
+                    </div>
+                    {isThisMonth && (
+                      <span className="inline-block mt-2 rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-semibold text-[#92400E]">
+                        Ce mois
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+// ─── Heures Tab ──────────────────────────────────────────────────────────────
+
+function HeuresTab({ employees, hoursRows, loading, savingId, periodLabel, selectedMonth, selectedYear, onPrev, onNext, onSave }: any) {
+  const [drafts, setDrafts] = useState<Record<string, any>>({});
+
+  useEffect(() => { setDrafts({}); }, [selectedMonth, selectedYear, hoursRows]);
+
+  function valueFor(emp: Employee, field: keyof EmployeeHours, fallback: number) {
+    return drafts[emp.id]?.[field] ?? hoursRows[emp.id]?.[field] ?? fallback;
+  }
+
+  function patch(empId: string, field: string, value: string) {
+    setDrafts(prev => ({ ...prev, [empId]: { ...(prev[empId] ?? {}), [field]: value === "" ? "" : Number(value) } }));
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-[14px] font-semibold text-[#1A1A2E] min-w-[130px] text-center">{periodLabel}</span>
+          <button onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        <div className="text-[11.5px] text-[#6B7280]">Heures supplémentaires: 25%, 50%, 100%</div>
+      </div>
+
+      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px] min-w-[920px]">
+            <thead>
+              <tr className="bg-[#F9F9F6]">
+                {["Employé", "Théoriques", "Travaillées", "H.Sup 25%", "H.Sup 50%", "H.Sup 100%", "Absences", "Montant H.Sup", "Retenue", "Action"].map(h => (
+                  <th key={h} className="text-left px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={10} className="px-4 py-10 text-center text-[#6B7280]">Chargement...</td></tr>
+              ) : employees.map((emp: Employee) => {
+                const theoretical = Number(valueFor(emp, "heures_theoriques", 191.33));
+                const normal = Number(valueFor(emp, "heures_normales", theoretical));
+                const h25 = Number(valueFor(emp, "heures_sup_25", 0));
+                const h50 = Number(valueFor(emp, "heures_sup_50", 0));
+                const h100 = Number(valueFor(emp, "heures_sup_100", 0));
+                const absence = Number(valueFor(emp, "heures_absence", 0));
+                const hourly = theoretical > 0 ? Number(emp.salaire_brut) / theoretical : 0;
+                const overtimeAmount = h25 * hourly * 1.25 + h50 * hourly * 1.5 + h100 * hourly * 2;
+                const absenceAmount = absence * hourly;
+                return (
+                  <tr key={emp.id} className="border-t border-[rgba(0,0,0,0.05)]">
+                    <td className="px-3 py-2.5">
+                      <div className="font-medium text-[#1A1A2E]">{emp.prenom} {emp.nom}</div>
+                      <div className="text-[10.5px] text-[#9CA3AF]">{emp.heures_travail_semaine ?? 44}h/semaine</div>
+                    </td>
+                    {[
+                      ["heures_theoriques", theoretical],
+                      ["heures_normales", normal],
+                      ["heures_sup_25", h25],
+                      ["heures_sup_50", h50],
+                      ["heures_sup_100", h100],
+                      ["heures_absence", absence],
+                    ].map(([field, value]) => (
+                      <td key={field} className="px-3 py-2.5">
+                        <input type="number" step="0.01" className="input h-8 w-20 text-[12px]"
+                          value={drafts[emp.id]?.[field as string] ?? value}
+                          onChange={e => patch(emp.id, field as string, e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") onSave(emp, drafts[emp.id] ?? {}); }}
+                        />
+                      </td>
+                    ))}
+                    <td className="px-3 py-2.5 font-semibold text-[#059669]">{fmtAmt(overtimeAmount)} MAD</td>
+                    <td className="px-3 py-2.5 font-semibold text-[#DC2626]">{fmtAmt(absenceAmount)} MAD</td>
+                    <td className="px-3 py-2.5">
+                      <button onClick={() => onSave(emp, drafts[emp.id] ?? {})} disabled={savingId === emp.id}
+                        className="btn btn-outline btn-sm">
+                        {savingId === emp.id ? "..." : "Enregistrer"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Bulletins Tab ────────────────────────────────────────────────────────────
 
-function BulletinsTab({ bulletins, employees, loading, generating, actionLoading, periodLabel, selectedMonth, selectedYear, masseSalariale, chargesPatronales, irTotal, cnssTotal, dueDay15, dueDay28, onPrev, onNext, onGenerate, onUpdateStatus, onDelete, onDownloadPdf, onValidateAll, onGoToCnss }: any) {
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-
+function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, selectedMonth, selectedYear, masseSalariale, irTotal, onPrev, onNext, onGenerate, onUpdateStatus, onDelete, onDownloadPdf }: any) {
   return (
     <div>
       {/* Month selector */}
@@ -648,24 +1231,6 @@ function BulletinsTab({ bulletins, employees, loading, generating, actionLoading
           Générer les bulletins de {MONTHS[selectedMonth - 1]}
         </button>
       </div>
-
-      {/* Summary bar */}
-      {bulletins.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          {[
-            { label: "Masse salariale brute", value: masseSalariale, note: null },
-            { label: "Charges patronales", value: chargesPatronales, note: null },
-            { label: "IR à reverser DGI", value: irTotal, note: `dû le ${dueDay28.getDate()}` },
-            { label: "CNSS à reverser", value: cnssTotal, note: `dû le ${dueDay15.getDate()}` },
-          ].map(m => (
-            <div key={m.label} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-3.5" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-              <div className="text-[10.5px] text-[#9CA3AF] uppercase tracking-[0.4px] mb-1.5">{m.label}</div>
-              <div className="text-[16px] font-bold text-[#1A1A2E]">{fmtAmt(m.value)}</div>
-              {m.note && <div className="text-[10px] text-[#9CA3AF] mt-0.5">{m.note}</div>}
-            </div>
-          ))}
-        </div>
-      )}
 
       {loading && <div className="h-32 bg-white rounded-xl border animate-pulse" />}
 
@@ -705,38 +1270,40 @@ function BulletinsTab({ bulletins, employees, loading, generating, actionLoading
                         {b.statut.charAt(0).toUpperCase() + b.statut.slice(1)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 relative">
-                      <div className="relative">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => setOpenMenu(openMenu === b.id ? null : b.id)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] text-[#6B7280] border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors"
+                          onClick={() => onDownloadPdf(b.id, `${(b.employees as any)?.prenom}_${(b.employees as any)?.nom}`)}
+                          title="Télécharger PDF"
+                          className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-[#374151] border border-[rgba(0,0,0,0.1)] hover:bg-[#F9F9F6] transition-colors"
                         >
-                          Actions <ChevronDown size={11} />
+                          <FileText size={14} />
                         </button>
-                        {openMenu === b.id && (
-                          <div className="absolute right-0 top-full mt-1 bg-white border border-[rgba(0,0,0,0.1)] rounded-lg shadow-lg z-10 min-w-[170px]">
-                            <button onClick={() => { onDownloadPdf(b.id, `${(b.employees as any)?.prenom}_${(b.employees as any)?.nom}`); setOpenMenu(null); }}
-                              className="flex items-center gap-2 w-full px-3 py-2 text-[11.5px] text-[#374151] hover:bg-[#F9F9F6]">
-                              <FileText size={12} /> Télécharger PDF
-                            </button>
-                            {b.statut === "brouillon" && (
-                              <button onClick={() => { onUpdateStatus(b.id, "validé"); setOpenMenu(null); }}
-                                className="flex items-center gap-2 w-full px-3 py-2 text-[11.5px] text-[#1D4ED8] hover:bg-[#EFF6FF]">
-                                <CheckCircle size={12} /> Valider
-                              </button>
-                            )}
-                            {b.statut === "validé" && (
-                              <button onClick={() => { onUpdateStatus(b.id, "payé"); setOpenMenu(null); }}
-                                className="flex items-center gap-2 w-full px-3 py-2 text-[11.5px] text-[#059669] hover:bg-[#F0FDF4]">
-                                <DollarSign size={12} /> Marquer comme payé
-                              </button>
-                            )}
-                            <button onClick={() => { onDelete(b.id); setOpenMenu(null); }}
-                              className="flex items-center gap-2 w-full px-3 py-2 text-[11.5px] text-[#DC2626] hover:bg-[#FEF2F2]">
-                              <Trash2 size={12} /> Supprimer
-                            </button>
-                          </div>
+                        {b.statut === "brouillon" && (
+                          <button
+                            onClick={() => onUpdateStatus(b.id, "validé")}
+                            title="Valider"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-[#1D4ED8] border border-[#BFDBFE] bg-[#EFF6FF] hover:bg-[#DBEAFE] transition-colors"
+                          >
+                            <CheckCircle size={14} />
+                          </button>
                         )}
+                        {b.statut === "validé" && (
+                          <button
+                            onClick={() => onUpdateStatus(b.id, "payé")}
+                            title="Marquer comme payé"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-[#059669] border border-[#BBF7D0] bg-[#F0FDF4] hover:bg-[#DCFCE7] transition-colors"
+                          >
+                            <DollarSign size={14} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => onDelete(b.id)}
+                          title="Supprimer"
+                          className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-[#DC2626] border border-[#FECACA] bg-[#FEF2F2] hover:bg-[#FEE2E2] transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -758,31 +1325,32 @@ function BulletinsTab({ bulletins, employees, loading, generating, actionLoading
         </div>
       )}
 
-      {/* Bulk actions */}
-      {bulletins.length > 0 && (
-        <div className="flex gap-2 mt-3">
-          <button onClick={onValidateAll} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#1D4ED8] border border-[#BFDBFE] bg-[#EFF6FF] hover:bg-[#DBEAFE] transition-colors">
-            <CheckCircle size={13} /> Tout valider
-          </button>
-          <button onClick={onGoToCnss} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.12)] bg-white hover:bg-[#F9F9F6] transition-colors">
-            Générer déclaration CNSS →
-          </button>
-        </div>
-      )}
     </div>
   );
 }
 
 // ─── CNSS Tab ─────────────────────────────────────────────────────────────────
 
-function CnssTab({ decl, history, loading, generating, actionLoading, periodLabel, selectedMonth, selectedYear, employeeBreakdown, onPrev, onNext, onGenerate, onUpdateStatus, onDownloadPdf, onDownloadExcel }: any) {
-  const nextMonthName = MONTHS[selectedMonth % 12];
+function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onNext, onDownloadPdf, onDownloadExcel }: any) {
+  const rows = declaration?.employees ?? [];
+  const totals = declaration?.totals ?? {};
+  const missing = declaration?.missing_bulletins ?? [];
+  const amoTotal = Number(totals.total_amo_salarie ?? 0) + Number(totals.total_amo_patronal ?? 0);
+  const cards = [
+    { label: "Total CNSS salarié", value: totals.total_cnss_salarie ?? 0, color: "#1A1A2E" },
+    { label: "Total CNSS patronal", value: totals.total_cnss_patronal ?? 0, color: "#1A1A2E" },
+    { label: "Total AMO (salarié + patronal)", value: amoTotal, color: "#C8924A" },
+    { label: "Total à verser à la CNSS", value: totals.total_cotisations ?? 0, color: "#1A1A2E", large: true },
+  ];
 
   return (
-    <div>
-      {/* Month selector + status */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[18px] font-bold text-[#1A1A2E]">Déclaration CNSS</h2>
+          <p className="text-[12px] text-[#6B7280] mt-0.5">État mensuel pour Damancom</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
             <ChevronLeft size={16} />
           </button>
@@ -790,215 +1358,156 @@ function CnssTab({ decl, history, loading, generating, actionLoading, periodLabe
           <button onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
             <ChevronRight size={16} />
           </button>
-          {decl && (
-            <span className={`ml-2 inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold ${STATUT_COLORS[decl.statut] ?? STATUT_COLORS.brouillon_cnss}`}>
-              {decl.statut.charAt(0).toUpperCase() + decl.statut.slice(1)}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Info box */}
-      <div className="bg-[#F0F9FF] border border-[#BAE6FD] rounded-xl px-4 py-3 text-[12px] text-[#0369A1] mb-4 flex items-start gap-2">
-        <span className="flex-shrink-0 mt-0.5">📋</span>
-        <div>
-          <span className="font-semibold">La déclaration CNSS est due le 15 de chaque mois</span> via le portail Damancom (<span className="font-mono">damancom.cnss.ma</span>).
-          Générez votre récapitulatif ici, puis saisissez les montants sur Damancom.
+          <button onClick={onDownloadExcel} disabled={actionLoading === "cnss-excel" || loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.12)] bg-white hover:bg-[#F9F9F6] transition-colors disabled:opacity-50">
+            {actionLoading === "cnss-excel" ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Exporter Excel
+          </button>
+          <button onClick={onDownloadPdf} disabled={actionLoading === "cnss-pdf" || loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-white transition-colors disabled:opacity-50" style={{ backgroundColor: "#1A1A2E" }}>
+            {actionLoading === "cnss-pdf" ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Télécharger PDF
+          </button>
         </div>
       </div>
 
       {loading && <div className="h-48 bg-white rounded-xl border animate-pulse" />}
 
-      {!loading && !decl && (
-        <div className="text-center py-10">
-          <div className="text-3xl mb-3">📊</div>
-          <p className="text-[13px] font-semibold text-[#6B7280] mb-1">Aucune déclaration pour {periodLabel}</p>
-          <p className="text-[11.5px] text-[#9CA3AF] mb-5">Validez les bulletins de paie avant de générer la déclaration</p>
-          <button onClick={onGenerate} disabled={generating} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12.5px] font-medium text-white disabled:opacity-50" style={{ backgroundColor: "#C8924A" }}>
-            {generating ? <Loader2 size={13} className="animate-spin" /> : null}
-            Calculer la déclaration de {MONTHS[selectedMonth - 1]}
+      {!loading && declaration && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            {cards.map(card => (
+              <div key={card.label} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-3.5">
+                <div className="text-[10.5px] text-[#9CA3AF] uppercase tracking-[0.4px] mb-1.5">{card.label}</div>
+                <div className={`${card.large ? "text-[20px]" : "text-[16px]"} font-bold`} style={{ color: card.color }}>{fmtAmt(Number(card.value))} MAD</div>
+              </div>
+            ))}
+          </div>
+
+          <div className={`rounded-xl px-4 py-3 text-[12px] border ${
+            rows.length === 0 ? "bg-[#F3F4F6] border-[#E5E7EB] text-[#6B7280]" :
+            missing.length === 0 ? "bg-[#ECFDF5] border-[#A7F3D0] text-[#065F46]" :
+            "bg-[#FFFBEB] border-[#FDE68A] text-[#92400E]"
+          }`}>
+            {rows.length === 0 ? `Aucun bulletin validé pour ${periodLabel}` :
+              missing.length === 0 ? "Déclaration prête — tous les bulletins sont validés" :
+              `${missing.length} employé(s) n'ont pas de bulletin validé ce mois. Les bulletins non validés ne sont pas inclus.`}
+          </div>
+
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] border-collapse min-w-[1180px]">
+                <thead>
+                  <tr className="bg-[#1A1A2E] text-white">
+                    {["N°","Matricule CNSS","Nom","Prénom","Jours déclarés","Salaire brut","Salaire plafonné","CNSS salarié (4.48%)","CNSS patronal (21.09%)","AMO salarié (2.26%)","AMO patronal (4.11%)","Total cotisations"].map(h => (
+                      <th key={h} className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.3px] whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r: any) => (
+                    <tr key={`${r.n}-${r.nom}-${r.prenom}`} className="border-b border-[rgba(0,0,0,0.05)]">
+                      <td className="px-3 py-2">{r.n}</td>
+                      <td className="px-3 py-2 font-mono">{r.matricule_cnss || "—"}</td>
+                      <td className="px-3 py-2 font-medium text-[#1A1A2E]">{r.nom}</td>
+                      <td className="px-3 py-2">{r.prenom}</td>
+                      <td className="px-3 py-2 text-right">{r.jours_declares}</td>
+                      <td className="px-3 py-2 text-right">{fmtAmt(r.salaire_brut)}</td>
+                      <td className="px-3 py-2 text-right">{fmtAmt(r.salaire_plafonne)}</td>
+                      <td className="px-3 py-2 text-right">{fmtAmt(r.cnss_salarie)}</td>
+                      <td className="px-3 py-2 text-right">{fmtAmt(r.cnss_patronal)}</td>
+                      <td className="px-3 py-2 text-right">{fmtAmt(r.amo_salarie)}</td>
+                      <td className="px-3 py-2 text-right">{fmtAmt(r.amo_patronal)}</td>
+                      <td className="px-3 py-2 text-right font-semibold">{fmtAmt(r.total_cotisations)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-white text-[#1A1A2E] font-bold border-t border-[rgba(0,0,0,0.05)]">
+                    <td className="px-3 py-2.5">TOTAL</td>
+                    <td colSpan={3} />
+                    <td className="px-3 py-2.5 text-right">{totals.total_jours ?? 0}</td>
+                    <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_brut ?? 0)}</td>
+                    <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_plafonne ?? 0)}</td>
+                    <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_cnss_salarie ?? 0)}</td>
+                    <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_cnss_patronal ?? 0)}</td>
+                    <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_amo_salarie ?? 0)}</td>
+                    <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_amo_patronal ?? 0)}</td>
+                    <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_cotisations ?? 0)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Leave Modal ──────────────────────────────────────────────────────────────
+
+function LeaveModal({ employees, leaveTypes, form, holidays, saving, onChange, onSave, onClose }: any) {
+  const days = countWorkingDays(form.date_debut, form.date_fin, holidays);
+  const selectedType = leaveTypes.find((t: LeaveType) => t.id === form.leave_type_id);
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-4">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,0,0,0.07)]">
+          <h2 className="text-[15px] font-bold text-[#1A1A2E]">Nouvelle absence / congé</h2>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#9CA3AF] hover:bg-[#F3F4F6]">
+            <X size={16} />
           </button>
         </div>
-      )}
 
-      {!loading && decl && (
-        <div className="flex flex-col gap-4">
-          {/* Generate button (recalculate) */}
-          <div className="flex justify-end">
-            <button onClick={onGenerate} disabled={generating} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.12)] hover:bg-[#F9F9F6] transition-colors disabled:opacity-50">
-              {generating ? <Loader2 size={12} className="animate-spin" /> : null}
-              Recalculer
-            </button>
+        <div className="p-5 space-y-4">
+          <Field label="Employé">
+            <select className="input" value={form.employee_id} onChange={e => onChange("employee_id", e.target.value)}>
+              {employees.map((emp: Employee) => <option key={emp.id} value={emp.id}>{emp.prenom} {emp.nom}</option>)}
+            </select>
+          </Field>
+
+          <Field label="Type d'absence">
+            <select className="input" value={form.leave_type_id} onChange={e => onChange("leave_type_id", e.target.value)}>
+              {leaveTypes.map((type: LeaveType) => (
+                <option key={type.id ?? type.name} value={type.id}>{type.name}</option>
+              ))}
+            </select>
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Date début">
+              <input type="date" className="input" value={form.date_debut} onChange={e => onChange("date_debut", e.target.value)} />
+            </Field>
+            <Field label="Date fin">
+              <input type="date" className="input" value={form.date_fin} onChange={e => onChange("date_fin", e.target.value)} />
+            </Field>
           </div>
 
-          {/* Declaration summary card */}
-          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            {/* Card header */}
-            <div className="px-5 py-4 border-b border-[rgba(0,0,0,0.07)]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-[14px] font-bold text-[#1A1A2E]">DÉCLARATION CNSS — {decl.period_label}</h2>
-                  <p className="text-[11.5px] text-[#6B7280] mt-0.5">Nombre d'employés : {decl.nombre_employes}</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-[10.5px] text-[#9CA3AF] uppercase tracking-[0.4px]">Échéance</div>
-                  <div className="text-[13px] font-semibold text-[#1A1A2E]">15 {nextMonthName} {selectedMonth === 12 ? selectedYear + 1 : selectedYear}</div>
-                  <div className="text-[10.5px] text-[#DC2626] mt-0.5">⚠️ Retard : pénalité 5%/mois</div>
-                </div>
-              </div>
+          <div className="rounded-xl bg-[#F9F9F6] border border-[rgba(0,0,0,0.07)] p-3 text-[12px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[#6B7280]">Jours ouvrables calculés</span>
+              <span className="font-bold text-[#1A1A2E]">{days} jour{days > 1 ? "s" : ""}</span>
             </div>
-
-            <div className="p-5 grid md:grid-cols-2 gap-5">
-              {/* Part salariale */}
-              <div>
-                <h3 className="text-[11px] font-bold text-[#6B7280] uppercase tracking-[0.5px] mb-3">Part salariale (retenue sur salaires)</h3>
-                <div className="space-y-2">
-                  {[
-                    { label: "CNSS court terme (0.52%)", val: decl.total_salaires_bruts * 0.0052 },
-                    { label: "CNSS long terme (3.96%)", val: decl.total_salaires_bruts * 0.0396 },
-                    { label: "IPE salarié (0.19%)", val: decl.total_ipe ?? decl.total_salaires_bruts * 0.0019 },
-                    { label: "AMO salarié (2.26%)", val: decl.total_amo_salarie },
-                  ].map(r => (
-                    <div key={r.label} className="flex items-center justify-between text-[12px]">
-                      <span className="text-[#374151]">{r.label}</span>
-                      <span className="font-semibold text-[#1A1A2E]">{fmtAmt(r.val)} MAD</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between text-[12.5px] pt-2 border-t border-[rgba(0,0,0,0.07)]">
-                    <span className="font-bold text-[#1A1A2E]">Total part salariale</span>
-                    <span className="font-bold text-[#1A1A2E]">{fmtAmt(decl.total_cnss_salarie + decl.total_amo_salarie)} MAD</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Part patronale */}
-              <div>
-                <h3 className="text-[11px] font-bold text-[#6B7280] uppercase tracking-[0.5px] mb-3">Part patronale (à charge de l'entreprise)</h3>
-                <div className="space-y-2">
-                  {[
-                    { label: "Allocations familiales (6.40%)", val: decl.total_salaires_bruts * 0.064 },
-                    { label: "Prestations sociales (8.98%)", val: decl.total_salaires_bruts * 0.0898 },
-                    { label: "IPE patronal (0.67%)", val: decl.total_salaires_bruts * 0.0067 },
-                    { label: "AMO patronal (4.11%)", val: decl.total_amo_patronal },
-                    { label: "Formation professionnelle (1.6%)", val: decl.total_formation_pro },
-                  ].map(r => (
-                    <div key={r.label} className="flex items-center justify-between text-[12px]">
-                      <span className="text-[#374151]">{r.label}</span>
-                      <span className="font-semibold text-[#1A1A2E]">{fmtAmt(r.val)} MAD</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between text-[12.5px] pt-2 border-t border-[rgba(0,0,0,0.07)]">
-                    <span className="font-bold text-[#1A1A2E]">Total part patronale</span>
-                    <span className="font-bold text-[#1A1A2E]">{fmtAmt(decl.total_cnss_patronal + decl.total_amo_patronal + decl.total_formation_pro)} MAD</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Total */}
-            <div className="px-5 py-4 bg-[#F9F9F6] border-t border-[rgba(0,0,0,0.07)]">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-bold text-[#1A1A2E]">TOTAL À PAYER À CNSS</span>
-                <span className="text-[20px] font-bold" style={{ color: "#C8924A" }}>{fmtAmt(decl.total_a_payer)} MAD</span>
-              </div>
-            </div>
+            <p className="text-[11px] text-[#9CA3AF] mt-1">
+              Dimanches et jours fériés nationaux exclus automatiquement.
+            </p>
           </div>
 
-          {/* Employee breakdown */}
-          {employeeBreakdown.length > 0 && (
-            <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-              <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.07)]">
-                <h3 className="text-[12.5px] font-semibold text-[#1A1A2E]">Détail par employé</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-[11.5px] border-collapse min-w-[700px]">
-                  <thead>
-                    <tr className="bg-[#F9F9F6] border-b border-[rgba(0,0,0,0.07)]">
-                      {["Employé","Brut déclaré","CNSS sal.","CNSS pat.","AMO sal.","AMO pat.","Total"].map(h => (
-                        <th key={h} className="text-left px-3 py-2 text-[10px] font-semibold text-[#6B7280] uppercase tracking-[0.4px]">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {employeeBreakdown.map((r: any, i: number) => (
-                      <tr key={i} className={`border-b border-[rgba(0,0,0,0.04)] ${i % 2 === 1 ? "bg-[#FAFAFA]" : "bg-white"}`}>
-                        <td className="px-3 py-2 font-medium text-[#1A1A2E]">{r.nom}</td>
-                        <td className="px-3 py-2 text-[#374151]">{fmtAmt(r.brut)}</td>
-                        <td className="px-3 py-2 text-[#DC2626]">{fmtAmt(r.cnss_sal)}</td>
-                        <td className="px-3 py-2 text-[#374151]">{fmtAmt(r.cnss_pat)}</td>
-                        <td className="px-3 py-2 text-[#DC2626]">{fmtAmt(r.amo_sal)}</td>
-                        <td className="px-3 py-2 text-[#374151]">{fmtAmt(r.amo_pat)}</td>
-                        <td className="px-3 py-2 font-bold text-[#1A1A2E]">{fmtAmt(r.total)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          <label className="flex items-center gap-2 text-[12.5px] font-medium text-[#374151] cursor-pointer">
+            <input type="checkbox" checked={form.is_paid} onChange={e => onChange("is_paid", e.target.checked)} />
+            Absence payée {selectedType ? `(${selectedType.name})` : ""}
+          </label>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap gap-2">
-            <button onClick={onDownloadPdf} disabled={actionLoading === "cnss-pdf"} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.12)] bg-white hover:bg-[#F9F9F6] transition-colors disabled:opacity-50">
-              {actionLoading === "cnss-pdf" ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-              Télécharger récapitulatif PDF
-            </button>
-            <button onClick={onDownloadExcel} disabled={actionLoading === "cnss-excel"} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.12)] bg-white hover:bg-[#F9F9F6] transition-colors disabled:opacity-50">
-              {actionLoading === "cnss-excel" ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-              Télécharger fichier Excel
-            </button>
-            <a href="https://damancom.cnss.ma" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-white transition-colors" style={{ backgroundColor: "#1A1A2E" }}>
-              <ExternalLink size={12} /> Ouvrir Damancom
-            </a>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {decl.statut === "generee" && (
-              <button onClick={() => onUpdateStatus("deposee")} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium text-[#1D4ED8] border border-[#BFDBFE] bg-[#EFF6FF] hover:bg-[#DBEAFE] transition-colors">
-                <CheckCircle size={13} /> Marquer comme déposée sur Damancom
-              </button>
-            )}
-            {(decl.statut === "generee" || decl.statut === "deposee") && (
-              <button onClick={() => onUpdateStatus("payee")} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium text-[#059669] border border-[#A7F3D0] bg-[#ECFDF5] hover:bg-[#D1FAE5] transition-colors">
-                <DollarSign size={13} /> Marquer comme payée
-              </button>
-            )}
-          </div>
+          <Field label="Notes">
+            <textarea className="input resize-none h-20" value={form.notes} onChange={e => onChange("notes", e.target.value)} />
+          </Field>
         </div>
-      )}
 
-      {/* History */}
-      {history.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-3">Historique</h3>
-          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
-            <table className="w-full text-[11.5px] border-collapse">
-              <thead>
-                <tr className="bg-[#F9F9F6] border-b border-[rgba(0,0,0,0.07)]">
-                  {["Période","Employés","Total payé","Statut","Date dépôt"].map(h => (
-                    <th key={h} className="text-left px-4 py-2.5 text-[10px] font-semibold text-[#6B7280] uppercase tracking-[0.4px]">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((h: CnssDeclaration, i: number) => (
-                  <tr key={h.id} className={`border-b border-[rgba(0,0,0,0.04)] last:border-0 ${i % 2 === 1 ? "bg-[#FAFAFA]" : "bg-white"}`}>
-                    <td className="px-4 py-2.5 font-medium text-[#1A1A2E]">{h.period_label}</td>
-                    <td className="px-4 py-2.5 text-[#374151]">{h.nombre_employes}</td>
-                    <td className="px-4 py-2.5 font-semibold text-[#1A1A2E]">{fmtAmt(h.total_a_payer)} MAD</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUT_COLORS[h.statut] ?? STATUT_COLORS.brouillon_cnss}`}>
-                        {h.statut === "payee" ? "✅ Payée" : h.statut === "deposee" ? "⚠️ Déposée" : h.statut}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-[#6B7280]">{fmtDate(h.deposee_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[rgba(0,0,0,0.07)]">
+          <button onClick={onClose} className="btn btn-outline">Annuler</button>
+          <button onClick={onSave} disabled={saving || days <= 0} className="btn btn-gold">
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Enregistrer
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1037,6 +1546,9 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
               <Field label="Nom *">
                 <input className="input" value={form.nom} onChange={e => onChange("nom", e.target.value)} />
               </Field>
+              <Field label="Matricule">
+                <input className="input" value={form.matricule} onChange={e => onChange("matricule", e.target.value)} />
+              </Field>
               <Field label="CIN">
                 <input className="input" value={form.cin} onChange={e => onChange("cin", e.target.value)} />
               </Field>
@@ -1049,6 +1561,11 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
               <Field label="N° CNSS">
                 <input className="input" value={form.numero_cnss} onChange={e => onChange("numero_cnss", e.target.value)} />
               </Field>
+              <div className="col-span-2">
+                <Field label="Adresse">
+                  <input className="input" value={form.adresse} onChange={e => onChange("adresse", e.target.value)} placeholder="Rue, quartier, ville..." />
+                </Field>
+              </div>
             </div>
 
             {/* Job info */}
@@ -1061,8 +1578,11 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
               </Field>
               <Field label="Type de contrat">
                 <select className="input" value={form.type_contrat} onChange={e => onChange("type_contrat", e.target.value)}>
-                  {["CDI","CDD","Anapec","Intérim"].map(c => <option key={c}>{c}</option>)}
+                  {["CDI","CDD","Intérimaire","Stagiaire"].map(c => <option key={c}>{c}</option>)}
                 </select>
+              </Field>
+              <Field label="Fin contrat">
+                <input type="date" className="input" value={form.date_fin_contrat} onChange={e => onChange("date_fin_contrat", e.target.value)} />
               </Field>
               <Field label="Salaire brut (MAD) *">
                 <input type="number" step="0.01" className="input" value={form.salaire_brut} onChange={e => onChange("salaire_brut", e.target.value)} />
@@ -1081,6 +1601,11 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
 
             {/* Bank info */}
             <div className="grid grid-cols-2 gap-3">
+              <Field label="Mode de paiement">
+                <select className="input" value={form.mode_paiement} onChange={e => onChange("mode_paiement", e.target.value)}>
+                  {["virement","chèque","espèces"].map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </Field>
               <Field label="Banque">
                 <input className="input" value={form.banque} onChange={e => onChange("banque", e.target.value)} />
               </Field>
@@ -1088,6 +1613,19 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
                 <input className="input" value={form.rib} onChange={e => onChange("rib", e.target.value)} />
               </Field>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Heures/semaine">
+                <input type="number" step="0.5" className="input" value={form.heures_travail_semaine} onChange={e => onChange("heures_travail_semaine", e.target.value)} />
+              </Field>
+              <Field label="Jours/semaine">
+                <input type="number" step="0.5" className="input" value={form.jours_travail_semaine} onChange={e => onChange("jours_travail_semaine", e.target.value)} />
+              </Field>
+            </div>
+
+            <Field label="Notes">
+              <textarea className="input resize-none h-20" value={form.notes} onChange={e => onChange("notes", e.target.value)} />
+            </Field>
 
             {/* Optional benefits */}
             <div>

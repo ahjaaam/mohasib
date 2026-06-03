@@ -28,6 +28,35 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { source: "/dashboard", destination: "/tableau-de-bord", permanent: false },
+      { source: "/invoices", destination: "/factures", permanent: false },
+      { source: "/invoices/new", destination: "/factures/nouvelle", permanent: false },
+      { source: "/inbox", destination: "/boite-de-reception", permanent: false },
+      { source: "/settings", destination: "/parametres", permanent: false },
+      { source: "/auth/login", destination: "/connexion", permanent: false },
+      { source: "/auth/signup", destination: "/inscription", permanent: false },
+      { source: "/pricing", destination: "/tarifs", permanent: false },
+      { source: "/tva", destination: "/declarations-tva", permanent: false },
+      { source: "/export", destination: "/export-fiduciaire", permanent: false },
+    ];
+  },
+  async rewrites() {
+    return [
+      { source: "/tableau-de-bord", destination: "/dashboard" },
+      { source: "/factures", destination: "/invoices" },
+      { source: "/factures/nouvelle", destination: "/invoices/new" },
+      { source: "/factures/:id", destination: "/invoices/:id" },
+      { source: "/boite-de-reception", destination: "/inbox" },
+      { source: "/parametres", destination: "/settings" },
+      { source: "/connexion", destination: "/auth/login" },
+      { source: "/inscription", destination: "/auth/signup" },
+      { source: "/declarations-tva", destination: "/tva" },
+      { source: "/export-fiduciaire", destination: "/export" },
+      { source: "/comptable-pro/parametres", destination: "/comptable-pro/settings" },
+    ];
+  },
 };
 
 export default nextConfig;

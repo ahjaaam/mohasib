@@ -8,7 +8,7 @@ export default async function TVAPage() {
   const [companyRes, profileRes] = await Promise.all([
     supabase
       .from("companies")
-      .select("raison_sociale, ice, if_number, rc, address, city, tva_regime, tva_assujetti, tva_taux_defaut")
+      .select("id, raison_sociale, ice, if_number, rc, address, city, tva_regime, tva_assujetti, tva_taux_defaut")
       .eq("user_id", user!.id)
       .single(),
     supabase

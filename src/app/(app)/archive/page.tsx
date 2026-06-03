@@ -2,17 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import Link from "next/link";
 import toast from "react-hot-toast";
 import {
-  FolderOpen, FileText, Receipt, Download, X, Plus,
+  FolderOpen, Receipt, Download, X, Plus,
   Search, Loader2, Building2, FileArchive,
 } from "lucide-react";
-import type { InvoiceStatus } from "@/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type DocType = "facture" | "recu" | "company_document";
+type DocType = "recu" | "company_document";
 
 interface ArchiveDoc {
   id: string;
@@ -24,15 +22,6 @@ interface ArchiveDoc {
   amount?: number;
   status?: string;
   subtitle: string;
-  // invoice
-  invoice_number?: string;
-  client_name?: string;
-  subtotal?: number;
-  tax_amount?: number;
-  total?: number;
-  due_date?: string;
-  invoice_id?: string;
-  invoice_status?: InvoiceStatus;
   // receipt
   vendor?: string;
   storage_path?: string | null;
@@ -45,7 +34,6 @@ interface ArchiveDoc {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TYPE_META: Record<DocType, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
-  facture:           { label: "Facture",             color: "#FFFFFF", bg: "#0D1526", Icon: FileText },
   recu:              { label: "Reçu",                color: "#FFFFFF", bg: "#D97706", Icon: Receipt },
   company_document:  { label: "Doc. Entreprise",     color: "#FFFFFF", bg: "#6B7280", Icon: Building2 },
 };
@@ -142,41 +130,6 @@ function PreviewPanel({ doc, onClose, onDelete }: {
             <span className="font-medium">{fmtDate(doc.date)}</span>
           </div>
 
-          {doc.type === "facture" && (
-            <>
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">Client</span>
-                <span className="font-medium">{doc.client_name ?? "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">Montant HT</span>
-                <span>{doc.subtotal != null ? fmtAmt(doc.subtotal) : "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">TVA</span>
-                <span>{doc.tax_amount != null ? fmtAmt(doc.tax_amount) : "—"}</span>
-              </div>
-              <div className="flex justify-between font-semibold">
-                <span className="text-[#6B7280]">TTC</span>
-                <span>{doc.total != null ? fmtAmt(doc.total) : "—"}</span>
-              </div>
-              {doc.invoice_status && (
-                <div className="flex justify-between items-center">
-                  <span className="text-[#6B7280]">Statut</span>
-                  <span className={`badge ${STATUS_BADGE[doc.invoice_status]?.cls ?? "b-draft"}`}>
-                    {STATUS_BADGE[doc.invoice_status]?.label ?? doc.invoice_status}
-                  </span>
-                </div>
-              )}
-              {doc.due_date && (
-                <div className="flex justify-between">
-                  <span className="text-[#6B7280]">Échéance</span>
-                  <span>{fmtDate(doc.due_date)}</span>
-                </div>
-              )}
-            </>
-          )}
-
           {doc.type === "recu" && (
             <>
               {doc.vendor && (
@@ -235,11 +188,6 @@ function PreviewPanel({ doc, onClose, onDelete }: {
               <Download size={12} /> Télécharger
             </a>
           )}
-          {doc.type === "facture" && doc.invoice_id && (
-            <Link href={`/invoices/${doc.invoice_id}`} className="btn btn-outline btn-sm">
-              Voir la facture →
-            </Link>
-          )}
           <button
             onClick={() => onDelete(doc)}
             className="ml-auto text-[12px] text-[#DC2626] hover:underline"
@@ -254,7 +202,8 @@ function PreviewPanel({ doc, onClose, onDelete }: {
 
 // ─── Upload modal ─────────────────────────────────────────────────────────────
 
-function UploadModal({ onClose, onUploaded }: {
+function UploadModal({ dossierId, onClose, onUploaded }: {
+  dossierId?: string;
   onClose: () => void;
   onUploaded: (doc: ArchiveDoc) => void;
 }) {
@@ -272,7 +221,8 @@ function UploadModal({ onClose, onUploaded }: {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const ext = file.name.split(".").pop();
-      const path = `${user!.id}/${Date.now()}.${ext}`;
+      const scope = dossierId ? `dossiers/${dossierId}` : "main";
+      const path = `${user!.id}/${scope}/${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("company-documents").upload(path, file);
@@ -294,6 +244,7 @@ function UploadModal({ onClose, onUploaded }: {
           mime_type: file.type,
           expiration_date: expiry || null,
           notes: notes || null,
+          dossier_id: dossierId ?? null,
         })
         .select()
         .single();
@@ -400,12 +351,11 @@ type TabKey = "all" | DocType;
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "all",              label: "Tous" },
-  { key: "facture",          label: "Factures" },
   { key: "recu",             label: "Reçus" },
   { key: "company_document", label: "Entreprise" },
 ];
 
-export default function ArchivePage({ dossierId: _dossierId }: { dossierId?: string } = {}) {
+export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) {
   const [docs, setDocs] = useState<ArchiveDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ArchiveDoc | null>(null);
@@ -422,39 +372,19 @@ export default function ArchivePage({ dossierId: _dossierId }: { dossierId?: str
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [invRes, recRes, cdRes] = await Promise.all([
-      supabase.from("invoices").select("*, clients(id,name)")
-        .eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("receipts").select("*")
-        .eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("company_documents").select("*")
-        .eq("user_id", user.id).order("created_at", { ascending: false }),
+    const scopeQuery = <T,>(query: T & { eq: (column: string, value: string) => T; is: (column: string, value: null) => T }) =>
+      dossierId ? query.eq("dossier_id", dossierId) : query.is("dossier_id", null);
+
+    const [recRes, cdRes] = await Promise.all([
+      scopeQuery(
+        supabase.from("receipts").select("*").eq("user_id", user.id)
+      ).order("created_at", { ascending: false }),
+      scopeQuery(
+        supabase.from("company_documents").select("*").eq("user_id", user.id)
+      ).order("created_at", { ascending: false }),
     ]);
 
     const result: ArchiveDoc[] = [];
-
-    // Invoices
-    for (const inv of (invRes.data ?? [])) {
-      const client = (inv as any).clients?.name ?? "—";
-      result.push({
-        id: `inv-${inv.id}`,
-        name: `${inv.invoice_number} — ${client}`,
-        type: "facture",
-        date: inv.created_at,
-        url: null,
-        mime_type: "application/pdf",
-        amount: Number(inv.total),
-        subtitle: `${Number(inv.total).toLocaleString("fr-MA")} MAD · ${STATUS_BADGE[inv.status]?.label ?? inv.status}`,
-        invoice_number: inv.invoice_number,
-        client_name: client,
-        subtotal: Number(inv.subtotal),
-        tax_amount: Number(inv.tax_amount),
-        total: Number(inv.total),
-        due_date: inv.due_date ?? undefined,
-        invoice_id: inv.id,
-        invoice_status: inv.status,
-      });
-    }
 
     // Receipts
     for (const rec of (recRes.data ?? [])) {
@@ -502,7 +432,7 @@ export default function ArchivePage({ dossierId: _dossierId }: { dossierId?: str
     result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     setDocs(result);
     setLoading(false);
-  }, []);
+  }, [dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -514,15 +444,7 @@ export default function ArchivePage({ dossierId: _dossierId }: { dossierId?: str
 
     setResolving(true);
     try {
-      if (doc.type === "facture" && doc.invoice_id) {
-        const res = await fetch(`/api/invoices/${doc.invoice_id}/pdf`, { method: "POST" });
-        if (res.ok) {
-          const { pdfUrl } = await res.json();
-          const resolved = { ...doc, url: pdfUrl ?? null, mime_type: "application/pdf" };
-          setDocs((prev) => prev.map((d) => d.id === doc.id ? resolved : d));
-          setSelected(resolved);
-        }
-      } else if (doc.type === "recu" && doc.storage_path) {
+      if (doc.type === "recu" && doc.storage_path) {
         const { data } = supabase.storage.from("receipts")
           .getPublicUrl(doc.storage_path);
         const resolved = { ...doc, url: data?.publicUrl ?? null };
@@ -539,10 +461,7 @@ export default function ArchivePage({ dossierId: _dossierId }: { dossierId?: str
   async function deleteDoc(doc: ArchiveDoc) {
     if (!confirm("Supprimer ce document ?")) return;
 
-    if (doc.type === "facture" && doc.invoice_id) {
-      const { error } = await supabase.from("invoices").delete().eq("id", doc.invoice_id);
-      if (error) { toast.error("Erreur lors de la suppression"); return; }
-    } else if (doc.type === "recu") {
+    if (doc.type === "recu") {
       const realId = doc.id.replace("rec-", "");
       const { error } = await supabase.from("receipts").delete().eq("id", realId);
       if (error) { toast.error("Erreur lors de la suppression"); return; }
@@ -565,7 +484,6 @@ export default function ArchivePage({ dossierId: _dossierId }: { dossierId?: str
       const q = search.toLowerCase();
       return (
         d.name.toLowerCase().includes(q) ||
-        (d.client_name ?? "").toLowerCase().includes(q) ||
         (d.vendor ?? "").toLowerCase().includes(q) ||
         d.subtitle.toLowerCase().includes(q)
       );
@@ -582,6 +500,7 @@ export default function ArchivePage({ dossierId: _dossierId }: { dossierId?: str
     <>
       {showUpload && (
         <UploadModal
+          dossierId={dossierId}
           onClose={() => setShowUpload(false)}
           onUploaded={(doc) => { setDocs((prev) => [doc, ...prev]); setSelected(doc); }}
         />
@@ -657,11 +576,6 @@ export default function ArchivePage({ dossierId: _dossierId }: { dossierId?: str
                 <p className="text-[12.5px] text-[#6B7280]">
                   {search ? "Aucun résultat" : "Aucun document"}
                 </p>
-                {tab === "facture" && (
-                  <Link href="/invoices/new" className="btn btn-gold mt-3 text-[11.5px]">
-                    Créer une facture
-                  </Link>
-                )}
               </div>
             )}
 

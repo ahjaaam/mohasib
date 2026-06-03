@@ -14,7 +14,6 @@ interface Props {
 const PRO_FEATURES = [
   "Factures illimitées",
   "Clients illimités",
-  "Mohasib Chat — comptable 24h/24",
   "Export CGNC (ZIP complet)",
   "OCR reçus intelligents",
   "Journal comptable CGNC",

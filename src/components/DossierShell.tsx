@@ -7,8 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight, PenLine,
-  Receipt, Download, BarChart2, Banknote, Archive, TrendingUp,
-  Inbox, ChevronLeft, Building2, LogOut, X, Menu,
+  Receipt, Download, BarChart2, Banknote, Archive,
+  Inbox, ChevronLeft, Building2, LogOut, X, Menu, ChevronDown,
 } from "lucide-react";
 
 const NAV_GROUPS = [
@@ -22,6 +22,7 @@ const NAV_GROUPS = [
       { slug: "transactions", icon: ArrowLeftRight,  label: "Transactions" },
       { slug: "saisie",       icon: PenLine,         label: "Saisie comptable" },
       { slug: "paie",         icon: Banknote,        label: "Bulletins de paie" },
+      { slug: "archive",      icon: Archive,         label: "Archive" },
     ],
   },
   {
@@ -31,13 +32,6 @@ const NAV_GROUPS = [
       { slug: "grand-livre", icon: BarChart2, label: "Grand Livre" },
       { slug: "export",      icon: Download,  label: "Export CGNC" },
       { slug: "bilan",       icon: BarChart2, label: "Bilan / CPC" },
-    ],
-  },
-  {
-    group: "DOCUMENTS",
-    items: [
-      { slug: "archive",  icon: Archive,    label: "Documents" },
-      { slug: "rapports", icon: TrendingUp, label: "Rapports" },
     ],
   },
 ];
@@ -52,11 +46,12 @@ interface DossierMeta {
 interface Props {
   children: React.ReactNode;
   dossier: DossierMeta;
+  dossiers?: DossierMeta[];
   userName?: string | null;
   userEmail?: string | null;
 }
 
-export default function DossierShell({ children, dossier, userName, userEmail }: Props) {
+export default function DossierShell({ children, dossier, dossiers = [dossier], userName, userEmail }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -65,10 +60,23 @@ export default function DossierShell({ children, dossier, userName, userEmail }:
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
   const base = `/comptable-pro/dossiers/${dossier.id}`;
+  const navSlugs = NAV_GROUPS.flatMap((group) => group.items.map((item) => item.slug));
 
   function isActive(slug: string) {
     const href = `${base}/${slug}`;
     return pathname === href || pathname.startsWith(href + "/");
+  }
+
+  function getCurrentSection() {
+    const [, section] = pathname.split(`${base}/`);
+    const slug = section?.split("/")[0];
+    return slug && navSlugs.includes(slug) ? slug : "dashboard";
+  }
+
+  function switchDossier(nextId: string) {
+    if (!nextId || nextId === dossier.id) return;
+    document.cookie = `active_dossier_id=${nextId}; path=/; max-age=7200`;
+    router.push(`/comptable-pro/dossiers/${nextId}/${getCurrentSection()}`);
   }
 
   const initials = dossier.raison_sociale
@@ -83,6 +91,27 @@ export default function DossierShell({ children, dossier, userName, userEmail }:
     router.push("/auth/login");
     router.refresh();
   }
+
+  const DossierSwitcher = ({ compact = false }: { compact?: boolean }) => (
+    <div className="relative flex items-center min-w-0 max-w-[360px]">
+      <Building2 size={15} className="absolute left-2.5 text-white/80 pointer-events-none" />
+      <select
+        value={dossier.id}
+        onChange={(event) => switchDossier(event.target.value)}
+        aria-label="Changer de dossier"
+        className={`appearance-none bg-white/10 hover:bg-white/15 border border-white/15 rounded-md text-white font-semibold outline-none transition-colors pl-8 pr-7 ${
+          compact ? "max-w-[190px] text-[12.5px] py-1" : "max-w-[270px] md:max-w-[360px] text-[14px] py-1.5"
+        }`}
+      >
+        {dossiers.map((item) => (
+          <option key={item.id} value={item.id} className="text-[#1A1A2E]">
+            {item.raison_sociale}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={13} className="absolute right-2 text-white/70 pointer-events-none" />
+    </div>
+  );
 
   const SidebarContent = () => (
     <>
@@ -154,17 +183,11 @@ export default function DossierShell({ children, dossier, userName, userEmail }:
             <span className="hidden sm:inline">Retour au cabinet</span>
           </Link>
 
-          <div className="flex items-center gap-2">
-            <Building2 size={15} className="text-white/80" />
-            <span className="text-white font-semibold text-[14px]">{dossier.raison_sociale}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <DossierSwitcher />
             {dossier.ice && (
               <span className="hidden md:inline text-[11px] text-white/70 bg-white/10 rounded px-1.5 py-0.5">
                 ICE {dossier.ice}
-              </span>
-            )}
-            {dossier.regime_tva && (
-              <span className="hidden md:inline text-[11px] text-white/70 bg-white/10 rounded px-1.5 py-0.5 capitalize">
-                TVA {dossier.regime_tva}
               </span>
             )}
           </div>
@@ -199,7 +222,7 @@ export default function DossierShell({ children, dossier, userName, userEmail }:
             <div className="md:hidden fixed top-0 left-0 h-full w-[260px] z-[70] flex flex-col bg-[#0D1526]">
               <div className="flex items-center justify-between px-4 h-[52px] border-b border-white/10 flex-shrink-0"
                 style={{ background: "rgb(141, 167, 193)" }}>
-                <span className="text-[13px] font-semibold text-white">{dossier.raison_sociale}</span>
+                <DossierSwitcher compact />
                 <button onClick={() => setDrawerOpen(false)} className="text-white/80 hover:text-white p-1">
                   <X size={18} />
                 </button>

@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import {
   calculateTVAForPeriod, saveDeclaration, fetchDeclarationHistory,
-  type TVACalcResult, type TVADeclaration,
+  type TVACalcResult, type TVADeclaration, type TVADeductionRow,
 } from "./actions";
+import { getTVAConfig } from "@/app/actions/tva-config";
+import { DEFAULT_ENABLED_CODES, TVA_LINES, withAlwaysShown } from "@/lib/tva-lines-registry";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -97,6 +99,7 @@ function NumInput({ value, onChange, disabled }: { value: number; onChange: (v: 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Company {
+  id?: string;
   raison_sociale?: string; ice?: string; if_number?: string;
   rc?: string; address?: string; city?: string;
   tva_regime?: string; tva_assujetti?: boolean; tva_taux_defaut?: number;
@@ -135,6 +138,7 @@ export default function TVACalculator({ company }: Props) {
   const [showDeductions, setShowDeductions] = useState(false);
   const [statut, setStatut]   = useState<"brouillon"|"validé"|"déposé">("brouillon");
   const [confirmValidate, setConfirmValidate] = useState(false);
+  const [enabledLines, setEnabledLines] = useState<Set<number>>(() => withAlwaysShown(DEFAULT_ENABLED_CODES));
 
   // Adjustable overrides (user can edit auto values)
   const [caExporte, setCaExporte]     = useState(0);
@@ -146,6 +150,7 @@ export default function TVACalculator({ company }: Props) {
 
   const { start, end } = getPeriodDates(regime, year, month, quarter);
   const periodLabel    = getPeriodLabel(regime, year, month, quarter);
+  const configPeriod   = start.slice(0, 7);
   const deadline       = getDeadline(regime, year, month, quarter);
   const daysLeft       = daysUntil(deadline);
 
@@ -179,13 +184,57 @@ export default function TVACalculator({ company }: Props) {
   useEffect(() => { recalculate(); }, [recalculate]);
 
   useEffect(() => {
+    let alive = true;
+    async function loadConfig() {
+      if (!company?.id) return;
+      const config = await getTVAConfig(company.id, configPeriod);
+      if (alive) setEnabledLines(withAlwaysShown(config.enabledCodes));
+    }
+    loadConfig();
+    return () => { alive = false; };
+  }, [company?.id, configPeriod]);
+
+  useEffect(() => {
     fetchDeclarationHistory().then(setHistory);
   }, []);
 
   // ── Derived totals ─────────────────────────────────────────────────────────
+  const sectionBRateEnabled = (rate: number) => TVA_LINES.some((line) =>
+    line.section === "B" && line.taux === rate && enabledLines.has(line.code)
+  );
+  const sectionDEnabled = TVA_LINES.some((line) => line.section === "D" && enabledLines.has(line.code));
+  const deductionEnabled = (deduction: TVADeductionRow) => TVA_LINES.some((line) => {
+    if (line.section !== "E" || !enabledLines.has(line.code)) return false;
+    const isImmo = deduction.type_deduction === "immobilisation";
+    const lineIsImmo = line.subsection === "Immobilisations";
+    if (isImmo !== lineIsImmo) return false;
+    return line.taux == null || line.taux === Number(deduction.taux_tva);
+  });
+  const visibleDeductions = calc.deductions.filter(deductionEnabled);
+  const filteredCalc: TVACalcResult = {
+    ...calc,
+    ca_7: sectionBRateEnabled(7) ? calc.ca_7 : 0,
+    ca_10: sectionBRateEnabled(10) ? calc.ca_10 : 0,
+    ca_14: sectionBRateEnabled(14) ? calc.ca_14 : 0,
+    ca_20: sectionBRateEnabled(20) ? calc.ca_20 : 0,
+    tva_7: sectionBRateEnabled(7) ? calc.tva_7 : 0,
+    tva_10: sectionBRateEnabled(10) ? calc.tva_10 : 0,
+    tva_14: sectionBRateEnabled(14) ? calc.tva_14 : 0,
+    tva_20: sectionBRateEnabled(20) ? calc.tva_20 : 0,
+    deductions_charges: visibleDeductions
+      .filter((deduction) => deduction.type_deduction !== "immobilisation")
+      .reduce((sum, deduction) => sum + deduction.tva_deductible, 0),
+    deductions_immobilisations: visibleDeductions
+      .filter((deduction) => deduction.type_deduction === "immobilisation")
+      .reduce((sum, deduction) => sum + deduction.tva_deductible, 0),
+    deductions: visibleDeductions,
+  };
+  filteredCalc.tva_collectee_total = filteredCalc.tva_7 + filteredCalc.tva_10 + filteredCalc.tva_14 + filteredCalc.tva_20;
+  filteredCalc.deductions_total = filteredCalc.deductions_charges + filteredCalc.deductions_immobilisations;
+
   const caImposable   = calc.ca_total - caExporte - caExonere - caHorsChamp - caSuspension;
-  const tvaExigible   = calc.tva_collectee_total + n(odTva);
-  const totalDed      = calc.deductions_total + calc.credit_reporte;
+  const tvaExigible   = filteredCalc.tva_collectee_total + (sectionDEnabled ? n(odTva) : 0);
+  const totalDed      = filteredCalc.deductions_total + filteredCalc.credit_reporte;
   const raw           = tvaExigible + calc.droits_timbre - totalDed;
   const tvaNetteDue   = Math.max(0, raw);
   const creditTVA     = Math.max(0, -raw);
@@ -196,8 +245,8 @@ export default function TVACalculator({ company }: Props) {
     await saveDeclaration({
       periodStart: start, periodEnd: end, periodLabel, regime,
       statut: newStatut,
-      calc, overrides: {},
-      odTva: n(odTva), odTvaNote,
+      calc: filteredCalc, overrides: {},
+      odTva: sectionDEnabled ? n(odTva) : 0, odTvaNote,
       caExporte: n(caExporte), caExonere: n(caExonere),
       caHorsChamp: n(caHorsChamp), caSuspension: n(caSuspension),
     });
@@ -220,12 +269,13 @@ export default function TVACalculator({ company }: Props) {
     const monthStr = String(regime === "Mensuel" ? month : (quarter - 1) * 3 + 1).padStart(2, "0");
 
     const lignesB = [20,14,10,7].map(r => {
-      const ca  = r===20?calc.ca_20:r===14?calc.ca_14:r===10?calc.ca_10:calc.ca_7;
-      const tva = r===20?calc.tva_20:r===14?calc.tva_14:r===10?calc.tva_10:calc.tva_7;
+      if (!sectionBRateEnabled(r)) return "";
+      const ca  = r===20?filteredCalc.ca_20:r===14?filteredCalc.ca_14:r===10?filteredCalc.ca_10:filteredCalc.ca_7;
+      const tva = r===20?filteredCalc.tva_20:r===14?filteredCalc.tva_14:r===10?filteredCalc.tva_10:filteredCalc.tva_7;
       return ca > 0 ? `\n    <LigneImposable taux="${r}"><BaseHT>${n2(ca)}</BaseHT><TVA>${n2(tva)}</TVA></LigneImposable>` : "";
     }).join("");
 
-    const lignesDed = calc.deductions.map((d,i) => `
+    const lignesDed = filteredCalc.deductions.map((d,i) => `
     <Deduction numero="${i+1}">
       <DateFacture>${d.date_facture}</DateFacture>
       <Fournisseur>${esc(d.fournisseur_nom)}</Fournisseur>
@@ -259,7 +309,7 @@ export default function TVACalculator({ company }: Props) {
   </SectionA>
   <SectionB>${lignesB}
     <TotalImposable>${n2(caImposable)}</TotalImposable>
-    <TotalTVA>${n2(calc.tva_collectee_total)}</TotalTVA>
+    <TotalTVA>${n2(filteredCalc.tva_collectee_total)}</TotalTVA>
   </SectionB>
   <SectionD>
     <TVAExigible>${n2(tvaExigible)}</TVAExigible>
@@ -269,8 +319,8 @@ export default function TVACalculator({ company }: Props) {
     <DroitsTimbre>${n2(calc.droits_timbre)}</DroitsTimbre>
     <ReleveDeductions>${lignesDed}
     </ReleveDeductions>
-    <DeductionsTotal>${n2(calc.deductions_total)}</DeductionsTotal>
-    <CreditReporte>${n2(calc.credit_reporte)}</CreditReporte>
+    <DeductionsTotal>${n2(filteredCalc.deductions_total)}</DeductionsTotal>
+    <CreditReporte>${n2(filteredCalc.credit_reporte)}</CreditReporte>
   </SectionE>
   <SectionF>
     <TVANetteDue>${n2(tvaNetteDue)}</TVANetteDue>
@@ -436,11 +486,11 @@ export default function TVACalculator({ company }: Props) {
               </thead>
               <tbody>
                 {[
-                  { rate: 20, ca: calc.ca_20, tva: calc.tva_20 },
-                  { rate: 14, ca: calc.ca_14, tva: calc.tva_14 },
-                  { rate: 10, ca: calc.ca_10, tva: calc.tva_10 },
-                  { rate:  7, ca: calc.ca_7,  tva: calc.tva_7  },
-                ].map(({ rate, ca, tva }) => (
+                  { rate: 20, ca: filteredCalc.ca_20, tva: filteredCalc.tva_20 },
+                  { rate: 14, ca: filteredCalc.ca_14, tva: filteredCalc.tva_14 },
+                  { rate: 10, ca: filteredCalc.ca_10, tva: filteredCalc.tva_10 },
+                  { rate:  7, ca: filteredCalc.ca_7,  tva: filteredCalc.tva_7  },
+                ].filter(({ rate }) => sectionBRateEnabled(rate)).map(({ rate, ca, tva }) => (
                   <tr key={rate}>
                     <TD>
                       <span className="inline-block bg-[#F3F4F6] text-[#374151] text-[11px] font-semibold px-2 py-0.5 rounded-full">
@@ -454,7 +504,7 @@ export default function TVACalculator({ company }: Props) {
                 <tr className="bg-[#FAFAF6]">
                   <TD bold>TOTAL</TD>
                   <TD right bold>{fmtMAD(caImposable)}</TD>
-                  <TD right bold color="#C8924A">{fmtMAD(calc.tva_collectee_total)}</TD>
+                  <TD right bold color="#C8924A">{fmtMAD(filteredCalc.tva_collectee_total)}</TD>
                 </tr>
               </tbody>
             </table>
@@ -470,7 +520,8 @@ export default function TVACalculator({ company }: Props) {
               </thead>
               <tbody>
                 {[20,14,10,7].map(r => {
-                  const tva = r===20?calc.tva_20:r===14?calc.tva_14:r===10?calc.tva_10:calc.tva_7;
+                  if (!sectionBRateEnabled(r)) return null;
+                  const tva = r===20?filteredCalc.tva_20:r===14?filteredCalc.tva_14:r===10?filteredCalc.tva_10:filteredCalc.tva_7;
                   if (tva === 0) return null;
                   return (
                     <tr key={r}>
@@ -507,25 +558,25 @@ export default function TVACalculator({ company }: Props) {
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-[#F3F4F6] rounded-lg p-3 text-center">
                   <div className="text-[10.5px] font-medium text-[#6B7280] uppercase tracking-[0.5px] mb-1">Sur charges</div>
-                  <div className="text-[14px] font-bold text-[#1A1A2E]">{fmtMAD(calc.deductions_charges)}</div>
+                  <div className="text-[14px] font-bold text-[#1A1A2E]">{fmtMAD(filteredCalc.deductions_charges)}</div>
                 </div>
                 <div className="bg-[#F3F4F6] rounded-lg p-3 text-center">
                   <div className="text-[10.5px] font-medium text-[#6B7280] uppercase tracking-[0.5px] mb-1">Sur immobilisations</div>
-                  <div className="text-[14px] font-bold text-[#1A1A2E]">{fmtMAD(calc.deductions_immobilisations)}</div>
+                  <div className="text-[14px] font-bold text-[#1A1A2E]">{fmtMAD(filteredCalc.deductions_immobilisations)}</div>
                 </div>
                 <div className="bg-[#EFF6FF] rounded-lg p-3 text-center border border-[rgba(37,99,235,0.15)]">
                   <div className="text-[10.5px] font-medium text-[#6B7280] uppercase tracking-[0.5px] mb-1">Crédit reporté</div>
-                  <div className="text-[14px] font-bold text-[#1D4ED8]">{fmtMAD(calc.credit_reporte)}</div>
+                  <div className="text-[14px] font-bold text-[#1D4ED8]">{fmtMAD(filteredCalc.credit_reporte)}</div>
                 </div>
               </div>
 
               {/* Relevé des déductions */}
               <button onClick={() => setShowDeductions(v => !v)}
                 className="w-full flex items-center justify-between text-[12px] font-medium text-[#374151] mb-2 hover:text-[#C8924A] transition-colors">
-                <span>Relevé des déductions ({calc.deductions.length} ligne{calc.deductions.length !== 1 ? "s" : ""})</span>
+                <span>Relevé des déductions ({filteredCalc.deductions.length} ligne{filteredCalc.deductions.length !== 1 ? "s" : ""})</span>
                 {showDeductions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
-              {showDeductions && calc.deductions.length > 0 && (
+              {showDeductions && filteredCalc.deductions.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-[rgba(0,0,0,0.07)]">
                   <table className="w-full">
                     <thead>
@@ -536,7 +587,7 @@ export default function TVACalculator({ company }: Props) {
                       </tr>
                     </thead>
                     <tbody>
-                      {calc.deductions.map((d, i) => (
+                      {filteredCalc.deductions.map((d, i) => (
                         <tr key={i} className="border-t border-[rgba(0,0,0,0.04)] hover:bg-[#FAFAF6]">
                           <td className="px-3 py-2 text-[11px] text-[#6B7280] whitespace-nowrap">{fmtDate(d.date_facture)}</td>
                           <td className="px-3 py-2 text-[11px] text-[#6B7280]">{d.numero_facture || "—"}</td>
@@ -564,15 +615,15 @@ export default function TVACalculator({ company }: Props) {
                       <tr className="bg-[#FAFAF6] border-t-2 border-[rgba(0,0,0,0.08)]">
                         <td colSpan={4} className="px-3 py-2 text-[12px] font-bold text-[#1A1A2E]">TOTAL</td>
                         <td className="px-3 py-2 text-[12px] font-bold text-right">
-                          {fmtMAD(calc.deductions.reduce((s,d) => s+d.montant_ht, 0))}
+                          {fmtMAD(filteredCalc.deductions.reduce((s,d) => s+d.montant_ht, 0))}
                         </td>
                         <td />
                         <td className="px-3 py-2 text-[12px] font-bold text-right text-[#3B82F6]">
-                          {fmtMAD(calc.deductions.reduce((s,d) => s+d.montant_tva, 0))}
+                          {fmtMAD(filteredCalc.deductions.reduce((s,d) => s+d.montant_tva, 0))}
                         </td>
                         <td /><td /><td />
                         <td className="px-3 py-2 text-[12px] font-bold text-right text-[#059669]">
-                          {fmtMAD(calc.deductions_total)}
+                          {fmtMAD(filteredCalc.deductions_total)}
                         </td>
                         <td />
                       </tr>
@@ -580,7 +631,7 @@ export default function TVACalculator({ company }: Props) {
                   </table>
                 </div>
               )}
-              {showDeductions && calc.deductions.length === 0 && (
+              {showDeductions && filteredCalc.deductions.length === 0 && (
                 <p className="text-[12px] text-[#9CA3AF] py-3 text-center">Aucune déduction pour cette période</p>
               )}
             </div>
@@ -621,8 +672,8 @@ export default function TVACalculator({ company }: Props) {
               <div className="space-y-2.5 mb-5">
                 {[
                   ["TVA exigible totale", tvaExigible, "#DC2626"],
-                  ["(−) Déductions sur charges + immobilisations", calc.deductions_total, "#059669"],
-                  ["(−) Crédit reporté de la période précédente", calc.credit_reporte, "#059669"],
+                  ["(−) Déductions sur charges + immobilisations", filteredCalc.deductions_total, "#059669"],
+                  ["(−) Crédit reporté de la période précédente", filteredCalc.credit_reporte, "#059669"],
                   ["(+) Droits de timbre", calc.droits_timbre, "#374151"],
                 ].map(([label, val, color]) => (
                   <div key={label as string} className="flex items-center justify-between text-[12.5px]">

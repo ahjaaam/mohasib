@@ -117,7 +117,7 @@ export default function HomePageClient() {
             </h1>
 
           <p style={{ fontSize: 14, color: "#4B5563", lineHeight: 1.5, margin: "0 0 36px", maxWidth: 500, fontFamily: FONT }}>
-          Gérez votre comptabilité avec Mohasib AI. Créez des factures conformes, déclarez votre TVA et posez vos questions à Mohasib Chat 24h/24.
+          Gérez votre comptabilité avec Mohasib AI. Créez des factures conformes, suivez vos dépenses et déclarez votre TVA en toute simplicité.
           </p>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
