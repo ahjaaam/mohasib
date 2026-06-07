@@ -8,7 +8,7 @@ import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight, PenLine,
   Receipt, Download, BarChart2, Banknote, Archive,
-  Inbox, ChevronLeft, Building2, LogOut, X, Menu, ChevronDown,
+  Inbox, ChevronLeft, Building2, LogOut, X, Menu, ChevronDown, GitMerge,
 } from "lucide-react";
 
 const NAV_GROUPS = [
@@ -20,6 +20,7 @@ const NAV_GROUPS = [
       { slug: "invoices",     icon: FileText,        label: "Factures clients" },
       { slug: "clients",      icon: Users,           label: "Clients" },
       { slug: "transactions", icon: ArrowLeftRight,  label: "Transactions" },
+      { slug: "rapprochement", icon: GitMerge,       label: "Rapprochement" },
       { slug: "saisie",       icon: PenLine,         label: "Saisie comptable" },
       { slug: "paie",         icon: Banknote,        label: "Bulletins de paie" },
       { slug: "archive",      icon: Archive,         label: "Archive" },
@@ -99,7 +100,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
         value={dossier.id}
         onChange={(event) => switchDossier(event.target.value)}
         aria-label="Changer de dossier"
-        className={`appearance-none bg-white/10 hover:bg-white/15 border border-white/15 rounded-md text-white font-semibold outline-none transition-colors pl-8 pr-7 ${
+        className={`appearance-none cursor-pointer bg-white/10 hover:bg-white/20 rounded-md text-white font-semibold outline-none transition-colors pl-8 pr-10 ${
           compact ? "max-w-[190px] text-[12.5px] py-1" : "max-w-[270px] md:max-w-[360px] text-[14px] py-1.5"
         }`}
       >
@@ -109,7 +110,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
           </option>
         ))}
       </select>
-      <ChevronDown size={13} className="absolute right-2 text-white/70 pointer-events-none" />
+      <ChevronDown size={18} strokeWidth={2.5} className="absolute right-2.5 text-white pointer-events-none" />
     </div>
   );
 
@@ -174,9 +175,9 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
       <div className="flex flex-col h-screen overflow-hidden bg-[#FAFAF6]">
 
-        {/* Gold top banner */}
+        {/* Dossier context banner */}
         <div className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 h-[48px]"
-          style={{ background: "rgb(141, 167, 193)" }}>
+          style={{ background: "#3F7772" }}>
           <Link href="/comptable-pro"
             className="flex items-center gap-1.5 text-white/90 hover:text-white text-[12.5px] font-medium transition-colors">
             <ChevronLeft size={15} />
@@ -221,7 +222,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
             />
             <div className="md:hidden fixed top-0 left-0 h-full w-[260px] z-[70] flex flex-col bg-[#0D1526]">
               <div className="flex items-center justify-between px-4 h-[52px] border-b border-white/10 flex-shrink-0"
-                style={{ background: "rgb(141, 167, 193)" }}>
+                style={{ background: "#3F7772" }}>
                 <DossierSwitcher compact />
                 <button onClick={() => setDrawerOpen(false)} className="text-white/80 hover:text-white p-1">
                   <X size={18} />

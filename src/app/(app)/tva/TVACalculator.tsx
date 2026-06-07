@@ -139,6 +139,7 @@ export default function TVACalculator({ company }: Props) {
   const [statut, setStatut]   = useState<"brouillon"|"validé"|"déposé">("brouillon");
   const [confirmValidate, setConfirmValidate] = useState(false);
   const [enabledLines, setEnabledLines] = useState<Set<number>>(() => withAlwaysShown(DEFAULT_ENABLED_CODES));
+  const [lineBases, setLineBases] = useState<Record<number, number>>({});
 
   // Adjustable overrides (user can edit auto values)
   const [caExporte, setCaExporte]     = useState(0);
@@ -194,15 +195,37 @@ export default function TVACalculator({ company }: Props) {
     return () => { alive = false; };
   }, [company?.id, configPeriod]);
 
+  const activeBLines = TVA_LINES.filter((line) => line.section === "B" && enabledLines.has(line.code));
+  const activeCLines = TVA_LINES.filter((line) => line.section === "C" && enabledLines.has(line.code));
+  const activeDLines = TVA_LINES.filter((line) => line.section === "D" && enabledLines.has(line.code));
+  const activeELines = TVA_LINES.filter((line) => line.section === "E" && enabledLines.has(line.code));
+
+  useEffect(() => {
+    const sourceByRate: Record<number, number> = {
+      7: calc.ca_7,
+      10: calc.ca_10,
+      14: calc.ca_14,
+      20: calc.ca_20,
+    };
+    const preferredByRate: Record<number, number> = { 7: 119, 10: 118, 14: 104, 20: 102 };
+    const next: Record<number, number> = {};
+
+    for (const line of activeBLines) next[line.code] = 0;
+    for (const [rateText, amount] of Object.entries(sourceByRate)) {
+      const rate = Number(rateText);
+      const candidates = activeBLines.filter((line) => line.taux === rate);
+      const target = candidates.find((line) => line.code === preferredByRate[rate]) ?? candidates[0];
+      if (target) next[target.code] = amount;
+    }
+    setLineBases(next);
+  }, [calc.ca_7, calc.ca_10, calc.ca_14, calc.ca_20, enabledLines]);
+
   useEffect(() => {
     fetchDeclarationHistory().then(setHistory);
   }, []);
 
   // ── Derived totals ─────────────────────────────────────────────────────────
-  const sectionBRateEnabled = (rate: number) => TVA_LINES.some((line) =>
-    line.section === "B" && line.taux === rate && enabledLines.has(line.code)
-  );
-  const sectionDEnabled = TVA_LINES.some((line) => line.section === "D" && enabledLines.has(line.code));
+  const sectionDEnabled = activeDLines.length > 0;
   const deductionEnabled = (deduction: TVADeductionRow) => TVA_LINES.some((line) => {
     if (line.section !== "E" || !enabledLines.has(line.code)) return false;
     const isImmo = deduction.type_deduction === "immobilisation";
@@ -211,16 +234,21 @@ export default function TVACalculator({ company }: Props) {
     return line.taux == null || line.taux === Number(deduction.taux_tva);
   });
   const visibleDeductions = calc.deductions.filter(deductionEnabled);
+  const activeBTotalBase = activeBLines.reduce((sum, line) => sum + n(lineBases[line.code]), 0);
+  const activeBTotalTVA = activeBLines.reduce((sum, line) => sum + n(lineBases[line.code]) * n(line.taux ?? 0) / 100, 0);
+  const baseForRate = (rate: number) => activeBLines
+    .filter((line) => line.taux === rate)
+    .reduce((sum, line) => sum + n(lineBases[line.code]), 0);
   const filteredCalc: TVACalcResult = {
     ...calc,
-    ca_7: sectionBRateEnabled(7) ? calc.ca_7 : 0,
-    ca_10: sectionBRateEnabled(10) ? calc.ca_10 : 0,
-    ca_14: sectionBRateEnabled(14) ? calc.ca_14 : 0,
-    ca_20: sectionBRateEnabled(20) ? calc.ca_20 : 0,
-    tva_7: sectionBRateEnabled(7) ? calc.tva_7 : 0,
-    tva_10: sectionBRateEnabled(10) ? calc.tva_10 : 0,
-    tva_14: sectionBRateEnabled(14) ? calc.tva_14 : 0,
-    tva_20: sectionBRateEnabled(20) ? calc.tva_20 : 0,
+    ca_7: baseForRate(7),
+    ca_10: baseForRate(10),
+    ca_14: baseForRate(14),
+    ca_20: baseForRate(20),
+    tva_7: baseForRate(7) * 0.07,
+    tva_10: baseForRate(10) * 0.10,
+    tva_14: baseForRate(14) * 0.14,
+    tva_20: baseForRate(20) * 0.20,
     deductions_charges: visibleDeductions
       .filter((deduction) => deduction.type_deduction !== "immobilisation")
       .reduce((sum, deduction) => sum + deduction.tva_deductible, 0),
@@ -229,7 +257,7 @@ export default function TVACalculator({ company }: Props) {
       .reduce((sum, deduction) => sum + deduction.tva_deductible, 0),
     deductions: visibleDeductions,
   };
-  filteredCalc.tva_collectee_total = filteredCalc.tva_7 + filteredCalc.tva_10 + filteredCalc.tva_14 + filteredCalc.tva_20;
+  filteredCalc.tva_collectee_total = activeBTotalTVA;
   filteredCalc.deductions_total = filteredCalc.deductions_charges + filteredCalc.deductions_immobilisations;
 
   const caImposable   = calc.ca_total - caExporte - caExonere - caHorsChamp - caSuspension;
@@ -268,11 +296,10 @@ export default function TVACalculator({ company }: Props) {
     const yearStr = String(year);
     const monthStr = String(regime === "Mensuel" ? month : (quarter - 1) * 3 + 1).padStart(2, "0");
 
-    const lignesB = [20,14,10,7].map(r => {
-      if (!sectionBRateEnabled(r)) return "";
-      const ca  = r===20?filteredCalc.ca_20:r===14?filteredCalc.ca_14:r===10?filteredCalc.ca_10:filteredCalc.ca_7;
-      const tva = r===20?filteredCalc.tva_20:r===14?filteredCalc.tva_14:r===10?filteredCalc.tva_10:filteredCalc.tva_7;
-      return ca > 0 ? `\n    <LigneImposable taux="${r}"><BaseHT>${n2(ca)}</BaseHT><TVA>${n2(tva)}</TVA></LigneImposable>` : "";
+    const lignesB = activeBLines.map(line => {
+      const ca = n(lineBases[line.code]);
+      const tva = ca * n(line.taux ?? 0) / 100;
+      return ca > 0 ? `\n    <LigneImposable code="${line.code}" taux="${line.taux ?? 0}"><BaseHT>${n2(ca)}</BaseHT><TVA>${n2(tva)}</TVA></LigneImposable>` : "";
     }).join("");
 
     const lignesDed = filteredCalc.deductions.map((d,i) => `
@@ -308,7 +335,7 @@ export default function TVACalculator({ company }: Props) {
     <CAImposable>${n2(caImposable)}</CAImposable>
   </SectionA>
   <SectionB>${lignesB}
-    <TotalImposable>${n2(caImposable)}</TotalImposable>
+    <TotalImposable>${n2(activeBTotalBase)}</TotalImposable>
     <TotalTVA>${n2(filteredCalc.tva_collectee_total)}</TotalTVA>
   </SectionB>
   <SectionD>
@@ -402,6 +429,20 @@ export default function TVACalculator({ company }: Props) {
         </div>
       )}
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgba(200,146,74,0.25)] bg-[#FFF7ED] px-4 py-3">
+        <div>
+          <p className="text-[12.5px] font-semibold text-[#92400E]">
+            {enabledLines.size} lignes DGI actives pour {periodLabel}
+          </p>
+          <p className="mt-0.5 text-[11px] text-[#A16207]">
+            B: {activeBLines.length} · C: {activeCLines.length} · D: {activeDLines.length} · E: {activeELines.length}
+          </p>
+        </div>
+        <Link href="/settings?tab=tva" className="btn btn-outline bg-white text-[11.5px] text-[#92400E]">
+          Gérer les lignes actives
+        </Link>
+      </div>
+
       {/* ── Confirm validate modal ────────────────────────────────────────── */}
       {confirmValidate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -445,15 +486,15 @@ export default function TVACalculator({ company }: Props) {
               </thead>
               <tbody>
                 <tr>
-                  <TD>01</TD>
-                  <TD>CA total réalisé au titre de la période</TD>
+                  <TD>10</TD>
+                  <TD>CA total réalisé (HT)</TD>
                   <TD right bold>{fmtMAD(calc.ca_total)}</TD>
                 </tr>
                 {[
-                  ["02","Dont : CA à l'exportation", caExporte, setCaExporte],
-                  ["03","Dont : CA exonéré (Art. 91, 92, 94, 95)", caExonere, setCaExonere],
-                  ["04","Dont : CA hors champ de la TVA", caHorsChamp, setCaHorsChamp],
-                  ["05","Dont : CA réalisé en suspension de TVA", caSuspension, setCaSuspension],
+                  ["20","Opérations hors champ TVA", caHorsChamp, setCaHorsChamp],
+                  ["30","Opérations exonérées sans droit à déduction (art. 91)", caExonere, setCaExonere],
+                  ["40","Opérations exonérées avec droit à déduction (art. 92)", caExporte, setCaExporte],
+                  ["50","Opérations en suspension TVA (art. 94)", caSuspension, setCaSuspension],
                 ].map(([code, label, val, setter]) => (
                   <tr key={code as string}>
                     <TD>{code as string}</TD>
@@ -464,8 +505,8 @@ export default function TVACalculator({ company }: Props) {
                   </tr>
                 ))}
                 <tr className="bg-[#FAFAF6]">
-                  <TD bold>—</TD>
-                  <TD bold>CA imposable (01 − 02 − 03 − 04 − 05)</TD>
+                  <TD bold>60</TD>
+                  <TD bold>CA imposable (10 − (20 + 30 + 40 + 50))</TD>
                   <TD right bold color="#C8924A">{fmtMAD(caImposable)}</TD>
                 </tr>
               </tbody>
@@ -479,36 +520,68 @@ export default function TVACalculator({ company }: Props) {
             <table className="w-full">
               <thead>
                 <tr>
+                  <TH>Ligne DGI</TH>
+                  <TH>Désignation</TH>
                   <TH>Taux TVA</TH>
                   <TH right>Base imposable HT (MAD)</TH>
                   <TH right>TVA correspondante (MAD)</TH>
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { rate: 20, ca: filteredCalc.ca_20, tva: filteredCalc.tva_20 },
-                  { rate: 14, ca: filteredCalc.ca_14, tva: filteredCalc.tva_14 },
-                  { rate: 10, ca: filteredCalc.ca_10, tva: filteredCalc.tva_10 },
-                  { rate:  7, ca: filteredCalc.ca_7,  tva: filteredCalc.tva_7  },
-                ].filter(({ rate }) => sectionBRateEnabled(rate)).map(({ rate, ca, tva }) => (
-                  <tr key={rate}>
+                {activeBLines.map((line) => {
+                  const base = n(lineBases[line.code]);
+                  const tva = base * n(line.taux ?? 0) / 100;
+                  return (
+                  <tr key={line.code}>
+                    <TD bold>{line.code}</TD>
+                    <TD><span className="text-[#374151]">{line.label_fr}</span></TD>
                     <TD>
                       <span className="inline-block bg-[#F3F4F6] text-[#374151] text-[11px] font-semibold px-2 py-0.5 rounded-full">
-                        {rate}%
+                        {line.taux ?? 0}%
                       </span>
                     </TD>
-                    <TD right>{ca > 0 ? fmtMAD(ca) : <span className="text-[#D1D5DB]">—</span>}</TD>
+                    <TD right>
+                      <NumInput
+                        value={base}
+                        onChange={(value) => setLineBases((prev) => ({ ...prev, [line.code]: value }))}
+                        disabled={isFiled}
+                      />
+                    </TD>
                     <TD right>{tva > 0 ? fmtMAD(tva) : <span className="text-[#D1D5DB]">—</span>}</TD>
                   </tr>
-                ))}
+                )})}
+                {activeBLines.length === 0 && (
+                  <tr><TD>—</TD><TD>Aucune ligne active</TD><TD>—</TD><TD right>—</TD><TD right>—</TD></tr>
+                )}
                 <tr className="bg-[#FAFAF6]">
                   <TD bold>TOTAL</TD>
-                  <TD right bold>{fmtMAD(caImposable)}</TD>
+                  <TD>—</TD>
+                  <TD>—</TD>
+                  <TD right bold>{fmtMAD(activeBTotalBase)}</TD>
                   <TD right bold color="#C8924A">{fmtMAD(filteredCalc.tva_collectee_total)}</TD>
                 </tr>
               </tbody>
             </table>
           </SectionCard>
+
+          {activeCLines.length > 0 && (
+            <SectionCard title="C — Opérations avec les non-résidents">
+              <table className="w-full">
+                <thead>
+                  <tr><TH>Ligne DGI</TH><TH>Désignation</TH><TH right>Statut</TH></tr>
+                </thead>
+                <tbody>
+                  {activeCLines.map((line) => (
+                    <tr key={line.code}>
+                      <TD bold>{line.code}</TD>
+                      <TD>{line.label_fr}</TD>
+                      <TD right><span className="badge-pill bg-[#D1FAE5] text-[#065F46]">Active</span></TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </SectionCard>
+          )}
 
           {/* ─────────────────────────────────────────────────────────────── */}
           {/* SECTION D — TVA Exigible                                       */}
@@ -519,21 +592,22 @@ export default function TVACalculator({ company }: Props) {
                 <tr><TH>Désignation</TH><TH right>Montant (MAD)</TH></tr>
               </thead>
               <tbody>
-                {[20,14,10,7].map(r => {
-                  if (!sectionBRateEnabled(r)) return null;
-                  const tva = r===20?filteredCalc.tva_20:r===14?filteredCalc.tva_14:r===10?filteredCalc.tva_10:filteredCalc.tva_7;
+                {activeBLines.map(line => {
+                  const tva = n(lineBases[line.code]) * n(line.taux ?? 0) / 100;
                   if (tva === 0) return null;
                   return (
-                    <tr key={r}>
-                      <TD>TVA facturée sur ventes à {r}%</TD>
+                    <tr key={line.code}>
+                      <TD>{line.code} — {line.label_fr}</TD>
                       <TD right>{fmtMAD(tva)}</TD>
                     </tr>
                   );
                 })}
-                <tr>
+                {sectionDEnabled && <tr>
                   <TD>
                     <div>
-                      <span className="text-[#6B7280]">Opérations Diverses TVA (OD)</span>
+                      <span className="text-[#6B7280]">
+                        {activeDLines.map((line) => `${line.code} — ${line.label_fr}`).join(" · ")}
+                      </span>
                       <input className="input ml-2 text-[11.5px] w-[220px]" placeholder="Note justificative…"
                         value={odTvaNote} onChange={e => setOdTvaNote(e.target.value)} disabled={isFiled} />
                     </div>
@@ -541,7 +615,7 @@ export default function TVACalculator({ company }: Props) {
                   <TD right>
                     <NumInput value={odTva} onChange={setOdTva} disabled={isFiled} />
                   </TD>
-                </tr>
+                </tr>}
                 <tr className="bg-[#FAFAF6]">
                   <TD bold>TVA exigible totale (= TVA collectée + OD)</TD>
                   <TD right bold color="#C8924A">{fmtMAD(tvaExigible)}</TD>
@@ -555,6 +629,13 @@ export default function TVACalculator({ company }: Props) {
           {/* ─────────────────────────────────────────────────────────────── */}
           <SectionCard title="E — Les déductions">
             <div className="p-4">
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {activeELines.map((line) => (
+                  <span key={line.code} className="rounded-md bg-[#F3F4F6] px-2 py-1 text-[10.5px] font-medium text-[#6B7280]">
+                    {line.code} — {line.label_fr}
+                  </span>
+                ))}
+              </div>
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-[#F3F4F6] rounded-lg p-3 text-center">
                   <div className="text-[10.5px] font-medium text-[#6B7280] uppercase tracking-[0.5px] mb-1">Sur charges</div>

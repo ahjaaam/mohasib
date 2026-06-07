@@ -445,7 +445,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
               <button onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-colors"
                 style={{ backgroundColor: "#C8924A", color: "#fff", border: "none" }}>
-                <Upload size={13} /> Importer un fichier
+                <Upload size={13} /> Importer des documents
               </button>
               <button onClick={() => cameraInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
@@ -455,7 +455,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                 <button onClick={handleEmailSync} disabled={syncing}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors disabled:opacity-50">
                   <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
-                  {syncing ? "Synchronisation…" : "Sync emails"}
+                  {syncing ? "Synchronisation…" : "Sync mes emails"}
                 </button>
               )}
             </div>

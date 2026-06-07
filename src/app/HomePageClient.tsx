@@ -4,11 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import PublicNavbar from "@/components/PublicNavbar";
+import PublicFooter from "@/components/PublicFooter";
 
 const FONT = "var(--font-jakarta), sans-serif";
 const NAVY: React.CSSProperties["color"] = "#0D1526";
 const GOLD: React.CSSProperties["color"] = "#C8924A";
-
 
 // ── Demo Form ─────────────────────────────────────────────────────────────────
 
@@ -85,24 +86,10 @@ export default function HomePageClient() {
 
       {/* ── NAVBAR ──────────────────────────────────────────────────────────── */}
       <style>{`
-        .nav-inner { max-width: 1230px; margin: 0 auto; padding: 0 32px; height: 100%; display: flex; align-items: center; justify-content: space-between; }
-        @media (max-width: 640px) { .nav-inner { padding: 0 20px; } }
         .page-section { padding: 80px 32px; }
         @media (max-width: 640px) { .page-section { padding: 56px 20px; } }
       `}</style>
-      <nav style={{ backgroundColor: "#FFFFFF", height: 74 }}>
-        <div className="nav-inner">
-          <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-            <Image src="/logo2.png" alt="Mohasib" width={168} height={50} style={{ height: "auto", objectFit: "contain" }} />
-          </Link>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Link href="/connexion" style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF", backgroundColor: GOLD, padding: "9px 20px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
-              Se Connecter
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <PublicNavbar showBorder={false} />
 
       {/* ── HERO ────────────────────────────────────────────────────────────── */}
       <section className="page-section" style={{ backgroundColor: "#FFFFFF" }}>
@@ -314,31 +301,7 @@ export default function HomePageClient() {
         </div>
       </section>
 
-      {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
-      <footer style={{ backgroundColor: "#ffffff", padding: "56px 32px 36px" }} className="footer-outer">
-        <style>{`@media (max-width: 640px) { .footer-outer { padding: 40px 20px 28px !important; } }`}</style>
-        <div style={{ maxWidth: 1160, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
-            <Image src="/logo2.png" alt="Mohasib" width={100} height={30} style={{ height: "auto", objectFit: "contain", opacity: 0.7 }} />
-            <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-              <Link href="https://www.linkedin.com/company/mohasibai/" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
-                LinkedIn
-              </Link>
-              <Link href="https://www.instagram.com/mohasibai/" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
-                Instagram
-              </Link>
-              <Link href="https://www.facebook.com/mohasibai" style={{ fontSize: 14, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
-                Facebook
-              </Link> 
-            </div>
-          </div>
-          <div style={{ height: 1, backgroundColor: "hsla(0, 0%, 78%, 0.40)", marginBottom: 24 }} />
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-            <span style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", fontFamily: FONT }}>© 2026 Mohasib AI</span>
-            <span style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", fontFamily: FONT }}>contact@mohasibai.com</span>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
 
     </div>
   );

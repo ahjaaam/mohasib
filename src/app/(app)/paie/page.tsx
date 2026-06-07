@@ -7,7 +7,7 @@ import {
   Users, ChevronLeft, ChevronRight, Plus, Edit2, Trash2,
   FileText, CheckCircle, DollarSign, Download, ExternalLink,
   Loader2, X, ChevronDown, ChevronUp, Banknote,
-  CalendarDays, Clock, Briefcase, FolderOpen,
+  CalendarDays, Clock, Briefcase, FolderOpen, Eye, EyeOff,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -886,9 +886,21 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
 // ─── Employés Tab ─────────────────────────────────────────────────────────────
 
 function EmployesTab({ employees, loading, deletingId, onAdd, onEdit, onDelete, onViewBulletin }: any) {
+  const [visibleSalaries, setVisibleSalaries] = useState<Set<string>>(new Set());
+
+  function toggleSalary(employeeId: string) {
+    setVisibleSalaries((current) => {
+      const next = new Set(current);
+      if (next.has(employeeId)) next.delete(employeeId);
+      else next.add(employeeId);
+      return next;
+    });
+  }
+
   if (loading) return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {[1,2].map(i => <div key={i} className="h-48 bg-white rounded-xl border border-[rgba(0,0,0,0.07)] animate-pulse" />)}
+    <div className="overflow-hidden rounded-xl border border-[rgba(0,0,0,0.07)] bg-white">
+      <div className="h-11 animate-pulse bg-[#F3F4F6]" />
+      {[1,2,3,4].map(i => <div key={i} className="h-16 animate-pulse border-t border-[rgba(0,0,0,0.05)] bg-white" />)}
     </div>
   );
 
@@ -906,43 +918,82 @@ function EmployesTab({ employees, loading, deletingId, onAdd, onEdit, onDelete, 
   );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {employees.map((emp: Employee) => {
-        const calc = calculateSalary({ salaire_brut: Number(emp.salaire_brut), situation_familiale: emp.situation_familiale, nombre_enfants: Number(emp.nombre_enfants) });
-        return (
-          <div key={emp.id} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div className="flex items-start gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-[13px] font-bold" style={{ background: "#1A1A2E", color: "#C8924A" }}>
-                {initials(emp.prenom, emp.nom)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[13.5px] font-semibold text-[#1A1A2E]">{emp.prenom} {emp.nom}</span>
-                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${emp.statut === "actif" ? "bg-[#059669]" : "bg-[#9CA3AF]"}`} />
-                </div>
-                <div className="text-[11.5px] text-[#6B7280] mt-0.5">{emp.poste || "—"} · {emp.type_contrat}</div>
-                <div className="text-[11px] text-[#9CA3AF]">Depuis {fmtDate(emp.date_embauche)}</div>
-              </div>
-            </div>
-            <div className="border-t border-[rgba(0,0,0,0.05)] pt-3 grid grid-cols-2 gap-y-1.5 text-[11.5px] mb-3">
-              <div><span className="text-[#9CA3AF]">Brut :</span> <span className="font-semibold text-[#1A1A2E]">{fmtAmt(Number(emp.salaire_brut))} MAD</span></div>
-              <div><span className="text-[#9CA3AF]">Net estimé :</span> <span className="font-semibold text-[#059669]">~{fmtAmt(calc.salaire_net_payer)} MAD</span></div>
-              {emp.numero_cnss && <div className="col-span-2"><span className="text-[#9CA3AF]">N° CNSS :</span> <span className="font-mono text-[#374151]">{emp.numero_cnss}</span></div>}
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => onViewBulletin(emp)} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11.5px] font-medium text-[#1A1A2E] border border-[rgba(0,0,0,0.12)] hover:bg-[#F9F9F6] transition-colors">
-                <FileText size={12} /> Voir bulletin
-              </button>
-              <button onClick={() => onEdit(emp)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11.5px] text-[#6B7280] border border-[rgba(0,0,0,0.1)] hover:bg-[#F9F9F6] transition-colors">
-                <Edit2 size={12} />
-              </button>
-              <button onClick={() => onDelete(emp.id)} disabled={deletingId === emp.id} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11.5px] text-[#DC2626] border border-[rgba(220,38,38,0.2)] hover:bg-[#FEF2F2] transition-colors disabled:opacity-50">
-                {deletingId === emp.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-              </button>
-            </div>
-          </div>
-        );
-      })}
+    <div className="overflow-hidden rounded-xl border border-[rgba(0,0,0,0.08)] bg-white" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1050px] text-[12px]">
+          <thead>
+            <tr className="border-b border-[rgba(0,0,0,0.08)] bg-[#F9F9F6]">
+              {["Employé", "Matricule", "Poste / Département", "Contrat", "Embauche", "N° CNSS", "Statut", "Salaire", "Actions"].map((heading) => (
+                <th key={heading} className="whitespace-nowrap px-4 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.4px] text-[#6B7280]">
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {employees.map((emp: Employee, index: number) => {
+              const salaryVisible = visibleSalaries.has(emp.id);
+              const calc = salaryVisible
+                ? calculateSalary({ salaire_brut: Number(emp.salaire_brut), situation_familiale: emp.situation_familiale, nombre_enfants: Number(emp.nombre_enfants) })
+                : null;
+              return (
+                <tr key={emp.id} className={`border-b border-[rgba(0,0,0,0.05)] last:border-b-0 hover:bg-[rgba(200,146,74,0.03)] ${index % 2 === 1 ? "bg-[#FAFAFA]" : ""}`}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1A1A2E] text-[10.5px] font-bold text-[#C8924A]">
+                        {initials(emp.prenom, emp.nom)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-[#1A1A2E]">{emp.prenom} {emp.nom}</div>
+                        <div className="max-w-[170px] truncate text-[10.5px] text-[#9CA3AF]">{emp.adresse || "Adresse non renseignée"}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-[11px] text-[#6B7280]">{emp.matricule || "—"}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-[#374151]">{emp.poste || "—"}</div>
+                    <div className="text-[10.5px] text-[#9CA3AF]">{emp.departement || "Aucun département"}</div>
+                  </td>
+                  <td className="px-4 py-3 text-[#374151]">{emp.type_contrat || "—"}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-[#6B7280]">{fmtDate(emp.date_embauche)}</td>
+                  <td className="px-4 py-3 font-mono text-[11px] text-[#6B7280]">{emp.numero_cnss || "—"}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold ${emp.statut === "actif" ? "bg-[#D1FAE5] text-[#065F46]" : "bg-[#F3F4F6] text-[#6B7280]"}`}>
+                      {emp.statut || "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {salaryVisible && calc ? (
+                      <div className="min-w-[145px]">
+                        <div className="font-semibold text-[#1A1A2E]">{fmtAmt(Number(emp.salaire_brut))} MAD</div>
+                        <div className="text-[10.5px] font-medium text-[#059669]">Net estimé : ~{fmtAmt(calc.salaire_net_payer)} MAD</div>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-[#9CA3AF]">Masqué</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => toggleSalary(emp.id)} title={salaryVisible ? "Masquer le salaire" : "Afficher le salaire"} aria-label={salaryVisible ? "Masquer le salaire" : "Afficher le salaire"} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#1A1A2E]">
+                        {salaryVisible ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                      <button onClick={() => onViewBulletin(emp)} title="Voir les bulletins" aria-label="Voir les bulletins" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#1A1A2E]">
+                        <FileText size={13} />
+                      </button>
+                      <button onClick={() => onEdit(emp)} title="Modifier l'employé" aria-label="Modifier l'employé" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#1A1A2E]">
+                        <Edit2 size={13} />
+                      </button>
+                      <button onClick={() => onDelete(emp.id)} disabled={deletingId === emp.id} title="Supprimer l'employé" aria-label="Supprimer l'employé" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(220,38,38,0.2)] text-[#DC2626] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50">
+                        {deletingId === emp.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

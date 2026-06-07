@@ -101,19 +101,19 @@ function isSupplierPaid(item: SupplierItem) {
 // ── DaysCell ───────────────────────────────────────────────────────────────────
 
 function DaysCell({ dueDate, isPaid }: { dueDate: string | null; isPaid: boolean }) {
-  if (isPaid) return <span className="text-[#059669] font-medium text-[11.5px]">✅ Payée</span>;
+  if (isPaid) return <span className="text-[#059669] font-medium text-[11.5px]">Payée</span>;
   const d = daysFromNow(dueDate);
   if (d === null) return <span className="text-[#9CA3AF] text-[11.5px]">—</span>;
   if (d > 7) return <span className="text-[#9CA3AF] text-[11.5px]">Dans {d}j</span>;
-  if (d > 0) return <span className="text-[#D97706] font-semibold text-[11.5px]">⚠️ Dans {d}j</span>;
-  if (d === 0) return <span className="text-[#D97706] font-semibold text-[11.5px]">⚠️ Aujourd&apos;hui</span>;
+  if (d > 0) return <span className="text-[#D97706] font-semibold text-[11.5px]">Dans {d}j</span>;
+  if (d === 0) return <span className="text-[#D97706] font-semibold text-[11.5px]">Aujourd&apos;hui</span>;
   return <span className="text-[#DC2626] font-bold text-[11.5px]">+{Math.abs(d)} jours</span>;
 }
 
 // ── StatusBadge ────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status, dueDate }: { status: string; dueDate: string | null }) {
-  if (status === "paid") return <span className="badge-pill bg-[#D1FAE5] text-[#065F46]">✅ Payée</span>;
+  if (status === "paid") return <span className="badge-pill bg-[#D1FAE5] text-[#065F46]">Payée</span>;
   if (status === "partiellement_payee") return <span className="badge-pill bg-[#FEF3C7] text-[#92400E]">🟠 Partiel</span>;
   const d = daysFromNow(dueDate);
   if (d !== null && d < 0) {
@@ -124,7 +124,7 @@ function StatusBadge({ status, dueDate }: { status: string; dueDate: string | nu
       </span>
     );
   }
-  if (d !== null && d <= 7) return <span className="badge-pill bg-[#FEF3C7] text-[#92400E]">⚠️ Échéance proche</span>;
+  if (d !== null && d <= 7) return <span className="badge-pill bg-[#FEF3C7] text-[#92400E]">Échéance proche</span>;
   return <span className="badge-pill bg-[#EFF6FF] text-[#1D4ED8]">🔵 En attente</span>;
 }
 
@@ -288,7 +288,7 @@ function PaidModal({
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Erreur");
       }
-      toast.success("✅ Paiement enregistré");
+      toast.success("Paiement enregistré");
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -347,7 +347,7 @@ function PaidModal({
             <input type="number" step="0.01" className="input font-semibold" value={montant} onChange={e => setMontant(e.target.value)} />
             {isPartial && soldeRestant > 0 && (
               <div className="mt-1.5 px-3 py-2 bg-[#FEF3C7] rounded-lg text-[11px] text-[#92400E]">
-                ⚠️ Paiement partiel — solde restant : <strong>{fmt(soldeRestant)}</strong>
+                Paiement partiel — solde restant : <strong>{fmt(soldeRestant)}</strong>
               </div>
             )}
           </div>
@@ -578,10 +578,10 @@ function AgingTable({ items, type }: { items: any[]; type: "client" | "supplier"
 
 const CLIENT_SUBTABS: [SubTab, string][] = [
   ["all", "Toutes"],
-  ["overdue", "En retard 🔴"],
-  ["week", "Cette semaine ⚠️"],
+  ["overdue", "En retard"],
+  ["week", "Cette semaine"],
   ["upcoming", "À venir"],
-  ["paid", "Payées ✅"],
+  ["paid", "Payées"],
 ];
 
 function ClientsSection({
@@ -683,10 +683,10 @@ function ClientsSection({
 
 const SUPPLIER_SUBTABS: [SubTab, string][] = [
   ["all", "Toutes"],
-  ["overdue", "En retard 🔴"],
-  ["week", "Cette semaine ⚠️"],
+  ["overdue", "En retard"],
+  ["week", "Cette semaine"],
   ["upcoming", "À venir"],
-  ["paid", "Payées ✅"],
+  ["paid", "Payées"],
 ];
 
 function SuppliersSection({
@@ -748,7 +748,7 @@ function SuppliersSection({
                             <button onClick={() => onMarkPaid(item)}
                               className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
                               style={{ background: "#1A1A2E", color: "#fff", border: "none" }}>
-                              💳 Payée
+                              Payée
                             </button>
                           )}
                           <a href={`/inbox`}
@@ -928,8 +928,8 @@ export default function SuiviClient({
       {/* ── Main Tabs ──────────────────────────────────────────────────────── */}
       <div className="flex gap-2 mb-5 flex-wrap">
         {([
-          ["clients", "💰 Clients — À encaisser", overdueClients.length] as const,
-          ["suppliers", "🏪 Fournisseurs — À payer", overdueSuppliers.length] as const,
+          ["clients", "Clients — À encaisser", overdueClients.length] as const,
+          ["suppliers", "Fournisseurs — À payer", overdueSuppliers.length] as const,
         ] as const).map(([key, label, badge]) => (
           <button key={key} onClick={() => setMainTab(key)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${

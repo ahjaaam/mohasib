@@ -50,8 +50,18 @@ export async function incrementUploadCount(
   fileInfo: { fileName: string; fileType: string; pageCount?: number; source: string }
 ) {
   const supabase = await createClient();
-  // Increment counter via RPC (atomic)
-  await supabase.rpc("increment_upload_count", { company_id_param: companyId }).then(() => {});
+  const { data: company } = await supabase
+    .from("companies")
+    .select("docs_uploaded_this_month")
+    .eq("id", companyId)
+    .single();
+
+  await supabase
+    .from("companies")
+    .update({ docs_uploaded_this_month: Number(company?.docs_uploaded_this_month ?? 0) + 1 })
+    .eq("id", companyId)
+    .then(() => {});
+
   // Log upload (best-effort — table may not exist yet during migration)
   await supabase.from("upload_logs").insert({
     company_id: companyId,

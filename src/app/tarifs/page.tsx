@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { ROUTES } from "@/lib/routes";
+import PublicNavbar from "@/components/PublicNavbar";
+import PublicFooter from "@/components/PublicFooter";
 
 const businessPlans = [
   {
@@ -59,9 +61,9 @@ function PlanCard({ plan }: { plan: (typeof businessPlans)[number] }) {
 
 export default function TarifsPage() {
   return (
-    <main className="min-h-screen bg-[#FAFAF6] px-5 py-10">
-      <div className="mx-auto max-w-6xl">
-        <Link href={ROUTES.HOME} className="text-[13px] font-semibold text-[#C8924A]">Mohasib</Link>
+    <main className="min-h-screen bg-[#FAFAF6]">
+      <PublicNavbar />
+      <div className="mx-auto max-w-6xl px-5 py-10">
         <div className="mt-8 mb-8">
           <p className="inline-flex rounded-full bg-[#FFF7ED] px-3 py-1 text-[12px] font-bold text-[#92400E]">7 jours gratuits · Sans carte bancaire</p>
           <h1 className="mt-4 text-[34px] font-bold text-[#0D1526]">Tarifs Mohasib</h1>
@@ -78,6 +80,7 @@ export default function TarifsPage() {
           <div className="grid gap-4 md:grid-cols-3">{cabinetPlans.map((plan) => <PlanCard key={plan.name} plan={plan} />)}</div>
         </section>
       </div>
+      <PublicFooter />
     </main>
   );
 }

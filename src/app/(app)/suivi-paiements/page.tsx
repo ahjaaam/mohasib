@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
+import { CreditCard } from "lucide-react";
 import SuiviClient from "./SuiviClient";
 
 export default async function SuiviPaiementsPage() {
@@ -36,6 +37,7 @@ export default async function SuiviPaiementsPage() {
       <PageHeader
         title="Suivi des paiements"
         subtitle="Encaissements clients et paiements fournisseurs"
+        icon={<CreditCard size={20} />}
       />
       <SuiviClient
         clientInvoices={clientInvoicesRes.data ?? []}

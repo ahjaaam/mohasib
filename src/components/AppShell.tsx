@@ -10,7 +10,7 @@ import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
   LogOut, Menu, Plus, Inbox, Download,
   Settings, Receipt, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, GitMerge,
 } from "lucide-react";
 
 const NAV_MAIN = [
@@ -20,6 +20,7 @@ const NAV_MAIN = [
   { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des paiements", key: "suivi-paiements" },
   { href: "/clients",           icon: Users,      label: "Clients",             key: "clients" },
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions" },
+  { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement" },
   { href: "/saisie",       icon: PenLine,         label: "Saisie comptable",   key: "saisie" },
   { href: "/tva",          icon: Receipt,         label: "Déclarations TVA",   key: "tva" },
   { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie" },
@@ -49,8 +50,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/clients":      "Clients",
   "/suivi-paiements": "Suivi des paiements",
   "/transactions":    "Transactions",
+  "/rapprochement":  "Rapprochement Bancaire",
   "/saisie":          "Saisie comptable",
-  "/rapprochement":  "Rapprochement Bancaire",  
   "/tva":            "Déclarations TVA",
   "/declarations-tva": "Déclarations TVA",
   "/paie":         "Paie",
@@ -74,6 +75,7 @@ const HIDE_TOPBAR_PATHS = new Set([
   "/clients",
   "/suivi-paiements",
   "/transactions",
+  "/rapprochement",
   "/saisie",
   "/tva",
   "/declarations-tva",

@@ -1,28 +1,30 @@
 import Link from "next/link";
-import { ROUTES } from "@/lib/routes";
+import PublicFooter from "@/components/PublicFooter";
+import PublicNavbar from "@/components/PublicNavbar";
+import { getAllGuides } from "@/lib/guides";
+import GuidesClient from "./GuidesClient";
 
-const guides = [
-  "Guide TVA pour PME marocaines",
-  "Checklist clôture mensuelle",
-  "Guide paie et CNSS 2026",
-  "Guide export fiduciaire",
-];
+export const revalidate = 3600;
 
-export default function GuidesPage() {
+export default async function GuidesPage() {
+  const guides = await getAllGuides();
+
   return (
-    <main className="min-h-screen bg-[#FAFAF6] px-5 py-10">
-      <div className="mx-auto max-w-4xl">
-        <Link href={ROUTES.RESSOURCES} className="text-[13px] font-semibold text-[#C8924A]">← Ressources</Link>
-        <h1 className="mt-8 text-[34px] font-bold text-[#0D1526]">Guides</h1>
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
-          {guides.map((guide) => (
-            <div key={guide} className="rounded-2xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
-              <h2 className="text-[16px] font-bold text-[#0D1526]">{guide}</h2>
-              <p className="mt-2 text-[13px] text-[#6B7280]">Téléchargement PDF avec capture email à connecter.</p>
-            </div>
-          ))}
+    <main className="min-h-screen bg-[#FAFAF6]">
+      <PublicNavbar />
+      <section className="bg-[#0D1526] px-6 py-[60px]">
+        <div className="mx-auto max-w-6xl">
+          <Link href="/ressources" className="text-[12px] font-semibold text-[#C8924A]">← Ressources</Link>
+          <p className="mt-6 text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Guides telechargeables</p>
+          <h1 className="mt-4 font-serif text-[38px] leading-tight text-white md:text-[52px]">Ressources gratuites</h1>
+          <p className="mt-4 max-w-2xl text-[15px] leading-7 text-white/60">
+            PDFs pratiques pour les entrepreneurs marocains. Telechargement immediat.
+          </p>
         </div>
-      </div>
+      </section>
+
+      <GuidesClient guides={guides} />
+      <PublicFooter />
     </main>
   );
 }

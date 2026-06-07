@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
-import { Download, Package, CheckCircle, AlertCircle, RefreshCw, BookMarked } from "lucide-react";
+import { Download, Package, CheckCircle, AlertCircle, RefreshCw, BookMarked, FileSpreadsheet, FileText, CalendarDays, History } from "lucide-react";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -44,6 +44,18 @@ const STEPS = [
   "Synthèse Financière (PDF)",
 ];
 
+const EXPORT_DOCUMENTS = [
+  { id: "sales-xlsx", label: "Journal des Ventes", format: "Excel", icon: FileSpreadsheet },
+  { id: "sales-pdf", label: "Journal des Ventes", format: "PDF", icon: FileText },
+  { id: "purchases-xlsx", label: "Journal des Achats", format: "Excel", icon: FileSpreadsheet },
+  { id: "ledger-xlsx", label: "Grand Livre (CGNC)", format: "Excel", icon: FileSpreadsheet },
+  { id: "balance-xlsx", label: "Balance Comptable", format: "Excel", icon: FileSpreadsheet },
+  { id: "tva-pdf", label: "Récapitulatif TVA", format: "PDF", icon: FileText },
+  { id: "summary-pdf", label: "Synthèse Financière", format: "PDF", icon: FileText },
+] as const;
+
+type ExportDocumentId = typeof EXPORT_DOCUMENTS[number]["id"];
+
 const CATEGORY_ACCOUNTS: Record<string, { num: string; name: string }> = {
   "Ventes":           { num: "7111", name: "Ventes de marchandises" },
   "Services":         { num: "7061", name: "Prestations de services" },
@@ -78,6 +90,9 @@ export default function ExportPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<ExportDocumentId>>(
+    () => new Set(EXPORT_DOCUMENTS.map((document) => document.id))
+  );
 
   const supabase = createClient();
 
@@ -144,7 +159,7 @@ export default function ExportPage() {
   }
 
   async function generatePackage() {
-    if (!period.start || !period.end) return;
+    if (!period.start || !period.end || selectedDocuments.size === 0) return;
     setGenerating(true); setDone(false); setError(null); setCurrentStep(0);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -203,8 +218,8 @@ export default function ExportPage() {
       }
 
       // ── 1. Journal des Ventes — Excel ────────────────────────────────────────
-      setCurrentStep(0);
-      {
+      if (selectedDocuments.has("sales-xlsx")) {
+        setCurrentStep(0);
         const rows: any[][] = [
           [profile?.company ?? "Mohasib", "", "", "", "", "", "", ""],
           [`JOURNAL DES VENTES — ${periodLabel}`, "", "", "", "", "", "", ""],
@@ -240,8 +255,8 @@ export default function ExportPage() {
       }
 
       // ── 2. Journal des Ventes — PDF ──────────────────────────────────────────
-      setCurrentStep(1);
-      {
+      if (selectedDocuments.has("sales-pdf")) {
+        setCurrentStep(1);
         const doc = new jsPDF({ orientation: "landscape" });
         const startY = addHeader(doc, "JOURNAL DES VENTES");
         const body = invoices.map((inv: any) => {
@@ -268,8 +283,8 @@ export default function ExportPage() {
       }
 
       // ── 3. Journal des Achats — Excel ────────────────────────────────────────
-      setCurrentStep(2);
-      {
+      if (selectedDocuments.has("purchases-xlsx")) {
+        setCurrentStep(2);
         const rows: any[][] = [
           [profile?.company ?? "Mohasib", "", "", "", "", "", ""],
           [`JOURNAL DES ACHATS — ${periodLabel}`, "", "", "", "", "", ""],
@@ -304,8 +319,8 @@ export default function ExportPage() {
       }
 
       // ── 4. Grand Livre — Excel ───────────────────────────────────────────────
-      setCurrentStep(3);
-      {
+      if (selectedDocuments.has("ledger-xlsx")) {
+        setCurrentStep(3);
         type Entry = { num: string; name: string; date: string; label: string; debit: number; credit: number };
         const entries: Entry[] = [];
         for (const inv of invoices) {
@@ -350,8 +365,8 @@ export default function ExportPage() {
       }
 
       // ── 5. Balance Comptable — Excel ─────────────────────────────────────────
-      setCurrentStep(4);
-      {
+      if (selectedDocuments.has("balance-xlsx")) {
+        setCurrentStep(4);
         const bal: Record<string, { name: string; debit: number; credit: number }> = {};
         const add = (num: string, name: string, d: number, c: number) => {
           if (!bal[num]) bal[num] = { name, debit: 0, credit: 0 };
@@ -390,8 +405,8 @@ export default function ExportPage() {
       }
 
       // ── 6. Récap TVA — PDF ───────────────────────────────────────────────────
-      setCurrentStep(5);
-      {
+      if (selectedDocuments.has("tva-pdf")) {
+        setCurrentStep(5);
         const doc = new jsPDF();
         let y = addHeader(doc, "RÉCAPITULATIF TVA");
 
@@ -448,8 +463,8 @@ export default function ExportPage() {
       }
 
       // ── 7. Synthèse Financière — PDF ─────────────────────────────────────────
-      setCurrentStep(6);
-      {
+      if (selectedDocuments.has("summary-pdf")) {
+        setCurrentStep(6);
         const doc = new jsPDF();
         addHeader(doc, "SYNTHÈSE FINANCIÈRE");
 
@@ -522,10 +537,24 @@ export default function ExportPage() {
     }
   }
 
-  const canGenerate = !generating && !!period.start && !!period.end;
+  const selectedStepIndexes = EXPORT_DOCUMENTS
+    .map((document, index) => selectedDocuments.has(document.id) ? index : -1)
+    .filter((index) => index >= 0);
+  const progressPosition = currentStep >= 0 ? selectedStepIndexes.indexOf(currentStep) + 1 : 0;
+  const canGenerate = !generating && !!period.start && !!period.end && selectedDocuments.size > 0;
+
+  function toggleDocument(id: ExportDocumentId) {
+    setSelectedDocuments((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setDone(false);
+  }
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-6xl">
 
       {/* ─── Page header ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-2.5 mb-5">
@@ -540,8 +569,15 @@ export default function ExportPage() {
       </div>
 
       {/* ── Period selector ── */}
-      <div className="card p-5 mb-4">
-        <div className="text-[13px] font-semibold text-[#1A1A2E] mb-3">Période comptable</div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F3F4F6] text-[#6B7280]"><CalendarDays size={15} /></div>
+          <div>
+            <div className="text-[13px] font-semibold text-[#1A1A2E]">Période comptable</div>
+            <div className="text-[10.5px] text-[#9CA3AF]">Définissez la plage des données exportées</div>
+          </div>
+        </div>
         <div className="tabs mb-4">
           {(["month", "quarter", "year", "custom"] as const).map(m => (
             <button key={m} className={`tab ${mode === m ? "active" : ""}`} onClick={() => setMode(m)}>
@@ -579,15 +615,15 @@ export default function ExportPage() {
           </div>
         )}
         {period.start && period.end && (
-          <div className="mt-3 text-[11.5px] text-[#6B7280]">
-            📅 <strong>{fmtDate(period.start)}</strong> → <strong>{fmtDate(period.end)}</strong>
+          <div className="mt-4 rounded-lg bg-[#F9F9F6] px-3 py-2.5 text-[11.5px] text-[#6B7280]">
+            <strong className="text-[#1A1A2E]">{fmtDate(period.start)}</strong> → <strong className="text-[#1A1A2E]">{fmtDate(period.end)}</strong>
           </div>
         )}
       </div>
 
       {/* ── Stats preview ── */}
       {period.start && period.end && (
-        <div className="card p-5 mb-4">
+        <div className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="text-[13px] font-semibold text-[#1A1A2E]">Aperçu de la période</div>
             {loadingStats && <RefreshCw size={13} className="text-[#6B7280] animate-spin" />}
@@ -626,57 +662,53 @@ export default function ExportPage() {
           )}
           <div className="mt-3 flex items-center gap-2 text-[11px] text-[#6B7280]">
             <Package size={12} />
-            <span>7 documents seront générés dans le package ZIP</span>
+            <span>{selectedDocuments.size} document{selectedDocuments.size !== 1 ? "s" : ""} sélectionné{selectedDocuments.size !== 1 ? "s" : ""} pour le package ZIP</span>
           </div>
         </div>
       )}
-
-      {/* ── Company info ── */}
-      <div className="card p-5 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[13px] font-semibold text-[#1A1A2E]">Informations de l&apos;entreprise</div>
-        </div>
-        {profile ? (
-          <>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-[12px]">
-              <div><span className="text-[#6B7280]">Raison sociale : </span><span className="font-medium">{profile.company ?? "—"}</span></div>
-              <div><span className="text-[#6B7280]">ICE : </span><span className="font-medium">{profile.ice ?? "—"}</span></div>
-              <div><span className="text-[#6B7280]">IF : </span><span className="font-medium">{profile.if_fiscal ?? "—"}</span></div>
-              <div><span className="text-[#6B7280]">RC : </span><span className="font-medium">{profile.rc ?? "—"}</span></div>
-              <div><span className="text-[#6B7280]">Adresse : </span><span className="font-medium">{profile.address ?? "—"}</span></div>
-              <div><span className="text-[#6B7280]">Ville : </span><span className="font-medium">{profile.city ?? "—"}</span></div>
-            </div>
-            {(!profile.company || !profile.ice) && (
-              <div className="mt-3 flex items-center gap-2 text-[11.5px] text-[#92400E] bg-[#FEF3C7] border border-[rgba(217,119,6,0.2)] rounded-lg px-3 py-2">
-                <AlertCircle size={12} />
-                Complétez votre profil (Raison sociale et ICE) pour un export optimal.
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="text-[12px] text-[#6B7280]">Chargement...</div>
-        )}
       </div>
 
       {/* ── Generate button ── */}
-      <div className="card p-5 mb-4">
+      <div className="mt-4 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
         <div className="mb-4">
-          <div className="text-[12px] font-medium text-[#1A1A2E] mb-2.5">Documents inclus dans le package :</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {[
-              { n: "01 · Journal des Ventes",    f: "Excel + PDF" },
-              { n: "02 · Journal des Achats",    f: "Excel" },
-              { n: "03 · Grand Livre (CGNC)",    f: "Excel" },
-              { n: "04 · Balance Comptable",     f: "Excel" },
-              { n: "05 · Récapitulatif TVA",     f: "PDF" },
-              { n: "06 · Synthèse Financière",   f: "PDF" },
-            ].map(({ n, f }) => (
-              <div key={n} className="flex items-center gap-2 text-[11.5px]">
-                <CheckCircle size={12} className="text-[#C8924A] flex-shrink-0" />
-                <span className="text-[#1A1A2E]">{n}</span>
-                <span className="tag tag-gray ml-auto">{f}</span>
-              </div>
-            ))}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-[13px] font-semibold text-[#1A1A2E]">Documents inclus dans le package</div>
+              <div className="mt-0.5 text-[10.5px] text-[#9CA3AF]">Sélectionnez uniquement les fichiers dont vous avez besoin</div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setSelectedDocuments(new Set(EXPORT_DOCUMENTS.map((document) => document.id)))} className="btn btn-sm border-[#E7D3B5] bg-[#FAF3E8] text-[#9A6528] hover:border-[#C8924A] hover:bg-[#F5E8D5]">Tout sélectionner</button>
+              <button onClick={() => setSelectedDocuments(new Set())} className="btn btn-sm border-[#D1D5DB] bg-[#F3F4F6] text-[#4B5563] hover:border-[#9CA3AF] hover:bg-[#E5E7EB]">Effacer</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {EXPORT_DOCUMENTS.map((document) => {
+              const selected = selectedDocuments.has(document.id);
+              const Icon = document.icon;
+              return (
+                <button
+                  key={document.id}
+                  type="button"
+                  onClick={() => toggleDocument(document.id)}
+                  className={`flex min-h-[68px] items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${
+                    selected
+                      ? "border-[rgba(200,146,74,0.45)] bg-[#FFF7ED]"
+                      : "border-[rgba(0,0,0,0.08)] bg-white hover:bg-[#FAFAF6]"
+                  }`}
+                >
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-[#C8924A] text-white" : "bg-[#F3F4F6] text-[#6B7280]"}`}>
+                    <Icon size={16} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11.5px] font-semibold text-[#1A1A2E]">{document.label}</span>
+                    <span className="mt-0.5 block text-[10.5px] text-[#9CA3AF]">{document.format}</span>
+                  </span>
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${selected ? "border-[#C8924A] bg-[#C8924A] text-white" : "border-[#D1D5DB]"}`}>
+                    {selected && <CheckCircle size={11} />}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -686,12 +718,12 @@ export default function ExportPage() {
             <div className="flex items-center gap-2 mb-2 text-[12.5px] text-[#1A1A2E]">
               <RefreshCw size={13} className="animate-spin text-[#C8924A]" />
               <span>{currentStep >= 0 ? STEPS[currentStep] : "Initialisation..."}</span>
-              <span className="text-[#6B7280] ml-auto">({Math.max(1, currentStep + 1)}/7)</span>
+              <span className="text-[#6B7280] ml-auto">({Math.max(1, progressPosition)}/{selectedDocuments.size})</span>
             </div>
             <div className="h-1.5 bg-[#F0EDE5] rounded-full overflow-hidden">
               <div
                 className="h-full bg-[#C8924A] rounded-full transition-all duration-500"
-                style={{ width: `${((currentStep + 1) / 7) * 100}%` }}
+                style={{ width: `${(Math.max(1, progressPosition) / selectedDocuments.size) * 100}%` }}
               />
             </div>
           </div>
@@ -724,8 +756,8 @@ export default function ExportPage() {
 
       {/* ── Export history ── */}
       {history.length > 0 && (
-        <div className="card p-5">
-          <div className="text-[13px] font-semibold text-[#1A1A2E] mb-3">Historique des exports</div>
+        <div className="mt-4 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
+          <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-[#1A1A2E]"><History size={14} className="text-[#C8924A]" /> Historique des exports</div>
           <div className="space-y-0">
             {history.map((item, i) => (
               <div key={i} className="flex items-center justify-between text-[12px] py-2 border-b border-[rgba(0,0,0,0.06)] last:border-0">

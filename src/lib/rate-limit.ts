@@ -2,11 +2,9 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 // Uses service role to bypass RLS on rate_limits table.
-// Falls back to anon key if service role key is not configured.
-const adminClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const adminClient = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null;
 
 export interface RateLimitOptions {
   maxAttempts: number;
@@ -33,6 +31,10 @@ export async function checkRateLimit(
   endpoint: string,
   opts: RateLimitOptions
 ): Promise<RateLimitResult> {
+  if (!adminClient) {
+    return { allowed: true, remaining: opts.maxAttempts, resetTime: Math.ceil(Date.now() / 1000) };
+  }
+
   const now = new Date();
   const windowStart = new Date(now.getTime() - opts.windowMs);
 
