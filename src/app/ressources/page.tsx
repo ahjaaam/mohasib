@@ -40,7 +40,7 @@ export default function RessourcesPage() {
       <section className="bg-[#0D1526] px-6 py-[60px]">
         <div className="mx-auto max-w-6xl">
           <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Ressources</p>
-          <h1 className="mt-4 max-w-3xl font-serif text-[38px] leading-tight text-white md:text-[52px]">
+          <h1 className="mt-4 max-w-3xl text-[38px] font-bold leading-tight text-white md:text-[52px]">
             Tout ce qu'il vous faut pour gerer votre comptabilite
           </h1>
           <p className="mt-4 max-w-2xl text-[15px] leading-7 text-white/60">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
+import { taxIncludedInAmount } from "@/lib/tax";
 import { Download, Package, CheckCircle, AlertCircle, RefreshCw, BookMarked, FileSpreadsheet, FileText, CalendarDays, History } from "lucide-react";
 
 function fmt(n: number) {
@@ -13,6 +14,8 @@ function fmtDate(d: string) {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
 }
+
+const expenseTax = taxIncludedInAmount;
 
 const now = new Date();
 
@@ -140,9 +143,9 @@ export default function ExportPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const [invRes, txRes] = await Promise.all([
-      supabase.from("invoices").select("total,tax_amount,status").eq("user_id", user.id)
+      supabase.from("invoices").select("total,tax_amount,status").eq("user_id", user.id).is("dossier_id", null)
         .gte("issue_date", period.start).lte("issue_date", period.end),
-      supabase.from("transactions").select("amount,type,category").eq("user_id", user.id)
+      supabase.from("transactions").select("amount,type,category,tax_rate,tax_amount").eq("user_id", user.id).is("dossier_id", null)
         .gte("date", period.start).lte("date", period.end),
     ]);
     const invoices = (invRes.data ?? []).filter((i: any) => i.status !== "draft" && i.status !== "cancelled");
@@ -153,7 +156,7 @@ export default function ExportPage() {
       expenseCount:   expenses.length,
       expenseTotal:   expenses.reduce((s: number, t: any) => s + Number(t.amount), 0),
       tvaCollected:   invoices.reduce((s: number, i: any) => s + Number(i.tax_amount), 0),
-      tvaDeductible:  expenses.reduce((s: number, t: any) => s + Number(t.amount) * 0.2, 0),
+      tvaDeductible:  expenses.reduce((s: number, t: any) => s + expenseTax(t), 0),
     });
     setLoadingStats(false);
   }
@@ -167,10 +170,10 @@ export default function ExportPage() {
 
       const [invRes, txRes] = await Promise.all([
         supabase.from("invoices").select("*, clients(id,name,ice,address)")
-          .eq("user_id", user.id).gte("issue_date", period.start).lte("issue_date", period.end)
+          .eq("user_id", user.id).is("dossier_id", null).gte("issue_date", period.start).lte("issue_date", period.end)
           .order("issue_date", { ascending: true }),
         supabase.from("transactions").select("*")
-          .eq("user_id", user.id).gte("date", period.start).lte("date", period.end)
+          .eq("user_id", user.id).is("dossier_id", null).gte("date", period.start).lte("date", period.end)
           .order("date", { ascending: true }),
       ]);
 
@@ -303,7 +306,7 @@ export default function ExportPage() {
           rows.push([cat.toUpperCase(), "", "", acc.num, "", "", ""]);
           let cHT = 0, cTVA = 0, cTTC = 0;
           for (const tx of group) {
-            const ttc = Number(tx.amount), tva = ttc * 0.2, ht = ttc - tva;
+            const ttc = Number(tx.amount), tva = expenseTax(tx), ht = ttc - tva;
             rows.push([fmtDate(tx.date), tx.description, cat, acc.num, ht, tva, ttc]);
             cHT += ht; cTVA += tva; cTTC += ttc;
           }
@@ -331,7 +334,7 @@ export default function ExportPage() {
         }
         for (const tx of expenses) {
           const acc = CATEGORY_ACCOUNTS[tx.category ?? ""] ?? CATEGORY_ACCOUNTS["default"];
-          const tva = Number(tx.amount) * 0.2, ht = Number(tx.amount) - tva;
+          const tva = expenseTax(tx), ht = Number(tx.amount) - tva;
           entries.push({ num: acc.num, name: acc.name,  date: tx.date, label: tx.description, debit: ht,              credit: 0 });
           entries.push({ num: "4456", name: "TVA déductible", date: tx.date, label: `TVA – ${tx.description}`, debit: tva, credit: 0 });
           entries.push({ num: "5141", name: "Banques",         date: tx.date, label: tx.description,            debit: 0,   credit: Number(tx.amount) });
@@ -380,7 +383,7 @@ export default function ExportPage() {
         }
         for (const tx of expenses) {
           const acc = CATEGORY_ACCOUNTS[tx.category ?? ""] ?? CATEGORY_ACCOUNTS["default"];
-          const tva = Number(tx.amount) * 0.2, ht = Number(tx.amount) - tva;
+          const tva = expenseTax(tx), ht = Number(tx.amount) - tva;
           add(acc.num, acc.name,     ht,              0);
           add("4456", "TVA déductible", tva,           0);
           add("5141", "Banques",        0,  Number(tx.amount));
@@ -419,8 +422,8 @@ export default function ExportPage() {
         }
         const tTVAcol  = invoices.reduce((s: number, i: any) => s + Number(i.tax_amount), 0);
         const tHTventes = invoices.reduce((s: number, i: any) => s + Number(i.total) - Number(i.tax_amount), 0);
-        const tTVAdéd  = expenses.reduce((s: number, t: any) => s + Number(t.amount) * 0.2, 0);
-        const tHTachats = expenses.reduce((s: number, t: any) => s + Number(t.amount) * 0.8, 0);
+        const tTVAdéd  = expenses.reduce((s: number, t: any) => s + expenseTax(t), 0);
+        const tHTachats = expenses.reduce((s: number, t: any) => s + Number(t.amount) - expenseTax(t), 0);
         const netTVA   = tTVAcol - tTVAdéd;
 
         doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(13, 21, 38);
@@ -472,7 +475,7 @@ export default function ExportPage() {
         const tTVAcol  = invoices.reduce((s: number, i: any) => s + Number(i.tax_amount), 0);
         const tRevHT   = tRevTTC - tTVAcol;
         const tExpTTC  = expenses.reduce((s: number, t: any) => s + Number(t.amount), 0);
-        const tTVAdéd  = expenses.reduce((s: number, t: any) => s + Number(t.amount) * 0.2, 0);
+        const tTVAdéd  = expenses.reduce((s: number, t: any) => s + expenseTax(t), 0);
         const tExpHT   = tExpTTC - tTVAdéd;
         const netHT    = tRevHT - tExpHT;
 

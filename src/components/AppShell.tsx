@@ -12,20 +12,22 @@ import {
   Settings, Receipt, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine,
   ChevronLeft, ChevronRight, GitMerge,
 } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import AccessRestricted from "@/components/AccessRestricted";
 
 const NAV_MAIN = [
-  { href: "/dashboard",    icon: LayoutDashboard, label: "Tableau de bord",    key: "dashboard" },
-  { href: "/inbox",        icon: Inbox,           label: "Boîte de réception", key: "inbox" },
-  { href: "/invoices",          icon: FileText,   label: "Factures",            key: "invoices" },
-  { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des paiements", key: "suivi-paiements" },
-  { href: "/clients",           icon: Users,      label: "Clients",             key: "clients" },
-  { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions" },
-  { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement" },
-  { href: "/saisie",       icon: PenLine,         label: "Saisie comptable",   key: "saisie" },
-  { href: "/tva",          icon: Receipt,         label: "Déclarations TVA",   key: "tva" },
-  { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie" },
-  { href: "/export",       icon: Download,        label: "Exports",            key: "export" },
-  { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive" },
+  { href: "/dashboard",    icon: LayoutDashboard, label: "Tableau de bord",    key: "dashboard", permission: "report:read" },
+  { href: "/inbox",        icon: Inbox,           label: "Boîte de réception", key: "inbox", permission: "document:read" },
+  { href: "/invoices",          icon: FileText,   label: "Factures",            key: "invoices", permission: "invoice:read" },
+  { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des paiements", key: "suivi-paiements", permission: "invoice:read" },
+  { href: "/clients",           icon: Users,      label: "Clients",             key: "clients", permission: "invoice:read" },
+  { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions", permission: "accounting:read" },
+  { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement", permission: "accounting:read" },
+  { href: "/saisie",       icon: PenLine,         label: "Saisie comptable",   key: "saisie", permission: "accounting:read" },
+  { href: "/tva",          icon: Receipt,         label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
+  { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie", permission: "bulletin_paie:read" },
+  { href: "/export",       icon: Download,        label: "Exports",            key: "export", permission: "report:export" },
+  { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive", permission: "document:read" },
 ];
 
 const NAV_SOON: typeof NAV_MAIN = [];
@@ -33,8 +35,8 @@ const NAV_SOON: typeof NAV_MAIN = [];
 const ALL_NAV = [
   ...NAV_MAIN,
   ...NAV_SOON,
-  { href: "/rapports", icon: BarChart2,     label: "Rapports",     key: "rapports", soon: true },
-  { href: "/settings", icon: Settings,      label: "Paramètres",   key: "settings" },
+  { href: "/rapports", icon: BarChart2,     label: "Rapports",     key: "rapports", soon: true, permission: "report:read" },
+  { href: "/settings", icon: Settings,      label: "Paramètres",   key: "settings", permission: "settings:update" },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -93,14 +95,27 @@ interface Props {
   userName?: string | null;
   userCompany?: string | null;
   isFiduciaire?: boolean;
+  permissions?: string[] | null;
+  roleLabel?: string | null;
+  accountState?: {
+    subscription_status?: string | null;
+    subscription_ends_at?: string | null;
+    trial_ends_at?: string | null;
+    is_suspended?: boolean | null;
+    suspended_reason?: string | null;
+  } | null;
 }
 
-export default function AppShell({ children, userEmail, userName, userCompany, isFiduciaire }: Props) {
+export default function AppShell({ children, userEmail, userName, userCompany, isFiduciaire, permissions = null, roleLabel, accountState }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const { can } = usePermissions(permissions);
+  const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
+  const currentNav = ALL_NAV.find(item => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const pageAllowed = allowed(currentNav?.permission);
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
@@ -131,6 +146,7 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
   };
 
   const pageTitle = PAGE_TITLES[pathname] ?? "Mohasib";
+  const trialDays = accountState?.trial_ends_at ? Math.ceil((new Date(accountState.trial_ends_at).getTime() - Date.now()) / 86400000) : null;
 
   const initials = userName
     ? userName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
@@ -159,7 +175,7 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {NAV_MAIN.map(({ href, icon: Icon, label }: any) => (
+        {NAV_MAIN.filter(item => allowed(item.permission)).map(({ href, icon: Icon, label }: any) => (
           <Link key={href} href={href} title={sidebarCollapsed ? label : undefined}
             className={`flex items-center py-[12px] text-[13px] transition-all border-r-2 ${
               sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
@@ -187,13 +203,13 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
       )}
 
       <div className="border-t border-white/[0.07] py-[7px]">
-        <Link href="/settings" title={sidebarCollapsed ? "Paramètres" : undefined}
+        {allowed("settings:update") && <Link href="/settings" title={sidebarCollapsed ? "Paramètres" : undefined}
           className={`flex items-center py-[7px] text-[13px] transition-all ${
             sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
           } ${pathname === "/settings" ? "text-[#C8924A]" : "text-white/40 hover:text-white/75"}`}>
           <Settings size={sidebarCollapsed ? 18 : 15} />
           {!sidebarCollapsed && "Paramètres"}
-        </Link>
+        </Link>}
       </div>
 
       <div className={`py-3 border-t border-white/[0.07] flex items-center ${sidebarCollapsed ? "justify-center px-0" : "px-[18px] gap-2.5"}`}>
@@ -206,6 +222,7 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
             <div className="min-w-0 flex-1">
               <div className="text-[12px] text-white/70 font-medium truncate">{userName || userEmail}</div>
               {userCompany && <div className="text-[10px] text-white/30 truncate">{userCompany}</div>}
+              {roleLabel && <div className="mt-1 text-[9px] font-semibold text-[#C8924A]">{roleLabel}</div>}
             </div>
             <button onClick={signOut} className="text-white/30 hover:text-red-400 transition-colors ml-1">
               <LogOut size={14} />
@@ -295,7 +312,11 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
 
           {/* Page content */}
           <main className="flex-1 overflow-hidden flex flex-col">
-            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[72px] md:pb-[18px]">{children}</div>
+            {accountState?.is_suspended && <div className="bg-red-700 px-4 py-2 text-center text-[11px] font-semibold text-white">Ce compte est suspendu. {accountState.suspended_reason || "Contactez le support Mohasib."}</div>}
+            {!accountState?.is_suspended && accountState?.subscription_status === "grace" && <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">Votre abonnement est arrivé à échéance. Renouvelez-le pour conserver toutes les fonctionnalités.</div>}
+            {!accountState?.is_suspended && accountState?.subscription_status === "expired" && <div className="bg-red-100 px-4 py-2 text-center text-[11px] font-semibold text-red-800">Votre abonnement a expiré. Les fonctionnalités premium sont en lecture seule.</div>}
+            {!accountState?.is_suspended && accountState?.subscription_status === "trial" && trialDays !== null && trialDays >= 0 && trialDays <= 3 && <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">Votre essai se termine dans {trialDays} jour{trialDays > 1 ? "s" : ""}.</div>}
+            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[72px] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted /> : pageAllowed ? children : <AccessRestricted />}</div>
           </main>
         </div>
 
@@ -309,25 +330,25 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
           }}
         >
           {/* Accueil */}
-          <Link href="/dashboard" className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+          {allowed("report:read") && <Link href="/dashboard" className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
             style={{ color: isActive("/dashboard") ? "#C8924A" : "rgba(255,255,255,0.45)" }}>
             <LayoutDashboard size={19} />
             <span style={{ fontSize: 10, fontWeight: 500 }}>Accueil</span>
-          </Link>
+          </Link>}
 
           {/* Factures */}
-          <Link href="/invoices" className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+          {allowed("invoice:read") && <Link href="/invoices" className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
             style={{ color: isActive("/invoices") ? "#C8924A" : "rgba(255,255,255,0.45)" }}>
             <FileText size={19} />
             <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
-          </Link>
+          </Link>}
 
           {/* Archive */}
-          <Link href="/archive" className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+          {allowed("document:read") && <Link href="/archive" className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
             style={{ color: isActive("/archive") ? "#C8924A" : "rgba(255,255,255,0.45)" }}>
             <Download size={19} />
             <span style={{ fontSize: 10, fontWeight: 500 }}>Archive</span>
-          </Link>
+          </Link>}
 
           {/* Menu */}
           <button
@@ -367,7 +388,7 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
 
               {/* Nav items */}
               <div className="overflow-y-auto">
-                {ALL_NAV.map(({ href, icon: Icon, label, soon }: any) => (
+                {ALL_NAV.filter(item => allowed(item.permission)).map(({ href, icon: Icon, label, soon }: any) => (
                   <Link
                     key={href}
                     href={href}

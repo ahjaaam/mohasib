@@ -12,6 +12,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const token = req.nextUrl.searchParams.get("token");
+    if (!token) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
     const body = await req.json().catch(() => ({}));
     const reason: string | null = body.reason ?? null;
 
@@ -19,6 +21,7 @@ export async function POST(
       .from("invoices")
       .select("id, invoice_type, devis_status")
       .eq("id", id)
+      .eq("devis_response_token", token)
       .single();
 
     if (fetchErr || !devis) {
@@ -35,7 +38,8 @@ export async function POST(
         devis_refused_at: new Date().toISOString(),
         ...(reason ? { devis_refused_reason: reason } : {}),
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("devis_response_token", token);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

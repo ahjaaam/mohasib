@@ -41,6 +41,7 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
     .eq("mois", mois)
     .eq("annee", annee);
   if (dossierId) q = q.eq("dossier_id", dossierId);
+  else q = q.is("dossier_id", null);
   const { data: bulletinRows } = await q;
   const bulletins = (bulletinRows ?? []).filter((b: any) => {
     const status = normalizeStatus(b.statut);
@@ -58,6 +59,7 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
       .select("id, nom, prenom, matricule, numero_cnss, cnss_number, statut")
       .in("id", employeeIds);
     if (dossierId) empQ = empQ.eq("dossier_id", dossierId);
+    else empQ = empQ.is("dossier_id", null);
     const { data } = await empQ;
     employeeRows = data ?? [];
   }
@@ -68,6 +70,7 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
     .eq("user_id", userId)
     .eq("statut", "actif");
   if (dossierId) activeEmployeesQ = activeEmployeesQ.eq("dossier_id", dossierId);
+  else activeEmployeesQ = activeEmployeesQ.is("dossier_id", null);
   const { data: activeEmployeeRows } = await activeEmployeesQ;
   const activeEmployees = activeEmployeeRows ?? [];
 
@@ -80,6 +83,7 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
       .eq("annee", annee)
       .in("employee_id", employeeIds);
     if (dossierId) hq = hq.eq("dossier_id", dossierId);
+    else hq = hq.is("dossier_id", null);
     const { data } = await hq;
     hoursRows = data ?? [];
   }

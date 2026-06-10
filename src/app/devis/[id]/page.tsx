@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { CheckCircle, XCircle, Loader2, FileText } from "lucide-react";
 
 interface DevisData {
@@ -30,6 +30,7 @@ function fmtDate(d: string) {
 
 export default function PublicDevisPage() {
   const { id } = useParams<{ id: string }>();
+  const token = useSearchParams().get("token") ?? "";
   const [data, setData] = useState<DevisData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -38,16 +39,16 @@ export default function PublicDevisPage() {
   const [showRefuseForm, setShowRefuseForm] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/devis/${id}/public`)
+    fetch(`/api/devis/${id}/public?token=${encodeURIComponent(token)}`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(setData)
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, token]);
 
   async function accept() {
     setAction("accepting");
-    const res = await fetch(`/api/devis/${id}/accept`, { method: "POST" });
+    const res = await fetch(`/api/devis/${id}/accept?token=${encodeURIComponent(token)}`, { method: "POST" });
     if (res.ok) {
       setAction("done_accept");
       setData(d => d ? { ...d, devis_status: "accepté" } : d);
@@ -58,7 +59,7 @@ export default function PublicDevisPage() {
 
   async function refuse() {
     setAction("refusing");
-    const res = await fetch(`/api/devis/${id}/refuse`, {
+    const res = await fetch(`/api/devis/${id}/refuse?token=${encodeURIComponent(token)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason: refuseReason || null }),
@@ -111,7 +112,7 @@ export default function PublicDevisPage() {
             )}
           </div>
           <a
-            href={`/f/${id}`}
+            href={`/f/${id}?token=${encodeURIComponent(token)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[12px] text-[#C8924A] hover:underline flex items-center gap-1"

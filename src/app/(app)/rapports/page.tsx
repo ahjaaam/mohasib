@@ -54,9 +54,11 @@ export default function RapportsPage() {
     const [invRes, txRes] = await Promise.all([
       supabase.from("invoices").select("*, clients(id,name)")
         .eq("user_id", user.id)
+        .is("dossier_id", null)
         .gte("issue_date", start).lte("issue_date", end),
       supabase.from("transactions").select("*")
         .eq("user_id", user.id)
+        .is("dossier_id", null)
         .gte("date", start).lte("date", end),
     ]);
 

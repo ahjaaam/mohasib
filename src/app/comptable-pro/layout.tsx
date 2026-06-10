@@ -1,6 +1,7 @@
 import FiduciaireShell from "@/components/FiduciaireShell";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { getUserAccessProfile } from "@/lib/team";
 
 export default async function FiduciaireLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -8,9 +9,10 @@ export default async function FiduciaireLayout({ children }: { children: React.R
 
   if (!user) redirect("/connexion");
 
-  const [profileRes, cabinetRes] = await Promise.all([
+  const [profileRes, cabinetRes, access] = await Promise.all([
     supabase.from("users").select("full_name, company").eq("id", user.id).single(),
     supabase.from("cabinets").select("nom_cabinet").eq("user_id", user.id).single(),
+    getUserAccessProfile(user.id),
   ]);
 
   const cabinetName = cabinetRes.data?.nom_cabinet || profileRes.data?.company || null;
@@ -20,6 +22,8 @@ export default async function FiduciaireLayout({ children }: { children: React.R
       userName={profileRes.data?.full_name}
       userEmail={user.email}
       cabinetName={cabinetName}
+      permissions={access.permissions}
+      roleLabel={access.roleLabel}
     >
       {children}
     </FiduciaireShell>

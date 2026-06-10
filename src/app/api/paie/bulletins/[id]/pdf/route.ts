@@ -34,7 +34,7 @@ function monthsBetween(start?: string | null, end = new Date()) {
   return `${years} an(s) ${months} mois`;
 }
 
-function drawInfoGrid(doc: jsPDF, x: number, y: number, w: number, rows: string[][], colors: any) {
+function drawInfoGrid(doc: jsPDF, x: number, y: number, w: number, rows: string[][], colors: Record<string, [number, number, number]>) {
   const rowH = 8;
   const labelW = 25;
   const valueW = w / 2 - labelW;

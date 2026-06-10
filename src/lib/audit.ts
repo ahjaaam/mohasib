@@ -48,14 +48,13 @@ export async function checkPeriodLocked(
     .from("accounting_periods")
     .select("is_locked, lock_reason")
     .eq("mois", mois)
-    .eq("annee", annee)
-    .maybeSingle();
+    .eq("annee", annee);
 
   if (dossierId) query = query.eq("dossier_id", dossierId).is("company_id", null);
   else if (companyId) query = query.eq("company_id", companyId).is("dossier_id", null);
   else return { locked: false };
 
-  const { data } = await query;
+  const { data } = await query.maybeSingle();
   return {
     locked: !!data?.is_locked,
     reason: data?.lock_reason ?? undefined,

@@ -48,7 +48,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     const query = supabase.from("transactions").select("*, clients(id, name)");
     const { data } = await (dossierId
       ? query.eq("dossier_id", dossierId)
-      : query.eq("user_id", user.id))
+      : query.eq("user_id", user.id).is("dossier_id", null))
       .order("date", { ascending: false });
     setTransactions(data ?? []);
     setLoading(false);

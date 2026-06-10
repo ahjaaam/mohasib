@@ -35,14 +35,17 @@ export async function POST(req: NextRequest) {
       }));
     }
 
-    if (!bankLines.length && companyId) {
-      const { data: txs } = await supabase
+    if (!bankLines.length) {
+      let transactionQuery = supabase
         .from("transactions")
         .select("id, date, description, amount")
-        .eq("user_id", user.id)
         .gte("date", periodeDebut)
         .lte("date", periodeFin)
         .order("date", { ascending: true });
+      transactionQuery = dossierId
+        ? transactionQuery.eq("dossier_id", dossierId)
+        : transactionQuery.eq("user_id", user.id).is("dossier_id", null);
+      const { data: txs } = await transactionQuery;
       bankLines = (txs ?? []).map((tx: any) => ({
         id: tx.id,
         date: tx.date,
@@ -51,22 +54,20 @@ export async function POST(req: NextRequest) {
       }));
     }
 
-    const ecritureQuery = supabase
-      .from("ecritures_comptables")
-      .select("id, date_ecriture, compte, libelle, debit, credit, source_id, source_type")
-      .eq("compte", "5141")
-      .gte("date_ecriture", periodeDebut)
-      .lte("date_ecriture", periodeFin)
-      .order("date_ecriture", { ascending: true });
-
     const { data: ecrituresRaw } = dossierId
-      ? await ecritureQuery.eq("dossier_id", dossierId)
-      : await ecritureQuery.eq("company_id", companyId);
+      ? await supabase.from("dossier_ecritures")
+          .select("id, date, compte_cgnc, libelle, debit, credit")
+          .eq("dossier_id", dossierId).eq("compte_cgnc", "5141")
+          .gte("date", periodeDebut).lte("date", periodeFin).order("date")
+      : await supabase.from("ecritures_comptables")
+          .select("id, date_ecriture, compte, libelle, debit, credit, source_id, source_type")
+          .eq("company_id", companyId).eq("compte", "5141")
+          .gte("date_ecriture", periodeDebut).lte("date_ecriture", periodeFin).order("date_ecriture");
 
     const ecritures: Ecriture[] = (ecrituresRaw ?? []).map((entry: any) => ({
       id: entry.id,
-      date_ecriture: entry.date_ecriture,
-      compte: entry.compte,
+      date_ecriture: entry.date_ecriture ?? entry.date,
+      compte: entry.compte ?? entry.compte_cgnc,
       libelle: entry.libelle,
       debit: Number(entry.debit ?? 0),
       credit: Number(entry.credit ?? 0),
@@ -74,7 +75,14 @@ export async function POST(req: NextRequest) {
       invoice_id: entry.source_type === "invoice" ? entry.source_id : null,
     }));
 
-    const soldeInitialComptable = ecritures.reduce((sum, entry) => sum + Number(entry.debit ?? 0) - Number(entry.credit ?? 0), 0);
+    const { data: openingRows } = dossierId
+      ? await supabase.from("dossier_ecritures").select("debit,credit")
+          .eq("dossier_id", dossierId).eq("compte_cgnc", "5141").lt("date", periodeDebut)
+      : await supabase.from("ecritures_comptables").select("debit,credit")
+          .eq("company_id", companyId).eq("compte", "5141").lt("date_ecriture", periodeDebut);
+    const soldeInitialComptable = (openingRows ?? []).reduce(
+      (sum: number, entry: any) => sum + Number(entry.debit ?? 0) - Number(entry.credit ?? 0), 0
+    );
 
     const { data: session, error: sessionError } = await supabase
       .from("rapprochement_sessions")
@@ -105,7 +113,8 @@ export async function POST(req: NextRequest) {
         bank_description: match.bankLine.description,
         bank_amount: match.bankLine.amount,
         bank_reference: match.bankLine.reference ?? null,
-        ecriture_id: match.ecriture?.id ?? null,
+        ecriture_id: dossierId ? null : match.ecriture?.id ?? null,
+        dossier_ecriture_id: dossierId ? match.ecriture?.id ?? null : null,
         transaction_id: match.ecriture?.transaction_id ?? null,
         invoice_id: match.ecriture?.invoice_id ?? null,
         statut: match.method === "auto" ? "rapproché" : match.method === "suggestion" ? "en_attente" : "non_rapproché",

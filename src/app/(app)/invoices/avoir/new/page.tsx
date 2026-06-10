@@ -11,6 +11,7 @@ export default async function NewAvoirClientPage() {
     .from("clients")
     .select("id, name, email")
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .order("name");
 
   const clients: Pick<Client, "id" | "name" | "email">[] = clientsData ?? [];
@@ -21,6 +22,7 @@ export default async function NewAvoirClientPage() {
     .from("invoices")
     .select("invoice_number")
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .eq("invoice_type", "avoir_client")
     .ilike("invoice_number", `AV-${year}-%`)
     .order("created_at", { ascending: false })
@@ -36,6 +38,7 @@ export default async function NewAvoirClientPage() {
     .from("invoices")
     .select("id, invoice_number, issue_date")
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .eq("invoice_type", "facture")
     .in("status", ["sent", "paid", "overdue", "partiellement_payee"])
     .order("issue_date", { ascending: false })

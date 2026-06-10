@@ -7,16 +7,19 @@ const supabase = createClient(
 );
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const token = req.nextUrl.searchParams.get("token");
+    if (!token) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
 
     const { data: devis, error: fetchErr } = await supabase
       .from("invoices")
       .select("id, invoice_type, devis_status")
       .eq("id", id)
+      .eq("devis_response_token", token)
       .single();
 
     if (fetchErr || !devis) {
@@ -35,7 +38,8 @@ export async function POST(
         devis_status: "accepté",
         devis_accepted_at: new Date().toISOString(),
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("devis_response_token", token);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

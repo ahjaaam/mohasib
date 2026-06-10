@@ -11,6 +11,7 @@ export default async function NewDevisPage() {
     .from("clients")
     .select("id, name, email")
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .order("name");
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];
@@ -19,6 +20,7 @@ export default async function NewDevisPage() {
     .from("invoices")
     .select("invoice_number")
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .eq("invoice_type", "devis")
     .order("created_at", { ascending: false })
     .limit(1);

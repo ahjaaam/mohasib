@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { bookSalesInvoice, bookPurchaseInvoice, bookBankTransaction, bookAvoirClient } from "@/lib/accounting-engine";
 import { autoLettrage } from "@/lib/lettrage";
+import { authorizePermission } from "@/lib/api-permissions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,10 +15,22 @@ export async function POST(req: NextRequest) {
       type: "invoice" | "bank" | "purchase";
       dossierId?: string;
     };
+    const permission = await authorizePermission("accounting", "create", { dossierId });
+    if (permission.response) return permission.response;
 
     // Resolve company_id when not in dossier context
     let companyId: string | null = null;
-    if (!dossierId) {
+    if (dossierId) {
+      const { data: dossier } = await supabase
+        .from("dossiers")
+        .select("id")
+        .eq("id", dossierId)
+        .eq("fiduciaire_user_id", user.id)
+        .single();
+      if (!dossier) {
+        return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
+      }
+    } else {
       const { data: co } = await supabase
         .from("companies")
         .select("id")
@@ -32,11 +45,12 @@ export async function POST(req: NextRequest) {
     // ── Invoice booking ────────────────────────────────────────────────────────
     if (type === "invoice") {
       const { invoiceId } = body as { invoiceId: string };
-      const { data: inv } = await supabase
+      let invoiceQuery = supabase
         .from("invoices")
         .select("id, invoice_number, issue_date, total, subtotal, tax_amount, tax_rate, items, clients(name)")
-        .eq("id", invoiceId)
-        .single();
+        .eq("id", invoiceId);
+      invoiceQuery = dossierId ? invoiceQuery.eq("dossier_id", dossierId) : invoiceQuery.is("dossier_id", null);
+      const { data: inv } = await invoiceQuery.single();
 
       if (!inv) return NextResponse.json({ error: "Facture introuvable" }, { status: 404 });
 
@@ -62,10 +76,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "transactionIds requis" }, { status: 400 });
       }
 
-      const { data: txs } = await supabase
+      let transactionsQuery = supabase
         .from("transactions")
         .select("id, date, description, amount, type, category, invoice_id")
         .in("id", transactionIds);
+      transactionsQuery = dossierId ? transactionsQuery.eq("dossier_id", dossierId) : transactionsQuery.is("dossier_id", null);
+      const { data: txs } = await transactionsQuery;
 
       for (const tx of (txs ?? [])) {
         const signed = tx.type === "income" ? Number(tx.amount) : -Number(tx.amount);
@@ -86,11 +102,12 @@ export async function POST(req: NextRequest) {
     // ── Purchase booking ──────────────────────────────────────────────────────
     if (type === "purchase") {
       const { receiptId } = body as { receiptId: string };
-      const { data: receipt } = await supabase
+      let receiptQuery = supabase
         .from("receipts")
         .select("id, ocr_data, created_at")
-        .eq("id", receiptId)
-        .single();
+        .eq("id", receiptId);
+      receiptQuery = dossierId ? receiptQuery.eq("dossier_id", dossierId) : receiptQuery.is("dossier_id", null);
+      const { data: receipt } = await receiptQuery.single();
 
       if (!receipt) return NextResponse.json({ error: "Reçu introuvable" }, { status: 404 });
 
@@ -119,11 +136,12 @@ export async function POST(req: NextRequest) {
     // ── Avoir client booking ──────────────────────────────────────────────────
     if (type === "avoir") {
       const { invoiceId } = body as { invoiceId: string };
-      const { data: inv } = await supabase
+      let avoirQuery = supabase
         .from("invoices")
         .select("id, invoice_number, issue_date, total, subtotal, tax_amount, tax_rate, items, clients(name)")
-        .eq("id", invoiceId)
-        .single();
+        .eq("id", invoiceId);
+      avoirQuery = dossierId ? avoirQuery.eq("dossier_id", dossierId) : avoirQuery.is("dossier_id", null);
+      const { data: inv } = await avoirQuery.single();
 
       if (!inv) return NextResponse.json({ error: "Avoir introuvable" }, { status: 404 });
 

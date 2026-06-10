@@ -15,6 +15,7 @@ export default async function SuiviPaiementsPage() {
       .from("invoices")
       .select("*, clients(id, name, email, phone, whatsapp)")
       .eq("user_id", user!.id)
+      .is("dossier_id", null)
       .eq("invoice_type", "facture")
       .neq("status", "draft")
       .neq("status", "cancelled")
@@ -23,6 +24,7 @@ export default async function SuiviPaiementsPage() {
       .from("receipts")
       .select("*")
       .eq("user_id", user!.id)
+      .is("dossier_id", null)
       .eq("status", "matched"),
   ]);
 

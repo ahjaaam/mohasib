@@ -206,7 +206,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
       .select(`*, invoices(id, total, status, issue_date, due_date, updated_at)`);
     const { data } = await (dossierId
       ? query.eq("dossier_id", dossierId)
-      : query.eq("user_id", user.id))
+      : query.eq("user_id", user.id).is("dossier_id", null))
       .order("name");
 
     const rows: ClientWithStats[] = (data ?? []).map((c: any) => {

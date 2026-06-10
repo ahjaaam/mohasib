@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recomputeRapprochementSession } from "@/lib/rapprochement-api";
+import { authorizePermission } from "@/lib/api-permissions";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
   try {
@@ -9,18 +10,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const permission = await authorizePermission("accounting", "create");
+    if (permission.response) return permission.response;
     if (!bankLineId || !ecritureId) return NextResponse.json({ error: "bankLineId and ecritureId required" }, { status: 400 });
 
-    const { data: ecriture } = await supabase
-      .from("ecritures_comptables")
-      .select("id, source_id, source_type")
-      .eq("id", ecritureId)
-      .single();
+    const { data: session } = await supabase.from("rapprochement_sessions").select("dossier_id").eq("id", sessionId).single();
+    const { data: ecritureResult } = session?.dossier_id
+      ? await supabase.from("dossier_ecritures").select("id").eq("id", ecritureId).eq("dossier_id", session.dossier_id).single()
+      : await supabase.from("ecritures_comptables").select("id, source_id, source_type").eq("id", ecritureId).single();
+    const ecriture: any = ecritureResult;
+    if (!ecriture) return NextResponse.json({ error: "Écriture introuvable" }, { status: 404 });
 
     const { error } = await supabase
       .from("rapprochement_lignes")
       .update({
-        ecriture_id: ecritureId,
+        ecriture_id: session?.dossier_id ? null : ecritureId,
+        dossier_ecriture_id: session?.dossier_id ? ecritureId : null,
         transaction_id: ecriture?.source_type === "bank" ? ecriture.source_id : null,
         invoice_id: ecriture?.source_type === "invoice" ? ecriture.source_id : null,
         statut: "rapproché",

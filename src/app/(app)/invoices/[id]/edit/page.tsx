@@ -17,6 +17,7 @@ export default async function EditInvoicePage({
     .select("*")
     .eq("id", id)
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .single();
 
   if (!inv) notFound();
@@ -26,6 +27,7 @@ export default async function EditInvoicePage({
     .from("clients")
     .select("id, name, email")
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .order("name");
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];

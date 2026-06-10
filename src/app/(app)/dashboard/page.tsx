@@ -50,15 +50,15 @@ export default async function DashboardPage() {
   const companyId = companyRes.data?.id ?? null;
 
   const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes] = await Promise.all([
-    supabase.from("invoices").select("*, clients(id,name)").eq("user_id", user!.id)
+    supabase.from("invoices").select("*, clients(id,name)").eq("user_id", user!.id).is("dossier_id", null)
       .order("created_at", { ascending: false }).limit(5),
-    supabase.from("transactions").select("*").eq("user_id", user!.id)
+    supabase.from("transactions").select("*").eq("user_id", user!.id).is("dossier_id", null)
       .order("date", { ascending: false }).limit(6),
-    supabase.from("clients").select("id", { count: "exact" }).eq("user_id", user!.id),
+    supabase.from("clients").select("id", { count: "exact" }).eq("user_id", user!.id).is("dossier_id", null),
     supabase.from("users").select("full_name").eq("id", user!.id).single(),
-    supabase.from("invoices").select("total, status, due_date, montant_recu").eq("user_id", user!.id).in("status", ["sent", "overdue"]),
-    supabase.from("invoices").select("tax_amount").eq("user_id", user!.id).in("status", ["paid", "sent"]),
-    supabase.from("receipts").select("id, status, ocr_data").eq("user_id", user!.id).eq("status", "matched"),
+    supabase.from("invoices").select("total, status, due_date, montant_recu").eq("user_id", user!.id).is("dossier_id", null).in("status", ["sent", "overdue"]),
+    supabase.from("invoices").select("tax_amount").eq("user_id", user!.id).is("dossier_id", null).in("status", ["paid", "sent"]),
+    supabase.from("receipts").select("id, status, ocr_data").eq("user_id", user!.id).is("dossier_id", null).eq("status", "matched"),
   ]);
 
   const usageData = companyId ? await getMonthlyUsage(companyId) : null;

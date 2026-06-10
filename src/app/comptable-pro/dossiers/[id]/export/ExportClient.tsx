@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
+import { taxIncludedInAmount } from "@/lib/tax";
 import {
   AlertCircle, BookMarked, CalendarDays, CheckCircle, Download,
   FileSpreadsheet, FileText, History, Package, RefreshCw,
@@ -30,6 +31,7 @@ function fmt(value: number) {
 function fmtDate(date: string) {
   return new Date(`${date}T00:00:00`).toLocaleDateString("fr-FR");
 }
+const expenseTax = taxIncludedInAmount;
 function quarterRange(quarter: number, year: number) {
   const month = (quarter - 1) * 3;
   const end = new Date(year, month + 3, 0);
@@ -91,7 +93,7 @@ export default function ExportClient({ dossier }: Props) {
     setLoadingStats(true);
     const [invoiceResult, transactionResult] = await Promise.all([
       supabase.from("invoices").select("total,tax_amount,status").eq("dossier_id", dossier.id).gte("issue_date", period.start).lte("issue_date", period.end),
-      supabase.from("transactions").select("amount,type").eq("dossier_id", dossier.id).gte("date", period.start).lte("date", period.end),
+      supabase.from("transactions").select("amount,type,tax_rate,tax_amount").eq("dossier_id", dossier.id).gte("date", period.start).lte("date", period.end),
     ]);
     const invoices = (invoiceResult.data ?? []).filter((invoice: any) => !["draft", "cancelled"].includes(invoice.status));
     const expenses = (transactionResult.data ?? []).filter((transaction: any) => transaction.type === "expense");
@@ -101,7 +103,7 @@ export default function ExportClient({ dossier }: Props) {
       expenseCount: expenses.length,
       expenseTotal: expenses.reduce((sum: number, expense: any) => sum + Number(expense.amount || 0), 0),
       tvaCollected: invoices.reduce((sum: number, invoice: any) => sum + Number(invoice.tax_amount || 0), 0),
-      tvaDeductible: expenses.reduce((sum: number, expense: any) => sum + Number(expense.amount || 0) * 0.2, 0),
+      tvaDeductible: expenses.reduce((sum: number, expense: any) => sum + expenseTax(expense), 0),
     });
     setLoadingStats(false);
   }
@@ -155,8 +157,8 @@ export default function ExportClient({ dossier }: Props) {
         Number(invoice.total || 0) - Number(invoice.tax_amount || 0), Number(invoice.tax_amount || 0), Number(invoice.total || 0), invoice.status,
       ]);
       const purchaseRows = expenses.map((expense: any) => [
-        fmtDate(expense.date), expense.description, expense.category ?? "Autres", Number(expense.amount || 0) * 0.8,
-        Number(expense.amount || 0) * 0.2, Number(expense.amount || 0),
+        fmtDate(expense.date), expense.description, expense.category ?? "Autres", Number(expense.amount || 0) - expenseTax(expense),
+        expenseTax(expense), Number(expense.amount || 0),
       ]);
 
       if (selected.has("sales-xlsx")) {
@@ -178,7 +180,7 @@ export default function ExportClient({ dossier }: Props) {
       }
 
       const accountingRows = entries.map((entry: any) => [
-        fmtDate(entry.date), entry.journal ?? "", entry.numero_compte ?? entry.compte ?? "", entry.libelle ?? entry.description ?? "",
+        fmtDate(entry.date), entry.journal ?? "", entry.compte_cgnc ?? entry.numero_compte ?? entry.compte ?? "", entry.libelle ?? entry.description ?? "",
         Number(entry.debit || 0), Number(entry.credit || 0),
       ]);
       if (selected.has("ledger-xlsx")) {
@@ -199,7 +201,7 @@ export default function ExportClient({ dossier }: Props) {
       }
 
       const tvaCollected = invoices.reduce((sum: number, invoice: any) => sum + Number(invoice.tax_amount || 0), 0);
-      const tvaDeductible = expenses.reduce((sum: number, expense: any) => sum + Number(expense.amount || 0) * 0.2, 0);
+      const tvaDeductible = expenses.reduce((sum: number, expense: any) => sum + expenseTax(expense), 0);
       if (selected.has("tva-pdf")) {
         setProgress("Récapitulatif TVA (PDF)");
         const pdf = new jsPDF(); addHeader(pdf, "RÉCAPITULATIF TVA");

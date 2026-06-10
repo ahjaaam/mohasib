@@ -44,6 +44,18 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
     }
   }
 
+  async function requestUpgrade() {
+    if (!companyId) return toast.error("Entreprise introuvable");
+    const { error } = await supabase.from("upgrade_requests").insert({
+      company_id: companyId,
+      requested_plan: "business_pro",
+      requested_period: "monthly",
+      status: "nouveau",
+    });
+    if (error) return toast.error("Demande impossible");
+    toast.success("Votre demande a été envoyée");
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* Current Plan */}
@@ -98,7 +110,7 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
         </div>
 
         <div className="flex items-center gap-3 mt-4 flex-wrap">
-          <button className="btn btn-outline">Gérer mon abonnement</button>
+          <button onClick={requestUpgrade} className="btn btn-outline">Demander Business Pro</button>
           <button onClick={() => setShowCancelModal(true)} className="text-[12px] text-[#DC2626] hover:underline cursor-pointer">
             Annuler mon abonnement
           </button>

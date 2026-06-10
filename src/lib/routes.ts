@@ -4,6 +4,7 @@ export const ROUTES = {
   RESSOURCES: "/ressources",
   CONNEXION: "/connexion",
   INSCRIPTION: "/inscription",
+  INVITATION: (token: string) => `/invitations/${token}`,
   AUTH_CALLBACK: "/auth/callback",
   DASHBOARD: "/tableau-de-bord",
   FACTURES: "/factures",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recomputeRapprochementSession } from "@/lib/rapprochement-api";
+import { authorizePermission } from "@/lib/api-permissions";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
   try {
@@ -9,6 +10,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const permission = await authorizePermission("accounting", "create");
+    if (permission.response) return permission.response;
     if (!bankLineId) return NextResponse.json({ error: "bankLineId required" }, { status: 400 });
 
     const { error } = await supabase

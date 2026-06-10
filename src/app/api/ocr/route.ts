@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 import { extractWithFallback } from "@/lib/ocr-engine";
+import { authorizePermission } from "@/lib/api-permissions";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permission = await authorizePermission("document", "create");
+  if (permission.response) return permission.response;
 
   const { data: company } = await supabase.from("companies").select("id").eq("user_id", user.id).single();
   if (company) {

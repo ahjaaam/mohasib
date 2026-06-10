@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { authorizePermission } from "@/lib/api-permissions";
 
 interface ImportLine {
   date: string;
@@ -26,6 +27,8 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const permission = await authorizePermission("accounting", "create");
+    if (permission.response) return permission.response;
 
     const body: ImportBody = await req.json();
 

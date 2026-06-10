@@ -4,6 +4,7 @@ import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
 import { Resend } from "resend";
 import sizeOf from "image-size";
 import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
+import { authorizePermission } from "@/lib/api-permissions";
 
 const EMAIL_LIMIT = 10;
 const EMAIL_OPTS = { maxAttempts: EMAIL_LIMIT, windowMs: 60 * 60_000, blockMs: 60 * 60_000 };
@@ -32,6 +33,8 @@ export async function POST(
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const permission = await authorizePermission("invoice", "send");
+    if (permission.response) return permission.response;
 
     const { data: inv, error: invErr } = await supabase
       .from("invoices")

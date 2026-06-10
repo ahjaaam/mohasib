@@ -41,7 +41,7 @@ export async function getRapprochementContext(companyId?: string | null, dossier
 export async function recomputeRapprochementSession(supabase: any, sessionId: string) {
   const { data: session } = await supabase
     .from("rapprochement_sessions")
-    .select("id, solde_final_banque")
+    .select("id, solde_initial_comptable, solde_final_banque")
     .eq("id", sessionId)
     .single();
   if (!session) return null;
@@ -53,19 +53,27 @@ export async function recomputeRapprochementSession(supabase: any, sessionId: st
 
   const { data: matched } = await supabase
     .from("rapprochement_lignes")
-    .select("ecriture_id")
+    .select("ecriture_id,dossier_ecriture_id")
     .eq("session_id", sessionId)
     .eq("statut", "rapproché")
-    .not("ecriture_id", "is", null);
+    .or("ecriture_id.not.is.null,dossier_ecriture_id.not.is.null");
 
   const ecritureIds = [...new Set((matched ?? []).map((item: any) => item.ecriture_id).filter(Boolean))];
-  let soldeComptable = 0;
+  let soldeComptable = Number(session.solde_initial_comptable ?? 0);
   if (ecritureIds.length) {
     const { data: ecritures } = await supabase
       .from("ecritures_comptables")
       .select("debit, credit")
       .in("id", ecritureIds);
-    soldeComptable = (ecritures ?? []).reduce((sum: number, item: any) => sum + Number(item.debit ?? 0) - Number(item.credit ?? 0), 0);
+    soldeComptable += (ecritures ?? []).reduce((sum: number, item: any) => sum + Number(item.debit ?? 0) - Number(item.credit ?? 0), 0);
+  }
+  const dossierEcritureIds = [...new Set((matched ?? []).map((item: any) => item.dossier_ecriture_id).filter(Boolean))];
+  if (dossierEcritureIds.length) {
+    const { data: dossierEcritures } = await supabase
+      .from("dossier_ecritures")
+      .select("debit, credit")
+      .in("id", dossierEcritureIds);
+    soldeComptable += (dossierEcritures ?? []).reduce((sum: number, item: any) => sum + Number(item.debit ?? 0) - Number(item.credit ?? 0), 0);
   }
 
   const ecart = Number(session.solde_final_banque ?? 0) - soldeComptable;

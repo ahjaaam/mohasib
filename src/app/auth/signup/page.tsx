@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
 import Link from "next/link";
@@ -17,7 +17,22 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("invitation");
+    if (!token) return;
+    setInvitationToken(token);
+    fetch(`/api/invitations/${token}`)
+      .then(response => response.json())
+      .then(data => {
+        if (!data.email) return;
+        setUserType(data.track === "comptable" ? "fiduciaire" : "entrepreneur");
+        setForm(current => ({ ...current, email: data.email, company: "" }));
+        setStep(2);
+      });
+  }, []);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +47,7 @@ export default function SignupPage() {
           full_name: form.full_name,
           company: form.company,
           user_type: userType,
+          invitation_token: invitationToken,
         },
       },
     });
@@ -139,12 +155,12 @@ export default function SignupPage() {
             <Image src="/logo2.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain", height: "auto" }} />
           </div>
 
-          <button
+          {!invitationToken && <button
             onClick={() => setStep(1)}
             className="flex items-center gap-1.5 text-[12px] text-[#6B7280] hover:text-[#1A1A2E] mb-5 transition-colors"
           >
             ← {userType === "fiduciaire" ? "Comptable Pro" : "Entrepreneur / freelance"}
-          </button>
+          </button>}
 
           <h1 className="text-2xl font-bold text-navy mb-1">Créer un compte</h1>
           <p className="text-sm text-gray-500 mb-7">
@@ -153,12 +169,12 @@ export default function SignupPage() {
           </p>
 
           <form onSubmit={handleSignup} className="space-y-4">
-            <div>
+            {!invitationToken && <div>
               <label className="label">Nom complet</label>
               <input className="input" placeholder="Prénom Nom" required
                 value={form.full_name}
                 onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
-            </div>
+            </div>}
             <div>
               <label className="label">
                 {userType === "fiduciaire" ? "Nom du cabinet" : "Entreprise"}
@@ -170,7 +186,7 @@ export default function SignupPage() {
             </div>
             <div>
               <label className="label">Adresse e-mail</label>
-              <input type="email" className="input" placeholder="vous@exemple.ma" required
+              <input type="email" className="input" placeholder="vous@exemple.ma" required readOnly={!!invitationToken}
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>

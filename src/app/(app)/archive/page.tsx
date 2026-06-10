@@ -372,15 +372,14 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const scopeQuery = <T,>(query: T & { eq: (column: string, value: string) => T; is: (column: string, value: null) => T }) =>
-      dossierId ? query.eq("dossier_id", dossierId) : query.is("dossier_id", null);
-
     const [recRes, cdRes] = await Promise.all([
-      scopeQuery(
-        supabase.from("receipts").select("*").eq("user_id", user.id)
+      (dossierId
+        ? supabase.from("receipts").select("*").eq("user_id", user.id).eq("dossier_id", dossierId)
+        : supabase.from("receipts").select("*").eq("user_id", user.id).is("dossier_id", null)
       ).order("created_at", { ascending: false }),
-      scopeQuery(
-        supabase.from("company_documents").select("*").eq("user_id", user.id)
+      (dossierId
+        ? supabase.from("company_documents").select("*").eq("user_id", user.id).eq("dossier_id", dossierId)
+        : supabase.from("company_documents").select("*").eq("user_id", user.id).is("dossier_id", null)
       ).order("created_at", { ascending: false }),
     ]);
 

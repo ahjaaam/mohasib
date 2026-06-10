@@ -57,7 +57,7 @@ export default async function BlogPage() {
         <div className="mx-auto max-w-6xl">
           <Link href="/ressources" className="text-[12px] font-semibold text-[#C8924A]">← Ressources</Link>
           <p className="mt-6 text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Blog Mohasib</p>
-          <h1 className="mt-4 font-serif text-[38px] leading-tight text-white md:text-[52px]">
+          <h1 className="mt-4 text-[38px] font-bold leading-tight text-white md:text-[52px]">
             Comptabilite & Entrepreneuriat
           </h1>
           <p className="mt-4 text-[15px] leading-7 text-white/60">

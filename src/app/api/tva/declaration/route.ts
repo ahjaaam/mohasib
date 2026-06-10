@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
+import { authorizePermission } from "@/lib/api-permissions";
 
 function safeFilenamePart(value: string) {
   return value
@@ -58,6 +61,16 @@ function buildPdfPayload(body: any) {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const permission = await authorizePermission("tva_declaration", "read");
+    if (permission.response) return permission.response;
+    const limit = await checkRateLimit(getClientIp(req), `tva-pdf:${user.id}`, {
+      maxAttempts: 20, windowMs: 60_000, blockMs: 5 * 60_000,
+    });
+    if (!limit.allowed) return tooManyRequests(limit, 20, "Trop de générations PDF. Réessayez plus tard.");
+
     const serviceUrl = process.env.PDF_SERVICE_URL;
     const secret = process.env.PDF_SECRET;
 

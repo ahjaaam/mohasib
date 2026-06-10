@@ -116,7 +116,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             href="/inscription"
             className="mt-6 inline-flex rounded-lg bg-[#C8924A] px-5 py-3 text-[13px] font-bold text-white transition hover:bg-[#B7833F]"
           >
-            Essayer gratuitement -&gt;
+            Créer un compte -&gt;
           </Link>
         </div>
       </article>

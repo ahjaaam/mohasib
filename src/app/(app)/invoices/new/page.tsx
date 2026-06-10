@@ -11,6 +11,7 @@ export default async function NewInvoicePage() {
     .from("clients")
     .select("id, name, email")
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .order("name");
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];
@@ -20,6 +21,7 @@ export default async function NewInvoicePage() {
     .from("invoices")
     .select("invoice_number")
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .order("created_at", { ascending: false })
     .limit(1);
 

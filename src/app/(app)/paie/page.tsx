@@ -272,6 +272,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     setUserId(user.id);
     let q = supabase.from("employees").select("*").eq("user_id", user.id);
     if (dossierId) q = (q as any).eq("dossier_id", dossierId);
+    else q = (q as any).is("dossier_id", null);
     const { data } = await (q as any).order("nom");
     setEmployees(data ?? []);
     setEmpLoading(false);
@@ -285,7 +286,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const loadLeaveData = useCallback(async () => {
     setLeavesLoading(true);
     const [{ data: typeData }, { data: leaveData }, { data: holidayData }] = await Promise.all([
-      supabase.from("leave_types").select("*").or(dossierId ? `dossier_id.eq.${dossierId},is_default.eq.true` : "is_default.eq.true").order("name"),
+      supabase.from("leave_types").select("*").or(dossierId ? `dossier_id.eq.${dossierId},is_default.eq.true` : "dossier_id.is.null,is_default.eq.true").order("name"),
       (() => {
         let q = supabase
           .from("employee_leaves")
@@ -293,6 +294,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           .gte("date_fin", `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`)
           .lte("date_debut", `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-31`);
         if (dossierId) q = (q as any).eq("dossier_id", dossierId);
+        else q = (q as any).is("dossier_id", null);
         return (q as any).order("date_debut", { ascending: false });
       })(),
       supabase.from("jours_feries").select("*").gte("date", `${selectedYear}-01-01`).lte("date", `${selectedYear}-12-31`),
@@ -312,6 +314,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       .eq("mois", selectedMonth)
       .eq("annee", selectedYear);
     if (dossierId) q = (q as any).eq("dossier_id", dossierId);
+    else q = (q as any).is("dossier_id", null);
     const { data } = await (q as any);
     const byEmployee: Record<string, EmployeeHours> = {};
     for (const row of (data ?? []) as EmployeeHours[]) byEmployee[row.employee_id] = row;
@@ -325,6 +328,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       .select("*, employees(nom, prenom, poste)")
       .eq("mois", selectedMonth).eq("annee", selectedYear);
     if (dossierId) q = (q as any).eq("dossier_id", dossierId);
+    else q = (q as any).is("dossier_id", null);
     const { data } = await (q as any).order("created_at");
     setBulletins(data ?? []);
     setBulletinsLoading(false);

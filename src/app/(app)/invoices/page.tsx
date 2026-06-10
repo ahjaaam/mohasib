@@ -625,7 +625,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
     const query = supabase.from("invoices").select("*, clients(id, name, email, phone)");
     const { data } = await (dossierId
       ? query.eq("dossier_id", dossierId)
-      : query.eq("user_id", user!.id))
+      : query.eq("user_id", user!.id).is("dossier_id", null))
       .order("created_at", { ascending: false });
     setInvoices((data ?? []) as InvoiceExt[]);
     setLoading(false);

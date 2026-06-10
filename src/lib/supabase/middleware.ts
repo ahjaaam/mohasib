@@ -37,6 +37,7 @@ export async function updateSession(request: NextRequest) {
     "/tarifs",
     "/ressources",
     "/auth/callback",
+    "/invitations",
     "/f",
   ];
   const isAuthPage = path.startsWith("/auth");
@@ -44,6 +45,11 @@ export async function updateSession(request: NextRequest) {
   const isPublic = publicRoutes.some((route) =>
     path === route || path.startsWith(`${route}/`)
   );
+
+  // The founder back office must remain undiscoverable to unauthenticated users.
+  if (!user && (path === "/admin" || path.startsWith("/admin/"))) {
+    return new NextResponse(null, { status: 404 });
+  }
 
   // API routes handle their own auth — never redirect them
   if (!user && !isAuthPage && !isApiRoute && !isPublic) {

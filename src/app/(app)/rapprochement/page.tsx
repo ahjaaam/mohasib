@@ -27,6 +27,7 @@ type Line = {
   bank_amount: number;
   bank_reference: string | null;
   ecriture_id: string | null;
+  dossier_ecriture_id: string | null;
   statut: string;
   match_confidence: number;
   match_method: string | null;
@@ -108,16 +109,25 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
     }
     const [{ data: lineData }, { data: entryData }] = await Promise.all([
       supabase.from("rapprochement_lignes").select("*").eq("session_id", session.id).order("bank_date", { ascending: true }),
-      supabase
-        .from("ecritures_comptables")
-        .select("id, date_ecriture, journal, compte, compte_label, debit, credit, libelle, source_type, source_id")
-        .eq("compte", "5141")
-        .gte("date_ecriture", session.periode_debut)
-        .lte("date_ecriture", session.periode_fin)
-        .order("date_ecriture", { ascending: true }),
+      dossierId
+        ? supabase.from("dossier_ecritures")
+            .select("id, date, journal, compte_cgnc, debit, credit, libelle")
+            .eq("dossier_id", dossierId).eq("compte_cgnc", "5141")
+            .gte("date", session.periode_debut).lte("date", session.periode_fin).order("date")
+        : supabase.from("ecritures_comptables")
+            .select("id, date_ecriture, journal, compte, compte_label, debit, credit, libelle, source_type, source_id")
+            .eq("compte", "5141").is("dossier_id", null)
+            .gte("date_ecriture", session.periode_debut).lte("date_ecriture", session.periode_fin).order("date_ecriture"),
     ]);
     setLines((lineData ?? []) as Line[]);
-    setEcritures((entryData ?? []) as Ecriture[]);
+    setEcritures((entryData ?? []).map((entry: any) => ({
+      ...entry,
+      date_ecriture: entry.date_ecriture ?? entry.date,
+      compte: entry.compte ?? entry.compte_cgnc,
+      compte_label: entry.compte_label ?? null,
+      source_type: entry.source_type ?? null,
+      source_id: entry.source_id ?? null,
+    })) as Ecriture[]);
   }
 
   useEffect(() => {
@@ -193,7 +203,7 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
     return true;
   });
 
-  const matchedEcritureIds = new Set(lines.filter((line) => line.statut === "rapproché").map((line) => line.ecriture_id).filter(Boolean));
+  const matchedEcritureIds = new Set(lines.filter((line) => line.statut === "rapproché").map((line) => line.ecriture_id ?? line.dossier_ecriture_id).filter(Boolean));
   const filteredEcritures = ecritures.filter((entry) => {
     const matched = matchedEcritureIds.has(entry.id);
     if (entryFilter === "Non rapprochées") return !matched;

@@ -9,16 +9,21 @@ const supabase = createClient(
 );
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ shortId: string }> }
 ) {
   try {
     const { shortId: invoiceId } = await params;
+    const token = req.nextUrl.searchParams.get("token");
+    if (!token) {
+      return new NextResponse("Facture introuvable.", { status: 404 });
+    }
 
     const { data: inv, error: invErr } = await supabase
       .from("invoices")
       .select("*, clients(*)")
       .eq("id", invoiceId)
+      .eq("devis_response_token", token)
       .single();
 
     if (invErr || !inv) {

@@ -816,10 +816,10 @@ export default function SuiviClient({
     if (!user) return;
     const [invRes, supRes] = await Promise.all([
       supabase.from("invoices").select("*, clients(id, name, email, phone, whatsapp)")
-        .eq("user_id", user.id).eq("invoice_type", "facture")
+        .eq("user_id", user.id).is("dossier_id", null).eq("invoice_type", "facture")
         .neq("status", "draft").neq("status", "cancelled")
         .order("due_date", { ascending: true, nullsFirst: false }),
-      supabase.from("receipts").select("*").eq("user_id", user.id).eq("status", "matched"),
+      supabase.from("receipts").select("*").eq("user_id", user.id).is("dossier_id", null).eq("status", "matched"),
     ]);
     if (invRes.data) setClientInvoices(invRes.data as any);
     const filtered = (supRes.data ?? []).filter((r: any) =>

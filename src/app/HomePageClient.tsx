@@ -109,6 +109,12 @@ export default function HomePageClient() {
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
               <a
+                href="/inscription"
+                style={{ fontSize: 15, fontWeight: 600, color: "#FFFFFF", backgroundColor: NAVY, padding: "14px 28px", borderRadius: 5, textDecoration: "none", fontFamily: FONT, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              >
+                Créer un compte
+              </a>
+              <a
                 href="https://wa.me/212777884056"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -151,7 +157,7 @@ export default function HomePageClient() {
         </div>
       </section>
 
-      {/* ── PRICING ─────────────────────────────────────────────────────────── */}
+      {false && (
       <section className="page-section" style={{ backgroundColor: "#FAFAF6" }}>
         <style>{`
           .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 900px; margin: 0 auto; }
@@ -300,6 +306,7 @@ export default function HomePageClient() {
 
         </div>
       </section>
+      )}
 
       <PublicFooter />
 

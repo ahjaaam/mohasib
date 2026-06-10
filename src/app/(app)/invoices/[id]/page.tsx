@@ -41,6 +41,7 @@ export default async function InvoiceDetailPage({
     .select("*, clients(*)")
     .eq("id", id)
     .eq("user_id", user!.id)
+    .is("dossier_id", null)
     .single();
 
   if (!inv) notFound();

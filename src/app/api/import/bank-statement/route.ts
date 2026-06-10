@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import * as XLSX from "xlsx";
 import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
+import { authorizePermission } from "@/lib/api-permissions";
 
 const IMPORT_LIMIT = 20;
 const IMPORT_OPTS = { maxAttempts: IMPORT_LIMIT, windowMs: 5 * 60_000, blockMs: 10 * 60_000 };
@@ -205,6 +206,8 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const permission = await authorizePermission("accounting", "create");
+  if (permission.response) return permission.response;
 
   const { data: company } = await supabase.from("companies").select("id").eq("user_id", user.id).single();
   if (company) {

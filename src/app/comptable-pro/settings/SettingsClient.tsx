@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
-import { Building2, Plug2, Mail, Copy } from "lucide-react";
+import { Building2, Plug2, Mail, Copy, Users } from "lucide-react";
 import type { Cabinet } from "@/types/fiduciaire";
+import TeamTab from "@/components/settings/TeamTab";
 
 interface Props {
   userId: string;
@@ -19,12 +20,13 @@ interface DossierWithEmail {
 }
 
 export default function SettingsClient({ userId, profile, cabinet }: Props) {
-  const [activeTab, setActiveTab] = useState<"cabinet" | "integrations">("cabinet");
+  const [activeTab, setActiveTab] = useState<"cabinet" | "integrations" | "equipe">("cabinet");
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const tab = p.get("tab");
     if (tab === "integrations") setActiveTab("integrations");
+    if (tab === "equipe") setActiveTab("equipe");
     if (tab) window.history.replaceState({}, "", window.location.pathname);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -90,6 +92,7 @@ export default function SettingsClient({ userId, profile, cabinet }: Props) {
   const TABS = [
     { key: "cabinet",      label: "Informations", icon: Building2 },
     { key: "integrations", label: "Intégrations",  icon: Plug2 },
+    { key: "equipe",       label: "Équipe cabinet", icon: Users },
   ] as const;
 
   return (
@@ -279,6 +282,8 @@ export default function SettingsClient({ userId, profile, cabinet }: Props) {
           </div>
         </div>
       )}
+
+      {activeTab === "equipe" && <TeamTab title="Équipe cabinet" />}
 
         </div>{/* end tab content */}
       </div>{/* end flex row */}

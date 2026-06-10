@@ -7,17 +7,20 @@ const supabase = createClient(
 );
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const token = req.nextUrl.searchParams.get("token");
+    if (!token) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
 
     const { data: devis, error } = await supabase
       .from("invoices")
       .select("*, clients(name, city)")
       .eq("id", id)
       .eq("invoice_type", "devis")
+      .eq("devis_response_token", token)
       .single();
 
     if (error || !devis) {

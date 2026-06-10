@@ -161,8 +161,8 @@ export async function POST(
 
     // For devis, use the public acceptance page; for invoices use the PDF short link
     const shareUrl = (inv as any).invoice_type === "devis"
-      ? `https://www.mohasibai.com/devis/${id}`
-      : `https://www.mohasibai.com/f/${id}`;
+      ? `https://www.mohasibai.com/devis/${id}?token=${encodeURIComponent((inv as any).devis_response_token ?? "")}`
+      : `https://www.mohasibai.com/f/${id}?token=${encodeURIComponent((inv as any).devis_response_token ?? "")}`;
 
     // Upload PDF to storage in the background — failures are silent and never block WhatsApp
     const storagePath = `${user.id}/${inv.invoice_number}.pdf`;
