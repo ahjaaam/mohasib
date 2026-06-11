@@ -81,6 +81,7 @@ export function RequestStatus({ id, current }: { id: string; current?: string | 
   </select>;
 }
 
-export function MemberToggle({ id, suspended }: { id: string; suspended: boolean }) {
-  return <button className="rounded border border-black/10 px-2 py-1 text-[10px] font-semibold" onClick={() => void post(`/api/admin/members/${id}`, { suspended: !suspended }).catch(error => alert(error.message))}>{suspended ? "Réactiver" : "Suspendre"}</button>;
+export function MemberToggle({ id, suspended, authBanned = false }: { id: string; suspended: boolean; authBanned?: boolean }) {
+  const blocked = suspended || authBanned;
+  return <button className="rounded border border-black/10 px-2 py-1 text-[10px] font-semibold" onClick={() => void post(`/api/admin/members/${id}`, { suspended: !blocked }).catch(error => alert(error.message))}>{blocked ? "Réactiver" : "Suspendre"}</button>;
 }

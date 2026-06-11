@@ -15,7 +15,7 @@ const PLANS = [
 ];
 
 export function StatusBadge({ status }: { status?: string | null }) {
-  const map: Record<string, string> = { active: "bg-emerald-50 text-emerald-700", trial: "bg-amber-50 text-amber-700", grace: "bg-orange-50 text-orange-700", expired: "bg-red-50 text-red-700", suspended: "bg-gray-200 text-gray-700", nouveau: "bg-blue-50 text-blue-700", contacté: "bg-amber-50 text-amber-700", finalisé: "bg-emerald-50 text-emerald-700", cancelled: "bg-gray-100 text-gray-600" };
+  const map: Record<string, string> = { active: "bg-emerald-50 text-emerald-700", trial: "bg-amber-50 text-amber-700", grace: "bg-orange-50 text-orange-700", expired: "bg-red-50 text-red-700", suspended: "bg-gray-200 text-gray-700", banned: "bg-red-50 text-red-700", invited: "bg-blue-50 text-blue-700", nouveau: "bg-blue-50 text-blue-700", contacté: "bg-amber-50 text-amber-700", finalisé: "bg-emerald-50 text-emerald-700", cancelled: "bg-gray-100 text-gray-600" };
   return <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${map[status ?? ""] ?? "bg-gray-100 text-gray-600"}`}>{status || "—"}</span>;
 }
 
