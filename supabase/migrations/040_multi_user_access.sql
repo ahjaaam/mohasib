@@ -1,5 +1,20 @@
 -- Multi-user invitations, role presets, and per-member permission overrides.
 
+-- Compatibility bootstrap for databases where user_memberships existed before
+-- migration 030. CREATE TABLE IF NOT EXISTS does not add missing columns to an
+-- existing table, so add every base column used below before creating policies.
+alter table public.user_memberships
+  add column if not exists user_id uuid references auth.users(id) on delete set null,
+  add column if not exists user_email text,
+  add column if not exists company_id uuid references public.companies(id) on delete cascade,
+  add column if not exists dossier_id uuid references public.dossiers(id) on delete cascade,
+  add column if not exists role_name text references public.roles(name),
+  add column if not exists dossier_scope uuid[],
+  add column if not exists status text default 'active',
+  add column if not exists invitation_token text,
+  add column if not exists employee_id uuid references public.employees(id) on delete set null,
+  add column if not exists created_at timestamptz default now();
+
 alter table public.user_memberships
   alter column user_id drop not null,
   add column if not exists invited_by uuid references auth.users(id) on delete set null,
@@ -8,6 +23,10 @@ alter table public.user_memberships
   add column if not exists invitation_expires_at timestamptz,
   add column if not exists first_name text,
   add column if not exists last_name text;
+
+update public.user_memberships
+set status = 'active'
+where status is null or status not in ('invited', 'active', 'suspended', 'revoked');
 
 alter table public.user_memberships
   drop constraint if exists user_memberships_status_check;
@@ -19,6 +38,10 @@ alter table public.user_memberships
 create unique index if not exists idx_user_memberships_company_email
   on public.user_memberships(company_id, lower(user_email))
   where company_id is not null and status <> 'revoked';
+
+create unique index if not exists idx_user_memberships_invitation_token
+  on public.user_memberships(invitation_token)
+  where invitation_token is not null;
 
 create table if not exists public.permissions (
   id uuid primary key default gen_random_uuid(),
@@ -290,3 +313,6 @@ create policy "Members manage dossier entries" on public.dossier_ecritures for a
 drop policy if exists "Members read dossier tva" on public.dossier_tva;
 create policy "Members read dossier tva" on public.dossier_tva for select
   using (public.member_has_permission('tva_declaration', 'read', fiduciaire_user_id, dossier_id));
+
+-- Ask PostgREST to refresh its column cache immediately after the migration.
+notify pgrst, 'reload schema';

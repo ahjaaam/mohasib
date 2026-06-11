@@ -4,6 +4,8 @@ export const ROUTES = {
   RESSOURCES: "/ressources",
   CONNEXION: "/connexion",
   INSCRIPTION: "/inscription",
+  MOT_DE_PASSE_OUBLIE: "/mot-de-passe-oublie",
+  REINITIALISER_MOT_DE_PASSE: "/reinitialiser-mot-de-passe",
   INVITATION: (token: string) => `/invitations/${token}`,
   AUTH_CALLBACK: "/auth/callback",
   DASHBOARD: "/tableau-de-bord",

@@ -39,6 +39,28 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
+    if (invitationToken) {
+      const response = await fetch(`/api/invitations/${invitationToken}/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name: form.full_name, password: form.password }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setLoading(false);
+        setError(result.message || "Impossible de créer le compte Responsable.");
+        return;
+      }
+      const signedIn = await supabase.auth.signInWithPassword({ email: result.email, password: form.password });
+      setLoading(false);
+      if (signedIn.error) {
+        setError("Compte créé. Connectez-vous avec votre adresse e-mail et votre mot de passe.");
+        return;
+      }
+      window.location.href = result.redirect;
+      return;
+    }
+
     const { error: err } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -169,13 +191,13 @@ export default function SignupPage() {
           </p>
 
           <form onSubmit={handleSignup} className="space-y-4">
-            {!invitationToken && <div>
+            <div>
               <label className="label">Nom complet</label>
               <input className="input" placeholder="Prénom Nom" required
                 value={form.full_name}
                 onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
-            </div>}
-            <div>
+            </div>
+            {!invitationToken && <div>
               <label className="label">
                 {userType === "fiduciaire" ? "Nom du cabinet" : "Entreprise"}
               </label>
@@ -183,7 +205,7 @@ export default function SignupPage() {
                 placeholder={userType === "fiduciaire" ? "Cabinet Dupont & Associés" : "Ma Société SARL"}
                 value={form.company}
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
-            </div>
+            </div>}
             <div>
               <label className="label">Adresse e-mail</label>
               <input type="email" className="input" placeholder="vous@exemple.ma" required readOnly={!!invitationToken}
@@ -211,7 +233,7 @@ export default function SignupPage() {
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-lg font-medium text-sm text-white transition-colors disabled:opacity-60"
               style={{ backgroundColor: "#C8924A" }}>
-              {loading ? "Création en cours..." : "Créer mon compte"}
+              {loading ? "Création en cours..." : invitationToken ? "Créer mon accès Responsable" : "Créer mon compte"}
             </button>
 
             <p className="text-xs text-gray-400 text-center">

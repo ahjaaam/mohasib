@@ -26,8 +26,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "invalid_status" }, { status: 400 });
   }
   const changes: Record<string, unknown> = {};
-  if (body.role_name) changes.role_name = body.role_name;
-  if (body.dossier_scope !== undefined) changes.dossier_scope = body.dossier_scope;
+  changes.role_name = "manager";
+  changes.dossier_scope = null;
   if (nextStatus) changes.status = nextStatus;
   if (body.first_name !== undefined) changes.first_name = body.first_name || null;
   if (body.last_name !== undefined) changes.last_name = body.last_name || null;

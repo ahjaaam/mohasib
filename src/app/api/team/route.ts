@@ -10,6 +10,13 @@ import { resolveTeamContext, ROLE_LABELS } from "@/lib/team";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+function teamDatabaseMessage(message?: string) {
+  if (message?.includes("schema cache") || message?.includes("does not exist")) {
+    return "Le schéma multi-utilisateurs Supabase n'est pas à jour. Appliquez la migration 040_multi_user_access.sql puis réessayez.";
+  }
+  return message || "Impossible de créer l'invitation.";
+}
+
 async function authContext() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -26,6 +33,10 @@ export async function GET() {
   if (denied) return denied;
 
   const admin = createAdminClient();
+  await admin.from("user_memberships")
+    .update({ role_name: "manager", dossier_scope: null })
+    .eq("company_id", context.companyId)
+    .in("role_name", ["employee", "collaborateur", "read_auditor"]);
   const [{ data: memberships }, { data: owner }, { data: dossiers }, { data: rolePermissions }, planCheck] = await Promise.all([
     admin.from("user_memberships")
       .select("id,user_id,user_email,first_name,last_name,role_name,dossier_scope,status,invitation_token,invited_at,accepted_at,created_at")
@@ -33,9 +44,7 @@ export async function GET() {
       .neq("status", "revoked")
       .order("created_at"),
     admin.from("users").select("full_name,email").eq("id", context.ownerId).maybeSingle(),
-    context.track === "comptable"
-      ? admin.from("dossiers").select("id,raison_sociale").eq("fiduciaire_user_id", context.ownerId).eq("statut", "actif").order("raison_sociale")
-      : Promise.resolve({ data: [] }),
+    Promise.resolve({ data: [] }),
     admin.from("role_permissions").select("role_name,resource,action"),
     checkPlanLimit(context.companyId, "multi_users"),
   ]);
@@ -58,7 +67,7 @@ export async function GET() {
       id: context.ownerId,
       email: owner?.email ?? context.ownerEmail,
       full_name: owner?.full_name ?? context.ownerName,
-      role_label: context.track === "comptable" ? "Propriétaire cabinet" : "Propriétaire",
+      role_label: "Propriétaire",
     },
     members,
     dossiers: dossiers ?? [],
@@ -91,12 +100,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const email = String(body.email ?? "").trim().toLowerCase();
-  const allowedRoles = context.track === "comptable" ? ["collaborateur", "read_auditor"] : ["manager", "employee"];
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "invalid_email", message: "Adresse e-mail invalide." }, { status: 400 });
-  }
-  if (!allowedRoles.includes(body.role_name)) {
-    return NextResponse.json({ error: "invalid_role", message: "Rôle invalide." }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -110,8 +115,8 @@ export async function POST(req: NextRequest) {
     user_id: null,
     user_email: email,
     company_id: context.companyId,
-    role_name: body.role_name,
-    dossier_scope: body.role_name === "collaborateur" ? body.dossier_scope ?? [] : null,
+    role_name: "manager",
+    dossier_scope: null,
     status: "invited",
     invitation_token: token,
     invitation_expires_at: expiresAt,
@@ -121,7 +126,7 @@ export async function POST(req: NextRequest) {
     last_name: body.last_name || null,
   }).select("id").single();
 
-  if (error || !membership) return NextResponse.json({ error: "create_failed", message: error?.message }, { status: 500 });
+  if (error || !membership) return NextResponse.json({ error: "create_failed", message: teamDatabaseMessage(error?.message) }, { status: 500 });
 
   const overrides = Array.isArray(body.overrides) ? body.overrides : [];
   if (overrides.length) {
@@ -139,7 +144,7 @@ export async function POST(req: NextRequest) {
       from: process.env.RESEND_FROM_EMAIL || "Mohasib <noreply@mohasibai.com>",
       to: email,
       subject: `${context.ownerName} vous invite à rejoindre Mohasib`,
-      html: `<p>${context.ownerName} vous invite à rejoindre <strong>${context.accountName}</strong> sur Mohasib.</p><p>Rôle : ${ROLE_LABELS[body.role_name] ?? body.role_name}</p><p><a href="${invitationUrl}">Accepter l'invitation</a></p><p>Ce lien expire dans 7 jours.</p>`,
+      html: `<p>${context.ownerName} vous invite à rejoindre <strong>${context.accountName}</strong> sur Mohasib.</p><p>Rôle : Responsable</p><p><a href="${invitationUrl}">Accepter l'invitation</a></p><p>Ce lien expire dans 7 jours.</p>`,
     });
   }
 
@@ -149,7 +154,7 @@ export async function POST(req: NextRequest) {
     entityId: membership.id,
     entityLabel: email,
     companyId: context.companyId,
-    newValues: { email, role_name: body.role_name, dossier_scope: body.dossier_scope ?? null },
+    newValues: { email, role_name: "manager", dossier_scope: null },
   });
 
   return NextResponse.json({ success: true, membershipId: membership.id, invitationUrl });

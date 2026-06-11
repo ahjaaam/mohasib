@@ -49,7 +49,7 @@ export default async function DashboardPage() {
   const companyRes = await supabase.from("companies").select("id").eq("user_id", user!.id).single();
   const companyId = companyRes.data?.id ?? null;
 
-  const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes] = await Promise.all([
+  const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes, prefsRes] = await Promise.all([
     supabase.from("invoices").select("*, clients(id,name)").eq("user_id", user!.id).is("dossier_id", null)
       .order("created_at", { ascending: false }).limit(5),
     supabase.from("transactions").select("*").eq("user_id", user!.id).is("dossier_id", null)
@@ -59,6 +59,7 @@ export default async function DashboardPage() {
     supabase.from("invoices").select("total, status, due_date, montant_recu").eq("user_id", user!.id).is("dossier_id", null).in("status", ["sent", "overdue"]),
     supabase.from("invoices").select("tax_amount").eq("user_id", user!.id).is("dossier_id", null).in("status", ["paid", "sent"]),
     supabase.from("receipts").select("id, status, ocr_data").eq("user_id", user!.id).is("dossier_id", null).eq("status", "matched"),
+    supabase.from("user_preferences").select("dashboard_deadlines").eq("user_id", user!.id).maybeSingle(),
   ]);
 
   const usageData = companyId ? await getMonthlyUsage(companyId) : null;
@@ -151,13 +152,21 @@ export default async function DashboardPage() {
               </div>
               <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
             </Link>
+            <Link href="/archive" className="qa-card">
+              <div className="text-2xl flex-shrink-0">🗂️</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Gérer l&apos;archive</div>
+                <div className="text-[11px] text-[#6B7280] leading-snug">Consulter et classer les documents</div>
+              </div>
+              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
+            </Link>
           </div>
         </div>
 
         {/* Prochaines échéances */}
         <div>
           <SectionLabel>Prochaines échéances</SectionLabel>
-          <DashboardNews />
+          <DashboardNews deadlines={prefsRes.data?.dashboard_deadlines ?? null} />
         </div>
       </div>
 

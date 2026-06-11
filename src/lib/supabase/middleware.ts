@@ -34,6 +34,8 @@ export async function updateSession(request: NextRequest) {
     "/",
     "/connexion",
     "/inscription",
+    "/mot-de-passe-oublie",
+    "/reinitialiser-mot-de-passe",
     "/tarifs",
     "/ressources",
     "/auth/callback",
@@ -58,7 +60,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (isAuthPage || path === "/connexion" || path === "/inscription")) {
+  const isAuthCallback = path === "/auth/callback" || path === "/auth/recuperation";
+  if (user && ((!isAuthCallback && isAuthPage) || path === "/connexion" || path === "/inscription")) {
     const url = request.nextUrl.clone();
     url.pathname = "/tableau-de-bord";
     return NextResponse.redirect(url);

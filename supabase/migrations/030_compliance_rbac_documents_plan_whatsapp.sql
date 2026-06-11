@@ -130,6 +130,20 @@ create table if not exists public.user_memberships (
   created_at timestamptz default now()
 );
 
+-- Repair older/partial versions of user_memberships before policies reference
+-- columns that CREATE TABLE IF NOT EXISTS cannot add.
+alter table public.user_memberships
+  add column if not exists user_id uuid references auth.users(id) on delete set null,
+  add column if not exists user_email text,
+  add column if not exists company_id uuid references public.companies(id) on delete cascade,
+  add column if not exists dossier_id uuid references public.dossiers(id) on delete cascade,
+  add column if not exists role_name text references public.roles(name),
+  add column if not exists dossier_scope uuid[],
+  add column if not exists status text default 'active',
+  add column if not exists invitation_token text,
+  add column if not exists employee_id uuid references public.employees(id) on delete set null,
+  add column if not exists created_at timestamptz default now();
+
 alter table public.user_memberships enable row level security;
 
 drop policy if exists "Users read own memberships" on public.user_memberships;

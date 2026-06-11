@@ -121,8 +121,8 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
             {data.members.map(member => (
               <tr key={member.id}>
                 <td className="px-4 py-3"><MemberIdentity name={`${member.first_name ?? ""} ${member.last_name ?? ""}`.trim()} email={member.user_email} /></td>
-                <td className="px-4 py-3"><Badge label={member.role_label} tone={member.role_name === "collaborateur" ? "blue" : "gray"} /></td>
-                <td className="px-4 py-3 text-[#6B7280]">{member.dossier_scope?.length ? `${member.dossier_scope.length} dossiers` : member.role_name === "employee" ? "Bulletins uniquement" : "Tout"}</td>
+                <td className="px-4 py-3"><Badge label="Responsable" tone="gray" /></td>
+                <td className="px-4 py-3 text-[#6B7280]">Selon permissions</td>
                 <td className="px-4 py-3"><Status status={member.status} /></td>
                 <td className="px-4 py-3 text-[#9CA3AF]">{new Date(member.accepted_at || member.invited_at || member.created_at).toLocaleDateString("fr-FR")}</td>
                 <td className="px-4 py-3">
@@ -153,20 +153,13 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
 }
 
 function MemberModal({ data, member, onClose, onSaved }: { data: TeamData; member: Member | null; onClose: () => void; onSaved: () => void }) {
-  const roles = data.context.track === "comptable"
-    ? [{ value: "collaborateur", label: "Collaborateur", text: "Accès aux dossiers assignés." }, { value: "read_auditor", label: "Auditeur lecture seule", text: "Consulte tout, ne modifie rien." }]
-    : [{ value: "manager", label: "Responsable", text: "Peut créer et approuver sans supprimer." }, { value: "employee", label: "Employé", text: "Voit uniquement ses propres bulletins de paie." }];
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ email: member?.user_email ?? "", first_name: member?.first_name ?? "", last_name: member?.last_name ?? "", role_name: member?.role_name ?? roles[0].value, dossier_scope: member?.dossier_scope ?? [] });
-  const [selected, setSelected] = useState<Set<string>>(() => new Set((member?.permissions ?? data.role_presets.filter(p => p.role_name === roles[0].value)).map(keyOf)));
+  const [form, setForm] = useState({ email: member?.user_email ?? "", first_name: member?.first_name ?? "", last_name: member?.last_name ?? "", role_name: "manager", dossier_scope: [] as string[] });
+  const [selected, setSelected] = useState<Set<string>>(() => new Set((member?.permissions ?? data.role_presets.filter(p => p.role_name === "manager")).map(keyOf)));
   const [showPermissions, setShowPermissions] = useState(false);
   const [saving, setSaving] = useState(false);
-  const preset = useMemo(() => new Set(data.role_presets.filter(p => p.role_name === form.role_name).map(keyOf)), [data.role_presets, form.role_name]);
+  const preset = useMemo(() => new Set(data.role_presets.filter(p => p.role_name === "manager").map(keyOf)), [data.role_presets]);
 
-  function chooseRole(role: string) {
-    setForm(current => ({ ...current, role_name: role, dossier_scope: role === "collaborateur" ? current.dossier_scope : [] }));
-    setSelected(new Set(data.role_presets.filter(p => p.role_name === role).map(keyOf)));
-  }
   function toggle(permission: Permission) {
     const key = keyOf(permission);
     setSelected(current => {
@@ -199,7 +192,7 @@ function MemberModal({ data, member, onClose, onSaved }: { data: TeamData; membe
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0D1526]/45 p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="max-h-[92vh] w-full max-w-[680px] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between"><h3 className="text-[16px] font-bold text-[#0D1526]">{member ? "Modifier l'accès" : "Inviter un membre"}</h3><button onClick={onClose}><X size={18} /></button></div>
-        <div className="mt-5 flex gap-2">{[1, 2, 3].map(value => <span key={value} className={`h-1.5 flex-1 rounded-full ${step >= value ? "bg-[#C8924A]" : "bg-[#E5E7EB]"}`} />)}</div>
+        <div className="mt-5 flex gap-2">{[1, 2].map(value => <span key={value} className={`h-1.5 flex-1 rounded-full ${step >= value ? "bg-[#C8924A]" : "bg-[#E5E7EB]"}`} />)}</div>
 
         {step === 1 && <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2 text-[12px] font-semibold text-[#374151]">Email *<input type="email" readOnly={!!member} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input mt-1" /></label>
@@ -208,18 +201,14 @@ function MemberModal({ data, member, onClose, onSaved }: { data: TeamData; membe
         </div>}
 
         {step === 2 && <div className="mt-6">
-          <div className="grid gap-3 sm:grid-cols-2">{roles.map(role => <button key={role.value} onClick={() => chooseRole(role.value)} className={`rounded-lg border p-4 text-left ${form.role_name === role.value ? "border-[#C8924A] bg-[#C8924A]/5" : "border-black/[0.08]"}`}><strong className="text-[13px] text-[#0D1526]">{role.label}</strong><span className="mt-1 block text-[11.5px] leading-5 text-[#6B7280]">{role.text}</span></button>)}</div>
-          {form.role_name === "collaborateur" && <div className="mt-5"><p className="text-[12px] font-semibold text-[#374151]">Dossiers accessibles</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{data.dossiers.map(dossier => <label key={dossier.id} className="flex items-center gap-2 text-[12px] text-[#374151]"><input type="checkbox" checked={form.dossier_scope.includes(dossier.id)} onChange={() => setForm(current => ({ ...current, dossier_scope: current.dossier_scope.includes(dossier.id) ? current.dossier_scope.filter(id => id !== dossier.id) : [...current.dossier_scope, dossier.id] }))} />{dossier.raison_sociale}</label>)}</div></div>}
-        </div>}
-
-        {step === 3 && <div className="mt-6">
-          <button onClick={() => setShowPermissions(open => !open)} className="flex w-full items-center justify-between rounded-lg bg-[#FAFAF6] px-4 py-3 text-[12px] font-bold text-[#0D1526]">Personnaliser les permissions <span>{showPermissions ? "−" : "+"}</span></button>
+          <div className="rounded-lg border border-[#C8924A]/30 bg-[#C8924A]/5 px-4 py-3"><strong className="text-[12px] text-[#0D1526]">Rôle : Responsable</strong><p className="mt-1 text-[11px] text-[#6B7280]">Le propriétaire peut ajuster précisément les accès de ce membre.</p></div>
+          <button onClick={() => setShowPermissions(open => !open)} className="mt-4 flex w-full items-center justify-between rounded-lg bg-[#FAFAF6] px-4 py-3 text-[12px] font-bold text-[#0D1526]">Personnaliser les permissions <span>{showPermissions ? "−" : "+"}</span></button>
           {showPermissions && <div className="mt-4 space-y-5">{PERMISSION_GROUPS.map(group => <div key={group.label}><p className="text-[10px] font-bold uppercase tracking-[1.4px] text-[#9CA3AF]">{group.label}</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{group.items.map(([resource, action, label]) => { const permission = { resource, action }; return <label key={`${resource}:${action}`} className="flex items-center gap-2 text-[12px] text-[#374151]"><input type="checkbox" checked={selected.has(keyOf(permission))} onChange={() => toggle(permission)} />{label}</label>; })}</div></div>)}</div>}
         </div>}
 
         <div className="mt-7 flex justify-between border-t border-black/[0.07] pt-4">
           <button onClick={step === 1 ? onClose : () => setStep(value => value - 1)} className="rounded-lg border border-black/[0.10] px-4 py-2 text-[12px] font-semibold text-[#6B7280]">{step === 1 ? "Annuler" : "Retour"}</button>
-          {step < 3 ? <button disabled={step === 1 && !form.email} onClick={() => setStep(value => value + 1)} className="rounded-lg bg-[#0D1526] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-40">Continuer</button> : <button disabled={saving} onClick={save} className="rounded-lg bg-[#C8924A] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : member ? "Enregistrer" : "Envoyer l'invitation"}</button>}
+          {step < 2 ? <button disabled={!form.email} onClick={() => setStep(2)} className="rounded-lg bg-[#0D1526] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-40">Continuer</button> : <button disabled={saving} onClick={save} className="rounded-lg bg-[#C8924A] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : member ? "Enregistrer" : "Envoyer l'invitation"}</button>}
         </div>
       </div>
     </div>

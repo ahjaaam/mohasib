@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Toaster } from "react-hot-toast";
-import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText, Users } from "lucide-react";
+import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText, Users, CalendarDays } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
 import ApparenceTab from "./ApparenceTab";
@@ -11,6 +11,7 @@ import IntegrationsTab from "./IntegrationsTab";
 import MessagesTab from "./MessagesTab";
 import TVAConfigTab from "@/components/parametres/TVAConfigTab";
 import TeamTab from "@/components/settings/TeamTab";
+import DeadlinesTab from "./DeadlinesTab";
 
 interface Props {
   userId: string;
@@ -28,6 +29,7 @@ const TABS = [
   { id: "abonnement", label: "Abonnement", icon: CreditCard },
   { id: "integrations", label: "Intégrations", icon: Plug },
   { id: "tva",          label: "Déclaration TVA", icon: FileText },
+  { id: "echeances",    label: "Échéances",       icon: CalendarDays },
   { id: "messages",     label: "Messages",     icon: MessageSquare },
   { id: "equipe",       label: "Équipe",       icon: Users },
 ];
@@ -107,6 +109,7 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
           {tab === "abonnement" && <AbonnementTab userId={userId} userEmail={userEmail} companyId={companyId} />}
           {tab === "integrations" && <IntegrationsTab company={company} />}
           {tab === "tva"          && <TVAConfigTab companyId={companyId} />}
+          {tab === "echeances"    && <DeadlinesTab userId={userId} deadlines={prefs.dashboard_deadlines ?? null} />}
           {tab === "messages"     && <MessagesTab userId={userId} companyId={companyId} company={company} />}
           {tab === "equipe"       && <TeamTab />}
         </div>

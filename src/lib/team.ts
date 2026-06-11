@@ -63,11 +63,11 @@ export async function resolveTeamContext(userId: string): Promise<TeamContext | 
 
 export const ROLE_LABELS: Record<string, string> = {
   owner: "Propriétaire",
-  cabinet_owner: "Propriétaire cabinet",
+  cabinet_owner: "Propriétaire",
   manager: "Responsable",
-  employee: "Employé",
-  collaborateur: "Collaborateur",
-  read_auditor: "Auditeur lecture seule",
+  employee: "Responsable",
+  collaborateur: "Responsable",
+  read_auditor: "Responsable",
 };
 
 export async function getUserAccessProfile(userId: string) {
