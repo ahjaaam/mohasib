@@ -85,3 +85,7 @@ export function MemberToggle({ id, suspended, authBanned = false }: { id: string
   const blocked = suspended || authBanned;
   return <button className="rounded border border-black/10 px-2 py-1 text-[10px] font-semibold" onClick={() => void post(`/api/admin/members/${id}`, { suspended: !blocked }).catch(error => alert(error.message))}>{blocked ? "Réactiver" : "Suspendre"}</button>;
 }
+
+export function AuthUnbanButton({ id }: { id: string }) {
+  return <button className="rounded border border-red-200 px-2 py-1 text-[10px] font-semibold text-red-700" onClick={() => void post(`/api/admin/members/${id}/unban`, {}).catch(error => alert(error.message))}>Débloquer Auth</button>;
+}
