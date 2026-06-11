@@ -34,23 +34,44 @@ export default function ResetPasswordPage() {
       const accessToken = hash.get("access_token");
       const refreshToken = hash.get("refresh_token");
       const code = query.get("code");
+      const tokenHash = query.get("token_hash");
+      const errorDescription = query.get("error_description") || hash.get("error_description");
+      let recoveredSession = null;
 
-      if (accessToken && refreshToken) {
-        const { error: sessionError } = await supabase.auth.setSession({
+      if (errorDescription) {
+        if (!mounted) return;
+        setChecking(false);
+        setError(decodeURIComponent(errorDescription));
+        return;
+      }
+
+      if (tokenHash) {
+        const { data, error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: "recovery",
+        });
+        if (!verifyError) recoveredSession = data.session;
+      } else if (accessToken && refreshToken) {
+        const { data, error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
-        if (!sessionError) window.history.replaceState({}, "", "/reinitialiser-mot-de-passe");
+        if (!sessionError) recoveredSession = data.session;
       } else if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (!exchangeError) window.history.replaceState({}, "", "/reinitialiser-mot-de-passe");
+        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (!exchangeError) recoveredSession = data.session;
       }
 
-      const { data } = await supabase.auth.getSession();
+      const { data } = recoveredSession ? { data: { session: recoveredSession } } : await supabase.auth.getSession();
       if (!mounted) return;
       setReady(!!data.session);
       setChecking(false);
-      if (!data.session) setError("Ce lien est invalide ou expiré. Demandez un nouveau lien de réinitialisation.");
+      if (data.session) {
+        window.history.replaceState({}, "", "/reinitialiser-mot-de-passe");
+        setError("");
+      } else {
+        setError("Ce lien est invalide ou expiré. Demandez un nouveau lien de réinitialisation.");
+      }
     }
     void consumeRecoveryLink();
 
