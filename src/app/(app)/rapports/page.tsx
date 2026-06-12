@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Loader2, BookOpen, Scale } from "lucide-react";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ function monthBounds(year: number, month: number) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function RapportsPage() {
+  const ownerId = useAccountOwnerId();
   const now = new Date();
   const [year, setYear]   = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -46,18 +48,15 @@ export default function RapportsPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
     const { start, end } = monthBounds(year, month);
 
     const [invRes, txRes] = await Promise.all([
       supabase.from("invoices").select("*, clients(id,name)")
-        .eq("user_id", user.id)
+        .eq("user_id", ownerId)
         .is("dossier_id", null)
         .gte("issue_date", start).lte("issue_date", end),
       supabase.from("transactions").select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", ownerId)
         .is("dossier_id", null)
         .gte("date", start).lte("date", end),
     ]);
@@ -96,7 +95,7 @@ export default function RapportsPage() {
 
     setData({ ca, depenses, invoiceCount: invoices.length, topClients, categories });
     setLoading(false);
-  }, [year, month]);
+  }, [year, month, ownerId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

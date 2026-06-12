@@ -8,6 +8,8 @@ import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { Loader2, FileText, Plus, X, Search, ReceiptText, ClipboardList } from "lucide-react";
 import type { Invoice, InvoiceStatus, PartialPayment, DevisStatus } from "@/types";
+import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -254,13 +256,14 @@ function PartialPaymentModal({ invoice, onClose, onSaved }: {
 
 type MenuItem = { label: string; href?: string; action?: () => void; red?: boolean };
 
-function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoir }: {
+function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoir, canCreateAvoir }: {
   inv: InvoiceExt;
   onMarkPaid: (id: string) => void;
   onDelete: (id: string) => void;
   onAddPayment: (inv: InvoiceExt) => void;
   basePath: string;
   isAvoir?: boolean;
+  canCreateAvoir: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -409,7 +412,14 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
 
   const AVOIR_EXCLUDED = ["Ajouter un paiement partiel", "Marquer comme payée", "Créer un avoir"];
   const items = (itemsByStatus[inv.status as string] ?? itemsByStatus.sent)
-    .filter((item) => !isAvoir || !AVOIR_EXCLUDED.includes(item.label));
+    .filter((item) => (!isAvoir || !AVOIR_EXCLUDED.includes(item.label)) && (canCreateAvoir || item.label !== "Créer un avoir"));
+  const permissionFor = (label: string) => label === "Supprimer"
+    ? "invoice:delete"
+    : label.startsWith("Envoyer") || label === "Relancer le client"
+      ? "invoice:send"
+      : ["Modifier", "Marquer comme payée", "Ajouter un paiement partiel", "Créer un avoir"].includes(label)
+        ? "invoice:create"
+        : undefined;
 
   return (
     <>
@@ -445,6 +455,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
               <Link
                 key={item.label}
                 href={item.href}
+                data-permission={permissionFor(item.label)}
                 onClick={() => setOpen(false)}
                 className="block px-4 py-2 text-[13px] text-[#1A1A2E] hover:bg-[#FAFAF6] transition-colors"
               >
@@ -453,6 +464,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
             ) : (
               <button
                 key={item.label}
+                data-permission={permissionFor(item.label)}
                 onClick={item.action}
                 className="w-full text-left px-4 py-2 text-[13px] hover:bg-[#FAFAF6] transition-colors"
                 style={{ color: item.red ? "#DC2626" : "#1A1A2E" }}
@@ -567,6 +579,13 @@ function DevisMenu({ inv, onDelete, onAccept, onRefuse, onConvert }: {
     ] : []),
     { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
   ];
+  const permissionFor = (label: string) => label === "Supprimer"
+    ? "invoice:delete"
+    : label.startsWith("Envoyer")
+      ? "invoice:send"
+      : ["Modifier", "Marquer comme accepté", "Marquer comme refusé", "Convertir en facture"].includes(label)
+        ? "invoice:create"
+        : undefined;
 
   return (
     <>
@@ -589,6 +608,7 @@ function DevisMenu({ inv, onDelete, onAccept, onRefuse, onConvert }: {
           {items.map((item) => (
             <button
               key={item.label}
+              data-permission={permissionFor(item.label)}
               onClick={item.action}
               className="w-full text-left px-4 py-2 text-[13px] hover:bg-[#FAFAF6] transition-colors"
               style={{ color: item.red ? "#DC2626" : item.green ? "#059669" : "#1A1A2E" }}
@@ -607,6 +627,8 @@ function DevisMenu({ inv, onDelete, onAccept, onRefuse, onConvert }: {
 type PageMode = "factures" | "avoirs" | "devis";
 
 export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?: string } = {}) {
+  const entitlements = usePlanEntitlements();
+  const ownerId = useAccountOwnerId();
   const searchParams = useSearchParams();
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
   const basePath = dossierId ? `/comptable-pro/dossiers/${dossierId}/invoices` : "/invoices";
@@ -621,11 +643,10 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
   const supabase = createClient();
 
   async function load() {
-    const { data: { user } } = await supabase.auth.getUser();
     const query = supabase.from("invoices").select("*, clients(id, name, email, phone)");
     const { data } = await (dossierId
       ? query.eq("dossier_id", dossierId)
-      : query.eq("user_id", user!.id).is("dossier_id", null))
+      : query.eq("user_id", ownerId).is("dossier_id", null))
       .order("created_at", { ascending: false });
     setInvoices((data ?? []) as InvoiceExt[]);
     setLoading(false);
@@ -665,6 +686,9 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
   }
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!entitlements.features.avoirs && mode === "avoirs") setMode("factures");
+  }, [entitlements.features.avoirs, mode]);
 
   async function markPaid(id: string) {
     const inv = invoices.find((i) => i.id === id);
@@ -759,19 +783,19 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
           </div>
         </div>
         {mode === "avoirs" ? (
-          <Link href={`${basePath}/avoir/new`}
+          <Link data-permission="invoice:create" href={`${basePath}/avoir/new`}
             className="btn flex items-center gap-1.5"
             style={{ background: "#DC2626", color: "white", borderColor: "#DC2626" }}>
             <Plus size={13} /> Nouvel Avoir
           </Link>
         ) : mode === "devis" ? (
-          <Link href="/invoices/devis/new"
+          <Link data-permission="invoice:create" href="/invoices/devis/new"
             className="btn flex items-center gap-1.5"
             style={{ background: "#2563EB", color: "white", borderColor: "#2563EB" }}>
             <Plus size={13} /> Nouveau Devis
           </Link>
         ) : (
-          <Link href={`${basePath}/new`} className="btn btn-gold flex items-center gap-1.5">
+          <Link data-permission="invoice:create" href={`${basePath}/new`} className="btn btn-gold flex items-center gap-1.5">
             <Plus size={13} /> Nouvelle Facture
           </Link>
         )}
@@ -783,7 +807,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
           { key: "factures", label: "Factures",       count: factures.length },
           { key: "devis",    label: "Devis",           count: devis.length },
           { key: "avoirs",   label: "Avoirs clients",  count: avoirs.length },
-        ] as { key: PageMode; label: string; count: number }[]).map(({ key, label, count }) => (
+        ] as { key: PageMode; label: string; count: number }[]).filter(item => item.key !== "avoirs" || entitlements.features.avoirs).map(({ key, label, count }) => (
           <button
             key={key}
             onClick={() => { setMode(key); setTab("all"); setSearch(""); setDateFrom(""); setDateTo(""); }}
@@ -891,15 +915,15 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
                     {mode === "avoirs" ? "Aucun avoir client" : mode === "devis" ? "Aucun devis" : "Aucune facture"}
                   </p>
                   {mode === "avoirs" ? (
-                    <Link href={`${basePath}/avoir/new`} className="btn" style={{ background: "#DC2626", color: "white", borderColor: "#DC2626" }}>
+                    <Link data-permission="invoice:create" href={`${basePath}/avoir/new`} className="btn" style={{ background: "#DC2626", color: "white", borderColor: "#DC2626" }}>
                       + Nouvel Avoir
                     </Link>
                   ) : mode === "devis" ? (
-                    <Link href="/invoices/devis/new" className="btn" style={{ background: "#2563EB", color: "white", borderColor: "#2563EB" }}>
+                    <Link data-permission="invoice:create" href="/invoices/devis/new" className="btn" style={{ background: "#2563EB", color: "white", borderColor: "#2563EB" }}>
                       + Nouveau Devis
                     </Link>
                   ) : (
-                    <Link href={`${basePath}/new`} className="btn btn-gold">+ Nouvelle Facture</Link>
+                    <Link data-permission="invoice:create" href={`${basePath}/new`} className="btn btn-gold">+ Nouvelle Facture</Link>
                   )}
                 </td>
               </tr>
@@ -1013,6 +1037,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
                       onAddPayment={setPaymentModal}
                       basePath={basePath}
                       isAvoir={mode === "avoirs"}
+                      canCreateAvoir={entitlements.features.avoirs}
                     />
                   </td>
                 </tr>

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autoMatch, type BankLine, type Ecriture } from "@/lib/rapprochement-engine";
 import { getRapprochementContext, recomputeRapprochementSession } from "@/lib/rapprochement-api";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 export async function POST(req: NextRequest) {
   try {
+    const plan = await requirePlanFeature("bank_import");
+    if (plan.response) return plan.response;
     const body = await req.json();
     const periodeDebut = body.periodeDebut;
     const periodeFin = body.periodeFin;

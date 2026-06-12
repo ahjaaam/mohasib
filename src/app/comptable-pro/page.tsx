@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeftRight, FileText, FolderOpen, Inbox, PenLine, TrendingUp } from "lucide-react";
 import type { Dossier } from "@/types/fiduciaire";
+import { getPlanEntitlements } from "@/lib/plan-entitlements";
 
 function daysSince(dateStr: string | null): number {
   if (!dateStr) return 999;
@@ -24,6 +25,7 @@ function fmtActivityDate(dateStr: string) {
 export default async function FiduciaireOverviewPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const entitlements = await getPlanEntitlements(user!.id);
 
   const { data: dossiersData } = await supabase
     .from("dossiers").select("*").eq("fiduciaire_user_id", user!.id).order("raison_sociale");
@@ -194,7 +196,7 @@ export default async function FiduciaireOverviewPage() {
       </div>
 
       {/* Unassigned emails banner */}
-      {unassignedCount > 0 && (
+      {entitlements.features.inbox_global && unassignedCount > 0 && (
         <Link
           href="/comptable-pro/inbox-global"
           className="flex items-center gap-2.5 mb-5 px-4 py-3 rounded-xl bg-[#FEF3C7] border border-[#FCD34D] hover:bg-[#FDE68A] transition-colors"

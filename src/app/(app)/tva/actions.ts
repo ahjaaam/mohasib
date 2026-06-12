@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -86,13 +87,14 @@ export async function calculateTVAForPeriod(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Non authentifié" };
+  const ownerId = await resolveAccountOwnerId(user.id);
 
   const [invRes, avoirClientRes, expRes, avoirFournisseurRes, lastDeclRes, yearInvRes] = await Promise.all([
     // 1. Regular invoices
     supabase
       .from("invoices")
       .select("id, invoice_number, subtotal, tax_rate, tax_amount, total, issue_date, items, clients(name)")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .is("dossier_id", null)
       .eq("invoice_type", "facture")
       .not("status", "in", '("draft","cancelled")')
@@ -103,7 +105,7 @@ export async function calculateTVAForPeriod(
     supabase
       .from("invoices")
       .select("subtotal, tax_rate, tax_amount, items")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .is("dossier_id", null)
       .eq("invoice_type", "avoir_client")
       .not("status", "in", '("draft","cancelled")')
@@ -113,7 +115,7 @@ export async function calculateTVAForPeriod(
     supabase
       .from("transactions")
       .select("id, description, category, date, amount, tva_rate, tva_amount, fournisseur, if_fournisseur, ice_fournisseur, mode_paiement, date_paiement, compte_comptable")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .is("dossier_id", null)
       .eq("type", "expense")
       .gte("date", periodStart)
@@ -123,14 +125,14 @@ export async function calculateTVAForPeriod(
     supabase
       .from("avoirs_fournisseurs")
       .select("tva_amount, tva_rate, compte_comptable")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .gte("date", periodStart)
       .lte("date", periodEnd),
     // 5. Last TVA declaration (for credit reporté)
     supabase
       .from("tva_declarations")
       .select("credit_tva, tva_nette_due")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .lt("period_end", periodStart)
       .order("period_end", { ascending: false })
       .limit(1),
@@ -138,7 +140,7 @@ export async function calculateTVAForPeriod(
     supabase
       .from("invoices")
       .select("subtotal")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .is("dossier_id", null)
       .not("status", "in", '("draft","cancelled")')
       .gte("issue_date", `${periodStart.slice(0, 4)}-01-01`)
@@ -308,8 +310,9 @@ export async function saveDeclaration(params: {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Non authentifié" };
+  const ownerId = await resolveAccountOwnerId(user.id);
 
-  const { data: company } = await supabase.from("companies").select("id").eq("user_id", user.id).single();
+  const { data: company } = await supabase.from("companies").select("id").eq("user_id", ownerId).single();
 
   const c = { ...params.calc, ...params.overrides };
   const tvaNette = c.tva_collectee_total + params.odTva + c.droits_timbre - c.deductions_total - c.credit_reporte;
@@ -318,7 +321,7 @@ export async function saveDeclaration(params: {
     await supabase.from("tva_declarations").upsert(
       {
         company_id: company?.id,
-        user_id: user.id,
+        user_id: ownerId,
         period_start: params.periodStart,
         period_end: params.periodEnd,
         period_label: params.periodLabel,
@@ -375,11 +378,12 @@ export async function fetchDeclarationHistory(): Promise<TVADeclaration[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
+  const ownerId = await resolveAccountOwnerId(user.id);
   try {
     const { data } = await supabase
       .from("tva_declarations")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .order("period_start", { ascending: false })
       .limit(24);
     return (data ?? []) as TVADeclaration[];

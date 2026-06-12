@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { authorizePermission } from "@/lib/api-permissions";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 export const maxDuration = 120;
 
@@ -260,6 +261,8 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const permission = await authorizePermission("accounting", "create");
     if (permission.response) return permission.response;
+    const plan = await requirePlanFeature("bank_import");
+    if (plan.response) return plan.response;
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;

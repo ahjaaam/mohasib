@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   }).eq("id", membership.id);
   if (activated.error) {
     await admin.auth.admin.deleteUser(authUser.id);
-    return NextResponse.json({ message: `Impossible d'activer l'accès Responsable : ${activated.error.message}` }, { status: 400 });
+    return NextResponse.json({ message: `Impossible d'activer l'accès Collaborateur : ${activated.error.message}` }, { status: 400 });
   }
 
   await admin.from("users").upsert({ id: authUser.id, email, full_name: fullName, company: company?.raison_sociale ?? null });

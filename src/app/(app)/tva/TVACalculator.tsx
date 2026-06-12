@@ -12,6 +12,7 @@ import {
 } from "./actions";
 import { getTVAConfig } from "@/app/actions/tva-config";
 import { DEFAULT_ENABLED_CODES, TVA_LINES, withAlwaysShown } from "@/lib/tva-lines-registry";
+import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ const EMPTY_CALC: TVACalcResult = {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function TVACalculator({ company }: Props) {
+  const entitlements = usePlanEntitlements();
   const regime = company?.tva_regime === "Trimestriel" ? "Trimestriel" : "Mensuel";
   const now = new Date();
 
@@ -453,7 +455,7 @@ export default function TVACalculator({ company }: Props) {
             </p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setConfirmValidate(false)} className="btn btn-outline text-[12px]">Annuler</button>
-              <button onClick={() => handleSave("validé")} disabled={saving}
+              <button data-permission="tva_declaration:validate" onClick={() => handleSave("validé")} disabled={saving}
                 className="btn btn-gold text-[12px]">
                 {saving ? "…" : "Valider"}
               </button>
@@ -809,17 +811,17 @@ export default function TVACalculator({ company }: Props) {
 
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[rgba(0,0,0,0.07)]">
                 {statut === "brouillon" && !isFiled && (
-                  <button onClick={() => setConfirmValidate(true)} disabled={saving}
+                  <button data-permission="tva_declaration:validate" onClick={() => setConfirmValidate(true)} disabled={saving}
                     className="btn btn-outline flex items-center gap-1.5 text-[12px] border-[#C8924A] text-[#C8924A] hover:bg-[#FFF7ED]">
                     <CheckCircle size={12} /> Valider
                   </button>
                 )}
-                <button onClick={handleEDI}
+                {entitlements.features.tva_edi && <button data-permission="tva_declaration:prepare" onClick={handleEDI}
                   className="btn btn-gold flex items-center gap-1.5 text-[12px]">
                   <Download size={13} /> Fichier EDI (XML)
-                </button>
+                </button>}
                 {statut !== "déposé" && (
-                  <button onClick={() => handleSave("déposé")} disabled={saving}
+                  <button data-permission="tva_declaration:validate" onClick={() => handleSave("déposé")} disabled={saving}
                     className="btn btn-outline flex items-center gap-1.5 text-[12px]">
                     <CheckCircle size={13} />
                     {saving ? "…" : "Marquer comme déposée"}

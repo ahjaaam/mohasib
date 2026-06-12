@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { DEFAULT_PLAN_LIMITS, FEATURE_COLUMNS } from "@/lib/plan-features";
 
 type PlanLimitResult = {
   allowed: boolean;
@@ -6,18 +7,6 @@ type PlanLimitResult = {
   used?: number;
   reason?: "suspended" | "expired";
   overridden?: boolean;
-};
-
-const FEATURE_COLUMNS: Record<string, string> = {
-  bank_import: "has_bank_import",
-  saisie: "has_saisie",
-  paie: "has_paie",
-  export_fiduciaire: "has_export_fiduciaire",
-  avoirs: "has_avoirs",
-  bilan: "has_bilan",
-  mass_declarations: "has_mass_declarations",
-  whatsapp_agent: "has_whatsapp_agent",
-  multi_users: "users_limit",
 };
 
 export async function checkPlanLimit(companyId: string, feature: string): Promise<PlanLimitResult> {
@@ -37,7 +26,7 @@ export async function checkPlanLimit(companyId: string, feature: string): Promis
     .eq("plan", company.plan ?? "trial")
     .single();
 
-  if (!limits) return { allowed: true };
+  const planLimits = limits ?? DEFAULT_PLAN_LIMITS[company.plan ?? "starter"] ?? DEFAULT_PLAN_LIMITS.starter;
   const { data: override } = await supabase
     .from("company_limit_overrides")
     .select("*")
@@ -45,7 +34,7 @@ export async function checkPlanLimit(companyId: string, feature: string): Promis
     .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString().slice(0, 10)}`)
     .maybeSingle();
 
-  const effective = (column: string) => override?.[column] ?? limits[column];
+  const effective = (column: string) => override?.[column] ?? planLimits[column];
   const premiumWriteBlocked = company.subscription_status === "expired";
 
   if (feature === "ocr") {
@@ -68,6 +57,11 @@ export async function checkPlanLimit(companyId: string, feature: string): Promis
   if (feature === "multi_users") {
     const limit = Number(effective("users_limit") ?? 0);
     return { allowed: !premiumWriteBlocked && limit > 1, limit, reason: premiumWriteBlocked ? "expired" : undefined, overridden: override?.users_limit != null };
+  }
+
+  if (feature === "employees") {
+    const limit = Number(effective("employee_limit") ?? 0);
+    return { allowed: !premiumWriteBlocked && limit !== 0, limit, reason: premiumWriteBlocked ? "expired" : undefined, overridden: override?.employee_limit != null };
   }
 
   const column = FEATURE_COLUMNS[feature];

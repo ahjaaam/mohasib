@@ -48,7 +48,7 @@ export default function SignupPage() {
       const result = await response.json();
       if (!response.ok) {
         setLoading(false);
-        setError(result.message || "Impossible de créer le compte Responsable.");
+        setError(result.message || "Impossible de créer le compte Collaborateur.");
         return;
       }
       const signedIn = await supabase.auth.signInWithPassword({ email: result.email, password: form.password });
@@ -233,7 +233,7 @@ export default function SignupPage() {
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-lg font-medium text-sm text-white transition-colors disabled:opacity-60"
               style={{ backgroundColor: "#C8924A" }}>
-              {loading ? "Création en cours..." : invitationToken ? "Créer mon accès Responsable" : "Créer mon compte"}
+              {loading ? "Création en cours..." : invitationToken ? "Créer mon accès Collaborateur" : "Créer mon compte"}
             </button>
 
             <p className="text-xs text-gray-400 text-center">

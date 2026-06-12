@@ -64,10 +64,10 @@ export async function resolveTeamContext(userId: string): Promise<TeamContext | 
 export const ROLE_LABELS: Record<string, string> = {
   owner: "Propriétaire",
   cabinet_owner: "Propriétaire",
-  manager: "Responsable",
-  employee: "Responsable",
-  collaborateur: "Responsable",
-  read_auditor: "Responsable",
+  manager: "Collaborateur",
+  employee: "Collaborateur",
+  collaborateur: "Collaborateur",
+  read_auditor: "Collaborateur",
 };
 
 export async function getUserAccessProfile(userId: string) {
@@ -82,6 +82,14 @@ export async function getUserAccessProfile(userId: string) {
     .select("id,role_name,dossier_scope,status")
     .eq("user_id", userId).eq("status", "active").limit(1).maybeSingle();
   if (!membership) return { isOwner: false, roleLabel: "Accès restreint", permissions: [], dossierScope: [] };
+  if (membership.role_name === "manager") {
+    return {
+      isOwner: false,
+      roleLabel: "Collaborateur",
+      permissions: null,
+      dossierScope: null,
+    };
+  }
   return {
     isOwner: false,
     roleLabel: ROLE_LABELS[membership.role_name] ?? membership.role_name,

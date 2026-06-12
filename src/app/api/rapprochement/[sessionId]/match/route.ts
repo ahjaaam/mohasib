@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recomputeRapprochementSession } from "@/lib/rapprochement-api";
 import { authorizePermission } from "@/lib/api-permissions";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
   try {
@@ -12,6 +13,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const permission = await authorizePermission("accounting", "create");
     if (permission.response) return permission.response;
+    const plan = await requirePlanFeature("bank_import");
+    if (plan.response) return plan.response;
     if (!bankLineId || !ecritureId) return NextResponse.json({ error: "bankLineId and ecritureId required" }, { status: 400 });
 
     const { data: session } = await supabase.from("rapprochement_sessions").select("dossier_id").eq("id", sessionId).single();

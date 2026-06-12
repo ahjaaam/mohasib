@@ -124,7 +124,7 @@ export default function AddClientModal({ userId, className = "", onCreated, butt
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => { setOpen(false); reset(); }}
                   className="btn btn-outline flex-1 justify-center">Annuler</button>
-                <button type="submit" disabled={saving} className="btn btn-gold flex-1 justify-center">
+                <button data-permission="invoice:create" type="submit" disabled={saving} className="btn btn-gold flex-1 justify-center">
                   {saving ? "Enregistrement..." : "Créer le client"}
                 </button>
               </div>

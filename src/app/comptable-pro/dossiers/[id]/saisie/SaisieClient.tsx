@@ -456,14 +456,14 @@ export default function SaisieClient({ dossier }: Props) {
           )}
 
           {!locked && (
-            <button onClick={saveRows} disabled={saving || !hasDirty}
+            <button data-permission="accounting:create" onClick={saveRows} disabled={saving || !hasDirty}
               className="btn btn-gold flex items-center gap-1.5 disabled:opacity-50">
               <Save size={13} /> {saving ? "Sauvegarde..." : "Sauvegarder"}
             </button>
           )}
 
           {!locked && !confirmLock && (
-            <button onClick={() => setConfirmLock(true)}
+            <button data-permission="accounting:lock" onClick={() => setConfirmLock(true)}
               className="btn btn-outline flex items-center gap-1.5 text-[12px]">
               <Archive size={12} /> Clôturer le mois
             </button>
@@ -473,7 +473,7 @@ export default function SaisieClient({ dossier }: Props) {
               <span className="text-[11.5px] text-[#92400E] font-medium capitalize">
                 Clôturer {periodLabel} ?
               </span>
-              <button onClick={cloturerMois} disabled={locking}
+              <button data-permission="accounting:lock" onClick={cloturerMois} disabled={locking}
                 className="btn btn-gold btn-sm text-[11px] py-0.5 px-2.5 h-6">
                 {locking ? "…" : "Confirmer"}
               </button>
@@ -592,7 +592,7 @@ export default function SaisieClient({ dossier }: Props) {
                             <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] flex-shrink-0" title="Modifié, non sauvegardé" />
                           )}
                           {!locked && (
-                            <button onClick={() => deleteRow(idx)}
+                            <button data-permission="accounting:delete" onClick={() => deleteRow(idx)}
                               className="text-[#9CA3AF] hover:text-[#DC2626] transition-colors p-1.5">
                               <Trash2 size={12} />
                             </button>
@@ -609,7 +609,7 @@ export default function SaisieClient({ dossier }: Props) {
               <tr style={{ backgroundColor: "#F0EDE5" }}>
                 <td colSpan={4} className="px-3 py-2">
                   {!locked && (
-                    <button onClick={() => addRow()}
+                    <button data-permission="accounting:create" onClick={() => addRow()}
                       className="text-[#C8924A] hover:underline text-[12px] font-medium flex items-center gap-1">
                       <Plus size={12} /> Ajouter une ligne
                     </button>

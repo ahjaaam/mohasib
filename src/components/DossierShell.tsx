@@ -8,10 +8,14 @@ import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight, PenLine,
   Receipt, Download, BarChart2, Banknote, Archive,
-  Inbox, ChevronLeft, Building2, LogOut, X, Menu, ChevronDown, GitMerge,
+  Inbox, ChevronLeft, Building2, LogOut, X, Menu, ChevronDown, GitMerge, Lock,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
+import PermissionBoundary from "@/components/PermissionBoundary";
+import { type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
+import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
+import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 
 const NAV_GROUPS = [
   {
@@ -22,9 +26,9 @@ const NAV_GROUPS = [
       { slug: "invoices",     icon: FileText,        label: "Factures clients", permission: "invoice:read" },
       { slug: "clients",      icon: Users,           label: "Clients", permission: "invoice:read" },
       { slug: "transactions", icon: ArrowLeftRight,  label: "Transactions", permission: "accounting:read" },
-      { slug: "rapprochement", icon: GitMerge,       label: "Rapprochement", permission: "accounting:read" },
-      { slug: "saisie",       icon: PenLine,         label: "Saisie comptable", permission: "accounting:read" },
-      { slug: "paie",         icon: Banknote,        label: "Bulletins de paie", permission: "bulletin_paie:read" },
+      { slug: "rapprochement", icon: GitMerge,       label: "Rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
+      { slug: "saisie",       icon: PenLine,         label: "Saisie comptable", permission: "accounting:read", feature: "saisie" as PlanFeature },
+      { slug: "paie",         icon: Banknote,        label: "Bulletins de paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
       { slug: "archive",      icon: Archive,         label: "Archive", permission: "document:read" },
     ],
   },
@@ -33,8 +37,8 @@ const NAV_GROUPS = [
     items: [
       { slug: "tva",         icon: Receipt,   label: "Déclaration TVA", permission: "tva_declaration:read" },
       { slug: "grand-livre", icon: BarChart2, label: "Grand Livre", permission: "report:read" },
-      { slug: "export",      icon: Download,  label: "Export CGNC", permission: "report:export" },
-      { slug: "bilan",       icon: BarChart2, label: "Bilan / CPC", permission: "report:read" },
+      { slug: "export",      icon: Download,  label: "Export CGNC", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
+      { slug: "bilan",       icon: BarChart2, label: "Bilan / CPC", permission: "report:read", feature: "bilan" as PlanFeature },
     ],
   },
 ];
@@ -54,15 +58,18 @@ interface Props {
   userEmail?: string | null;
   permissions?: string[] | null;
   roleLabel?: string | null;
+  entitlements: PlanEntitlements;
+  ownerId: string;
 }
 
-export default function DossierShell({ children, dossier, dossiers = [dossier], userName, userEmail, permissions = null, roleLabel }: Props) {
+export default function DossierShell({ children, dossier, dossiers = [dossier], userName, userEmail, permissions = null, roleLabel, entitlements, ownerId }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
   const { can } = usePermissions(permissions);
   const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
+  const entitled = (feature?: PlanFeature) => !feature || entitlements.features[feature];
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
@@ -70,7 +77,9 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   const navSlugs = NAV_GROUPS.flatMap((group) => group.items.map((item) => item.slug));
   const currentSlug = pathname.split(`${base}/`)[1]?.split("/")[0];
   const currentItem = NAV_GROUPS.flatMap(group => group.items).find(item => item.slug === currentSlug);
-  const pageAllowed = allowed(currentItem?.permission);
+  const permissionAllowed = allowed(currentItem?.permission);
+  const featureAllowed = entitled(currentItem?.feature);
+  const pageAllowed = permissionAllowed && featureAllowed;
 
   function isActive(slug: string) {
     const href = `${base}/${slug}`;
@@ -148,17 +157,23 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
             <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: "rgba(255,255,255,0.14)", padding: "14px 18px 6px" }}>
               {group}
             </div>
-            {items.filter(item => allowed(item.permission)).map(({ slug, icon: Icon, label }) => (
+            {items.filter(item => entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
+              const locked = !allowed(permission);
+              return (
               <Link key={slug} href={`${base}/${slug}`}
                 className={`flex items-center gap-2.5 px-[18px] py-[9px] text-[12.5px] transition-all border-r-2 ${
                   isActive(slug)
                     ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                    : locked
+                      ? "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                      : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
                 }`}>
                 <Icon size={14} />
                 {label}
+                {locked && <Lock size={11} className="ml-auto opacity-70" />}
               </Link>
-            ))}
+              );
+            })}
           </div>
         ))}
       </nav>
@@ -180,8 +195,10 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   );
 
   return (
-    <>
+    <PlanEntitlementsProvider value={entitlements}>
+      <AccountOwnerProvider ownerId={ownerId}>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
+      <PermissionBoundary permissions={permissions}>
       <div className="flex flex-col h-screen overflow-hidden bg-[#FAFAF6]">
 
         {/* Dossier context banner */}
@@ -217,7 +234,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
         {/* Main content — fixed so height is always exactly viewport minus banner/sidebar */}
         <div className="fixed top-[48px] left-0 md:left-[210px] right-0 bottom-0 overflow-y-auto bg-[#FAFAF6] z-40">
           <div className="page-fade p-4 md:p-[24px_22px_18px] pb-[72px] md:pb-[18px]">
-            {pageAllowed ? children : <AccessRestricted backHref="/comptable-pro" />}
+            {pageAllowed ? children : <AccessRestricted backHref="/comptable-pro" reason={featureAllowed ? "permission" : "plan"} />}
           </div>
         </div>
 
@@ -244,6 +261,8 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
           </>
         )}
       </div>
-    </>
+      </PermissionBoundary>
+      </AccountOwnerProvider>
+    </PlanEntitlementsProvider>
   );
 }

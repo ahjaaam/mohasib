@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 import PageHeader from "@/components/PageHeader";
 import NewAvoirForm from "./NewAvoirForm";
 import type { Client } from "@/types";
@@ -6,11 +7,12 @@ import type { Client } from "@/types";
 export default async function NewAvoirClientPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const ownerId = await resolveAccountOwnerId(user!.id);
 
   const { data: clientsData } = await supabase
     .from("clients")
     .select("id, name, email")
-    .eq("user_id", user!.id)
+    .eq("user_id", ownerId)
     .is("dossier_id", null)
     .order("name");
 
@@ -21,7 +23,7 @@ export default async function NewAvoirClientPage() {
   const { data: lastAv } = await supabase
     .from("invoices")
     .select("invoice_number")
-    .eq("user_id", user!.id)
+    .eq("user_id", ownerId)
     .is("dossier_id", null)
     .eq("invoice_type", "avoir_client")
     .ilike("invoice_number", `AV-${year}-%`)
@@ -37,7 +39,7 @@ export default async function NewAvoirClientPage() {
   const { data: invoicesData } = await supabase
     .from("invoices")
     .select("id, invoice_number, issue_date")
-    .eq("user_id", user!.id)
+    .eq("user_id", ownerId)
     .is("dossier_id", null)
     .eq("invoice_type", "facture")
     .in("status", ["sent", "paid", "overdue", "partiellement_payee"])
@@ -52,7 +54,7 @@ export default async function NewAvoirClientPage() {
       <NewAvoirForm
         clients={clients}
         nextNumber={nextNumber}
-        userId={user!.id}
+        userId={ownerId}
         linkableInvoices={linkableInvoices}
       />
     </>

@@ -161,6 +161,7 @@ export default function ClientModal({ userId, dossierId, client, open, onClose, 
                   Annuler
                 </button>
                 <button
+                  data-permission="invoice:delete"
                   onClick={handleDelete}
                   disabled={deleting}
                   className="btn bg-[#DC2626] text-white hover:bg-[#B91C1C] border-0"
@@ -307,7 +308,7 @@ export default function ClientModal({ userId, dossierId, client, open, onClose, 
             <button type="button" onClick={onClose} className="btn btn-outline flex-1 justify-center">
               Annuler
             </button>
-            <button type="submit" disabled={saving} className="btn btn-gold flex-1 justify-center">
+            <button data-permission="invoice:create" type="submit" disabled={saving} className="btn btn-gold flex-1 justify-center">
               {saving ? "Enregistrement..." : "Enregistrer"}
             </button>
           </div>
@@ -316,6 +317,7 @@ export default function ClientModal({ userId, dossierId, client, open, onClose, 
           {isEdit && (
             <div className="text-center pt-1">
               <button
+                data-permission="invoice:delete"
                 type="button"
                 onClick={() => setConfirmDelete(true)}
                 className="text-[11.5px] text-[#DC2626] hover:underline transition-colors"

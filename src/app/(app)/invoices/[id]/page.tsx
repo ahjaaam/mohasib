@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { formatDate, INVOICE_STATUS_LABELS } from "@/lib/utils";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -35,12 +36,13 @@ export default async function InvoiceDetailPage({
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const ownerId = await resolveAccountOwnerId(user!.id);
 
   const { data: inv } = await supabase
     .from("invoices")
     .select("*, clients(*)")
     .eq("id", id)
-    .eq("user_id", user!.id)
+    .eq("user_id", ownerId)
     .is("dossier_id", null)
     .single();
 

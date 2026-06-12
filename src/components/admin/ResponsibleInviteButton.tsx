@@ -40,13 +40,13 @@ export default function ResponsibleInviteButton({ companies }: { companies: Comp
   return <>
     <button onClick={() => setOpen(true)} className="inline-flex min-h-9 items-center gap-1.5 rounded bg-[#C8924A] px-3 text-[11px] font-bold text-white">
       <Plus size={13} />
-      Ajouter un Responsable
+      Ajouter un Collaborateur
     </button>
     {open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0D1526]/55 p-4">
       <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-[15px] font-bold">Ajouter un Responsable</h2>
+            <h2 className="text-[15px] font-bold">Ajouter un Collaborateur</h2>
             <p className="mt-1 text-xs text-gray-500">Choisissez le compte auquel cette personne aura accès.</p>
           </div>
           <button onClick={() => setOpen(false)} title="Fermer"><X size={18} /></button>

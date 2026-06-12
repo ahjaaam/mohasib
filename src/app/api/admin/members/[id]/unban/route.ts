@@ -25,7 +25,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   if (response) return response;
 
   const { data: member } = await admin!.from("user_memberships").select("*").eq("id", id).maybeSingle();
-  if (!member) return NextResponse.json({ message: "Responsable introuvable." }, { status: 404 });
+  if (!member) return NextResponse.json({ message: "Collaborateur introuvable." }, { status: 404 });
 
   const authUser = await findAuthUser(admin!, member.user_id, member.user_email) as User | null;
   if (!authUser) {

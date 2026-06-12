@@ -1,17 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import NewAvoirFournisseurForm from "./NewAvoirFournisseurForm";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 export default async function NewAvoirFournisseurPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const ownerId = await resolveAccountOwnerId(user!.id);
 
   // Next AV-FOURN number
   const year = new Date().getFullYear();
   const { data: lastAv } = await supabase
     .from("avoirs_fournisseurs")
     .select("numero_interne")
-    .eq("user_id", user!.id)
+    .eq("user_id", ownerId)
     .ilike("numero_interne", `AV-FOURN-${year}-%`)
     .order("created_at", { ascending: false })
     .limit(1);
@@ -24,7 +26,7 @@ export default async function NewAvoirFournisseurPage() {
   return (
     <>
       <PageHeader title="Nouvel avoir fournisseur" subtitle="Enregistrer un avoir reçu d'un fournisseur" />
-      <NewAvoirFournisseurForm nextNumber={nextNumber} userId={user!.id} />
+      <NewAvoirFournisseurForm nextNumber={nextNumber} userId={ownerId} />
     </>
   );
 }

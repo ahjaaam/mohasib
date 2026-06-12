@@ -97,6 +97,7 @@ export async function can(ctx: PermissionContext, resource: string, action: stri
 
   const membership = await getMembershipForContext(ctx);
   if (!membership || membership.status !== "active") return false;
+  if (membership.role_name === "manager") return true;
 
   if (ctx.dossierId && membership.role_name === "collaborateur") {
     const scope = membership.dossier_scope as string[] | null;

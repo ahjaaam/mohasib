@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { authorizePermission } from "@/lib/api-permissions";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 const PDF_MAX_PAGES = 8;
 const CSV_MAX_ROWS = 200;
@@ -26,6 +27,8 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const permission = await authorizePermission("document", "create");
   if (permission.response) return permission.response;
+  const plan = await requirePlanFeature("bank_import");
+  if (plan.response) return plan.response;
 
   let formData: FormData;
   try {

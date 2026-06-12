@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { CGNC_ACCOUNTS, type JournalCode } from "@/types/fiduciaire";
 import { getAccountLabel } from "@/lib/cgnc-mapping";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 interface ManualRow {
   id?: string;
@@ -77,6 +78,7 @@ function fmt(n: number) {
 }
 
 export default function SaisiePage() {
+  const ownerId = useAccountOwnerId();
   const now = new Date();
   const supabase = createClient();
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -97,7 +99,7 @@ export default function SaisiePage() {
     const { data, error } = await supabase
       .from("companies")
       .select("id, raison_sociale")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .single();
 
     if (error || !data) {
@@ -125,7 +127,7 @@ export default function SaisiePage() {
       const { data: invoices } = await supabase
         .from("invoices")
         .select("id, invoice_number, issue_date, subtotal, tax_amount, total, clients(name)")
-        .eq("user_id", user.id)
+        .eq("user_id", ownerId)
         .is("dossier_id", null)
         .gte("issue_date", startDate)
         .lte("issue_date", endDate)
@@ -147,7 +149,7 @@ export default function SaisiePage() {
       const { data: txs } = await supabase
         .from("transactions")
         .select("id, date, description, amount, type, category, receipt_id, invoice_id, reference")
-        .eq("user_id", user.id)
+        .eq("user_id", ownerId)
         .is("dossier_id", null)
         .gte("date", startDate)
         .lte("date", endDate)
@@ -428,7 +430,7 @@ export default function SaisiePage() {
                 </span>
           )}
 
-          <button onClick={saveRows} disabled={saving || !hasDirty}
+          <button data-permission="accounting:create" onClick={saveRows} disabled={saving || !hasDirty}
             className="btn btn-gold flex items-center gap-1.5 disabled:opacity-50">
             <Save size={13} /> {saving ? "Sauvegarde..." : "Sauvegarder"}
           </button>
@@ -506,7 +508,7 @@ export default function SaisiePage() {
                       className="w-full bg-transparent border-0 text-[12px] text-right tabular-nums focus:ring-1 focus:ring-[#C8924A] rounded px-1.5 py-1" placeholder="0.00" />
                   </td>
                   <td className="px-2 py-1 text-center">
-                    <button onClick={() => deleteRow(idx)} className="text-[#9CA3AF] hover:text-[#DC2626] p-1">
+                    <button data-permission="accounting:delete" onClick={() => deleteRow(idx)} className="text-[#9CA3AF] hover:text-[#DC2626] p-1">
                       <Trash2 size={13} />
                     </button>
                   </td>
@@ -516,7 +518,7 @@ export default function SaisiePage() {
             <tfoot>
               <tr className="bg-[#F9F9F6] border-t border-[rgba(0,0,0,0.08)]">
                 <td colSpan={3} className="px-3 py-2">
-                  <button onClick={() => addRow()}
+                  <button data-permission="accounting:create" onClick={() => addRow()}
                     className="btn btn-outline flex items-center gap-1.5 text-[12px] py-1.5 px-3">
                     <Plus size={13} /> Ajouter une ligne
                   </button>

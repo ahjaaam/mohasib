@@ -7,6 +7,8 @@ import type { Transaction } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { ArrowLeftRight, Plus, Filter } from "lucide-react";
 import BankImportModal from "./BankImportModal";
+import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
@@ -16,6 +18,8 @@ const today = new Date().toISOString().split("T")[0];
 const ALL_CATS = ["Toutes", ...TRANSACTION_CATEGORIES.income, ...TRANSACTION_CATEGORIES.expense];
 
 export default function TransactionsPage({ dossierId: propDossierId }: { dossierId?: string } = {}) {
+  const ownerId = useAccountOwnerId();
+  const entitlements = usePlanEntitlements();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
@@ -44,11 +48,11 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    setUserId(user.id);
+    setUserId(ownerId);
     const query = supabase.from("transactions").select("*, clients(id, name)");
     const { data } = await (dossierId
       ? query.eq("dossier_id", dossierId)
-      : query.eq("user_id", user.id).is("dossier_id", null))
+      : query.eq("user_id", ownerId).is("dossier_id", null))
       .order("date", { ascending: false });
     setTransactions(data ?? []);
     setLoading(false);
@@ -66,6 +70,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
 
   // Open bank import modal from topbar button
   useEffect(() => {
+    if (!entitlements.features.bank_import) return;
     const handler = () => setBankImportOpen(true);
     document.addEventListener("bank-import-open", handler);
     return () => document.removeEventListener("bank-import-open", handler);
@@ -119,13 +124,13 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
 
   return (
     <div>
-      <BankImportModal
+      {entitlements.features.bank_import && <BankImportModal
         open={bankImportOpen}
         onClose={() => setBankImportOpen(false)}
         userId={userId}
         dossierId={dossierId}
         onImported={load}
-      />
+      />}
 
       {/* ─── Page header ──────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 mb-5">
@@ -139,14 +144,14 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
             <p className="text-[11px] text-[#9CA3AF] mt-0.5">Enregistrez et suivez vos mouvements financiers</p>
           </div>
         </div>
-        <div className="relative group">
-          <button className="btn btn-gold flex items-center gap-1.5" onClick={() => setBankImportOpen(true)}>
+        {entitlements.features.bank_import && <div className="relative group">
+          <button data-permission="accounting:create" className="btn btn-gold flex items-center gap-1.5" onClick={() => setBankImportOpen(true)}>
             <Plus size={13} /> Importer un relevé
           </button>
           <div className="absolute right-0 top-full mt-1.5 bg-[#0D1526] text-white text-[11px] rounded-md px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
             PDF max 8 pages · CSV max 200 lignes
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* KPIs — current month */}
@@ -255,6 +260,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
               onKeyDown={(e) => e.key === "Enter" && addTransaction()} />
           </div>
           <button
+            data-permission="accounting:create"
             onClick={addTransaction}
             disabled={saving}
             className="btn whitespace-nowrap"

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 import PageHeader from "@/components/PageHeader";
 import NewInvoiceForm from "./NewInvoiceForm";
 import type { Client } from "@/types";
@@ -6,11 +7,12 @@ import type { Client } from "@/types";
 export default async function NewInvoicePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const ownerId = await resolveAccountOwnerId(user!.id);
 
   const { data } = await supabase
     .from("clients")
     .select("id, name, email")
-    .eq("user_id", user!.id)
+    .eq("user_id", ownerId)
     .is("dossier_id", null)
     .order("name");
 
@@ -20,7 +22,7 @@ export default async function NewInvoicePage() {
   const { data: lastInv } = await supabase
     .from("invoices")
     .select("invoice_number")
-    .eq("user_id", user!.id)
+    .eq("user_id", ownerId)
     .is("dossier_id", null)
     .order("created_at", { ascending: false })
     .limit(1);
@@ -34,7 +36,7 @@ export default async function NewInvoicePage() {
   return (
     <>
       <PageHeader title="Nouvelle facture" subtitle="Créer et envoyer une facture" />
-      <NewInvoiceForm clients={clients} nextNumber={nextNumber} userId={user!.id} />
+      <NewInvoiceForm clients={clients} nextNumber={nextNumber} userId={ownerId} />
     </>
   );
 }

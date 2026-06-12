@@ -4,7 +4,7 @@ import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkPlanLimit } from "@/lib/plan-check";
-import { getActiveUserCount, getEffectivePermissions, requirePermission } from "@/lib/rbac";
+import { getActiveUserCount, requirePermission } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { resolveTeamContext, ROLE_LABELS } from "@/lib/team";
 
@@ -37,27 +37,28 @@ export async function GET() {
     .update({ role_name: "manager", dossier_scope: null })
     .eq("company_id", context.companyId)
     .in("role_name", ["employee", "collaborateur", "read_auditor"]);
-  const [{ data: memberships }, { data: owner }, { data: dossiers }, { data: rolePermissions }, planCheck] = await Promise.all([
+  const [{ data: memberships }, { data: owner }, planCheck] = await Promise.all([
     admin.from("user_memberships")
       .select("id,user_id,user_email,first_name,last_name,role_name,dossier_scope,status,invitation_token,invited_at,accepted_at,created_at")
       .eq("company_id", context.companyId)
       .neq("status", "revoked")
       .order("created_at"),
     admin.from("users").select("full_name,email").eq("id", context.ownerId).maybeSingle(),
-    Promise.resolve({ data: [] }),
-    admin.from("role_permissions").select("role_name,resource,action"),
     checkPlanLimit(context.companyId, "multi_users"),
   ]);
+  const membershipIds = (memberships ?? []).map(membership => membership.id);
+  if (membershipIds.length) {
+    await admin.from("membership_permissions").delete().in("membership_id", membershipIds);
+  }
 
-  const members = await Promise.all((memberships ?? []).map(async (membership) => ({
+  const members = (memberships ?? []).map(membership => ({
     ...membership,
     invitation_url: membership.invitation_token
       ? `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/invitations/${membership.invitation_token}`
       : null,
     invitation_token: undefined,
     role_label: ROLE_LABELS[membership.role_name] ?? membership.role_name,
-    permissions: await getEffectivePermissions(membership.id),
-  })));
+  }));
 
   return NextResponse.json({
     context,
@@ -70,8 +71,6 @@ export async function GET() {
       role_label: "Propriétaire",
     },
     members,
-    dossiers: dossiers ?? [],
-    role_presets: rolePermissions ?? [],
   });
 }
 
@@ -128,23 +127,13 @@ export async function POST(req: NextRequest) {
 
   if (error || !membership) return NextResponse.json({ error: "create_failed", message: teamDatabaseMessage(error?.message) }, { status: 500 });
 
-  const overrides = Array.isArray(body.overrides) ? body.overrides : [];
-  if (overrides.length) {
-    await admin.from("membership_permissions").insert(overrides.map((override: any) => ({
-      membership_id: membership.id,
-      resource: override.resource,
-      action: override.action,
-      is_granted: !!override.is_granted,
-    })));
-  }
-
   const invitationUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/invitations/${token}`;
   if (resend) {
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "Mohasib <noreply@mohasibai.com>",
       to: email,
       subject: `${context.ownerName} vous invite à rejoindre Mohasib`,
-      html: `<p>${context.ownerName} vous invite à rejoindre <strong>${context.accountName}</strong> sur Mohasib.</p><p>Rôle : Responsable</p><p><a href="${invitationUrl}">Accepter l'invitation</a></p><p>Ce lien expire dans 7 jours.</p>`,
+      html: `<p>${context.ownerName} vous invite à rejoindre <strong>${context.accountName}</strong> sur Mohasib.</p><p>Rôle : Collaborateur</p><p><a href="${invitationUrl}">Accepter l'invitation</a></p><p>Ce lien expire dans 7 jours.</p>`,
     });
   }
 

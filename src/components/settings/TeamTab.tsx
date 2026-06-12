@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Clipboard, Lock, Plus, Shield, UserRound, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { ROUTES } from "@/lib/routes";
 
-type Permission = { resource: string; action: string };
 type Member = {
   id: string;
   user_email: string;
@@ -20,7 +19,6 @@ type Member = {
   invited_at?: string | null;
   accepted_at?: string | null;
   created_at: string;
-  permissions: Permission[];
 };
 type TeamData = {
   context: { track: "business" | "comptable"; accountName: string };
@@ -28,21 +26,7 @@ type TeamData = {
   count: number;
   owner: { id: string; email: string; full_name: string; role_label: string };
   members: Member[];
-  dossiers: { id: string; raison_sociale: string }[];
-  role_presets: { role_name: string; resource: string; action: string }[];
 };
-
-const PERMISSION_GROUPS = [
-  { label: "Facturation", items: [["invoice", "read", "Voir les factures"], ["invoice", "create", "Créer"], ["invoice", "delete", "Supprimer"], ["invoice", "send", "Envoyer"]] },
-  { label: "Comptabilité", items: [["accounting", "read", "Voir les écritures"], ["accounting", "create", "Créer"], ["accounting", "delete", "Supprimer"], ["accounting", "lock", "Verrouiller les périodes"]] },
-  { label: "TVA", items: [["tva_declaration", "read", "Voir"], ["tva_declaration", "prepare", "Préparer"], ["tva_declaration", "validate", "Valider"]] },
-  { label: "Paie", items: [["bulletin_paie", "read", "Voir les bulletins"], ["bulletin_paie", "validate", "Valider"], ["salary", "read", "Voir les salaires"]] },
-  { label: "Documents", items: [["document", "read", "Voir"], ["document", "create", "Ajouter"], ["document", "delete", "Supprimer"]] },
-  { label: "Paramètres", items: [["settings", "update", "Modifier les paramètres"], ["settings", "manage_team", "Gérer l'équipe"]] },
-  { label: "Rapports", items: [["report", "read", "Consulter"], ["report", "export", "Exporter"]] },
-] as const;
-
-const keyOf = (permission: Permission) => `${permission.resource}:${permission.action}`;
 
 export default function TeamTab({ title = "Équipe" }: { title?: string }) {
   const [data, setData] = useState<TeamData | null>(null);
@@ -101,7 +85,7 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
           <h2 className="text-[16px] font-bold text-[#0D1526]">{title}</h2>
           <span className="rounded-full bg-[#0D1526] px-2.5 py-1 text-[10px] font-bold text-white">{data.count} / {data.plan.limit} utilisateurs</span>
         </div>
-        <button title={limitReached ? `Limite de ${data.plan.limit} utilisateurs atteinte` : undefined} disabled={limitReached} onClick={() => { setEditing(null); setModalOpen(true); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#C8924A] px-4 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">
+        <button data-permission="settings:manage_team" title={limitReached ? `Limite de ${data.plan.limit} utilisateurs atteinte` : undefined} disabled={limitReached} onClick={() => { setEditing(null); setModalOpen(true); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#C8924A] px-4 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">
           <Plus size={15} /> Inviter un membre
         </button>
       </div>
@@ -121,23 +105,23 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
             {data.members.map(member => (
               <tr key={member.id}>
                 <td className="px-4 py-3"><MemberIdentity name={`${member.first_name ?? ""} ${member.last_name ?? ""}`.trim()} email={member.user_email} /></td>
-                <td className="px-4 py-3"><Badge label="Responsable" tone="gray" /></td>
-                <td className="px-4 py-3 text-[#6B7280]">Selon permissions</td>
+                <td className="px-4 py-3"><Badge label="Collaborateur" tone="gray" /></td>
+                <td className="px-4 py-3 text-[#6B7280]">Tout</td>
                 <td className="px-4 py-3"><Status status={member.status} /></td>
                 <td className="px-4 py-3 text-[#9CA3AF]">{new Date(member.accepted_at || member.invited_at || member.created_at).toLocaleDateString("fr-FR")}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">
                     {member.status === "invited" ? (
                       <>
-                        <button onClick={() => resend(member)} className="font-semibold text-[#C8924A]">Renvoyer</button>
-                        <button onClick={() => { navigator.clipboard.writeText(member.invitation_url || ""); toast.success("Lien copié"); }} className="text-[#C8924A]"><Clipboard size={14} /></button>
-                        <button onClick={() => updateStatus(member, "revoked")} className="text-red-600">Annuler</button>
+                        <button data-permission="settings:manage_team" onClick={() => resend(member)} className="font-semibold text-[#C8924A]">Renvoyer</button>
+                        <button data-permission="settings:manage_team" onClick={() => { navigator.clipboard.writeText(member.invitation_url || ""); toast.success("Lien copié"); }} className="text-[#C8924A]"><Clipboard size={14} /></button>
+                        <button data-permission="settings:manage_team" onClick={() => updateStatus(member, "revoked")} className="text-red-600">Annuler</button>
                       </>
                     ) : (
                       <>
-                        <button onClick={() => { setEditing(member); setModalOpen(true); }} className="font-semibold text-[#C8924A]">Modifier l'accès</button>
-                        <button onClick={() => updateStatus(member, member.status === "suspended" ? "active" : "suspended")} className="text-[#6B7280]">{member.status === "suspended" ? "Réactiver" : "Suspendre"}</button>
-                        <button onClick={() => updateStatus(member, "revoked")} className="text-red-600">Révoquer</button>
+                        <button data-permission="settings:manage_team" onClick={() => { setEditing(member); setModalOpen(true); }} className="font-semibold text-[#C8924A]">Modifier</button>
+                        <button data-permission="settings:manage_team" onClick={() => updateStatus(member, member.status === "suspended" ? "active" : "suspended")} className="text-[#6B7280]">{member.status === "suspended" ? "Réactiver" : "Suspendre"}</button>
+                        <button data-permission="settings:manage_team" onClick={() => updateStatus(member, "revoked")} className="text-red-600">Révoquer</button>
                       </>
                     )}
                   </div>
@@ -147,38 +131,20 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
           </tbody>
         </table>
       </div>
-      {modalOpen && <MemberModal data={data} member={editing} onClose={() => setModalOpen(false)} onSaved={async () => { setModalOpen(false); await load(); }} />}
+      {modalOpen && <MemberModal member={editing} onClose={() => setModalOpen(false)} onSaved={async () => { setModalOpen(false); await load(); }} />}
     </div>
   );
 }
 
-function MemberModal({ data, member, onClose, onSaved }: { data: TeamData; member: Member | null; onClose: () => void; onSaved: () => void }) {
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ email: member?.user_email ?? "", first_name: member?.first_name ?? "", last_name: member?.last_name ?? "", role_name: "manager", dossier_scope: [] as string[] });
-  const [selected, setSelected] = useState<Set<string>>(() => new Set((member?.permissions ?? data.role_presets.filter(p => p.role_name === "manager")).map(keyOf)));
-  const [showPermissions, setShowPermissions] = useState(false);
+function MemberModal({ member, onClose, onSaved }: { member: Member | null; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({ email: member?.user_email ?? "", first_name: member?.first_name ?? "", last_name: member?.last_name ?? "" });
   const [saving, setSaving] = useState(false);
-  const preset = useMemo(() => new Set(data.role_presets.filter(p => p.role_name === "manager").map(keyOf)), [data.role_presets]);
-
-  function toggle(permission: Permission) {
-    const key = keyOf(permission);
-    setSelected(current => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
   async function save() {
     setSaving(true);
-    const all: Permission[] = [];
-    for (const group of PERMISSION_GROUPS) {
-      for (const item of group.items) all.push({ resource: item[0], action: item[1] });
-    }
-    const overrides = all.filter(permission => selected.has(keyOf(permission)) !== preset.has(keyOf(permission))).map(permission => ({ ...permission, is_granted: selected.has(keyOf(permission)) }));
     const response = await fetch(member ? `/api/team/${member.id}` : "/api/team", {
       method: member ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, overrides }),
+      body: JSON.stringify(form),
     });
     const result = await response.json();
     setSaving(false);
@@ -191,24 +157,20 @@ function MemberModal({ data, member, onClose, onSaved }: { data: TeamData; membe
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0D1526]/45 p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="max-h-[92vh] w-full max-w-[680px] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl">
-        <div className="flex items-center justify-between"><h3 className="text-[16px] font-bold text-[#0D1526]">{member ? "Modifier l'accès" : "Inviter un membre"}</h3><button onClick={onClose}><X size={18} /></button></div>
-        <div className="mt-5 flex gap-2">{[1, 2].map(value => <span key={value} className={`h-1.5 flex-1 rounded-full ${step >= value ? "bg-[#C8924A]" : "bg-[#E5E7EB]"}`} />)}</div>
-
-        {step === 1 && <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="flex items-center justify-between"><h3 className="text-[16px] font-bold text-[#0D1526]">{member ? "Modifier le collaborateur" : "Inviter un collaborateur"}</h3><button onClick={onClose}><X size={18} /></button></div>
+        <div className="mt-5 rounded-lg border border-[#C8924A]/30 bg-[#C8924A]/5 px-4 py-3">
+          <strong className="text-[12px] text-[#0D1526]">Accès Collaborateur</strong>
+          <p className="mt-1 text-[11px] text-[#6B7280]">Le collaborateur travaille sur les mêmes données et dispose des mêmes accès que le propriétaire.</p>
+        </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2 text-[12px] font-semibold text-[#374151]">Email *<input type="email" readOnly={!!member} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input mt-1" /></label>
           <label className="text-[12px] font-semibold text-[#374151]">Prénom<input value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} className="input mt-1" /></label>
           <label className="text-[12px] font-semibold text-[#374151]">Nom<input value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} className="input mt-1" /></label>
-        </div>}
-
-        {step === 2 && <div className="mt-6">
-          <div className="rounded-lg border border-[#C8924A]/30 bg-[#C8924A]/5 px-4 py-3"><strong className="text-[12px] text-[#0D1526]">Rôle : Responsable</strong><p className="mt-1 text-[11px] text-[#6B7280]">Le propriétaire peut ajuster précisément les accès de ce membre.</p></div>
-          <button onClick={() => setShowPermissions(open => !open)} className="mt-4 flex w-full items-center justify-between rounded-lg bg-[#FAFAF6] px-4 py-3 text-[12px] font-bold text-[#0D1526]">Personnaliser les permissions <span>{showPermissions ? "−" : "+"}</span></button>
-          {showPermissions && <div className="mt-4 space-y-5">{PERMISSION_GROUPS.map(group => <div key={group.label}><p className="text-[10px] font-bold uppercase tracking-[1.4px] text-[#9CA3AF]">{group.label}</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{group.items.map(([resource, action, label]) => { const permission = { resource, action }; return <label key={`${resource}:${action}`} className="flex items-center gap-2 text-[12px] text-[#374151]"><input type="checkbox" checked={selected.has(keyOf(permission))} onChange={() => toggle(permission)} />{label}</label>; })}</div></div>)}</div>}
-        </div>}
+        </div>
 
         <div className="mt-7 flex justify-between border-t border-black/[0.07] pt-4">
-          <button onClick={step === 1 ? onClose : () => setStep(value => value - 1)} className="rounded-lg border border-black/[0.10] px-4 py-2 text-[12px] font-semibold text-[#6B7280]">{step === 1 ? "Annuler" : "Retour"}</button>
-          {step < 2 ? <button disabled={!form.email} onClick={() => setStep(2)} className="rounded-lg bg-[#0D1526] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-40">Continuer</button> : <button disabled={saving} onClick={save} className="rounded-lg bg-[#C8924A] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : member ? "Enregistrer" : "Envoyer l'invitation"}</button>}
+          <button onClick={onClose} className="rounded-lg border border-black/[0.10] px-4 py-2 text-[12px] font-semibold text-[#6B7280]">Annuler</button>
+          <button disabled={saving || !form.email} onClick={save} className="rounded-lg bg-[#C8924A] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : member ? "Enregistrer" : "Envoyer l'invitation"}</button>
         </div>
       </div>
     </div>

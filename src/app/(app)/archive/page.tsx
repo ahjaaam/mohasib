@@ -7,6 +7,7 @@ import {
   FolderOpen, Receipt, Download, X, Plus,
   Search, Loader2, Building2, FileArchive,
 } from "lucide-react";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -189,6 +190,7 @@ function PreviewPanel({ doc, onClose, onDelete }: {
             </a>
           )}
           <button
+            data-permission="document:delete"
             onClick={() => onDelete(doc)}
             className="ml-auto text-[12px] text-[#DC2626] hover:underline"
           >
@@ -207,6 +209,7 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
   onClose: () => void;
   onUploaded: (doc: ArchiveDoc) => void;
 }) {
+  const ownerId = useAccountOwnerId();
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState(DOC_CATEGORIES[0]);
   const [customName, setCustomName] = useState("");
@@ -222,7 +225,7 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
       const { data: { user } } = await supabase.auth.getUser();
       const ext = file.name.split(".").pop();
       const scope = dossierId ? `dossiers/${dossierId}` : "main";
-      const path = `${user!.id}/${scope}/${Date.now()}.${ext}`;
+      const path = `${ownerId}/${scope}/${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("company-documents").upload(path, file);
@@ -236,7 +239,7 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
       const { data: inserted, error: dbError } = await supabase
         .from("company_documents")
         .insert({
-          user_id: user!.id,
+          user_id: ownerId,
           name,
           document_category: category,
           storage_path: path,
@@ -335,7 +338,7 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
 
         <div className="flex items-center justify-end gap-2.5 px-5 py-4 border-t border-[rgba(0,0,0,0.08)]">
           <button onClick={onClose} className="btn btn-outline">Annuler</button>
-          <button onClick={handleUpload} disabled={!file || uploading} className="btn btn-gold">
+          <button data-permission="document:create" onClick={handleUpload} disabled={!file || uploading} className="btn btn-gold">
             {uploading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
             Ajouter au coffre
           </button>
@@ -356,6 +359,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) {
+  const ownerId = useAccountOwnerId();
   const [docs, setDocs] = useState<ArchiveDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ArchiveDoc | null>(null);
@@ -374,12 +378,12 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
 
     const [recRes, cdRes] = await Promise.all([
       (dossierId
-        ? supabase.from("receipts").select("*").eq("user_id", user.id).eq("dossier_id", dossierId)
-        : supabase.from("receipts").select("*").eq("user_id", user.id).is("dossier_id", null)
+        ? supabase.from("receipts").select("*").eq("user_id", ownerId).eq("dossier_id", dossierId)
+        : supabase.from("receipts").select("*").eq("user_id", ownerId).is("dossier_id", null)
       ).order("created_at", { ascending: false }),
       (dossierId
-        ? supabase.from("company_documents").select("*").eq("user_id", user.id).eq("dossier_id", dossierId)
-        : supabase.from("company_documents").select("*").eq("user_id", user.id).is("dossier_id", null)
+        ? supabase.from("company_documents").select("*").eq("user_id", ownerId).eq("dossier_id", dossierId)
+        : supabase.from("company_documents").select("*").eq("user_id", ownerId).is("dossier_id", null)
       ).order("created_at", { ascending: false }),
     ]);
 
@@ -536,7 +540,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <button onClick={() => setShowUpload(true)} className="btn btn-gold flex-shrink-0 flex items-center gap-1.5 text-[12px]">
+              <button data-permission="document:create" onClick={() => setShowUpload(true)} className="btn btn-gold flex-shrink-0 flex items-center gap-1.5 text-[12px]">
                 <Plus size={12} /> Ajouter
               </button>
             </div>

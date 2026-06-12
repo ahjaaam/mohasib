@@ -10,6 +10,7 @@ import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
 import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,7 @@ function SourceBadge({ provider }: { provider?: string }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: string; inboxEmail?: string | null } = {}) {
+  const ownerId = useAccountOwnerId();
   const supabase = createClient();
   const router = useRouter();
   const [userId, setUserId] = useState("");
@@ -143,11 +145,11 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    setUserId(user.id);
+    setUserId(ownerId);
     const receiptsQuery = supabase.from("receipts").select("*").order("created_at", { ascending: false });
     const { data } = await (dossierId
       ? receiptsQuery.eq("dossier_id", dossierId)
-      : receiptsQuery.eq("user_id", user.id).is("dossier_id", null));
+      : receiptsQuery.eq("user_id", ownerId).is("dossier_id", null));
     const list: Receipt[] = data ?? [];
     const withUrls: ReceiptWithUrl[] = await Promise.all(list.map(async (r) => {
       let signedUrl: string | undefined;
@@ -442,17 +444,17 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
             </div>
 
             <div className="flex gap-2 justify-center flex-wrap">
-              <button onClick={() => fileInputRef.current?.click()}
+              <button data-permission="document:create" onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-colors"
                 style={{ backgroundColor: "#C8924A", color: "#fff", border: "none" }}>
                 <Upload size={13} /> Importer des documents
               </button>
-              <button onClick={() => cameraInputRef.current?.click()}
+              <button data-permission="document:create" onClick={() => cameraInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                 <Camera size={13} /> Prendre une photo
               </button>
               {!dossierId && (
-                <button onClick={handleEmailSync} disabled={syncing}
+                <button data-permission="document:create" onClick={handleEmailSync} disabled={syncing}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors disabled:opacity-50">
                   <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
                   {syncing ? "Synchronisation…" : "Sync mes emails"}
@@ -498,7 +500,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
           {pending.length >= 3 && (
             <div className="flex items-center justify-between bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3 mb-4">
               <span className="text-[12.5px] font-semibold text-[#1E40AF]">{pending.length} facture{pending.length > 1 ? "s" : ""} en attente</span>
-              <button onClick={() => setBatchModal(true)} className="btn btn-sm" style={{ backgroundColor: "#1D4ED8", color: "#fff", border: "none" }}>
+              <button data-permission="accounting:create" onClick={() => setBatchModal(true)} className="btn btn-sm" style={{ backgroundColor: "#1D4ED8", color: "#fff", border: "none" }}>
                 ✓ Tout confirmer
               </button>
             </div>
@@ -625,7 +627,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
             </div>
             <div className="flex gap-2">
               <button onClick={() => setBatchModal(false)} className="btn btn-outline flex-1">Annuler</button>
-              <button onClick={confirmAll} disabled={batchSaving} className="btn btn-gold flex-1">
+              <button data-permission="accounting:create" onClick={confirmAll} disabled={batchSaving} className="btn btn-gold flex-1">
                 {batchSaving
                   ? <Loader2 size={13} className="animate-spin" />
                   : <><CheckCircle size={13} /> Tout confirmer</>}

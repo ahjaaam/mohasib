@@ -33,17 +33,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.last_name !== undefined) changes.last_name = body.last_name || null;
 
   if (Object.keys(changes).length) await admin.from("user_memberships").update(changes).eq("id", id);
-  if (Array.isArray(body.overrides)) {
-    await admin.from("membership_permissions").delete().eq("membership_id", id);
-    if (body.overrides.length) {
-      await admin.from("membership_permissions").insert(body.overrides.map((override: any) => ({
-        membership_id: id,
-        resource: override.resource,
-        action: override.action,
-        is_granted: !!override.is_granted,
-      })));
-    }
-  }
+  await admin.from("membership_permissions").delete().eq("membership_id", id);
 
   void logAudit({
     action: "UPDATE",

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Toaster } from "react-hot-toast";
-import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText, Users, CalendarDays } from "lucide-react";
+import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText, Users, CalendarDays, Lock } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
 import ApparenceTab from "./ApparenceTab";
@@ -12,9 +12,13 @@ import MessagesTab from "./MessagesTab";
 import TVAConfigTab from "@/components/parametres/TVAConfigTab";
 import TeamTab from "@/components/settings/TeamTab";
 import DeadlinesTab from "./DeadlinesTab";
+import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
+import { usePermissions } from "@/hooks/usePermissions";
+import AccessRestricted from "@/components/AccessRestricted";
 
 interface Props {
   userId: string;
+  accountOwnerId: string;
   userEmail: string;
   companyId: string | null;
   profile: any;
@@ -23,18 +27,21 @@ interface Props {
 }
 
 const TABS = [
-  { id: "entreprise", label: "Entreprise", icon: Building2 },
-  { id: "profil", label: "Profil personnel", icon: User },
-  { id: "apparence", label: "Apparence", icon: Palette },
-  { id: "abonnement", label: "Abonnement", icon: CreditCard },
-  { id: "integrations", label: "Intégrations", icon: Plug },
-  { id: "tva",          label: "Déclaration TVA", icon: FileText },
-  { id: "echeances",    label: "Échéances",       icon: CalendarDays },
-  { id: "messages",     label: "Messages",     icon: MessageSquare },
-  { id: "equipe",       label: "Équipe",       icon: Users },
+  { id: "entreprise", label: "Entreprise", icon: Building2, permission: "settings:update" },
+  { id: "profil", label: "Profil personnel", icon: User, permission: "settings:update" },
+  { id: "apparence", label: "Apparence", icon: Palette, permission: "settings:update" },
+  { id: "abonnement", label: "Abonnement", icon: CreditCard, ownerOnly: true },
+  { id: "integrations", label: "Intégrations", icon: Plug, permission: "settings:update" },
+  { id: "tva",          label: "Déclaration TVA", icon: FileText, permission: "settings:update" },
+  { id: "echeances",    label: "Échéances",       icon: CalendarDays, permission: "settings:update" },
+  { id: "messages",     label: "Messages",     icon: MessageSquare, permission: "settings:update" },
+  { id: "equipe",       label: "Équipe",       icon: Users, permission: "settings:manage_team" },
 ];
 
-export default function SettingsShell({ userId, userEmail, companyId, profile, company, prefs }: Props) {
+export default function SettingsShell({ userId, accountOwnerId, userEmail, companyId, profile, company, prefs }: Props) {
+  const entitlements = usePlanEntitlements();
+  const { can, isOwner } = usePermissions();
+  const visibleTabs = TABS.filter(item => item.id !== "equipe" || entitlements.features.multi_users);
   const [tab, setTab] = useState(() => {
     if (typeof window !== "undefined") {
       const t = new URLSearchParams(window.location.search).get("tab");
@@ -42,6 +49,8 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
     }
     return "entreprise";
   });
+  const activeTab = TABS.find(item => item.id === tab);
+  const tabAllowed = isOwner || (!activeTab?.ownerOnly && (!activeTab?.permission || can(...activeTab.permission.split(":") as [string, string])));
 
   return (
     <>
@@ -64,7 +73,7 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
         <div className="w-full md:w-[188px] flex-shrink-0">
           {/* Mobile: horizontal scroll */}
           <div className="md:hidden flex gap-1 overflow-x-auto pb-1">
-            {TABS.map(t => (
+            {visibleTabs.map(t => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
@@ -76,18 +85,19 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
               >
                 <t.icon size={13} />
                 {t.label}
+                {!isOwner && (t.ownerOnly || (t.permission && !can(...t.permission.split(":") as [string, string]))) && <Lock size={10} />}
               </button>
             ))}
           </div>
 
           {/* Desktop: vertical nav */}
           <div className="hidden md:flex flex-col bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
-            {TABS.map((t, i) => (
+            {visibleTabs.map((t, i) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={`flex items-center gap-2.5 px-4 py-3 text-[12.5px] text-left transition-all border-l-2 ${
-                  i < TABS.length - 1 ? "border-b border-[rgba(0,0,0,0.06)]" : ""
+                  i < visibleTabs.length - 1 ? "border-b border-[rgba(0,0,0,0.06)]" : ""
                 } ${
                   tab === t.id
                     ? "border-l-[#C8924A] bg-[rgba(200,146,74,0.06)] text-[#1A1A2E] font-medium"
@@ -96,6 +106,7 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
               >
                 <t.icon size={14} className={tab === t.id ? "text-[#C8924A]" : ""} />
                 {t.label}
+                {!isOwner && (t.ownerOnly || (t.permission && !can(...t.permission.split(":") as [string, string]))) && <Lock size={10} className="ml-auto text-[#9CA3AF]" />}
               </button>
             ))}
           </div>
@@ -103,15 +114,18 @@ export default function SettingsShell({ userId, userEmail, companyId, profile, c
 
         {/* Tab content */}
         <div className="flex-1 min-w-0">
-          {tab === "entreprise" && <EntrepriseTab userId={userId} company={company} />}
+          {!tabAllowed && <AccessRestricted backHref="/settings" />}
+          {tabAllowed && <>
+          {tab === "entreprise" && <EntrepriseTab userId={accountOwnerId} company={company} />}
           {tab === "profil" && <ProfilTab userId={userId} userEmail={userEmail} profile={profile} prefs={prefs} />}
-          {tab === "apparence" && <ApparenceTab userId={userId} company={company} />}
-          {tab === "abonnement" && <AbonnementTab userId={userId} userEmail={userEmail} companyId={companyId} />}
+          {tab === "apparence" && <ApparenceTab userId={accountOwnerId} company={company} />}
+          {tab === "abonnement" && <AbonnementTab userId={accountOwnerId} userEmail={userEmail} companyId={companyId} />}
           {tab === "integrations" && <IntegrationsTab company={company} />}
           {tab === "tva"          && <TVAConfigTab companyId={companyId} />}
-          {tab === "echeances"    && <DeadlinesTab userId={userId} deadlines={prefs.dashboard_deadlines ?? null} />}
-          {tab === "messages"     && <MessagesTab userId={userId} companyId={companyId} company={company} />}
-          {tab === "equipe"       && <TeamTab />}
+          {tab === "echeances"    && <DeadlinesTab userId={accountOwnerId} deadlines={prefs.dashboard_deadlines ?? null} />}
+          {tab === "messages"     && <MessagesTab userId={accountOwnerId} companyId={companyId} company={company} />}
+          {tab === "equipe"       && entitlements.features.multi_users && <TeamTab />}
+          </>}
         </div>
       </div>
     </>

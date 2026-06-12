@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { authorizePermission } from "@/lib/api-permissions";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     const permission = await authorizePermission("bulletin_paie", "validate");
     if (permission.response) return permission.response;
+    const plan = await requirePlanFeature("paie");
+    if (plan.response) return plan.response;
 
     const { data: company } = await supabase.from("companies").select("id").eq("user_id", user.id).single();
 

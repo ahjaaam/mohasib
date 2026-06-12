@@ -8,6 +8,8 @@ import {
   Receipt, CheckCircle, Download,
   AlertTriangle, Info,
 } from "lucide-react";
+import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -131,6 +133,8 @@ const EMPTY: CalcResult = {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function TvaClient({ dossier }: { dossier: Dossier }) {
+  const ownerId = useAccountOwnerId();
+  const entitlements = usePlanEntitlements();
   const supabase = createClient();
   const now = new Date();
   const regime = (dossier.regime_tva ?? "mensuel").toLowerCase() === "trimestriel"
@@ -325,7 +329,7 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from("dossier_tva").upsert({
       dossier_id: dossier.id,
-      fiduciaire_user_id: user!.id,
+      fiduciaire_user_id: ownerId,
       periode: periodKey,
       tva_collectee: calc.tva_collectee_total,
       tva_deductible: calc.deductions_total,
@@ -481,7 +485,7 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
             </p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setConfirmValidate(false)} className="btn btn-outline text-[12px]">Annuler</button>
-              <button onClick={() => handleSave("validé")} disabled={saving} className="btn btn-gold text-[12px]">
+              <button data-permission="tva_declaration:validate" onClick={() => handleSave("validé")} disabled={saving} className="btn btn-gold text-[12px]">
                 {saving ? "…" : "Valider"}
               </button>
             </div>
@@ -746,17 +750,17 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
 
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[rgba(0,0,0,0.07)]">
                 {statut === "brouillon" && !isFiled && (
-                  <button onClick={() => setConfirmValidate(true)} disabled={saving}
+                  <button data-permission="tva_declaration:validate" onClick={() => setConfirmValidate(true)} disabled={saving}
                     className="btn btn-outline flex items-center gap-1.5 text-[12px] border-[#C8924A] text-[#C8924A] hover:bg-[#FFF7ED]">
                     <CheckCircle size={12} /> Valider
                   </button>
                 )}
-                <button onClick={handleEDI} disabled={generatingEDI}
+                {entitlements.features.tva_edi && <button data-permission="tva_declaration:prepare" onClick={handleEDI} disabled={generatingEDI}
                   className="btn btn-gold flex items-center gap-1.5 text-[12px]">
                   <Download size={13} /> {generatingEDI ? "Génération…" : "Fichier EDI (XML)"}
-                </button>
+                </button>}
                 {!isFiled && (
-                  <button onClick={() => handleSave("déposé")} disabled={saving}
+                  <button data-permission="tva_declaration:validate" onClick={() => handleSave("déposé")} disabled={saving}
                     className="btn btn-outline flex items-center gap-1.5 text-[12px]">
                     <CheckCircle size={13} />
                     {saving ? "…" : "Marquer comme déposée"}

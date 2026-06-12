@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { calculateSalary } from "@/lib/payroll";
 import { authorizePermission } from "@/lib/api-permissions";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     const permission = await authorizePermission("bulletin_paie", "validate");
     if (permission.response) return permission.response;
+    const plan = await requirePlanFeature("paie");
+    if (plan.response) return plan.response;
 
     const { data: emp, error: empErr } = await supabase
       .from("employees")

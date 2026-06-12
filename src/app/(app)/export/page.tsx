@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
 import { taxIncludedInAmount } from "@/lib/tax";
 import { Download, Package, CheckCircle, AlertCircle, RefreshCw, BookMarked, FileSpreadsheet, FileText, CalendarDays, History } from "lucide-react";
@@ -80,6 +81,7 @@ interface Stats {
 }
 
 export default function ExportPage() {
+  const ownerId = useAccountOwnerId();
   const [mode, setMode] = useState<"month"|"quarter"|"year"|"custom">("quarter");
   const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3));
   const [year, setYear] = useState(now.getFullYear());
@@ -143,9 +145,9 @@ export default function ExportPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const [invRes, txRes] = await Promise.all([
-      supabase.from("invoices").select("total,tax_amount,status").eq("user_id", user.id).is("dossier_id", null)
+      supabase.from("invoices").select("total,tax_amount,status").eq("user_id", ownerId).is("dossier_id", null)
         .gte("issue_date", period.start).lte("issue_date", period.end),
-      supabase.from("transactions").select("amount,type,category,tax_rate,tax_amount").eq("user_id", user.id).is("dossier_id", null)
+      supabase.from("transactions").select("amount,type,category,tax_rate,tax_amount").eq("user_id", ownerId).is("dossier_id", null)
         .gte("date", period.start).lte("date", period.end),
     ]);
     const invoices = (invRes.data ?? []).filter((i: any) => i.status !== "draft" && i.status !== "cancelled");
@@ -170,10 +172,10 @@ export default function ExportPage() {
 
       const [invRes, txRes] = await Promise.all([
         supabase.from("invoices").select("*, clients(id,name,ice,address)")
-          .eq("user_id", user.id).is("dossier_id", null).gte("issue_date", period.start).lte("issue_date", period.end)
+          .eq("user_id", ownerId).is("dossier_id", null).gte("issue_date", period.start).lte("issue_date", period.end)
           .order("issue_date", { ascending: true }),
         supabase.from("transactions").select("*")
-          .eq("user_id", user.id).is("dossier_id", null).gte("date", period.start).lte("date", period.end)
+          .eq("user_id", ownerId).is("dossier_id", null).gte("date", period.start).lte("date", period.end)
           .order("date", { ascending: true }),
       ]);
 

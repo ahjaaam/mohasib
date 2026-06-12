@@ -8,6 +8,7 @@ import { Users, Plus, FileText, Upload, Download, X, Loader2, CheckCircle, Alert
 import type { Client } from "@/types";
 import ClientModal from "./ClientModal";
 import * as XLSX from "xlsx";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 type InvoiceRow = {
   id: string;
@@ -124,6 +125,7 @@ function parseExcel(file: File): Promise<ImportRow[]> {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: string } = {}) {
+  const ownerId = useAccountOwnerId();
   const [clients, setClients] = useState<ClientWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string>("");
@@ -199,14 +201,14 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-    setUserId(user.id);
+    setUserId(ownerId);
 
     const query = supabase
       .from("clients")
       .select(`*, invoices(id, total, status, issue_date, due_date, updated_at)`);
     const { data } = await (dossierId
       ? query.eq("dossier_id", dossierId)
-      : query.eq("user_id", user.id).is("dossier_id", null))
+      : query.eq("user_id", ownerId).is("dossier_id", null))
       .order("name");
 
     const rows: ClientWithStats[] = (data ?? []).map((c: any) => {
@@ -282,7 +284,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
             <Upload size={13} /> Importer Excel
           </button>
         </div>
-        <button onClick={openAdd} className="btn btn-gold flex items-center gap-1.5">
+        <button data-permission="invoice:create" onClick={openAdd} className="btn btn-gold flex items-center gap-1.5">
           <Plus size={13} /> Nouveau client
         </button>
       </div>
@@ -317,7 +319,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
           <p className="text-[11.5px] text-[#9CA3AF] mb-4">
             Ajoutez vos clients pour les associer à vos factures.
           </p>
-          <button onClick={openAdd} className="btn btn-gold">
+          <button data-permission="invoice:create" onClick={openAdd} className="btn btn-gold">
             + Nouveau client
           </button>
         </div>
@@ -406,7 +408,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
                     </div>
                     <div className="flex gap-2">
                       <button onClick={closeImport} className="btn btn-outline flex-1">Annuler</button>
-                      <button onClick={runImport} disabled={importing} className="btn btn-gold flex-1 flex items-center justify-center gap-1.5 disabled:opacity-60">
+                      <button data-permission="invoice:create" onClick={runImport} disabled={importing} className="btn btn-gold flex-1 flex items-center justify-center gap-1.5 disabled:opacity-60">
                         {importing ? <><Loader2 size={13} className="animate-spin" /> Importation...</> : <><CheckCircle size={13} /> Importer {importPreview.length} client{importPreview.length > 1 ? "s" : ""}</>}
                       </button>
                     </div>

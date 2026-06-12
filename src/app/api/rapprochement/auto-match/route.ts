@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { findMatches } from "@/lib/reconciliation";
 import { authorizePermission } from "@/lib/api-permissions";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,8 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const permission = await authorizePermission("accounting", "create");
     if (permission.response) return permission.response;
+    const plan = await requirePlanFeature("bank_import");
+    if (plan.response) return plan.response;
 
     const { statement_id } = await req.json();
 

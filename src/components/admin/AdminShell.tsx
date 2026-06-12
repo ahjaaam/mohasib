@@ -7,7 +7,7 @@ import { BarChart3, CreditCard, Inbox, ListChecks, UserCog, Users } from "lucide
 const NAV = [
   { href: "/admin", label: "Tableau de bord", icon: BarChart3 },
   { href: "/admin/comptes", label: "Comptes", icon: Users },
-  { href: "/admin/responsables", label: "Responsables", icon: UserCog },
+  { href: "/admin/responsables", label: "Collaborateurs", icon: UserCog },
   { href: "/admin/abonnements", label: "Abonnements", icon: CreditCard },
   { href: "/admin/demandes", label: "Demandes", icon: Inbox },
   { href: "/admin/liste-attente", label: "Liste d'attente", icon: ListChecks },

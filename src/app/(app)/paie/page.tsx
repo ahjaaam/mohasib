@@ -10,6 +10,7 @@ import {
   CalendarDays, Clock, Briefcase, FolderOpen, Eye, EyeOff,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -209,6 +210,7 @@ function countWorkingDays(start: string, end: string, holidays: Set<string>) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
+  const ownerId = useAccountOwnerId();
   const supabase = createClient();
   const [userId, setUserId] = useState("");
   const [tab, setTab] = useState<Tab>("employes");
@@ -269,8 +271,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const loadEmployees = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    setUserId(user.id);
-    let q = supabase.from("employees").select("*").eq("user_id", user.id);
+    setUserId(ownerId);
+    let q = supabase.from("employees").select("*").eq("user_id", ownerId);
     if (dossierId) q = (q as any).eq("dossier_id", dossierId);
     else q = (q as any).is("dossier_id", null);
     const { data } = await (q as any).order("nom");
@@ -733,18 +735,18 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           </div>
         </div>
         {tab === "employes" && (
-          <button onClick={openAddModal} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white transition-colors" style={{ backgroundColor: "#C8924A" }}>
+          <button data-permission="bulletin_paie:validate" onClick={openAddModal} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white transition-colors" style={{ backgroundColor: "#C8924A" }}>
             <Plus size={14} /> Ajouter un employé
           </button>
         )}
         {tab === "conges" && (
-          <button onClick={openLeaveModal} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white transition-colors" style={{ backgroundColor: "#C8924A" }}>
+          <button data-permission="bulletin_paie:validate" onClick={openLeaveModal} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white transition-colors" style={{ backgroundColor: "#C8924A" }}>
             <Plus size={14} /> Nouvelle absence
           </button>
         )}
         {tab === "bulletins" && bulletins.length > 0 && (
           <div className="flex gap-2">
-            <button onClick={validateAll} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#1D4ED8] border border-[#BFDBFE] bg-[#EFF6FF] hover:bg-[#DBEAFE] transition-colors">
+            <button data-permission="bulletin_paie:validate" onClick={validateAll} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#1D4ED8] border border-[#BFDBFE] bg-[#EFF6FF] hover:bg-[#DBEAFE] transition-colors">
               <CheckCircle size={13} /> Tout valider
             </button>
           </div>
@@ -978,16 +980,16 @@ function EmployesTab({ employees, loading, deletingId, onAdd, onEdit, onDelete, 
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => toggleSalary(emp.id)} title={salaryVisible ? "Masquer le salaire" : "Afficher le salaire"} aria-label={salaryVisible ? "Masquer le salaire" : "Afficher le salaire"} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#1A1A2E]">
+                      <button data-permission="salary:read" onClick={() => toggleSalary(emp.id)} title={salaryVisible ? "Masquer le salaire" : "Afficher le salaire"} aria-label={salaryVisible ? "Masquer le salaire" : "Afficher le salaire"} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#1A1A2E]">
                         {salaryVisible ? <EyeOff size={13} /> : <Eye size={13} />}
                       </button>
                       <button onClick={() => onViewBulletin(emp)} title="Voir les bulletins" aria-label="Voir les bulletins" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#1A1A2E]">
                         <FileText size={13} />
                       </button>
-                      <button onClick={() => onEdit(emp)} title="Modifier l'employé" aria-label="Modifier l'employé" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#1A1A2E]">
+                      <button data-permission="bulletin_paie:validate" onClick={() => onEdit(emp)} title="Modifier l'employé" aria-label="Modifier l'employé" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#1A1A2E]">
                         <Edit2 size={13} />
                       </button>
-                      <button onClick={() => onDelete(emp.id)} disabled={deletingId === emp.id} title="Supprimer l'employé" aria-label="Supprimer l'employé" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(220,38,38,0.2)] text-[#DC2626] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50">
+                      <button data-permission="bulletin_paie:validate" onClick={() => onDelete(emp.id)} disabled={deletingId === emp.id} title="Supprimer l'employé" aria-label="Supprimer l'employé" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(220,38,38,0.2)] text-[#DC2626] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50">
                         {deletingId === emp.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                       </button>
                     </div>
@@ -1281,7 +1283,7 @@ function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, 
             <ChevronRight size={16} />
           </button>
         </div>
-        <button onClick={onGenerate} disabled={generating || !employees.length} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white disabled:opacity-50 transition-colors" style={{ backgroundColor: "#C8924A" }}>
+        <button data-permission="bulletin_paie:validate" onClick={onGenerate} disabled={generating || !employees.length} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white disabled:opacity-50 transition-colors" style={{ backgroundColor: "#C8924A" }}>
           {generating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
           Générer les bulletins de {MONTHS[selectedMonth - 1]}
         </button>
@@ -1335,7 +1337,7 @@ function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, 
                           <FileText size={14} />
                         </button>
                         {b.statut === "brouillon" && (
-                          <button
+                          <button data-permission="bulletin_paie:validate"
                             onClick={() => onUpdateStatus(b.id, "validé")}
                             title="Valider"
                             className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-[#1D4ED8] border border-[#BFDBFE] bg-[#EFF6FF] hover:bg-[#DBEAFE] transition-colors"
@@ -1344,7 +1346,7 @@ function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, 
                           </button>
                         )}
                         {b.statut === "validé" && (
-                          <button
+                          <button data-permission="bulletin_paie:validate"
                             onClick={() => onUpdateStatus(b.id, "payé")}
                             title="Marquer comme payé"
                             className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-[#059669] border border-[#BBF7D0] bg-[#F0FDF4] hover:bg-[#DCFCE7] transition-colors"
@@ -1352,7 +1354,7 @@ function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, 
                             <DollarSign size={14} />
                           </button>
                         )}
-                        <button
+                        <button data-permission="bulletin_paie:validate"
                           onClick={() => onDelete(b.id)}
                           title="Supprimer"
                           className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-[#DC2626] border border-[#FECACA] bg-[#FEF2F2] hover:bg-[#FEE2E2] transition-colors"

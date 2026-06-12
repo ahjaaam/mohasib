@@ -46,8 +46,8 @@ export function AccountControls({ company }: { company: Record<string, any> }) {
         event.preventDefault();
         void run(`/api/admin/accounts/${company.id}/limits`, Object.fromEntries(new FormData(event.currentTarget)));
       }}>
-        {["ocr_limit", "storage_gb", "dossiers_limit", "users_limit"].map(field => <input key={field} name={field} type="number" placeholder={field} className="input text-xs" />)}
-        {["has_paie", "has_bank_import", "has_saisie", "has_export_fiduciaire", "has_avoirs", "has_bilan", "has_mass_declarations", "has_whatsapp_agent"].map(field => <select key={field} name={field} className="input text-xs"><option value="">{field} : plan</option><option value="true">{field} : oui</option><option value="false">{field} : non</option></select>)}
+        {["ocr_limit", "storage_gb", "dossiers_limit", "users_limit", "employee_limit"].map(field => <input key={field} name={field} type="number" placeholder={field} className="input text-xs" />)}
+        {["has_paie", "has_bank_import", "has_saisie", "has_export_fiduciaire", "has_avoirs", "has_bilan", "has_tva_edi", "has_inbox_global", "has_mass_declarations", "has_whatsapp_agent"].map(field => <select key={field} name={field} className="input text-xs"><option value="">{field} : plan</option><option value="true">{field} : oui</option><option value="false">{field} : non</option></select>)}
         <input name="expires_at" type="date" className="input text-xs" />
         <input name="reason" required placeholder="Motif obligatoire" className="input text-xs" />
         <button disabled={busy} className="rounded bg-[#0D1526] px-3 py-2 text-xs font-bold text-white">Enregistrer</button>

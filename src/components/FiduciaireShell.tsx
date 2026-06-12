@@ -8,10 +8,13 @@ import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, Folder, FolderPlus, Receipt, Download,
   Banknote, Settings, LogOut, Calendar, Building2, X, Menu,
-  ChevronLeft,
+  ChevronLeft, Lock,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
+import PermissionBoundary from "@/components/PermissionBoundary";
+import { type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
+import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 
 const NAV_GROUPS = [
   {
@@ -19,6 +22,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/comptable-pro", icon: LayoutDashboard, label: "Vue d'ensemble", exact: true, permission: "dossier:read" },
       { href: "/comptable-pro/calendrier", icon: Calendar, label: "Calendrier comptable", exact: false, permission: "dossier:read" },
+      { href: "/comptable-pro/inbox-global", icon: Receipt, label: "Inbox global", exact: false, permission: "document:read", feature: "inbox_global" as PlanFeature },
     ],
   },
   {
@@ -31,8 +35,8 @@ const NAV_GROUPS = [
   {
     group: "MASSE",
     items: [
-      { href: "/comptable-pro/declarations", icon: Receipt, label: "Déclarations TVA", exact: false, permission: "tva_declaration:read" },
-      { href: "/comptable-pro/exports", icon: Download, label: "Exports CGNC", exact: false, permission: "report:export" },
+      { href: "/comptable-pro/declarations", icon: Receipt, label: "Déclarations TVA", exact: false, permission: "tva_declaration:read", feature: "mass_declarations" as PlanFeature },
+      { href: "/comptable-pro/exports", icon: Download, label: "Exports CGNC", exact: false, permission: "report:export", feature: "mass_declarations" as PlanFeature },
       { href: "/comptable-pro/paie", icon: Banknote, label: "Bulletins de paie", exact: false, permission: "bulletin_paie:read" },
     ],
   },
@@ -51,9 +55,10 @@ interface Props {
   cabinetName?: string | null;
   permissions?: string[] | null;
   roleLabel?: string | null;
+  entitlements: PlanEntitlements;
 }
 
-export default function FiduciaireShell({ children, userName, userEmail, cabinetName, permissions = null, roleLabel }: Props) {
+export default function FiduciaireShell({ children, userName, userEmail, cabinetName, permissions = null, roleLabel, entitlements }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -61,8 +66,13 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
   const isDossierWorkspace = /^\/comptable-pro\/dossiers\/[0-9a-f-]{36}/.test(pathname);
   const { can } = usePermissions(permissions);
   const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
-  const currentItem = NAV_GROUPS.flatMap(group => group.items).find(item => pathname === item.href || pathname.startsWith(`${item.href}/`));
-  const pageAllowed = allowed(currentItem?.permission);
+  const entitled = (feature?: PlanFeature) => !feature || entitlements.features[feature];
+  const currentItem = NAV_GROUPS.flatMap(group => group.items)
+    .sort((a, b) => b.href.length - a.href.length)
+    .find(item => item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const permissionAllowed = allowed(currentItem?.permission);
+  const featureAllowed = entitled(currentItem?.feature);
+  const pageAllowed = permissionAllowed && featureAllowed;
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
@@ -117,17 +127,23 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
             <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: "rgba(255,255,255,0.14)", padding: "14px 18px 6px" }}>
               {group}
             </div>
-            {items.filter(item => allowed(item.permission)).map(({ href, icon: Icon, label, exact }) => (
+            {items.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, exact, permission }) => {
+              const locked = !allowed(permission);
+              return (
               <Link key={href} href={href}
                 className={`flex items-center gap-2.5 px-[18px] py-[10px] text-[13px] transition-all border-r-2 ${
                   isActive(href, exact)
                     ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                    : locked
+                      ? "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                      : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
                 }`}>
                 <Icon size={15} />
                 {label}
+                {locked && <Lock size={11} className="ml-auto opacity-70" />}
               </Link>
-            ))}
+              );
+            })}
           </div>
         ))}
       </nav>
@@ -156,8 +172,9 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
   );
 
   return (
-    <>
+    <PlanEntitlementsProvider value={entitlements}>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
+      <PermissionBoundary permissions={permissions}>
       <div className="flex h-screen overflow-hidden bg-[#FAFAF6]">
 
         {/* Desktop sidebar */}
@@ -169,7 +186,7 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
         <div className="flex flex-col flex-1 md:ml-[210px] min-w-0 h-screen overflow-hidden">
           <main className="flex-1 overflow-hidden flex flex-col">
             <div className="page-fade overflow-y-auto flex-1 pt-[68px] px-4 pb-[72px] md:p-[24px_22px_18px] md:pb-[18px]">
-              {pageAllowed ? children : <AccessRestricted backHref="/comptable-pro" />}
+              {pageAllowed ? children : <AccessRestricted backHref="/comptable-pro" reason={featureAllowed ? "permission" : "plan"} />}
             </div>
           </main>
         </div>
@@ -209,6 +226,7 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
           </>
         )}
       </div>
-    </>
+      </PermissionBoundary>
+    </PlanEntitlementsProvider>
   );
 }

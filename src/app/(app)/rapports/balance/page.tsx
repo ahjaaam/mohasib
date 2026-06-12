@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BarChart2, Download } from "lucide-react";
 import { getAccountLabel, getAccountClass, getAccountClassName } from "@/lib/cgnc-mapping";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ function fmtSolde(n: number) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function BalancePage() {
+  const ownerId = useAccountOwnerId();
   const supabase = createClient();
   const [groups, setGroups]   = useState<ClassGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,13 +52,10 @@ export default function BalancePage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
     const { data: company } = await supabase
       .from("companies")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .single();
 
     if (!company) { setLoading(false); return; }
@@ -114,7 +113,7 @@ export default function BalancePage() {
 
     setGroups(result);
     setLoading(false);
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, ownerId]);
 
   useEffect(() => { load(); }, [load]);
 

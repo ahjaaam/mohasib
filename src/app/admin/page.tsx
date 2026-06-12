@@ -20,7 +20,7 @@ export default async function AdminDashboard() {
   const expiring = rows.filter(item => item.subscription_ends_at && new Date(item.subscription_ends_at) >= new Date() && new Date(item.subscription_ends_at) <= inSevenDays).length;
   const cards = [
     { label: "Comptes", value: rows.length, icon: Building2 },
-    { label: "Responsables", value: responsables.count ?? 0, icon: Users },
+    { label: "Collaborateurs", value: responsables.count ?? 0, icon: Users },
     { label: "Abonnés payants", value: rows.filter(item => item.subscription_status === "active").length, icon: CreditCard },
     { label: "Essais en cours", value: rows.filter(item => item.subscription_status === "trial").length, icon: Users },
     { label: "Comptes suspendus", value: rows.filter(item => item.is_suspended).length, icon: Users },

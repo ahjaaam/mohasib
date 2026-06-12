@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserAccessProfile } from "@/lib/team";
+import { getPlanEntitlements } from "@/lib/plan-entitlements";
 
 export default async function DossierLayout({
   children,
@@ -31,7 +32,7 @@ export default async function DossierLayout({
     .eq("fiduciaire_user_id", ownerId);
   if (access.permissions !== null) dossiersQuery = dossiersQuery.in("id", access.dossierScope?.length ? access.dossierScope : [id]);
 
-  const [dossierRes, dossiersRes, profileRes] = await Promise.all([
+  const [dossierRes, dossiersRes, profileRes, entitlements] = await Promise.all([
     db
       .from("dossiers")
       .select("id, raison_sociale, ice, regime_tva")
@@ -40,6 +41,7 @@ export default async function DossierLayout({
       .single(),
     dossiersQuery.order("raison_sociale"),
     supabase.from("users").select("full_name").eq("id", user.id).single(),
+    getPlanEntitlements(user.id),
   ]);
 
   if (!dossierRes.data) notFound();
@@ -52,6 +54,8 @@ export default async function DossierLayout({
       userEmail={user.email}
       permissions={access.permissions}
       roleLabel={access.roleLabel}
+      entitlements={entitlements}
+      ownerId={ownerId}
     >
       {children}
     </DossierShell>

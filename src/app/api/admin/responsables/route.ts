@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       from: process.env.RESEND_FROM_EMAIL || "Mohasib <noreply@mohasibai.com>",
       to: email,
       subject: `Invitation à rejoindre ${company.raison_sociale || "Mohasib"}`,
-      html: `<p>Bonjour ${firstName},</p><p>Vous êtes invité à rejoindre <strong>${company.raison_sociale || "ce compte"}</strong> sur Mohasib avec le rôle Responsable.</p><p><a href="${invitationUrl}">Accepter l'invitation</a></p><p>Ce lien expire dans 7 jours.</p>`,
+      html: `<p>Bonjour ${firstName},</p><p>Vous êtes invité à rejoindre <strong>${company.raison_sociale || "ce compte"}</strong> sur Mohasib avec le rôle Collaborateur.</p><p><a href="${invitationUrl}">Accepter l'invitation</a></p><p>Ce lien expire dans 7 jours.</p>`,
     });
     emailSent = !result.error;
   }

@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { createClient } from "@/lib/supabase/server";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   try {
+    const plan = await requirePlanFeature("bank_import");
+    if (plan.response) return plan.response;
     const { sessionId } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

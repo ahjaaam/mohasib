@@ -10,10 +10,14 @@ import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
   LogOut, Menu, Plus, Inbox, Download,
   Settings, Receipt, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine,
-  ChevronLeft, ChevronRight, GitMerge,
+  ChevronLeft, ChevronRight, GitMerge, Lock,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
+import PermissionBoundary from "@/components/PermissionBoundary";
+import { featureForPath, type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
+import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
+import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 
 const NAV_MAIN = [
   { href: "/dashboard",    icon: LayoutDashboard, label: "Tableau de bord",    key: "dashboard", permission: "report:read" },
@@ -22,11 +26,11 @@ const NAV_MAIN = [
   { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des paiements", key: "suivi-paiements", permission: "invoice:read" },
   { href: "/clients",           icon: Users,      label: "Clients",             key: "clients", permission: "invoice:read" },
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions", permission: "accounting:read" },
-  { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement", permission: "accounting:read" },
-  { href: "/saisie",       icon: PenLine,         label: "Saisie comptable",   key: "saisie", permission: "accounting:read" },
+  { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
+  { href: "/saisie",       icon: PenLine,         label: "Saisie comptable",   key: "saisie", permission: "accounting:read", feature: "saisie" as PlanFeature },
   { href: "/tva",          icon: Receipt,         label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
-  { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie", permission: "bulletin_paie:read" },
-  { href: "/export",       icon: Download,        label: "Exports",            key: "export", permission: "report:export" },
+  { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
+  { href: "/export",       icon: Download,        label: "Exports",            key: "export", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
   { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive", permission: "document:read" },
 ];
 
@@ -91,6 +95,7 @@ const HIDE_TOPBAR_PATHS = new Set([
 interface Props {
   children: React.ReactNode;
   userId?: string | null;
+  ownerId: string;
   userEmail?: string | null;
   userName?: string | null;
   userCompany?: string | null;
@@ -104,9 +109,10 @@ interface Props {
     is_suspended?: boolean | null;
     suspended_reason?: string | null;
   } | null;
+  entitlements: PlanEntitlements;
 }
 
-export default function AppShell({ children, userEmail, userName, userCompany, isFiduciaire, permissions = null, roleLabel, accountState }: Props) {
+export default function AppShell({ children, ownerId, userEmail, userName, userCompany, isFiduciaire, permissions = null, roleLabel, accountState, entitlements }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
@@ -114,8 +120,24 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
   const supabase = createClient();
   const { can } = usePermissions(permissions);
   const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
-  const currentNav = ALL_NAV.find(item => pathname === item.href || pathname.startsWith(`${item.href}/`));
-  const pageAllowed = allowed(currentNav?.permission);
+  const entitled = (feature?: PlanFeature) => !feature || entitlements.features[feature];
+  const normalizedPath = pathname
+    .replace(/^\/tableau-de-bord/, "/dashboard")
+    .replace(/^\/boite-de-reception/, "/inbox")
+    .replace(/^\/factures/, "/invoices")
+    .replace(/^\/declarations-tva/, "/tva")
+    .replace(/^\/export-fiduciaire/, "/export")
+    .replace(/^\/parametres/, "/settings");
+  const currentNav = ALL_NAV.find(item => normalizedPath === item.href || normalizedPath.startsWith(`${item.href}/`));
+  const currentFeature = featureForPath(pathname) ?? (currentNav && "feature" in currentNav ? currentNav.feature : undefined);
+  const routePermission = /^\/invoices\/(?:new|devis\/new|avoir\/new)$/.test(normalizedPath) || /^\/invoices\/[^/]+\/edit$/.test(normalizedPath)
+    ? "invoice:create"
+    : currentNav?.permission;
+  const permissionAllowed = normalizedPath.startsWith("/settings")
+    ? allowed("settings:update") || allowed("settings:manage_team")
+    : allowed(routePermission);
+  const featureAllowed = entitled(currentFeature);
+  const pageAllowed = permissionAllowed && featureAllowed;
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
@@ -175,19 +197,25 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {NAV_MAIN.filter(item => allowed(item.permission)).map(({ href, icon: Icon, label }: any) => (
+        {NAV_MAIN.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => {
+          const locked = !allowed(permission);
+          return (
           <Link key={href} href={href} title={sidebarCollapsed ? label : undefined}
             className={`flex items-center py-[12px] text-[13px] transition-all border-r-2 ${
               sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
             } ${
               isActive(href)
                 ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                : locked
+                  ? "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                  : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
             }`}>
             <Icon size={sidebarCollapsed ? 18 : 15} />
             {!sidebarCollapsed && label}
+            {!sidebarCollapsed && locked && <Lock size={11} className="ml-auto opacity-70" />}
           </Link>
-        ))}
+          );
+        })}
       </nav>
 
       {isFiduciaire && (
@@ -203,13 +231,14 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
       )}
 
       <div className="border-t border-white/[0.07] py-[7px]">
-        {allowed("settings:update") && <Link href="/settings" title={sidebarCollapsed ? "Paramètres" : undefined}
+        <Link href="/settings" title={sidebarCollapsed ? "Paramètres" : undefined}
           className={`flex items-center py-[7px] text-[13px] transition-all ${
             sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
-          } ${pathname === "/settings" ? "text-[#C8924A]" : "text-white/40 hover:text-white/75"}`}>
+          } ${pathname === "/settings" ? "text-[#C8924A]" : allowed("settings:update") || allowed("settings:manage_team") ? "text-white/40 hover:text-white/75" : "text-white/25 hover:text-white/45"}`}>
           <Settings size={sidebarCollapsed ? 18 : 15} />
           {!sidebarCollapsed && "Paramètres"}
-        </Link>}
+          {!sidebarCollapsed && !allowed("settings:update") && !allowed("settings:manage_team") && <Lock size={11} className="ml-auto opacity-70" />}
+        </Link>
       </div>
 
       <div className={`py-3 border-t border-white/[0.07] flex items-center ${sidebarCollapsed ? "justify-center px-0" : "px-[18px] gap-2.5"}`}>
@@ -234,8 +263,10 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
   );
 
   return (
-    <>
+    <PlanEntitlementsProvider value={entitlements}>
+      <AccountOwnerProvider ownerId={ownerId}>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
+      <PermissionBoundary permissions={permissions}>
       <div className="flex h-screen overflow-hidden bg-[#FAFAF6]">
 
         {/* Desktop sidebar */}
@@ -274,12 +305,12 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
               <span className="text-[14px] font-semibold text-[#1A1A2E]">{pageTitle}</span>
               <div className="flex items-center gap-2">
                 {pathname === "/inbox" && (
-                  <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("inbox-upload"))}>
+                  <button data-permission="document:create" className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("inbox-upload"))}>
                     <Plus size={13} /> Importer un reçu
                   </button>
                 )}
                 {pathname === "/invoices" && (
-                  <Link href="/invoices/new" className="btn btn-gold">
+                  <Link data-permission="invoice:create" href="/invoices/new" className="btn btn-gold">
                     <Plus size={13} /> Nouvelle Facture
                   </Link>
                 )}
@@ -287,21 +318,21 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
                   <Link href="/invoices" className="btn btn-outline">← Annuler</Link>
                 )}
                 {pathname === "/clients" && (
-                  <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("open-add-client"))}>
+                  <button data-permission="invoice:create" className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("open-add-client"))}>
                     <Plus size={13} /> Nouveau client
                   </button>
                 )}
                 {pathname === "/transactions" && (
                   <div className="relative group flex flex-col items-end gap-0.5">
-                    <button className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("bank-import-open"))}>
+                    {entitlements.features.bank_import && <button data-permission="accounting:create" className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("bank-import-open"))}>
                       <Plus size={13} /> Importer un relevé
-                    </button>
+                    </button>}
                     <div className="absolute right-0 top-full mt-1.5 bg-[#0D1526] text-white text-[11px] rounded-md px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                       PDF max 8 pages · CSV max 200 lignes
                     </div>
                     {docsRemaining !== null && (
                       <span className={`text-[10.5px] font-medium ${docsRemaining === 0 ? "text-[#DC2626]" : docsRemaining <= 20 ? "text-[#D97706]" : "text-[#6B7280]"}`}>
-                        {docsRemaining === 0 ? "Limite atteinte" : `${docsRemaining} doc${docsRemaining > 1 ? "s" : ""} restant${docsRemaining > 1 ? "s" : ""}`}
+                        {docsRemaining < 0 ? "Documents illimités" : docsRemaining === 0 ? "Limite atteinte" : `${docsRemaining} doc${docsRemaining > 1 ? "s" : ""} restant${docsRemaining > 1 ? "s" : ""}`}
                       </span>
                     )}
                   </div>
@@ -316,7 +347,7 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
             {!accountState?.is_suspended && accountState?.subscription_status === "grace" && <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">Votre abonnement est arrivé à échéance. Renouvelez-le pour conserver toutes les fonctionnalités.</div>}
             {!accountState?.is_suspended && accountState?.subscription_status === "expired" && <div className="bg-red-100 px-4 py-2 text-center text-[11px] font-semibold text-red-800">Votre abonnement a expiré. Les fonctionnalités premium sont en lecture seule.</div>}
             {!accountState?.is_suspended && accountState?.subscription_status === "trial" && trialDays !== null && trialDays >= 0 && trialDays <= 3 && <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">Votre essai se termine dans {trialDays} jour{trialDays > 1 ? "s" : ""}.</div>}
-            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[72px] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted /> : pageAllowed ? children : <AccessRestricted />}</div>
+            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[72px] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted reason="suspended" /> : pageAllowed ? children : <AccessRestricted reason={featureAllowed ? "permission" : "plan"} />}</div>
           </main>
         </div>
 
@@ -330,25 +361,28 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
           }}
         >
           {/* Accueil */}
-          {allowed("report:read") && <Link href="/dashboard" className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-            style={{ color: isActive("/dashboard") ? "#C8924A" : "rgba(255,255,255,0.45)" }}>
+          <Link href="/dashboard" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+            style={{ color: isActive("/dashboard") ? "#C8924A" : allowed("report:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
             <LayoutDashboard size={19} />
             <span style={{ fontSize: 10, fontWeight: 500 }}>Accueil</span>
-          </Link>}
+            {!allowed("report:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
+          </Link>
 
           {/* Factures */}
-          {allowed("invoice:read") && <Link href="/invoices" className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-            style={{ color: isActive("/invoices") ? "#C8924A" : "rgba(255,255,255,0.45)" }}>
+          <Link href="/invoices" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+            style={{ color: isActive("/invoices") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
             <FileText size={19} />
             <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
-          </Link>}
+            {!allowed("invoice:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
+          </Link>
 
           {/* Archive */}
-          {allowed("document:read") && <Link href="/archive" className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-            style={{ color: isActive("/archive") ? "#C8924A" : "rgba(255,255,255,0.45)" }}>
+          <Link href="/archive" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+            style={{ color: isActive("/archive") ? "#C8924A" : allowed("document:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
             <Download size={19} />
             <span style={{ fontSize: 10, fontWeight: 500 }}>Archive</span>
-          </Link>}
+            {!allowed("document:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
+          </Link>
 
           {/* Menu */}
           <button
@@ -388,13 +422,13 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
 
               {/* Nav items */}
               <div className="overflow-y-auto">
-                {ALL_NAV.filter(item => allowed(item.permission)).map(({ href, icon: Icon, label, soon }: any) => (
+                {ALL_NAV.filter(item => entitled("feature" in item ? item.feature : undefined)).map(({ href, icon: Icon, label, soon, permission }: any) => (
                   <Link
                     key={href}
                     href={href}
                     onClick={() => setDrawerOpen(false)}
                     className="flex items-center gap-3 px-[20px] py-[12px] transition-colors"
-                    style={{ color: isActive(href) ? "#C8924A" : "rgba(255,255,255,0.7)" }}
+                    style={{ color: isActive(href) ? "#C8924A" : allowed(permission) ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.28)" }}
                   >
                     <Icon size={16} />
                     <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
@@ -403,6 +437,7 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
                         Bientôt
                       </span>
                     )}
+                    {!allowed(permission) && <Lock size={11} className="ml-auto" />}
                   </Link>
                 ))}
 
@@ -434,6 +469,8 @@ export default function AppShell({ children, userEmail, userName, userCompany, i
           </>
         )}
       </div>
-    </>
+      </PermissionBoundary>
+      </AccountOwnerProvider>
+    </PlanEntitlementsProvider>
   );
 }
