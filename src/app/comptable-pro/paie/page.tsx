@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Banknote, FolderOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 const MONTHS_FR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
                    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -27,6 +28,7 @@ interface DossierStats {
 
 export default function FiduciairePaiePage() {
   const supabase = createClient();
+  const ownerId = useAccountOwnerId();
   const now = new Date();
 
   const [year, setYear]   = useState(now.getFullYear());
@@ -46,13 +48,10 @@ export default function FiduciairePaiePage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
     const { data: dos } = await supabase
       .from("dossiers")
       .select("id, raison_sociale, forme_juridique, cnss")
-      .eq("fiduciaire_user_id", user.id)
+      .eq("fiduciaire_user_id", ownerId)
       .eq("statut", "actif")
       .order("raison_sociale");
 
@@ -92,7 +91,7 @@ export default function FiduciairePaiePage() {
     }
     setStats(map);
     setLoading(false);
-  }, [month, year]);
+  }, [month, ownerId, year]);
 
   useEffect(() => { load(); }, [load]);
 

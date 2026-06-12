@@ -36,13 +36,13 @@ export default function ApparenceTab({ userId, company }: Props) {
 
   async function save() {
     setSaving(true);
-    const { error } = await supabase.from("companies").upsert({
-      user_id: userId,
+    const { data, error } = await supabase.from("companies").update({
       invoice_color: color,
       ...shows,
-    }, { onConflict: "user_id" });
+    }).eq("user_id", userId).select("id").maybeSingle();
     setSaving(false);
     if (error) toast.error(translateError(error));
+    else if (!data) toast.error("Entreprise introuvable. Rechargez la page avant de réessayer.");
     else toast.success("✓ Apparence enregistrée");
   }
 

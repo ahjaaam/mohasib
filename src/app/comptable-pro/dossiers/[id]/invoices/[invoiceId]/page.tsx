@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import InvoiceActions from "@/app/(app)/invoices/[id]/InvoiceActions";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD";
@@ -35,12 +36,14 @@ export default async function DossierInvoiceDetailPage({
   const { id: dossierId, invoiceId } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const ownerId = await resolveAccountOwnerId(user!.id);
 
   const { data: inv } = await supabase
     .from("invoices")
     .select("*, clients(*)")
     .eq("id", invoiceId)
-    .eq("user_id", user!.id)
+    .eq("user_id", ownerId)
+    .eq("dossier_id", dossierId)
     .single();
 
   if (!inv) notFound();

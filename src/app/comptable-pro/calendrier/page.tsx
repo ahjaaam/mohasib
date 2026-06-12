@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, Plus, X, Loader2, Trash2, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -236,6 +237,7 @@ function EventModal({ date, dayEvents, dossiers, onClose, onSave, onDelete, savi
 
 export default function CalendrierPage() {
   const supabase = createClient();
+  const ownerId = useAccountOwnerId();
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
 
@@ -245,7 +247,6 @@ export default function CalendrierPage() {
   const [dossiers, setDossiers] = useState<{ id: string; raison_sociale: string }[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [userId, setUserId] = useState("");
 
   // ── Load data ────────────────────────────────────────────────────────────────
 
@@ -263,19 +264,14 @@ export default function CalendrierPage() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      setUserId(user.id);
-      loadEvents(user.id, year, month);
-      supabase.from("dossiers").select("id, raison_sociale")
-        .eq("fiduciaire_user_id", user.id).order("raison_sociale")
-        .then(({ data }) => setDossiers(data ?? []));
-    });
-  }, []);
+    supabase.from("dossiers").select("id, raison_sociale")
+      .eq("fiduciaire_user_id", ownerId).order("raison_sociale")
+      .then(({ data }) => setDossiers(data ?? []));
+  }, [ownerId]);
 
   useEffect(() => {
-    if (userId) loadEvents(userId, year, month);
-  }, [year, month, userId]);
+    loadEvents(ownerId, year, month);
+  }, [year, month, ownerId, loadEvents]);
 
   // ── Navigation ────────────────────────────────────────────────────────────────
 
@@ -294,7 +290,7 @@ export default function CalendrierPage() {
   async function saveEvent(data: { title: string; category: Category; description: string; dossier_id: string; date: string }) {
     setSaving(true);
     const { error } = await supabase.from("fiduciaire_events").insert({
-      fiduciaire_user_id: userId,
+      fiduciaire_user_id: ownerId,
       title: data.title,
       date: data.date,
       category: data.category,
@@ -304,14 +300,14 @@ export default function CalendrierPage() {
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Événement ajouté !");
-    await loadEvents(userId, year, month);
+    await loadEvents(ownerId, year, month);
   }
 
   async function deleteEvent(id: string) {
     const { error } = await supabase.from("fiduciaire_events").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success("Événement supprimé");
-    await loadEvents(userId, year, month);
+    await loadEvents(ownerId, year, month);
   }
 
   // ── Calendar grid ─────────────────────────────────────────────────────────────

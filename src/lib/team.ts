@@ -15,29 +15,32 @@ export type TeamContext = {
 export async function resolveTeamContext(userId: string): Promise<TeamContext | null> {
   const admin = createAdminClient();
 
-  let { data: company } = await admin
-    .from("companies")
-    .select("id,user_id,raison_sociale,user_type,plan")
+  const { data: membership } = await admin
+    .from("user_memberships")
+    .select("company_id,role_name")
     .eq("user_id", userId)
+    .eq("status", "active")
+    .not("company_id", "is", null)
+    .limit(1)
     .maybeSingle();
 
-  if (!company) {
-    const { data: membership } = await admin
-      .from("user_memberships")
-      .select("company_id")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .not("company_id", "is", null)
-      .limit(1)
+  let company = null;
+  if (membership?.company_id && !["owner", "cabinet_owner"].includes(membership.role_name)) {
+    const result = await admin
+      .from("companies")
+      .select("id,user_id,raison_sociale,user_type,plan")
+      .eq("id", membership.company_id)
       .maybeSingle();
-    if (membership?.company_id) {
-      const result = await admin
-        .from("companies")
-        .select("id,user_id,raison_sociale,user_type,plan")
-        .eq("id", membership.company_id)
-        .maybeSingle();
-      company = result.data;
-    }
+    company = result.data;
+  }
+
+  if (!company) {
+    const result = await admin
+      .from("companies")
+      .select("id,user_id,raison_sociale,user_type,plan")
+      .eq("user_id", userId)
+      .maybeSingle();
+    company = result.data;
   }
 
   if (!company) return null;
@@ -47,7 +50,11 @@ export async function resolveTeamContext(userId: string): Promise<TeamContext | 
     admin.from("cabinets").select("nom_cabinet").eq("user_id", company.user_id).maybeSingle(),
   ]);
 
-  const track = company.user_type === "fiduciaire" ? "comptable" : "business";
+  const hasComptablePro =
+    company.user_type === "fiduciaire"
+    || !!cabinet
+    || ["comptable_pro", "comptable_inf"].includes(company.plan ?? "");
+  const track = hasComptablePro ? "comptable" : "business";
   return {
     companyId: company.id,
     ownerId: company.user_id,
@@ -72,24 +79,35 @@ export const ROLE_LABELS: Record<string, string> = {
 
 export async function getUserAccessProfile(userId: string) {
   const admin = createAdminClient();
+  const { data: membership } = await admin.from("user_memberships")
+    .select("id,role_name,dossier_scope,status")
+    .eq("user_id", userId).eq("status", "active").limit(1).maybeSingle();
+  if (membership && !["owner", "cabinet_owner"].includes(membership.role_name)) {
+    if (membership.role_name === "manager") {
+      return {
+        isOwner: false,
+        roleLabel: "Collaborateur",
+        permissions: (await getEffectivePermissions(membership.id))
+          .filter(permission => permission.resource !== "settings")
+          .map(permission => `${permission.resource}:${permission.action}`),
+        dossierScope: null,
+      };
+    }
+    return {
+      isOwner: false,
+      roleLabel: ROLE_LABELS[membership.role_name] ?? membership.role_name,
+      permissions: (await getEffectivePermissions(membership.id)).map(permission => `${permission.resource}:${permission.action}`),
+      dossierScope: membership.dossier_scope as string[] | null,
+    };
+  }
+
   const [{ data: company }, { data: cabinet }] = await Promise.all([
     admin.from("companies").select("id").eq("user_id", userId).maybeSingle(),
     admin.from("cabinets").select("id").eq("user_id", userId).maybeSingle(),
   ]);
   if (company || cabinet) return { isOwner: true, roleLabel: "Propriétaire", permissions: null, dossierScope: null };
 
-  const { data: membership } = await admin.from("user_memberships")
-    .select("id,role_name,dossier_scope,status")
-    .eq("user_id", userId).eq("status", "active").limit(1).maybeSingle();
   if (!membership) return { isOwner: false, roleLabel: "Accès restreint", permissions: [], dossierScope: [] };
-  if (membership.role_name === "manager") {
-    return {
-      isOwner: false,
-      roleLabel: "Collaborateur",
-      permissions: null,
-      dossierScope: null,
-    };
-  }
   return {
     isOwner: false,
     roleLabel: ROLE_LABELS[membership.role_name] ?? membership.role_name,

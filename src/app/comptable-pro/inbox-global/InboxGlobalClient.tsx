@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { Inbox, Paperclip, Clock, CheckCircle2, XCircle, Sparkles, ChevronDown } from "lucide-react";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 interface GlobalItem {
   id: string;
@@ -48,6 +49,7 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
   const [tab, setTab] = useState<"unassigned" | "assigned" | "ignored">("unassigned");
   const [learnPrompt, setLearnPrompt] = useState<{ itemId: string; from: string; dossierName: string; dossierId: string } | null>(null);
   const supabase = createClient();
+  const ownerId = useAccountOwnerId();
 
   const filtered = items.filter(i => i.status === tab);
   const unassignedCount = items.filter(i => i.status === "unassigned").length;
@@ -55,9 +57,8 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
   async function assign(item: GlobalItem, dossierId: string, dossierName: string) {
     setSaving(item.id);
     // 1. Create receipt in the dossier inbox
-    const { data: { user } } = await supabase.auth.getUser();
     await supabase.from("receipts").insert({
-      user_id: user!.id,
+      user_id: ownerId,
       dossier_id: dossierId,
       status: "pending",
       source: "email",
@@ -93,11 +94,10 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
   }
 
   async function saveRoutingRule(from: string, dossierId: string) {
-    const { data: { user } } = await supabase.auth.getUser();
     // If the address looks like domain-only, create a domain rule; otherwise exact sender
     const isDomain = from.startsWith("@");
     await supabase.from("email_routing_rules").insert({
-      fiduciaire_user_id: user!.id,
+      fiduciaire_user_id: ownerId,
       dossier_id: dossierId,
       rule_type: isDomain ? "sender_domain" : "sender_email",
       rule_value: from,

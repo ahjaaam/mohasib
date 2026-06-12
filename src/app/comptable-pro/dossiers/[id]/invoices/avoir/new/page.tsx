@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import NewAvoirForm from "@/app/(app)/invoices/avoir/new/NewAvoirForm";
 import type { Client } from "@/types";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function DossierNewAvoirPage({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) notFound();
+  const ownerId = await resolveAccountOwnerId(user.id);
 
   const year = new Date().getFullYear();
 
@@ -51,7 +53,7 @@ export default async function DossierNewAvoirPage({
     <NewAvoirForm
       clients={(clientsRes.data ?? []) as Pick<Client, "id" | "name" | "email">[]}
       nextNumber={nextNumber}
-      userId={user.id}
+      userId={ownerId}
       dossierId={dossierId}
       backHref={backHref}
       linkableInvoices={linkableRes.data ?? []}

@@ -4,7 +4,7 @@ import DossierShell from "@/components/DossierShell";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getUserAccessProfile } from "@/lib/team";
+import { getUserAccessProfile, resolveTeamContext } from "@/lib/team";
 import { getPlanEntitlements } from "@/lib/plan-entitlements";
 
 export default async function DossierLayout({
@@ -19,18 +19,20 @@ export default async function DossierLayout({
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect("/connexion");
-  const access = await getUserAccessProfile(user.id);
-  if (access.permissions !== null && !access.dossierScope?.includes(id)) notFound();
+  const [access, teamContext] = await Promise.all([
+    getUserAccessProfile(user.id),
+    resolveTeamContext(user.id),
+  ]);
+  if (teamContext?.track !== "comptable") notFound();
+  if (access.permissions !== null && access.dossierScope?.length && !access.dossierScope.includes(id)) notFound();
   const db = access.permissions === null ? supabase : createAdminClient();
-  const ownerId = access.permissions === null
-    ? user.id
-    : (await createAdminClient().from("dossiers").select("fiduciaire_user_id").eq("id", id).maybeSingle()).data?.fiduciaire_user_id;
+  const ownerId = teamContext.ownerId;
   if (!ownerId) notFound();
   let dossiersQuery = db
     .from("dossiers")
     .select("id, raison_sociale, ice, regime_tva")
     .eq("fiduciaire_user_id", ownerId);
-  if (access.permissions !== null) dossiersQuery = dossiersQuery.in("id", access.dossierScope?.length ? access.dossierScope : [id]);
+  if (access.permissions !== null && access.dossierScope?.length) dossiersQuery = dossiersQuery.in("id", access.dossierScope);
 
   const [dossierRes, dossiersRes, profileRes, entitlements] = await Promise.all([
     db

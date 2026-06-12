@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeftRight, FileText, FolderOpen, Inbox, PenLine, TrendingUp } from "lucide-react";
 import type { Dossier } from "@/types/fiduciaire";
 import { getPlanEntitlements } from "@/lib/plan-entitlements";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 function daysSince(dateStr: string | null): number {
   if (!dateStr) return 999;
@@ -25,10 +26,11 @@ function fmtActivityDate(dateStr: string) {
 export default async function FiduciaireOverviewPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const ownerId = await resolveAccountOwnerId(user!.id);
   const entitlements = await getPlanEntitlements(user!.id);
 
   const { data: dossiersData } = await supabase
-    .from("dossiers").select("*").eq("fiduciaire_user_id", user!.id).order("raison_sociale");
+    .from("dossiers").select("*").eq("fiduciaire_user_id", ownerId).order("raison_sociale");
   const dossiers: Dossier[] = dossiersData ?? [];
   const dossierIds = dossiers.map(d => d.id);
   const dossierById = new Map(dossiers.map(d => [d.id, d]));
@@ -49,9 +51,9 @@ export default async function FiduciaireOverviewPage() {
         supabase.from("dossier_ecritures").select("id, dossier_id, date, libelle, journal, compte_cgnc, debit, credit")
           .in("dossier_id", dossierIds).order("date", { ascending: false }),
         supabase.from("dossier_tva").select("dossier_id")
-          .eq("fiduciaire_user_id", user!.id).eq("periode", currentPeriod).eq("statut", "deposee"),
+          .eq("fiduciaire_user_id", ownerId).eq("periode", currentPeriod).eq("statut", "deposee"),
         supabase.from("inbox_global").select("id", { count: "exact", head: true })
-          .eq("fiduciaire_user_id", user!.id).eq("status", "unassigned"),
+          .eq("fiduciaire_user_id", ownerId).eq("status", "unassigned"),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { count: 0 }];
 

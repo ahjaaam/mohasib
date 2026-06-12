@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import NewInvoiceForm from "@/app/(app)/invoices/new/NewInvoiceForm";
 import type { Client } from "@/types";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function DossierNewInvoicePage({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) notFound();
+  const ownerId = await resolveAccountOwnerId(user.id);
 
   const [clientsRes, lastInvRes] = await Promise.all([
     supabase
@@ -40,7 +42,7 @@ export default async function DossierNewInvoicePage({
     <NewInvoiceForm
       clients={(clientsRes.data ?? []) as Pick<Client, "id" | "name" | "email">[]}
       nextNumber={nextNumber}
-      userId={user.id}
+      userId={ownerId}
       dossierId={dossierId}
       backHref={backHref}
     />

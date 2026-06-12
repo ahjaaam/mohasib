@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { DossierEcriture, JournalCode } from "@/types/fiduciaire";
 import { CGNC_ACCOUNTS as CGNC } from "@/types/fiduciaire";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,7 @@ interface Props {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SaisieClient({ dossier }: Props) {
+  const ownerId = useAccountOwnerId();
   const now = new Date();
   const [period, setPeriod] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [journal, setJournal] = useState<JournalCode>("VT");
@@ -305,7 +307,6 @@ export default function SaisieClient({ dossier }: Props) {
     if (dirty.length === 0) { toast("Aucune modification à sauvegarder"); return; }
     setSaving(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
     const toInsert = dirty.filter(r => !r.id);
     const toUpdate = dirty.filter(r => !!r.id);
 
@@ -313,7 +314,7 @@ export default function SaisieClient({ dossier }: Props) {
       const { error } = await supabase.from("dossier_ecritures").insert(
         toInsert.map(r => ({
           dossier_id:         dossier.id,
-          fiduciaire_user_id: user!.id,
+          fiduciaire_user_id: ownerId,
           periode:            period,
           journal,
           date:               r.date,
@@ -352,10 +353,9 @@ export default function SaisieClient({ dossier }: Props) {
     const dirty = rows.filter(r => r._dirty && r.libelle.trim());
     if (dirty.length > 0) await saveRows();
 
-    const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from("dossier_clotures").upsert({
       dossier_id:         dossier.id,
-      fiduciaire_user_id: user!.id,
+      fiduciaire_user_id: ownerId,
       periode:            period,
     });
     if (error) { toast.error(error.message); setLocking(false); return; }

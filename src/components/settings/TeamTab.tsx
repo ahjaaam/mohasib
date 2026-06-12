@@ -160,7 +160,7 @@ function MemberModal({ member, onClose, onSaved }: { member: Member | null; onCl
         <div className="flex items-center justify-between"><h3 className="text-[16px] font-bold text-[#0D1526]">{member ? "Modifier le collaborateur" : "Inviter un collaborateur"}</h3><button onClick={onClose}><X size={18} /></button></div>
         <div className="mt-5 rounded-lg border border-[#C8924A]/30 bg-[#C8924A]/5 px-4 py-3">
           <strong className="text-[12px] text-[#0D1526]">Accès Collaborateur</strong>
-          <p className="mt-1 text-[11px] text-[#6B7280]">Le collaborateur travaille sur les mêmes données et dispose des mêmes accès que le propriétaire.</p>
+          <p className="mt-1 text-[11px] text-[#6B7280]">Le collaborateur travaille sur les mêmes données opérationnelles, sans accès aux paramètres du compte.</p>
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2 text-[12px] font-semibold text-[#374151]">Email *<input type="email" readOnly={!!member} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input mt-1" /></label>

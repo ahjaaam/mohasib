@@ -15,6 +15,7 @@ import AccessRestricted from "@/components/AccessRestricted";
 import PermissionBoundary from "@/components/PermissionBoundary";
 import { type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
+import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 
 const NAV_GROUPS = [
   {
@@ -56,9 +57,10 @@ interface Props {
   permissions?: string[] | null;
   roleLabel?: string | null;
   entitlements: PlanEntitlements;
+  ownerId: string;
 }
 
-export default function FiduciaireShell({ children, userName, userEmail, cabinetName, permissions = null, roleLabel, entitlements }: Props) {
+export default function FiduciaireShell({ children, userName, userEmail, cabinetName, permissions = null, roleLabel, entitlements, ownerId }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -173,6 +175,7 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
 
   return (
     <PlanEntitlementsProvider value={entitlements}>
+      <AccountOwnerProvider ownerId={ownerId}>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
       <PermissionBoundary permissions={permissions}>
       <div className="flex h-screen overflow-hidden bg-[#FAFAF6]">
@@ -227,6 +230,7 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
         )}
       </div>
       </PermissionBoundary>
+      </AccountOwnerProvider>
     </PlanEntitlementsProvider>
   );
 }

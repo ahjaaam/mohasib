@@ -1,4 +1,5 @@
--- Company collaborators share the owner's data and full functional access.
+-- Company collaborators share the owner's operational data, without access
+-- to account settings.
 -- The internal role key remains "manager" for backwards compatibility.
 
 update public.roles
@@ -109,7 +110,12 @@ on conflict (resource, action) do update set label = excluded.label;
 insert into public.role_permissions(role_name, resource, action)
 select 'manager', resource, action
 from public.permissions
+where resource <> 'settings'
 on conflict (role_name, resource, action) do nothing;
+
+delete from public.role_permissions
+where role_name = 'manager'
+  and resource = 'settings';
 
 -- Remove legacy per-member restrictions. Collaborators now always have full
 -- access to their company's shared account.
@@ -186,7 +192,7 @@ as $$
         )
       )
       and (
-        membership.role_name = 'manager'
+        (membership.role_name = 'manager' and requested_resource <> 'settings')
         or coalesce(
           (
             select permission_override.is_granted
@@ -229,31 +235,19 @@ as $$
 $$;
 
 drop policy if exists "Members read company settings" on public.companies;
-create policy "Members read company settings" on public.companies for select
-  using (
-    exists (
-      select 1
-      from public.user_memberships membership
-      where membership.user_id = auth.uid()
-        and membership.company_id = companies.id
-        and membership.status = 'active'
-    )
-    or public.member_has_permission('settings', 'update', user_id)
-    or public.member_has_permission('settings', 'manage_team', user_id)
-  );
-
 drop policy if exists "Members read owner preferences" on public.user_preferences;
-create policy "Members read owner preferences" on public.user_preferences for select
-  using (
-    exists (
-      select 1
-      from public.user_memberships membership
-      join public.companies company on company.id = membership.company_id
-      where membership.user_id = auth.uid()
-        and membership.status = 'active'
-        and company.user_id = user_preferences.user_id
-    )
-  );
+
+drop policy if exists "Users manage own company" on public.companies;
+create policy "Users manage own company"
+  on public.companies for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users manage own preferences" on public.user_preferences;
+create policy "Users manage own preferences"
+  on public.user_preferences for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 drop policy if exists "Members read invoices" on public.invoices;
 create policy "Members read invoices" on public.invoices for select

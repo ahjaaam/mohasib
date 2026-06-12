@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { FolderOpen, Plus, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import type { Dossier } from "@/types/fiduciaire";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 function daysSince(dateStr: string | null): number {
   if (!dateStr) return 999;
@@ -25,8 +26,9 @@ export default async function DossiersPage({
   const { q, statut } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const ownerId = await resolveAccountOwnerId(user!.id);
 
-  let query = supabase.from("dossiers").select("*").eq("fiduciaire_user_id", user!.id).order("raison_sociale");
+  let query = supabase.from("dossiers").select("*").eq("fiduciaire_user_id", ownerId).order("raison_sociale");
   if (statut === "actif" || statut === "inactif") query = query.eq("statut", statut);
 
   const { data } = await query;

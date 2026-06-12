@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { Dossier, DossierEcriture, DossierTva, JournalCode } from "@/types/fiduciaire";
 import { CGNC_ACCOUNTS as CGNC } from "@/types/fiduciaire";
+import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2 });
@@ -70,6 +71,7 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
   const [tvaData, setTvaData] = useState<DossierTva | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const supabase = createClient();
+  const ownerId = useAccountOwnerId();
 
   const APP_ROUTES: Partial<Record<TabKey, string>> = {
     factures:     `/invoices?dossier_id=${dossier.id}`,
@@ -181,11 +183,10 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
     const unsaved = rows.filter(r => !r._saved && r.libelle.trim());
     if (unsaved.length === 0) { toast("Aucune nouvelle ligne à sauvegarder"); return; }
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from("dossier_ecritures").insert(
       unsaved.map(r => ({
         dossier_id: dossier.id,
-        fiduciaire_user_id: user!.id,
+        fiduciaire_user_id: ownerId,
         periode: period,
         journal,
         date: r.date,
@@ -526,10 +527,9 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
                 </div>
                 <button
                   onClick={async () => {
-                    const { data: { user } } = await supabase.auth.getUser();
                     await supabase.from("dossier_tva").upsert({
                       dossier_id: dossier.id,
-                      fiduciaire_user_id: user!.id,
+                      fiduciaire_user_id: ownerId,
                       periode: period,
                       tva_collectee: tvaCollectee,
                       tva_deductible: tvaDeductible,
