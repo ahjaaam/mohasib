@@ -49,15 +49,17 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
         .public-resources-menu:hover .public-resources-panel, .public-resources-menu:focus-within .public-resources-panel { opacity: 1; visibility: visible; transform: translateY(0); }
         .public-resources-item { display: flex; gap: 12px; padding: 12px; border-radius: 8px; text-decoration: none; transition: background 0.15s ease; }
         .public-resources-item:hover { background: #FAFAF6; }
+        .public-nav-actions { display: flex; align-items: center; gap: 10px; }
         .public-mobile-toggle, .public-mobile-panel { display: none; }
         @media (max-width: 900px) {
           .public-nav-inner { padding: 0 24px; }
-          .public-nav-links, .public-login-link { display: none !important; }
+          .public-nav-links, .public-nav-actions { display: none !important; }
           .public-mobile-toggle { display: inline-flex; width: 42px; height: 42px; align-items: center; justify-content: center; border: 1px solid rgba(13,21,38,0.10); border-radius: 6px; background: #FFFFFF; color: #0D1526; cursor: pointer; }
           .public-mobile-panel { display: block; position: absolute; top: 74px; left: 0; right: 0; padding: 8px 24px 22px; background: #FFFFFF; border-top: 1px solid rgba(0,0,0,0.06); box-shadow: 0 18px 35px rgba(13,21,38,0.10); }
           .public-mobile-main-link { display: flex; align-items: center; justify-content: space-between; min-height: 48px; border-bottom: 1px solid rgba(0,0,0,0.06); color: #0D1526; font-size: 14px; font-weight: 700; text-decoration: none; font-family: ${FONT}; }
           .public-mobile-resource { display: flex; align-items: center; gap: 12px; padding: 10px 0; color: #374151; font-size: 13px; font-weight: 600; text-decoration: none; font-family: ${FONT}; }
-          .public-mobile-login { display: flex; min-height: 44px; margin-top: 16px; align-items: center; justify-content: center; border-radius: 6px; background: ${GOLD}; color: #FFFFFF; font-size: 13px; font-weight: 700; text-decoration: none; font-family: ${FONT}; }
+          .public-mobile-login { display: flex; min-height: 44px; margin-top: 10px; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid ${GOLD}; background: #FFFFFF; color: ${GOLD}; font-size: 13px; font-weight: 700; text-decoration: none; font-family: ${FONT}; }
+          .public-mobile-trial { display: flex; min-height: 44px; margin-top: 16px; align-items: center; justify-content: center; border-radius: 6px; background: ${GOLD}; color: #FFFFFF; font-size: 13px; font-weight: 700; text-decoration: none; font-family: ${FONT}; }
         }
         @media (max-width: 480px) {
           .public-nav-inner { padding: 0 18px; }
@@ -96,9 +98,14 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
             </div>
           </div>
 
-          <Link href="/connexion" className="public-login-link" style={{ fontSize: 13, fontWeight: 600, color: "#FFFFFF", backgroundColor: GOLD, padding: "9px 20px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
-            Se Connecter
-          </Link>
+          <div className="public-nav-actions">
+            <Link href="/inscription" style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF", backgroundColor: GOLD, padding: "10px 18px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
+              Essai Gratuit
+            </Link>
+            <Link href="/connexion" style={{ fontSize: 13, fontWeight: 600, color: GOLD, backgroundColor: "#FFFFFF", border: `2px solid ${GOLD}`, padding: "8px 19px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
+              Se Connecter
+            </Link>
+          </div>
           <button
             type="button"
             className="public-mobile-toggle"
@@ -125,6 +132,7 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
               ))}
             </div>
             <Link href="/tarifs" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>Tarifs</Link>
+            <Link href="/inscription" className="public-mobile-trial" onClick={() => setMobileOpen(false)}>Essayez</Link>
             <Link href="/connexion" className="public-mobile-login" onClick={() => setMobileOpen(false)}>Se connecter</Link>
           </div>
         )}

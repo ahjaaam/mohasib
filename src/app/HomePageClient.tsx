@@ -11,6 +11,24 @@ const FONT = "var(--font-jakarta), sans-serif";
 const NAVY: React.CSSProperties["color"] = "#0D1526";
 const GOLD: React.CSSProperties["color"] = "#C8924A";
 
+const APP_VIDEOS = [
+  {
+    title: "Créer et envoyer une facture",
+    description: "Découvrez le flux complet de facturation dans Mohasib AI.",
+    src: "", // TODO: add video link
+  },
+  {
+    title: "Préparer une déclaration TVA",
+    description: "Voyez comment Mohasib aide à calculer et vérifier la TVA.",
+    src: "", // TODO: add video link
+  },
+  {
+    title: "Organiser les documents",
+    description: "Importez, classez et retrouvez vos pièces comptables.",
+    src: "", // TODO: add video link
+  },
+];
+
 // ── Demo Form ─────────────────────────────────────────────────────────────────
 
 function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
@@ -87,7 +105,10 @@ export default function HomePageClient() {
       {/* ── NAVBAR ──────────────────────────────────────────────────────────── */}
       <style>{`
         .page-section { padding: 80px 32px; }
+        .video-showcase-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+        .video-frame { aspect-ratio: 16 / 9; width: 100%; overflow: hidden; border: 1px solid rgba(13,21,38,0.10); background: #0D1526; }
         @media (max-width: 640px) { .page-section { padding: 56px 20px; } }
+        @media (max-width: 900px) { .video-showcase-grid { grid-template-columns: 1fr; } }
       `}</style>
       <PublicNavbar showBorder={false} />
 
@@ -153,6 +174,49 @@ export default function HomePageClient() {
               Nous vous montrerons comment Mohasib s&apos;adapte à votre activité.
             </p>
             <DemoForm />
+          </div>
+        </div>
+      </section>
+
+      {/* ── VIDEO SHOWCASE ─────────────────────────────────────────────────── */}
+      <section className="page-section" style={{ backgroundColor: "#FFFFFF", paddingTop: 74 }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+          <div style={{ textAlign: "left", marginBottom: 38 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: GOLD, letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: FONT, margin: "0 0 10px" }}>
+              Tutoriels vidéo
+            </p>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 700, color: NAVY, margin: "0 0 12px", fontFamily: FONT }}>
+              Découvrez Mohasib en quelques minutes
+            </h2>
+            <p style={{ fontSize: 15, color: "#6B7280", lineHeight: 1.6, maxWidth: 620, margin: 0, fontFamily: FONT }}>
+              Trois présentations courtes pour comprendre les workflows essentiels et démarrer plus vite.
+            </p>
+          </div>
+
+          <div className="video-showcase-grid">
+            {APP_VIDEOS.map((video, index) => (
+              <article key={video.title} style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, overflow: "hidden" }}>
+                <div className="video-frame">
+                  {video.src ? (
+                    <video controls preload="metadata" style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}>
+                      <source src={video.src} />
+                    </video>
+                  ) : (
+                    <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.72)", fontFamily: FONT, fontSize: 13, fontWeight: 700, letterSpacing: "1px" }}>
+                      VIDEO {index + 1}
+                    </div>
+                  )}
+                </div>
+                <div style={{ padding: "16px 16px 18px" }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: "0 0 6px", fontFamily: FONT }}>
+                    {video.title}
+                  </h3>
+                  <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.5, margin: 0, fontFamily: FONT }}>
+                    {video.description}
+                  </p>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
