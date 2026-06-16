@@ -238,7 +238,9 @@ export default function SignupPage() {
 
             <p className="text-xs text-gray-400 text-center">
               En créant un compte, vous acceptez nos{" "}
-              <span className="text-gold cursor-pointer hover:underline">Conditions d&apos;utilisation</span>
+              <Link href="/cgu" className="text-gold hover:underline">CGU</Link>
+              {" "}et notre{" "}
+              <Link href="/confidentialite" className="text-gold hover:underline">Politique de Confidentialité</Link>
             </p>
           </form>
         </div>

@@ -22,9 +22,17 @@ export default function PublicFooter() {
           </div>
         </div>
         <div style={{ height: 1, backgroundColor: "hsla(0, 0%, 78%, 0.40)", marginBottom: 24 }} />
-        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <span style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", fontFamily: FONT }}>© 2026 Mohasib AI</span>
-          <span style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", fontFamily: FONT }}>contact@mohasibai.com</span>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+            <Link href="/cgu" style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+              CGU
+            </Link>
+            <Link href="/confidentialite" style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", textDecoration: "none", fontFamily: FONT }}>
+              Confidentialité
+            </Link>
+            <span style={{ fontSize: 13, color: "hsla(0, 0%, 24%, 0.40)", fontFamily: FONT }}>contact@mohasibai.com</span>
+          </div>
         </div>
       </div>
     </footer>

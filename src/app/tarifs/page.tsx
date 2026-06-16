@@ -354,6 +354,12 @@ function PricingContent() {
         <section className="mx-auto mt-16 max-w-[1040px] text-center">
           <p className="text-[15px] font-semibold">Vous avez des besoins spécifiques ?</p>
           <a href="mailto:contact@mohasibai.com" className="mt-2 inline-block text-[13px] font-bold text-[#C8924A] hover:underline">Contactez-nous pour un devis sur mesure →</a>
+          <p className="mt-5 text-[12px] text-[#6B7280]">
+            En souscrivant à Mohasib AI, vous acceptez nos{" "}
+            <Link href="/cgu" className="font-semibold text-[#C8924A] hover:underline">CGU</Link>
+            {" "}et notre{" "}
+            <Link href="/confidentialite" className="font-semibold text-[#C8924A] hover:underline">Politique de Confidentialité</Link>.
+          </p>
         </section>
       </div>
 

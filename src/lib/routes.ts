@@ -2,6 +2,8 @@ export const ROUTES = {
   HOME: "/",
   TARIFS: "/tarifs",
   RESSOURCES: "/ressources",
+  CGU: "/cgu",
+  CONFIDENTIALITE: "/confidentialite",
   CONNEXION: "/connexion",
   INSCRIPTION: "/inscription",
   MOT_DE_PASSE_OUBLIE: "/mot-de-passe-oublie",
