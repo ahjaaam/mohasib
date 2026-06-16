@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { translateError } from "@/lib/errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -339,7 +340,7 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
     }, { onConflict: "dossier_id,periode" });
     setSaving(false);
     setConfirmValidate(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(translateError(error)); return; }
     setStatut(newStatut);
     await loadHistory();
     toast.success(newStatut === "déposé" ? "Déclaration marquée comme déposée ✓" : "Déclaration validée ✓");

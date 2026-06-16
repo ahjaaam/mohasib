@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AccountControls, MemberToggle } from "@/components/admin/AdminControls";
 import { StatusBadge } from "@/components/admin/AdminUI";
 import { accountStatus, adminContext, authUserMap, formatDate, formatMoney } from "@/lib/admin-data";
+import { TRIAL_LIMITS } from "@/lib/trial-limits";
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,6 +30,14 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
       ["Revenu cumulé", formatMoney((subscriptions.data ?? []).reduce((sum, item) => sum + Number(item.amount_mad ?? 0), 0))],
     ].map(([label, value]) => <div key={label} className="rounded-md border border-black/10 bg-white p-4"><div className="text-[10px] text-gray-500">{label}</div><div className="mt-2 text-sm font-bold">{value}</div></div>)}</div>
     <section className="mb-5 rounded-md border border-black/10 bg-white p-4"><h2 className="text-sm font-bold">Identité</h2><div className="mt-3 grid gap-3 text-[11px] sm:grid-cols-3 xl:grid-cols-6">{[["Email", owner?.email], ["ICE", company.ice], ["IF", company.if_number], ["Ville", company.city], ["Type", company.user_type], ["Dernière connexion", formatDate(owner?.last_sign_in_at)]].map(([label, value]) => <div key={label}><div className="text-gray-400">{label}</div><div className="mt-1 font-semibold">{value || "—"}</div></div>)}</div></section>
+    {company.subscription_status === "trial" && (
+      <section className="mb-5 rounded-md border border-amber-200 bg-amber-50 p-4">
+        <h2 className="text-sm font-bold">Utilisation essai</h2>
+        <p className="mt-2 text-[12px] text-amber-900">
+          Factures {company.trial_invoices_used ?? 0}/{TRIAL_LIMITS.invoices} · Scans {company.trial_ocr_used ?? 0}/{TRIAL_LIMITS.ocr_scans} · Relevés {company.trial_bank_statements_used ?? 0}/{TRIAL_LIMITS.bank_statements} · Employés {company.trial_employees_used ?? 0}/{TRIAL_LIMITS.employees} · Dossiers {company.trial_dossiers_used ?? 0}/{TRIAL_LIMITS.dossiers} · TVA {company.trial_tva_declarations_used ?? 0}/{TRIAL_LIMITS.tva_declarations}
+        </p>
+      </section>
+    )}
     <AccountControls company={company} />
     <div className="mt-5 grid gap-5 xl:grid-cols-2">
       <section className="rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Collaborateurs</h2><div className="divide-y divide-black/5">{(members.data ?? []).map(member => <div key={member.id} className="flex items-center justify-between px-4 py-3 text-[11px]"><div><b>{`${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || member.user_email || "Invitation"}</b><div className="text-gray-500">{member.user_email} · Collaborateur · {member.status}</div></div><MemberToggle id={member.id} suspended={member.status === "suspended"} /></div>)}</div></section>

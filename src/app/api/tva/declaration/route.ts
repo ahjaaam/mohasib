@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
 import { authorizePermission } from "@/lib/api-permissions";
+import { logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
 
 function safeFilenamePart(value: string) {
   return value
@@ -104,6 +106,21 @@ export async function POST(req: NextRequest) {
 
     const pdfBytes = await res.arrayBuffer();
     const period = safeFilenamePart(body.periodLabel ?? data.period ?? "");
+    const { data: company } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
+    await logAudit({
+      userId: user.id,
+      userEmail: user.email ?? null,
+      companyId: company?.id ?? null,
+      action: "GENERATE_PDF",
+      entityType: "tva_declaration",
+      entityLabel: body.periodLabel ?? data.period ?? "TVA",
+      newValues: { period: body.periodLabel ?? data.period ?? "", totalNette: body.totalNette ?? null },
+      ...getRequestMeta(req),
+    });
 
     return new NextResponse(pdfBytes, {
       headers: {

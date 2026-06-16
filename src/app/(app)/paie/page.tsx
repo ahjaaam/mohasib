@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { translateError } from "@/lib/errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -462,7 +463,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       ? await supabase.from("employees").insert(payload)
       : await supabase.from("employees").update(payload).eq("id", editingEmp!.id);
     setEmpSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(translateError(error)); return; }
     toast.success(empModal === "add" ? "Employé ajouté !" : "Employé mis à jour !");
     setEmpModal(null);
     loadEmployees();

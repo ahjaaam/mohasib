@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { bookSalesInvoice, bookPurchaseInvoice, bookBankTransaction, bookAvoirClient } from "@/lib/accounting-engine";
 import { autoLettrage } from "@/lib/lettrage";
 import { authorizePermission } from "@/lib/api-permissions";
+import { logAccountingEvent, logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { type, dossierId } = body as {
-      type: "invoice" | "bank" | "purchase";
+      type: "invoice" | "bank" | "purchase" | "avoir";
       dossierId?: string;
     };
     const permission = await authorizePermission("accounting", "create", { dossierId });
@@ -66,6 +68,31 @@ export async function POST(req: NextRequest) {
       }, companyId, dossierId ?? null);
 
       await autoLettrage(supabase, companyId, dossierId ?? null);
+      await logAudit({
+        userId: user.id,
+        userEmail: user.email ?? null,
+        companyId,
+        dossierId: dossierId ?? null,
+        action: "CREATE",
+        entityType: "ecriture_comptable",
+        entityId: inv.id,
+        entityLabel: inv.invoice_number,
+        newValues: inv as any,
+        ...getRequestMeta(req),
+      });
+      await logAccountingEvent({
+        companyId,
+        dossierId: dossierId ?? null,
+        eventType: "JOURNAL_ENTRY_CREATED",
+        triggeredBy: user.id,
+        triggeredByEmail: user.email ?? null,
+        entityType: "invoice",
+        entityId: inv.id,
+        amount: Number(inv.total),
+        periodMois: inv.issue_date ? Number(String(inv.issue_date).slice(5, 7)) : null,
+        periodAnnee: inv.issue_date ? Number(String(inv.issue_date).slice(0, 4)) : null,
+        eventData: { source: "accounting/book", invoice: inv },
+      });
       return NextResponse.json({ ok: true });
     }
 
@@ -96,6 +123,27 @@ export async function POST(req: NextRequest) {
       }
 
       await autoLettrage(supabase, companyId, dossierId ?? null);
+      await logAudit({
+        userId: user.id,
+        userEmail: user.email ?? null,
+        companyId,
+        dossierId: dossierId ?? null,
+        action: "IMPORT",
+        entityType: "transaction",
+        entityLabel: `${txs?.length ?? 0} transaction(s)`,
+        newValues: { transactionIds },
+        ...getRequestMeta(req),
+      });
+      await logAccountingEvent({
+        companyId,
+        dossierId: dossierId ?? null,
+        eventType: "JOURNAL_ENTRY_CREATED",
+        triggeredBy: user.id,
+        triggeredByEmail: user.email ?? null,
+        entityType: "transaction",
+        amount: (txs ?? []).reduce((sum, tx) => sum + Number(tx.amount ?? 0), 0),
+        eventData: { source: "accounting/book", transactionIds },
+      });
       return NextResponse.json({ ok: true });
     }
 
@@ -130,6 +178,31 @@ export async function POST(req: NextRequest) {
       }, companyId, dossierId ?? null);
 
       await autoLettrage(supabase, companyId, dossierId ?? null);
+      await logAudit({
+        userId: user.id,
+        userEmail: user.email ?? null,
+        companyId,
+        dossierId: dossierId ?? null,
+        action: "CREATE",
+        entityType: "ecriture_comptable",
+        entityId: receipt.id,
+        entityLabel: ocr.vendor ?? ocr.description ?? "Achat",
+        newValues: { receipt, total_ht: totalHt, total_ttc: totalTtc, tva_amount: tvaAmt },
+        ...getRequestMeta(req),
+      });
+      await logAccountingEvent({
+        companyId,
+        dossierId: dossierId ?? null,
+        eventType: "PURCHASE_RECORDED",
+        triggeredBy: user.id,
+        triggeredByEmail: user.email ?? null,
+        entityType: "receipt",
+        entityId: receipt.id,
+        amount: totalTtc,
+        periodMois: date ? Number(String(date).slice(5, 7)) : null,
+        periodAnnee: date ? Number(String(date).slice(0, 4)) : null,
+        eventData: { source: "accounting/book", receipt, ocr },
+      });
       return NextResponse.json({ ok: true });
     }
 
@@ -157,6 +230,31 @@ export async function POST(req: NextRequest) {
       }, companyId, dossierId ?? null);
 
       await autoLettrage(supabase, companyId, dossierId ?? null);
+      await logAudit({
+        userId: user.id,
+        userEmail: user.email ?? null,
+        companyId,
+        dossierId: dossierId ?? null,
+        action: "CREATE",
+        entityType: "ecriture_comptable",
+        entityId: inv.id,
+        entityLabel: inv.invoice_number,
+        newValues: inv as any,
+        ...getRequestMeta(req),
+      });
+      await logAccountingEvent({
+        companyId,
+        dossierId: dossierId ?? null,
+        eventType: "JOURNAL_ENTRY_CREATED",
+        triggeredBy: user.id,
+        triggeredByEmail: user.email ?? null,
+        entityType: "avoir",
+        entityId: inv.id,
+        amount: Number(inv.total),
+        periodMois: inv.issue_date ? Number(String(inv.issue_date).slice(5, 7)) : null,
+        periodAnnee: inv.issue_date ? Number(String(inv.issue_date).slice(0, 4)) : null,
+        eventData: { source: "accounting/book", avoir: inv },
+      });
       return NextResponse.json({ ok: true });
     }
 

@@ -48,6 +48,13 @@ export default async function InvoiceDetailPage({
 
   if (!inv) notFound();
 
+  const { data: versions } = await supabase
+    .from("entity_versions")
+    .select("id, version_number, changed_at, changed_by_email, change_type, change_reason, diff")
+    .eq("entity_type", "invoice")
+    .eq("entity_id", id)
+    .order("version_number", { ascending: false });
+
   const client = (inv as any).clients;
   const [bgStatus, colorStatus] = STATUS_CLASS[inv.status] ?? ["#F3F4F6", "#6B7280"];
   const labelStatus = STATUS_LABEL[inv.status] ?? inv.status;
@@ -177,6 +184,39 @@ export default async function InvoiceDetailPage({
               <p className="text-[12.5px] text-[#6B7280]">{inv.notes}</p>
             </div>
           )}
+
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.06)]">
+              <div className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px]">
+                Historique des versions
+              </div>
+            </div>
+            <div className="divide-y divide-[rgba(0,0,0,0.05)]">
+              {(versions ?? []).map((version: any) => (
+                <details key={version.id} className="group">
+                  <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between gap-3 text-[12.5px] hover:bg-[#FAFAF6]">
+                    <span className="font-semibold text-[#1A1A2E]">
+                      Version {version.version_number} · {version.change_type ?? "UPDATE"}
+                    </span>
+                    <span className="text-[#6B7280]">
+                      {fmtDate(version.changed_at)} · {version.changed_by_email ?? "Système"}
+                    </span>
+                  </summary>
+                  <div className="px-4 pb-4 text-[12px] text-[#6B7280]">
+                    {version.change_reason && <div className="mb-2">{version.change_reason}</div>}
+                    <pre className="bg-[#FAFAF6] border border-[rgba(0,0,0,0.06)] rounded-lg p-3 overflow-x-auto text-[11px] leading-relaxed">
+                      {JSON.stringify(version.diff ?? {}, null, 2)}
+                    </pre>
+                  </div>
+                </details>
+              ))}
+              {(versions ?? []).length === 0 && (
+                <div className="px-4 py-6 text-center text-[12px] text-[#9CA3AF]">
+                  Aucun historique enregistré pour cette facture.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Side */}

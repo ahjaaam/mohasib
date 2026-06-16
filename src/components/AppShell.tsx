@@ -16,6 +16,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
 import PermissionBoundary from "@/components/PermissionBoundary";
 import { featureForPath, type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
+import { TRIAL_LIMITS } from "@/lib/trial-limits";
+import TrialLimitModal from "@/components/TrialLimitModal";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 
@@ -108,6 +110,12 @@ interface Props {
     trial_ends_at?: string | null;
     is_suspended?: boolean | null;
     suspended_reason?: string | null;
+    trial_invoices_used?: number | null;
+    trial_ocr_used?: number | null;
+    trial_bank_statements_used?: number | null;
+    trial_employees_used?: number | null;
+    trial_tva_declarations_used?: number | null;
+    trial_dossiers_used?: number | null;
   } | null;
   entitlements: PlanEntitlements;
 }
@@ -169,6 +177,12 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
 
   const pageTitle = PAGE_TITLES[pathname] ?? "Mohasib";
   const trialDays = accountState?.trial_ends_at ? Math.ceil((new Date(accountState.trial_ends_at).getTime() - Date.now()) / 86400000) : null;
+  const isTrial = accountState?.subscription_status === "trial";
+  const trialSummary = accountState ? {
+    invoices: Number(accountState.trial_invoices_used ?? 0),
+    ocr: Number(accountState.trial_ocr_used ?? 0),
+    bank: Number(accountState.trial_bank_statements_used ?? 0),
+  } : null;
 
   const initials = userName
     ? userName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
@@ -266,6 +280,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
     <PlanEntitlementsProvider value={entitlements}>
       <AccountOwnerProvider ownerId={ownerId}>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
+      <TrialLimitModal />
       <PermissionBoundary permissions={permissions}>
       <div className="flex h-screen overflow-hidden bg-[#FAFAF6]">
 
@@ -346,7 +361,15 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
             {accountState?.is_suspended && <div className="bg-red-700 px-4 py-2 text-center text-[11px] font-semibold text-white">Ce compte est suspendu. {accountState.suspended_reason || "Contactez le support Mohasib."}</div>}
             {!accountState?.is_suspended && accountState?.subscription_status === "grace" && <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">Votre abonnement est arrivé à échéance. Renouvelez-le pour conserver toutes les fonctionnalités.</div>}
             {!accountState?.is_suspended && accountState?.subscription_status === "expired" && <div className="bg-red-100 px-4 py-2 text-center text-[11px] font-semibold text-red-800">Votre abonnement a expiré. Les fonctionnalités premium sont en lecture seule.</div>}
-            {!accountState?.is_suspended && accountState?.subscription_status === "trial" && trialDays !== null && trialDays >= 0 && trialDays <= 3 && <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">Votre essai se termine dans {trialDays} jour{trialDays > 1 ? "s" : ""}.</div>}
+            {!accountState?.is_suspended && isTrial && trialDays !== null && trialDays >= 0 && (
+              <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">
+                <span className="hidden sm:inline">
+                  Essai gratuit — {trialDays} jour{trialDays > 1 ? "s" : ""} restant{trialDays > 1 ? "s" : ""} · Factures {trialSummary?.invoices ?? 0}/{TRIAL_LIMITS.invoices} · Scans {trialSummary?.ocr ?? 0}/{TRIAL_LIMITS.ocr_scans} · Relevés {trialSummary?.bank ?? 0}/{TRIAL_LIMITS.bank_statements} ·{" "}
+                </span>
+                <span className="sm:hidden">Essai · {trialDays}j restants · </span>
+                <Link href="/tarifs" className="underline">Passer à un plan payant</Link>
+              </div>
+            )}
             <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[72px] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted reason="suspended" /> : pageAllowed ? children : <AccessRestricted reason={featureAllowed ? "permission" : "plan"} />}</div>
           </main>
         </div>

@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { calculateSalary } from "@/lib/payroll";
 import { authorizePermission } from "@/lib/api-permissions";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { createVersion, getDiff, logAccountingEvent, logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
+import { enforcePeriodLock } from "@/lib/period-check";
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,6 +45,16 @@ export async function POST(req: NextRequest) {
       .select("id")
       .eq("user_id", user.id)
       .single();
+    const locked = await enforcePeriodLock(Number(mois), Number(annee), company?.id ?? null);
+    if (locked) return locked;
+
+    const { data: oldBulletin } = await supabase
+      .from("bulletins_paie")
+      .select("*")
+      .eq("employee_id", employee_id)
+      .eq("mois", mois)
+      .eq("annee", annee)
+      .maybeSingle();
 
     const { data: bulletin, error: bErr } = await supabase
       .from("bulletins_paie")
@@ -71,6 +84,44 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (bErr) return NextResponse.json({ error: bErr.message }, { status: 500 });
+    if (bulletin) {
+      const diff = getDiff(oldBulletin as any, bulletin as any);
+      await createVersion(
+        "bulletin_paie",
+        bulletin.id,
+        bulletin as any,
+        user.id,
+        user.email ?? null,
+        oldBulletin ? "UPDATE" : "CREATE",
+        "Bulletin de paie généré",
+        diff,
+      );
+      await logAudit({
+        userId: user.id,
+        userEmail: user.email ?? null,
+        companyId: company?.id ?? null,
+        action: "VALIDATE",
+        entityType: "bulletin_paie",
+        entityId: bulletin.id,
+        entityLabel: `${emp.prenom ?? ""} ${emp.nom ?? ""} - ${period_label}`.trim(),
+        oldValues: oldBulletin as any,
+        newValues: bulletin as any,
+        changedFields: Object.keys(diff),
+        ...getRequestMeta(req),
+      });
+      await logAccountingEvent({
+        companyId: company?.id ?? null,
+        eventType: "PAYROLL_CALCULATED",
+        triggeredBy: user.id,
+        triggeredByEmail: user.email ?? null,
+        entityType: "bulletin_paie",
+        entityId: bulletin.id,
+        amount: Number(bulletin.salaire_net_payer ?? 0),
+        periodMois: Number(mois),
+        periodAnnee: Number(annee),
+        eventData: { employee: emp, bulletin },
+      });
+    }
     return NextResponse.json({ bulletin, calc });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

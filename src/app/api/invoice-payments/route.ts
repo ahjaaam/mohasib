@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { authorizePermission } from "@/lib/api-permissions";
+import { createVersion, getDiff, logAccountingEvent, logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
+import { enforcePeriodLock } from "@/lib/period-check";
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: invoice } = invoice_id
-      ? await supabase.from("invoices").select("id,total,montant_recu,status,dossier_id").eq("id", invoice_id).single()
+      ? await supabase.from("invoices").select("id,invoice_number,total,montant_recu,status,dossier_id").eq("id", invoice_id).single()
       : { data: null };
     const { data: receipt } = inbox_item_id
       ? await supabase.from("receipts").select("id,ocr_data,dossier_id").eq("id", inbox_item_id).single()
@@ -59,6 +62,12 @@ export async function POST(req: NextRequest) {
     const { data: company } = dossierId
       ? { data: null }
       : await supabase.from("companies").select("id").eq("user_id", user.id).single();
+    const mois = Number(String(date_paiement).slice(5, 7));
+    const annee = Number(String(date_paiement).slice(0, 4));
+    if (mois && annee) {
+      const locked = await enforcePeriodLock(mois, annee, company?.id ?? null, dossierId);
+      if (locked) return locked;
+    }
 
     // 1. Insert into invoice_payments
     const { data: payment, error: payErr } = await supabase
@@ -92,6 +101,51 @@ export async function POST(req: NextRequest) {
           payment_reference: reference ?? null,
         }).eq("id", invoice_id);
         if (invoiceUpdateError) throw invoiceUpdateError;
+
+        const updatedInvoice = {
+          ...invoice,
+          montant_recu: newMontantRecu,
+          status: isPaid ? "paid" : "partiellement_payee",
+          payment_method: mode_paiement ?? null,
+          payment_reference: reference ?? null,
+        };
+        await createVersion(
+          "invoice",
+          invoice_id,
+          updatedInvoice as any,
+          user.id,
+          user.email ?? null,
+          "STATUS_CHANGE",
+          "Paiement enregistré",
+          getDiff(invoice as any, updatedInvoice as any),
+        );
+        await logAudit({
+          userId: user.id,
+          userEmail: user.email ?? null,
+          companyId: company?.id ?? null,
+          dossierId,
+          action: "MARK_PAID",
+          entityType: "invoice",
+          entityId: invoice_id,
+          entityLabel: invoice.invoice_number ?? invoice_id,
+          oldValues: invoice as any,
+          newValues: updatedInvoice as any,
+          changedFields: Object.keys(getDiff(invoice as any, updatedInvoice as any)),
+          ...getRequestMeta(req),
+        });
+        await logAccountingEvent({
+          companyId: company?.id ?? null,
+          dossierId,
+          eventType: isPaid ? "INVOICE_PAID" : "PAYMENT_MADE",
+          triggeredBy: user.id,
+          triggeredByEmail: user.email ?? null,
+          entityType: "invoice",
+          entityId: invoice_id,
+          amount,
+          periodMois: date_paiement ? Number(String(date_paiement).slice(5, 7)) : null,
+          periodAnnee: date_paiement ? Number(String(date_paiement).slice(0, 4)) : null,
+          eventData: { payment, invoice: updatedInvoice },
+        });
 
         if (payment_type === "encaissement") {
           const { error: transactionError } = await supabase.from("transactions").insert({
@@ -127,6 +181,37 @@ export async function POST(req: NextRequest) {
           },
         }).eq("id", inbox_item_id);
         if (receiptUpdateError) throw receiptUpdateError;
+
+        await logAudit({
+          userId: user.id,
+          userEmail: user.email ?? null,
+          companyId: company?.id ?? null,
+          dossierId,
+          action: "MARK_PAID",
+          entityType: "inbox_item",
+          entityId: inbox_item_id,
+          entityLabel: receipt.ocr_data?.vendor_name ?? receipt.ocr_data?.vendor ?? "Document fournisseur",
+          oldValues: receipt as any,
+          newValues: {
+            ...receipt,
+            ocr_data: { ...receipt.ocr_data, montant_paye: newPaid, payment_status: isPaid ? "paid" : "partial" },
+          } as any,
+          changedFields: ["ocr_data"],
+          ...getRequestMeta(req),
+        });
+        await logAccountingEvent({
+          companyId: company?.id ?? null,
+          dossierId,
+          eventType: "PAYMENT_MADE",
+          triggeredBy: user.id,
+          triggeredByEmail: user.email ?? null,
+          entityType: "inbox_item",
+          entityId: inbox_item_id,
+          amount,
+          periodMois: date_paiement ? Number(String(date_paiement).slice(5, 7)) : null,
+          periodAnnee: date_paiement ? Number(String(date_paiement).slice(0, 4)) : null,
+          eventData: { payment, receipt_id: receipt.id, ocr_data: receipt.ocr_data },
+        });
 
         const { error: transactionError } = await supabase.from("transactions").insert({
           user_id: user.id,

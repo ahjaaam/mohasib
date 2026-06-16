@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminUser } from "@/lib/admin-auth";
+import { logAudit } from "@/lib/audit";
 
 export async function requireAdminApi() {
   const user = await getAdminUser();
@@ -19,16 +20,15 @@ export async function logAdminAudit(event: {
   oldValues?: Record<string, unknown> | null;
   newValues?: Record<string, unknown> | null;
 }) {
-  const admin = createAdminClient();
-  await admin.from("audit_logs").insert({
-    user_email: event.adminEmail,
-    company_id: event.companyId ?? null,
+  await logAudit({
+    userEmail: event.adminEmail,
+    companyId: event.companyId ?? null,
     action: `ADMIN_${event.action}`,
-    entity_type: event.entityType,
-    entity_id: event.entityId ?? null,
-    entity_label: event.entityLabel ?? null,
-    old_values: event.oldValues ?? null,
-    new_values: event.newValues ?? null,
-    changed_fields: event.newValues ? Object.keys(event.newValues) : null,
+    entityType: event.entityType,
+    entityId: event.entityId ?? null,
+    entityLabel: event.entityLabel ?? null,
+    oldValues: event.oldValues ?? null,
+    newValues: event.newValues ?? null,
+    changedFields: event.newValues ? Object.keys(event.newValues) : null,
   });
 }

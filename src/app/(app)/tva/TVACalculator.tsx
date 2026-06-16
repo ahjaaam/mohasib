@@ -13,6 +13,7 @@ import {
 import { getTVAConfig } from "@/app/actions/tva-config";
 import { DEFAULT_ENABLED_CODES, TVA_LINES, withAlwaysShown } from "@/lib/tva-lines-registry";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
+import { translateError } from "@/lib/errors";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -106,7 +107,16 @@ interface Company {
   tva_regime?: string; tva_assujetti?: boolean; tva_taux_defaut?: number;
 }
 
-interface Props { company: Company | null; userName: string; }
+interface LockedPeriod {
+  mois: number;
+  annee: number;
+  lock_type?: string | null;
+  lock_reason?: string | null;
+  locked_by_email?: string | null;
+  locked_at?: string | null;
+}
+
+interface Props { company: Company | null; userName: string; lockedPeriods?: LockedPeriod[]; }
 
 // ─── Default empty calc ───────────────────────────────────────────────────────
 
@@ -121,7 +131,7 @@ const EMPTY_CALC: TVACalcResult = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function TVACalculator({ company }: Props) {
+export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
   const entitlements = usePlanEntitlements();
   const regime = company?.tva_regime === "Trimestriel" ? "Trimestriel" : "Mensuel";
   const now = new Date();
@@ -156,6 +166,12 @@ export default function TVACalculator({ company }: Props) {
   const configPeriod   = start.slice(0, 7);
   const deadline       = getDeadline(regime, year, month, quarter);
   const daysLeft       = daysUntil(deadline);
+  const periodMonths = regime === "Mensuel"
+    ? [month]
+    : [((quarter - 1) * 3) + 1, ((quarter - 1) * 3) + 2, ((quarter - 1) * 3) + 3];
+  const currentLock = lockedPeriods.find(period =>
+    period.annee === year && periodMonths.includes(Number(period.mois))
+  );
 
   function prevPeriod() {
     if (regime === "Mensuel") {
@@ -272,7 +288,7 @@ export default function TVACalculator({ company }: Props) {
   // ── Save ───────────────────────────────────────────────────────────────────
   async function handleSave(newStatut: "brouillon" | "validé" | "déposé") {
     setSaving(true);
-    await saveDeclaration({
+    const result = await saveDeclaration({
       periodStart: start, periodEnd: end, periodLabel, regime,
       statut: newStatut,
       calc: filteredCalc, overrides: {},
@@ -280,6 +296,12 @@ export default function TVACalculator({ company }: Props) {
       caExporte: n(caExporte), caExonere: n(caExonere),
       caHorsChamp: n(caHorsChamp), caSuspension: n(caSuspension),
     });
+    if (result.error) {
+      alert(translateError(result.error));
+      setSaving(false);
+      setConfirmValidate(false);
+      return;
+    }
     setStatut(newStatut);
     setSaving(false);
     setConfirmValidate(false);
@@ -376,6 +398,7 @@ export default function TVACalculator({ company }: Props) {
     : statut === "validé" ? "🔒 Validée" : "📝 Brouillon";
 
   const isFiled = statut === "déposé";
+  const isLocked = isFiled || !!currentLock;
 
   // Sync statut when period changes
   useEffect(() => {
@@ -431,6 +454,16 @@ export default function TVACalculator({ company }: Props) {
         </div>
       )}
 
+      {currentLock && (
+        <div className="mb-4 rounded-xl border border-[#F59E0B]/25 bg-[#FFFBEB] px-4 py-3 text-[12px] text-[#92400E]">
+          <div className="font-semibold">Période verrouillée</div>
+          <div className="mt-0.5">
+            {currentLock.lock_reason ?? "Cette période ne peut plus être modifiée."}
+            {currentLock.locked_by_email ? ` Verrouillée par ${currentLock.locked_by_email}.` : ""}
+          </div>
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgba(200,146,74,0.25)] bg-[#FFF7ED] px-4 py-3">
         <div>
           <p className="text-[12.5px] font-semibold text-[#92400E]">
@@ -455,7 +488,7 @@ export default function TVACalculator({ company }: Props) {
             </p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setConfirmValidate(false)} className="btn btn-outline text-[12px]">Annuler</button>
-              <button data-permission="tva_declaration:validate" onClick={() => handleSave("validé")} disabled={saving}
+              <button data-permission="tva_declaration:validate" onClick={() => handleSave("validé")} disabled={saving || isLocked}
                 className="btn btn-gold text-[12px]">
                 {saving ? "…" : "Valider"}
               </button>
@@ -502,7 +535,7 @@ export default function TVACalculator({ company }: Props) {
                     <TD>{code as string}</TD>
                     <TD><span className="text-[#6B7280]">{label as string}</span></TD>
                     <TD right>
-                      <NumInput value={val as number} onChange={setter as (v:number)=>void} disabled={isFiled} />
+                      <NumInput value={val as number} onChange={setter as (v:number)=>void} disabled={isLocked} />
                     </TD>
                   </tr>
                 ))}
@@ -546,7 +579,7 @@ export default function TVACalculator({ company }: Props) {
                       <NumInput
                         value={base}
                         onChange={(value) => setLineBases((prev) => ({ ...prev, [line.code]: value }))}
-                        disabled={isFiled}
+                        disabled={isLocked}
                       />
                     </TD>
                     <TD right>{tva > 0 ? fmtMAD(tva) : <span className="text-[#D1D5DB]">—</span>}</TD>
@@ -611,11 +644,11 @@ export default function TVACalculator({ company }: Props) {
                         {activeDLines.map((line) => `${line.code} — ${line.label_fr}`).join(" · ")}
                       </span>
                       <input className="input ml-2 text-[11.5px] w-[220px]" placeholder="Note justificative…"
-                        value={odTvaNote} onChange={e => setOdTvaNote(e.target.value)} disabled={isFiled} />
+                        value={odTvaNote} onChange={e => setOdTvaNote(e.target.value)} disabled={isLocked} />
                     </div>
                   </TD>
                   <TD right>
-                    <NumInput value={odTva} onChange={setOdTva} disabled={isFiled} />
+                    <NumInput value={odTva} onChange={setOdTva} disabled={isLocked} />
                   </TD>
                 </tr>}
                 <tr className="bg-[#FAFAF6]">
@@ -790,7 +823,7 @@ export default function TVACalculator({ company }: Props) {
                 </div>
               )}
 
-              {tvaNetteDue > 0 && !isFiled && (
+              {tvaNetteDue > 0 && !isLocked && (
                 <div className="border-t border-[rgba(0,0,0,0.07)] pt-4">
                   <div className="flex items-start gap-2 mb-3">
                     <AlertTriangle size={14} className="text-[#D97706] flex-shrink-0 mt-0.5" />
@@ -810,8 +843,8 @@ export default function TVACalculator({ company }: Props) {
               )}
 
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[rgba(0,0,0,0.07)]">
-                {statut === "brouillon" && !isFiled && (
-                  <button data-permission="tva_declaration:validate" onClick={() => setConfirmValidate(true)} disabled={saving}
+                {statut === "brouillon" && !isLocked && (
+                  <button data-permission="tva_declaration:validate" onClick={() => setConfirmValidate(true)} disabled={saving || isLocked}
                     className="btn btn-outline flex items-center gap-1.5 text-[12px] border-[#C8924A] text-[#C8924A] hover:bg-[#FFF7ED]">
                     <CheckCircle size={12} /> Valider
                   </button>
@@ -820,8 +853,8 @@ export default function TVACalculator({ company }: Props) {
                   className="btn btn-gold flex items-center gap-1.5 text-[12px]">
                   <Download size={13} /> Fichier EDI (XML)
                 </button>}
-                {statut !== "déposé" && (
-                  <button data-permission="tva_declaration:validate" onClick={() => handleSave("déposé")} disabled={saving}
+                {statut !== "déposé" && !isLocked && (
+                  <button data-permission="tva_declaration:validate" onClick={() => handleSave("déposé")} disabled={saving || isLocked}
                     className="btn btn-outline flex items-center gap-1.5 text-[12px]">
                     <CheckCircle size={13} />
                     {saving ? "…" : "Marquer comme déposée"}

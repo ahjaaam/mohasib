@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { authorizePermission } from "@/lib/api-permissions";
+import { createVersion, logAccountingEvent, logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -66,7 +68,7 @@ export async function POST(
         notes: devis.devis_notes ?? devis.notes,
         items: devis.items,
       })
-      .select("id, invoice_number")
+      .select("*")
       .single();
 
     if (insertErr || !newInv) {
@@ -78,6 +80,45 @@ export async function POST(
       .from("invoices")
       .update({ converted_to_invoice_id: newInv.id })
       .eq("id", id);
+
+    const { data: company } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
+    await createVersion(
+      "invoice",
+      newInv.id,
+      newInv as any,
+      user.id,
+      user.email ?? null,
+      "CREATE",
+      "Devis converti en facture",
+    );
+    await logAudit({
+      userId: user.id,
+      userEmail: user.email ?? null,
+      companyId: company?.id ?? null,
+      action: "CREATE",
+      entityType: "invoice",
+      entityId: newInv.id,
+      entityLabel: newInv.invoice_number,
+      oldValues: devis as any,
+      newValues: newInv as any,
+      ...getRequestMeta(req),
+    });
+    await logAccountingEvent({
+      companyId: company?.id ?? null,
+      eventType: "INVOICE_CREATED",
+      triggeredBy: user.id,
+      triggeredByEmail: user.email ?? null,
+      entityType: "invoice",
+      entityId: newInv.id,
+      amount: Number(newInv.total ?? 0),
+      periodMois: newInv.issue_date ? Number(String(newInv.issue_date).slice(5, 7)) : null,
+      periodAnnee: newInv.issue_date ? Number(String(newInv.issue_date).slice(0, 4)) : null,
+      eventData: { source: "devis.convert", devis, invoice: newInv },
+    });
 
     // Fire-and-forget: book journal entries
     fetch("/api/accounting/book", {

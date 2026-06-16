@@ -5,6 +5,8 @@ import { Resend } from "resend";
 import sizeOf from "image-size";
 import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
 import { authorizePermission } from "@/lib/api-permissions";
+import { createVersion, getDiff, logAccountingEvent, logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
 
 const EMAIL_LIMIT = 10;
 const EMAIL_OPTS = { maxAttempts: EMAIL_LIMIT, windowMs: 60 * 60_000, blockMs: 60 * 60_000 };
@@ -167,10 +169,52 @@ export async function POST(
 
     // Update invoice email tracking
     const currentCount = Number((inv as any).email_sent_count ?? 0);
-    await supabase.from("invoices").update({
+    const updatedInvoice = {
+      ...inv,
       email_sent_at: new Date().toISOString(),
       email_sent_count: currentCount + 1,
+    };
+    await supabase.from("invoices").update({
+      email_sent_at: updatedInvoice.email_sent_at,
+      email_sent_count: updatedInvoice.email_sent_count,
     }).eq("id", id);
+
+    const diff = getDiff(inv as any, updatedInvoice as any);
+    await createVersion(
+      "invoice",
+      id,
+      updatedInvoice as any,
+      user.id,
+      user.email ?? null,
+      "UPDATE",
+      "Facture envoyée par email",
+      diff,
+    );
+    await logAudit({
+      userId: user.id,
+      userEmail: user.email ?? null,
+      companyId: company?.id ?? null,
+      action: "SEND_INVOICE",
+      entityType: "invoice",
+      entityId: id,
+      entityLabel: inv.invoice_number,
+      oldValues: inv as any,
+      newValues: updatedInvoice as any,
+      changedFields: Object.keys(diff),
+      ...getRequestMeta(req),
+    });
+    await logAccountingEvent({
+      companyId: company?.id ?? null,
+      eventType: "INVOICE_SENT",
+      triggeredBy: user.id,
+      triggeredByEmail: user.email ?? null,
+      entityType: "invoice",
+      entityId: id,
+      amount: Number(inv.total ?? 0),
+      periodMois: inv.issue_date ? Number(String(inv.issue_date).slice(5, 7)) : null,
+      periodAnnee: inv.issue_date ? Number(String(inv.issue_date).slice(0, 4)) : null,
+      eventData: { invoice: updatedInvoice, client_email: client.email },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

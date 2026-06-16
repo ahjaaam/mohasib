@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_PLAN_LIMITS, FEATURE_COLUMNS } from "@/lib/plan-features";
+import { TRIAL_LIMITS, TRIAL_USAGE_COLUMNS, type TrialFeature } from "@/lib/trial-limits";
 
 type PlanLimitResult = {
   allowed: boolean;
@@ -81,4 +82,52 @@ export async function incrementOCRUsage(companyId: string): Promise<void> {
     .from("companies")
     .update({ ocr_used_this_month: Number(company?.ocr_used_this_month ?? 0) + 1 })
     .eq("id", companyId);
+}
+
+export async function checkTrialLimit(companyId: string, feature: TrialFeature): Promise<{
+  allowed: boolean;
+  used: number;
+  limit: number;
+  isTrial: boolean;
+}> {
+  const supabase = createAdminClient();
+  type TrialUsageCompany = {
+    subscription_status: string | null;
+    trial_invoices_used: number | null;
+    trial_ocr_used: number | null;
+    trial_bank_statements_used: number | null;
+    trial_employees_used: number | null;
+    trial_tva_declarations_used: number | null;
+    trial_dossiers_used: number | null;
+  };
+  const { data } = await supabase
+    .from("companies")
+    .select([
+      "subscription_status",
+      "trial_invoices_used",
+      "trial_ocr_used",
+      "trial_bank_statements_used",
+      "trial_employees_used",
+      "trial_tva_declarations_used",
+      "trial_dossiers_used",
+    ].join(","))
+    .eq("id", companyId)
+    .single();
+  const company = data as unknown as TrialUsageCompany | null;
+
+  const isTrial = company?.subscription_status === "trial";
+  if (!isTrial) return { allowed: true, used: 0, limit: -1, isTrial: false };
+
+  const column = TRIAL_USAGE_COLUMNS[feature];
+  const used = Number((company as any)?.[column] ?? 0);
+  const limit = TRIAL_LIMITS[feature];
+  return { allowed: used < limit, used, limit, isTrial: true };
+}
+
+export async function incrementTrialUsage(companyId: string, feature: TrialFeature): Promise<void> {
+  const supabase = createAdminClient();
+  await supabase.rpc("increment_trial_usage", {
+    company_id_arg: companyId,
+    feature_arg: feature,
+  });
 }

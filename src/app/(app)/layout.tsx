@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ? supabase.from("dossiers").select("id, raison_sociale, ice, regime_tva")
           .eq("id", activeDossierId).eq("fiduciaire_user_id", teamContext?.ownerId ?? user.id).single()
       : Promise.resolve({ data: null }),
-    supabase.from("companies").select("subscription_status, subscription_ends_at, trial_ends_at, is_suspended, suspended_reason").eq("user_id", teamContext?.ownerId ?? user.id).maybeSingle(),
+    supabase.from("companies").select("subscription_status, subscription_ends_at, trial_ends_at, is_suspended, suspended_reason, trial_invoices_used, trial_ocr_used, trial_bank_statements_used, trial_employees_used, trial_tva_declarations_used, trial_dossiers_used").eq("user_id", teamContext?.ownerId ?? user.id).maybeSingle(),
     getUserAccessProfile(user.id),
     getPlanEntitlements(user.id),
   ]);

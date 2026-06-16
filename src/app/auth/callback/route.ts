@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -13,6 +15,17 @@ export async function GET(request: Request) {
 
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        logAudit({
+          userId: user.id,
+          userEmail: user.email ?? null,
+          action: "LOGIN",
+          entityType: "session",
+          entityId: user.id,
+          entityLabel: user.email ?? null,
+          ...getRequestMeta(request),
+        }).catch(() => {});
+      }
       const invitationToken = user?.user_metadata?.invitation_token;
       if (user && invitationToken && user.email) {
         const admin = createAdminClient();

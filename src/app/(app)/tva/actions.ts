@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { checkPeriodLocked, createVersion, getDiff, lockAccountingPeriod, logAccountingEvent, logAudit } from "@/lib/audit";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -316,56 +317,141 @@ export async function saveDeclaration(params: {
 
   const c = { ...params.calc, ...params.overrides };
   const tvaNette = c.tva_collectee_total + params.odTva + c.droits_timbre - c.deductions_total - c.credit_reporte;
+  const mois = Number(params.periodStart.slice(5, 7));
+  const annee = Number(params.periodStart.slice(0, 4));
+
+  if (params.statut !== "brouillon" && company?.id) {
+    const lock = await checkPeriodLocked(mois, annee, company.id);
+    if (lock.locked) {
+      return {
+        error: `La période ${mois}/${annee} est verrouillée.${lock.reason ? ` Motif: ${lock.reason}` : ""}`,
+      };
+    }
+  }
 
   try {
-    await supabase.from("tva_declarations").upsert(
-      {
-        company_id: company?.id,
-        user_id: ownerId,
-        period_start: params.periodStart,
-        period_end: params.periodEnd,
-        period_label: params.periodLabel,
-        regime: params.regime,
-        statut: params.statut,
-        // legacy fields
-        tva_collectee: c.tva_collectee_total,
-        tva_deductible: c.deductions_total,
-        tva_nette: tvaNette,
-        status: params.statut === "déposé" ? "filed" : "pending",
-        filed_at: params.statut === "déposé" ? new Date().toISOString() : null,
-        deposee_at: params.statut === "déposé" ? new Date().toISOString() : null,
-        // Section A
-        ca_total: c.ca_total,
-        ca_exporte: params.caExporte,
-        ca_exonere: params.caExonere,
-        ca_hors_champ: params.caHorsChamp,
-        ca_suspension: params.caSuspension,
-        // Section B
-        ca_imposable_7: c.ca_7,
-        ca_imposable_10: c.ca_10,
-        ca_imposable_14: c.ca_14,
-        ca_imposable_20: c.ca_20,
-        // Section D
-        tva_7: c.tva_7, tva_10: c.tva_10, tva_14: c.tva_14, tva_20: c.tva_20,
-        tva_collectee_total: c.tva_collectee_total,
-        od_tva: params.odTva,
-        od_tva_note: params.odTvaNote,
-        // Section E
-        deductions_charges: c.deductions_charges,
-        deductions_immobilisations: c.deductions_immobilisations,
-        deductions_total: c.deductions_total,
-        credit_reporte: c.credit_reporte,
-        // Droits de timbre
-        nb_factures: c.nb_factures,
-        droits_timbre: c.droits_timbre,
-        // Section F
-        tva_nette_due: Math.max(0, tvaNette),
-        credit_tva: Math.max(0, -tvaNette),
-        // Annual
-        ca_exercice_annuel: c.ca_exercice_annuel,
-      },
+    const declarationPayload = {
+      company_id: company?.id,
+      user_id: ownerId,
+      period_start: params.periodStart,
+      period_end: params.periodEnd,
+      period_label: params.periodLabel,
+      regime: params.regime,
+      statut: params.statut,
+      // legacy fields
+      tva_collectee: c.tva_collectee_total,
+      tva_deductible: c.deductions_total,
+      tva_nette: tvaNette,
+      status: params.statut === "déposé" ? "filed" : "pending",
+      filed_at: params.statut === "déposé" ? new Date().toISOString() : null,
+      deposee_at: params.statut === "déposé" ? new Date().toISOString() : null,
+      // Section A
+      ca_total: c.ca_total,
+      ca_exporte: params.caExporte,
+      ca_exonere: params.caExonere,
+      ca_hors_champ: params.caHorsChamp,
+      ca_suspension: params.caSuspension,
+      // Section B
+      ca_imposable_7: c.ca_7,
+      ca_imposable_10: c.ca_10,
+      ca_imposable_14: c.ca_14,
+      ca_imposable_20: c.ca_20,
+      // Section D
+      tva_7: c.tva_7, tva_10: c.tva_10, tva_14: c.tva_14, tva_20: c.tva_20,
+      tva_collectee_total: c.tva_collectee_total,
+      od_tva: params.odTva,
+      od_tva_note: params.odTvaNote,
+      // Section E
+      deductions_charges: c.deductions_charges,
+      deductions_immobilisations: c.deductions_immobilisations,
+      deductions_total: c.deductions_total,
+      credit_reporte: c.credit_reporte,
+      // Droits de timbre
+      nb_factures: c.nb_factures,
+      droits_timbre: c.droits_timbre,
+      // Section F
+      tva_nette_due: Math.max(0, tvaNette),
+      credit_tva: Math.max(0, -tvaNette),
+      // Annual
+      ca_exercice_annuel: c.ca_exercice_annuel,
+    };
+
+    const { data: oldDeclaration } = await supabase
+      .from("tva_declarations")
+      .select("*")
+      .eq("user_id", ownerId)
+      .eq("period_start", params.periodStart)
+      .eq("period_end", params.periodEnd)
+      .maybeSingle();
+
+    const { data: declaration, error } = await supabase.from("tva_declarations").upsert(
+      declarationPayload,
       { onConflict: "user_id,period_start,period_end", ignoreDuplicates: false }
-    );
+    ).select().single();
+    if (error) throw error;
+
+    if (declaration) {
+      await createVersion(
+        "tva_declaration",
+        declaration.id,
+        declaration as any,
+        user.id,
+        user.email ?? null,
+        oldDeclaration ? "UPDATE" : "CREATE",
+        params.statut === "brouillon" ? "Sauvegarde brouillon TVA" : "Validation TVA",
+        getDiff(oldDeclaration as any, declaration as any),
+      );
+      await logAudit({
+        userId: user.id,
+        userEmail: user.email ?? null,
+        companyId: company?.id ?? null,
+        action: params.statut === "brouillon" ? "UPDATE" : "APPROVE_TVA",
+        entityType: "tva_declaration",
+        entityId: declaration.id,
+        entityLabel: params.periodLabel,
+        oldValues: oldDeclaration as any,
+        newValues: declaration as any,
+        changedFields: Object.keys(getDiff(oldDeclaration as any, declaration as any)),
+      });
+    }
+
+    if (declaration && params.statut !== "brouillon" && company?.id) {
+      const eventType = params.statut === "déposé" ? "TVA_SUBMITTED" : "TVA_VALIDATED";
+      await logAccountingEvent({
+        companyId: company.id,
+        eventType,
+        triggeredBy: user.id,
+        triggeredByEmail: user.email ?? null,
+        entityType: "tva_declaration",
+        entityId: declaration.id,
+        amount: Math.max(0, tvaNette),
+        periodMois: mois,
+        periodAnnee: annee,
+        eventData: { declaration, calc: c },
+      });
+      await lockAccountingPeriod({
+        mois,
+        annee,
+        companyId: company.id,
+        lockedBy: user.id,
+        lockedByEmail: user.email ?? null,
+        reason: `TVA ${params.periodLabel} ${params.statut}`,
+        lockType: "hard",
+        triggeredByEntity: "tva_declaration",
+        triggeredById: declaration.id,
+      });
+      await logAccountingEvent({
+        companyId: company.id,
+        eventType: "PERIOD_LOCKED",
+        triggeredBy: user.id,
+        triggeredByEmail: user.email ?? null,
+        entityType: "accounting_period",
+        entityId: declaration.id,
+        periodMois: mois,
+        periodAnnee: annee,
+        eventData: { periodLabel: params.periodLabel, reason: `TVA ${params.periodLabel} ${params.statut}` },
+      });
+    }
   } catch (e: any) {
     return { error: e?.message ?? "Erreur sauvegarde" };
   }

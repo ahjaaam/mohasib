@@ -16,12 +16,15 @@ export async function POST(req: NextRequest) {
     const usage = await getMonthlyUsage(company.id);
     if (!usage.allowed) {
       return NextResponse.json({
-        error: "limit_reached",
-        message: `Limite mensuelle atteinte (${usage.used}/${usage.limit} documents). Réinitialisation le ${usage.resetDate}.`,
+        error: usage.isTrial ? "trial_limit_reached" : "limit_reached",
+        feature: usage.isTrial ? "ocr_scans" : undefined,
+        message: usage.isTrial
+          ? `Vous avez atteint la limite de votre essai gratuit (${usage.limit} documents scannés). Passez à un plan payant pour continuer.`
+          : `Limite mensuelle atteinte (${usage.used}/${usage.limit} documents). Réinitialisation le ${usage.resetDate}.`,
         used: usage.used,
         limit: usage.limit,
         resetDate: usage.resetDate,
-      }, { status: 429 });
+      }, { status: usage.isTrial ? 403 : 429 });
     }
   }
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { FolderPlus, ChevronRight, ChevronLeft } from "lucide-react";
+import { translateError } from "@/lib/errors";
 
 const FORMES = ["SARL", "SA", "SNC", "Auto-ent.", "GIE", "Association"];
 const REGIMES = [
@@ -116,7 +117,7 @@ export default function NewDossierPage() {
       statut: "actif",
     }).select().single();
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(translateError(error)); return; }
     toast.success("Dossier créé !");
     router.push(`/comptable-pro/dossiers/${data.id}`);
   }

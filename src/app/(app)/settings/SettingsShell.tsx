@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Toaster } from "react-hot-toast";
-import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText, Users, CalendarDays, Lock } from "lucide-react";
+import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText, Users, CalendarDays, Lock, ScrollText } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
 import ApparenceTab from "./ApparenceTab";
@@ -12,6 +12,7 @@ import MessagesTab from "./MessagesTab";
 import TVAConfigTab from "@/components/parametres/TVAConfigTab";
 import TeamTab from "@/components/settings/TeamTab";
 import DeadlinesTab from "./DeadlinesTab";
+import AuditLogTab from "./AuditLogTab";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -24,6 +25,7 @@ interface Props {
   profile: any;
   company: any;
   prefs: any;
+  auditLogs: any[];
 }
 
 const TABS = [
@@ -36,9 +38,10 @@ const TABS = [
   { id: "echeances",    label: "Échéances",       icon: CalendarDays, permission: "settings:update" },
   { id: "messages",     label: "Messages",     icon: MessageSquare, permission: "settings:update" },
   { id: "equipe",       label: "Équipe",       icon: Users, permission: "settings:manage_team" },
+  { id: "audit",        label: "Journal d'audit", icon: ScrollText, ownerOnly: true },
 ];
 
-export default function SettingsShell({ userId, accountOwnerId, userEmail, companyId, profile, company, prefs }: Props) {
+export default function SettingsShell({ userId, accountOwnerId, userEmail, companyId, profile, company, prefs, auditLogs }: Props) {
   const entitlements = usePlanEntitlements();
   const { can, isOwner } = usePermissions();
   const visibleTabs = TABS.filter(item => item.id !== "equipe" || entitlements.features.multi_users);
@@ -125,6 +128,7 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
           {tab === "echeances"    && <DeadlinesTab userId={accountOwnerId} deadlines={prefs.dashboard_deadlines ?? null} />}
           {tab === "messages"     && <MessagesTab userId={accountOwnerId} companyId={companyId} company={company} />}
           {tab === "equipe"       && entitlements.features.multi_users && <TeamTab />}
+          {tab === "audit"        && <AuditLogTab logs={auditLogs} />}
           </>}
         </div>
       </div>

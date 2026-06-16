@@ -20,10 +20,21 @@ export default async function TVAPage() {
       .single(),
   ]);
 
+  const { data: lockedPeriods } = companyRes.data?.id
+    ? await supabase
+      .from("accounting_periods")
+      .select("mois, annee, lock_type, lock_reason, locked_by_email, locked_at")
+      .eq("company_id", companyRes.data.id)
+      .eq("is_locked", true)
+      .order("annee", { ascending: false })
+      .order("mois", { ascending: false })
+    : { data: [] };
+
   return (
     <TVACalculator
       company={companyRes.data}
       userName={profileRes.data?.full_name ?? user!.email ?? ""}
+      lockedPeriods={lockedPeriods ?? []}
     />
   );
 }
