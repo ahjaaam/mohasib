@@ -16,6 +16,7 @@ interface Props {
     subscription_ends_at?: string | null;
     trial_ends_at?: string | null;
     is_suspended?: boolean | null;
+    user_type?: string | null;
   };
 }
 
@@ -59,6 +60,14 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" });
 }
 
+function getUpgradeCta(plan: string, userType?: string | null) {
+  const isComptableAccount = userType === "fiduciaire" || plan.startsWith("comptable_");
+  if (plan === "business_pro" || plan === "comptable_inf") return null;
+  if (isComptableAccount) return { label: "Demander Comptable Illimité", requestedPlan: "comptable_inf" };
+  if (["trial", "starter", "business"].includes(plan)) return { label: "Demander Business Pro", requestedPlan: "business_pro" };
+  return null;
+}
+
 export default function AbonnementTab({ userId, userEmail: _userEmail, companyId, company }: Props) {
   const supabase = createClient();
   const entitlements = usePlanEntitlements();
@@ -80,6 +89,7 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
   const nextRenewal = formatDate(periodEnd);
   const includedFeatures = FEATURE_LABELS.filter(([key]) => entitlements.features[key]);
   const missingFeatures = FEATURE_LABELS.filter(([key]) => !entitlements.features[key]);
+  const upgradeCta = getUpgradeCta(plan, company.user_type);
 
   async function deleteAccount() {
     if (deleteConfirm !== "SUPPRIMER") return;
@@ -91,10 +101,12 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
   }
 
   async function requestUpgrade() {
+    if (!upgradeCta) return;
     if (!companyId) return toast.error("Entreprise introuvable");
     const { error } = await supabase.from("upgrade_requests").insert({
       company_id: companyId,
-      requested_plan: "business_pro",
+      current_plan: plan,
+      requested_plan: upgradeCta.requestedPlan,
       requested_period: "monthly",
       status: "nouveau",
     });
@@ -180,7 +192,7 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
         </div>
 
         <div className="flex items-center gap-3 mt-4 flex-wrap">
-          <button onClick={requestUpgrade} className="btn btn-outline">Demander Business Pro</button>
+          {upgradeCta && <button onClick={requestUpgrade} className="btn btn-outline">{upgradeCta.label}</button>}
           <button onClick={() => setShowCancelModal(true)} className="text-[12px] text-[#DC2626] hover:underline cursor-pointer">
             Annuler mon abonnement
           </button>
