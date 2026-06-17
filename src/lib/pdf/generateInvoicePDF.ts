@@ -100,10 +100,8 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
 
   const isAvoir = invoice.invoice_type === "avoir_client";
   const isDevis = invoice.invoice_type === "devis";
-  const AVOIR_RED = "#DC2626";
-  const AVOIR_RED_RGB: [number, number, number] = [220, 38, 38];
-  const accentHex = isAvoir ? AVOIR_RED : (company?.invoice_color ?? GOLD);
-  const accentRgb: [number, number, number] = isAvoir ? AVOIR_RED_RGB : hexToRgb(accentHex);
+  const accentHex = company?.invoice_color ?? GOLD;
+  const accentRgb: [number, number, number] = hexToRgb(accentHex);
   const companyName = company?.raison_sociale ?? null;
   const pageW = 210; // A4 width mm
   const pageH = 297; // A4 height mm
@@ -150,7 +148,7 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   const rightX = pageW - marginR - 2;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
-  doc.setTextColor(...(isAvoir ? AVOIR_RED_RGB : NAVY_RGB));
+  doc.setTextColor(...accentRgb);
   doc.text(isAvoir ? "AVOIR" : isDevis ? "DEVIS" : "FACTURE", rightX, 14, { align: "right" });
 
   // Invoice meta (muted gray)
@@ -172,7 +170,7 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     doc.setFont("helvetica", "normal");
   }
   if (isAvoir && invoice.avoir_reason) {
-    doc.setTextColor(...AVOIR_RED_RGB);
+    doc.setTextColor(...accentRgb);
     doc.text(`Motif : ${invoice.avoir_reason}`, rightX, 33, { align: "right" });
     doc.setTextColor(...MUTED_RGB);
   }
@@ -306,7 +304,7 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
-  doc.setTextColor(...NAVY_RGB);
+  doc.setTextColor(...TEXT_RGB);
   doc.text("TOTAL TTC", totX + 4, y + 22);
   doc.setTextColor(...accentRgb);
   doc.text(fmtAmt(invoice.total), totX + totW - 4, y + 22, { align: "right" });
