@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
-  LogOut, Menu, Plus, Inbox, Download,
+  LogOut, Menu, Inbox, Download,
   Settings, Receipt, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine,
   ChevronLeft, ChevronRight, GitMerge, Lock,
 } from "lucide-react";
@@ -44,55 +44,6 @@ const ALL_NAV = [
   { href: "/rapports", icon: BarChart2,     label: "Rapports",     key: "rapports", soon: true, permission: "report:read" },
   { href: "/settings", icon: Settings,      label: "Paramètres",   key: "settings", permission: "settings:update" },
 ];
-
-const PAGE_TITLES: Record<string, string> = {
-  "/dashboard":    "Tableau de bord",
-  "/tableau-de-bord": "Tableau de bord",
-  "/inbox":        "Boîte de réception",
-  "/boite-de-reception": "Boîte de réception",
-  "/invoices":     "Factures",
-  "/factures":     "Factures",
-  "/invoices/new": "Nouvelle Facture",
-  "/factures/nouvelle": "Nouvelle Facture",
-  "/invoices/edit":"Modifier la Facture",
-  "/clients":      "Clients",
-  "/suivi-paiements": "Suivi des paiements",
-  "/transactions":    "Transactions",
-  "/rapprochement":  "Rapprochement Bancaire",
-  "/saisie":          "Saisie comptable",
-  "/tva":            "Déclarations TVA",
-  "/declarations-tva": "Déclarations TVA",
-  "/paie":         "Paie",
-  "/export":       "Exports",
-  "/export-fiduciaire": "Exports",
-  "/archive":      "Archive",
-  "/rapports":     "Rapports",
-  "/notifications":"Notifications",
-  "/settings":     "Paramètres",
-  "/parametres":    "Paramètres",
-};
-
-const HIDE_TOPBAR_PATHS = new Set([
-  "/dashboard",
-  "/tableau-de-bord",
-  "/inbox",
-  "/boite-de-reception",
-  "/paie",
-  "/invoices",
-  "/factures",
-  "/clients",
-  "/suivi-paiements",
-  "/transactions",
-  "/rapprochement",
-  "/saisie",
-  "/tva",
-  "/declarations-tva",
-  "/export",
-  "/export-fiduciaire",
-  "/archive",
-  "/settings",
-  "/parametres",
-]);
 
 interface Props {
   children: React.ReactNode;
@@ -149,13 +100,6 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
-  const [docsRemaining, setDocsRemaining] = useState<number | null>(null);
-  useEffect(() => {
-    if (pathname === "/transactions") {
-      fetch("/api/usage").then(r => r.json()).then(d => { if (d.remaining != null) setDocsRemaining(d.remaining); }).catch(() => {});
-    }
-  }, [pathname]);
-
   const isActive = (href: string) => {
     const frenchToEnglish: Record<string, string> = {
       "/tableau-de-bord": "/dashboard",
@@ -175,7 +119,6 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
     return currentPath === href;
   };
 
-  const pageTitle = PAGE_TITLES[pathname] ?? "Mohasib";
   const trialDays = accountState?.trial_ends_at ? Math.ceil((new Date(accountState.trial_ends_at).getTime() - Date.now()) / 86400000) : null;
   const isTrial = accountState?.subscription_status === "trial";
   const trialSummary = accountState ? {
@@ -313,48 +256,6 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
           className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-[margin] duration-200"
           style={{ marginLeft: sidebarCollapsed ? 56 : 210 }}
         >
-
-          {/* Topbar — hidden on mobile (bottom nav handles navigation) */}
-          {!HIDE_TOPBAR_PATHS.has(pathname) && (
-            <div className="hidden md:flex items-center justify-between px-[22px] h-[52px] border-b border-[rgba(0,0,0,0.08)] bg-white flex-shrink-0">
-              <span className="text-[14px] font-semibold text-[#1A1A2E]">{pageTitle}</span>
-              <div className="flex items-center gap-2">
-                {pathname === "/inbox" && (
-                  <button data-permission="document:create" className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("inbox-upload"))}>
-                    <Plus size={13} /> Importer un reçu
-                  </button>
-                )}
-                {pathname === "/invoices" && (
-                  <Link data-permission="invoice:create" href="/invoices/new" className="btn btn-gold">
-                    <Plus size={13} /> Nouvelle Facture
-                  </Link>
-                )}
-                {pathname === "/invoices/new" && (
-                  <Link href="/invoices" className="btn btn-outline">← Annuler</Link>
-                )}
-                {pathname === "/clients" && (
-                  <button data-permission="invoice:create" className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("open-add-client"))}>
-                    <Plus size={13} /> Nouveau client
-                  </button>
-                )}
-                {pathname === "/transactions" && (
-                  <div className="relative group flex flex-col items-end gap-0.5">
-                    {entitlements.features.bank_import && <button data-permission="accounting:create" className="btn btn-gold" onClick={() => document.dispatchEvent(new CustomEvent("bank-import-open"))}>
-                      <Plus size={13} /> Importer un relevé
-                    </button>}
-                    <div className="absolute right-0 top-full mt-1.5 bg-[#0D1526] text-white text-[11px] rounded-md px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      PDF max 8 pages · CSV max 200 lignes
-                    </div>
-                    {docsRemaining !== null && (
-                      <span className={`text-[10.5px] font-medium ${docsRemaining === 0 ? "text-[#DC2626]" : docsRemaining <= 20 ? "text-[#D97706]" : "text-[#6B7280]"}`}>
-                        {docsRemaining < 0 ? "Documents illimités" : docsRemaining === 0 ? "Limite atteinte" : `${docsRemaining} doc${docsRemaining > 1 ? "s" : ""} restant${docsRemaining > 1 ? "s" : ""}`}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Page content */}
           <main className="flex-1 overflow-hidden flex flex-col">

@@ -1066,7 +1066,7 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           />
         </div>
 
-        <div className="col-span-2">
+        <div>
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Description</label>
           <input className="input" value={form.description} onChange={(e) => onFormChange("description", e.target.value)} placeholder="Description de la dépense" />
         </div>

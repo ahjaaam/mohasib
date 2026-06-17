@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
-import { Trash2, Plus, Loader2, Send, Mail } from "lucide-react";
+import { Trash2, Plus, Loader2, Send, Mail, Download } from "lucide-react";
 import type { Client } from "@/types";
 
 interface LineItem {
@@ -45,6 +45,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
   const [created, setCreated] = useState<{ id: string; number: string; clientEmail?: string | null } | null>(null);
   const [waState, setWaState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [emailState, setEmailState] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [pdfState, setPdfState] = useState<"idle" | "loading" | "error">("idle");
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -182,6 +183,31 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
     }
   }
 
+  async function downloadPDF(devisId: string) {
+    setPdfState("loading");
+    try {
+      const res = await fetch(`/api/invoices/${devisId}/pdf`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      a.href = url;
+      a.download = match ? match[1] : `${created?.number ?? "devis"}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setPdfState("idle");
+    } catch (e: any) {
+      setPdfState("error");
+      toast.error(translateError(e), { duration: 5000 });
+      setTimeout(() => setPdfState("idle"), 2500);
+    }
+  }
+
   if (created) {
     return (
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-8 flex flex-col items-center text-center gap-4">
@@ -193,11 +219,11 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
           </p>
         </div>
         <p className="text-[12px] text-[#6B7280]">Envoyer maintenant au client ?</p>
-        <div className="flex flex-col sm:flex-row gap-2 w-full max-w-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full max-w-2xl">
           <button
             onClick={() => sendWhatsApp(created.id)}
             disabled={waState === "loading" || waState === "success"}
-            className={`btn flex-1 justify-center flex items-center gap-1.5 ${
+            className={`btn justify-center flex items-center gap-1.5 ${
               waState === "success" ? "bg-[#059669] text-white border-[#059669]"
               : waState === "error" ? "bg-[#DC2626] text-white border-[#DC2626]"
               : "btn-gold"
@@ -206,24 +232,35 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
             {waState === "loading" && <><Loader2 size={13} className="animate-spin" /> Préparation...</>}
             {waState === "success" && <>✓ WhatsApp ouvert</>}
             {waState === "error" && <>❌ Réessayer</>}
-            {waState === "idle" && <><Send size={13} /> WhatsApp</>}
+            {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
           </button>
-          {created.clientEmail && (
-            <button
-              onClick={() => sendEmail(created.id)}
-              disabled={emailState === "loading" || emailState === "success"}
-              className={`btn flex-1 justify-center flex items-center gap-1.5 ${
-                emailState === "success" ? "bg-[#059669] text-white border-[#059669]"
-                : emailState === "error" ? "bg-[#DC2626] text-white border-[#DC2626]"
-                : "btn-outline"
-              }`}
-            >
-              {emailState === "loading" && <><Loader2 size={13} className="animate-spin" /> Envoi...</>}
-              {emailState === "success" && <>✓ Email envoyé</>}
-              {emailState === "error" && <>❌ Réessayer</>}
-              {emailState === "idle" && <><Mail size={13} /> Email</>}
-            </button>
-          )}
+          <button
+            onClick={() => sendEmail(created.id)}
+            disabled={emailState === "loading" || emailState === "success"}
+            className={`btn justify-center flex items-center gap-1.5 ${
+              emailState === "success" ? "bg-[#059669] text-white border-[#059669]"
+              : emailState === "error" ? "bg-[#DC2626] text-white border-[#DC2626]"
+              : "border border-[#0D1526] bg-[#0D1526] text-white hover:bg-[#1A2540]"
+            }`}
+          >
+            {emailState === "loading" && <><Loader2 size={13} className="animate-spin" /> Envoi...</>}
+            {emailState === "success" && <>✓ Email envoyé</>}
+            {emailState === "error" && <>Réessayer email</>}
+            {emailState === "idle" && <><Mail size={13} /> Envoyer par email</>}
+          </button>
+          <button
+            onClick={() => downloadPDF(created.id)}
+            disabled={pdfState === "loading"}
+            className={`btn justify-center flex items-center gap-1.5 ${
+              pdfState === "error"
+                ? "bg-[#DC2626] text-white border-[#DC2626]"
+                : "border border-[#6B7280] bg-[#6B7280] text-white hover:bg-[#4B5563]"
+            }`}
+          >
+            {pdfState === "loading" && <><Loader2 size={13} className="animate-spin" /> Téléchargement...</>}
+            {pdfState === "error" && <>Réessayer PDF</>}
+            {pdfState === "idle" && <><Download size={13} /> Télécharger le devis</>}
+          </button>
         </div>
         <button
           onClick={() => { router.push("/invoices?mode=devis"); router.refresh(); }}
@@ -356,8 +393,8 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
 
       {/* Actions */}
       <div className="flex gap-2 mt-4 flex-wrap">
-        <button onClick={() => save("brouillon")} disabled={saving} className="btn btn-outline">
-          💾 {saving ? "..." : "Enregistrer brouillon"}
+        <button onClick={() => save("brouillon")} disabled={saving} className="btn border border-[#0D1526] bg-[#0D1526] text-white hover:bg-[#1A2540]">
+          {saving ? "..." : "Enregistrer brouillon"}
         </button>
         <button onClick={() => save("envoyé")} disabled={saving} className="btn btn-gold">
           {saving ? "..." : "✓ Créer et envoyer"}
