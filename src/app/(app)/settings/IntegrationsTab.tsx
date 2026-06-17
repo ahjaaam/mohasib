@@ -55,6 +55,8 @@ function OAuthFeedback() {
     if (success === "outlook") toast.success("Outlook connecté avec succès 📧");
     if (error === "gmail_failed") toast.error("Connexion Gmail échouée. Réessayez.");
     if (error === "outlook_failed") toast.error("Connexion Outlook échouée. Réessayez.");
+    if (error === "gmail_not_configured") toast.error("OAuth Gmail n'est pas encore configuré côté serveur.");
+    if (error === "outlook_not_configured") toast.error("OAuth Outlook n'est pas encore configuré côté serveur.");
   }, [searchParams]);
   return null;
 }
