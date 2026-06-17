@@ -51,6 +51,12 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
         .public-resources-item:hover { background: #FAFAF6; }
         .public-nav-actions { display: flex; align-items: center; gap: 10px; }
         .public-mobile-toggle, .public-mobile-panel { display: none; }
+        @keyframes nav-trial-pop {
+          0%, 100% { transform: translateY(0) scale(1); box-shadow: 0 6px 16px rgba(200,146,74,0.20); }
+          50% { transform: translateY(-1px) scale(1.045); box-shadow: 0 10px 24px rgba(200,146,74,0.30); }
+        }
+        .public-trial-pop { animation: nav-trial-pop 2.5s ease-in-out infinite; will-change: transform; }
+        .public-trial-pop:hover { animation-play-state: paused; transform: translateY(-1px) scale(1.045); }
         @media (max-width: 900px) {
           .public-nav-inner { padding: 0 24px; }
           .public-nav-links, .public-nav-actions { display: none !important; }
@@ -99,7 +105,7 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
           </div>
 
           <div className="public-nav-actions">
-            <Link href="/inscription" style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF", backgroundColor: GOLD, padding: "10px 18px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
+            <Link href="/inscription" className="public-trial-pop" style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF", backgroundColor: GOLD, padding: "10px 18px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
               Essai Gratuit
             </Link>
             <Link href="/connexion" style={{ fontSize: 13, fontWeight: 600, color: GOLD, backgroundColor: "#FFFFFF", border: `2px solid ${GOLD}`, padding: "8px 19px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
@@ -132,7 +138,7 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
               ))}
             </div>
             <Link href="/tarifs" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>Tarifs</Link>
-            <Link href="/inscription" className="public-mobile-trial" onClick={() => setMobileOpen(false)}>Essayez</Link>
+            <Link href="/inscription" className="public-mobile-trial public-trial-pop" onClick={() => setMobileOpen(false)}>Essayez</Link>
             <Link href="/connexion" className="public-mobile-login" onClick={() => setMobileOpen(false)}>Se connecter</Link>
           </div>
         )}
