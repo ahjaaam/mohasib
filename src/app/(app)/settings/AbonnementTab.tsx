@@ -4,25 +4,64 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { Check, X } from "lucide-react";
+import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 
 interface Props {
   userId: string;
   userEmail: string;
   companyId: string | null;
+  company: {
+    plan?: string | null;
+    subscription_status?: string | null;
+    subscription_ends_at?: string | null;
+    trial_ends_at?: string | null;
+    is_suspended?: boolean | null;
+  };
 }
 
-const PRO_FEATURES = [
-  "Factures illimitées",
-  "Clients illimités",
-  "Export CGNC (ZIP complet)",
-  "OCR reçus intelligents",
-  "Journal comptable CGNC",
-  "Boîte de réception documents",
-  "Récap TVA automatique",
-];
+const PLAN_LABELS: Record<string, string> = {
+  trial: "Essai",
+  starter: "Starter",
+  business: "Business",
+  business_pro: "Business Pro",
+  comptable_s: "Comptable S",
+  comptable_pro: "Comptable Pro",
+  comptable_inf: "Comptable Infini",
+};
 
-export default function AbonnementTab({ userId, userEmail: _userEmail, companyId }: Props) {
+const STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  active: { label: "Actif", className: "bg-[#D1FAE5] text-[#065F46]" },
+  trial: { label: "Essai", className: "bg-[#FEF3C7] text-[#92400E]" },
+  grace: { label: "Délai de grâce", className: "bg-[#FEF3C7] text-[#92400E]" },
+  expired: { label: "Expiré", className: "bg-[#FEE2E2] text-[#B91C1C]" },
+};
+
+const FEATURE_LABELS = [
+  ["bank_import", "Import bancaire"],
+  ["saisie", "Saisie comptable"],
+  ["paie", "La Paie"],
+  ["export_fiduciaire", "Export CGNC"],
+  ["avoirs", "Avoirs"],
+  ["bilan", "Bilan"],
+  ["tva_edi", "Fichier EDI TVA"],
+  ["inbox_global", "Inbox globale cabinet"],
+  ["mass_declarations", "Déclarations de masse"],
+  ["multi_users", "Multi-utilisateurs"],
+] as const;
+
+function formatLimit(value: number, suffix = "") {
+  if (value < 0) return "Illimité";
+  return `${value}${suffix}`;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "Non définie";
+  return new Date(value).toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" });
+}
+
+export default function AbonnementTab({ userId, userEmail: _userEmail, companyId, company }: Props) {
   const supabase = createClient();
+  const entitlements = usePlanEntitlements();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -32,8 +71,15 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
     fetch("/api/usage").then(r => r.json()).then(d => { if (!d.error) setUsage(d); }).catch(() => {});
   }, [companyId]);
 
-  const nextRenewal = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
-    .toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" });
+  const plan = entitlements.plan || company.plan || "starter";
+  const status = company.is_suspended ? "suspended" : company.subscription_status || "active";
+  const statusCopy = company.is_suspended
+    ? { label: "Suspendu", className: "bg-[#FEE2E2] text-[#B91C1C]" }
+    : STATUS_LABELS[status] ?? STATUS_LABELS.active;
+  const periodEnd = company.subscription_status === "trial" ? company.trial_ends_at : company.subscription_ends_at;
+  const nextRenewal = formatDate(periodEnd);
+  const includedFeatures = FEATURE_LABELS.filter(([key]) => entitlements.features[key]);
+  const missingFeatures = FEATURE_LABELS.filter(([key]) => !entitlements.features[key]);
 
   async function deleteAccount() {
     if (deleteConfirm !== "SUPPRIMER") return;
@@ -61,8 +107,11 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
       {/* Current Plan */}
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-5">
         <div className="flex items-start justify-between mb-4">
-          <h3 className="text-[15px] font-bold text-[#1A1A2E]">Mohasib Pro</h3>
-          <span className="text-[11px] px-2.5 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full font-semibold">Actif ✓</span>
+          <div>
+            <h3 className="text-[15px] font-bold text-[#1A1A2E]">{PLAN_LABELS[plan] ?? plan}</h3>
+            <p className="mt-1 text-[11px] text-[#6B7280]">Fin de période : {nextRenewal}</p>
+          </div>
+          <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold ${statusCopy.className}`}>{statusCopy.label}</span>
         </div>
 
         {/* Usage */}
@@ -71,10 +120,10 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
           {usage ? (
             <>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[13px] font-bold text-[#1A1A2E]">{usage.used} / {usage.limit}</span>
+                <span className="text-[13px] font-bold text-[#1A1A2E]">{usage.used} / {usage.limit < 0 ? "Illimité" : usage.limit}</span>
                 <span className="text-[11px] text-[#6B7280]">Réinitialisation le {usage.resetDate}</span>
               </div>
-              <div className="w-full h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
+              {usage.limit >= 0 && <div className="w-full h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${
                     usage.used / usage.limit >= 1 ? "bg-[#DC2626]"
@@ -83,11 +132,11 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
                   }`}
                   style={{ width: `${Math.min(100, (usage.used / usage.limit) * 100)}%` }}
                 />
-              </div>
-              {usage.used / usage.limit >= 0.8 && usage.used < usage.limit && (
+              </div>}
+              {usage.limit >= 0 && usage.used / usage.limit >= 0.8 && usage.used < usage.limit && (
                 <p className="text-[11px] text-[#92400E] mt-1.5">⚠️ Plus que {usage.remaining} document{usage.remaining > 1 ? "s" : ""} disponible{usage.remaining > 1 ? "s" : ""} ce mois.</p>
               )}
-              {usage.used >= usage.limit && (
+              {usage.limit >= 0 && usage.used >= usage.limit && (
                 <p className="text-[11px] text-[#DC2626] mt-1.5">⛔ Limite atteinte. Les imports seront de nouveau disponibles le {usage.resetDate}.</p>
               )}
             </>
@@ -96,14 +145,35 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
           )}
         </div>
 
+        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+          {[
+            ["OCR/mois", formatLimit(entitlements.limits.ocr)],
+            ["Stockage", formatLimit(entitlements.limits.storageGb, " Go")],
+            ["Dossiers", formatLimit(entitlements.limits.dossiers)],
+            ["Utilisateurs", formatLimit(entitlements.limits.users)],
+            ["Employés", formatLimit(entitlements.limits.employees)],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg bg-[#FAFAF6] p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.4px] text-[#9CA3AF]">{label}</p>
+              <p className="mt-1 text-[13px] font-bold text-[#1A1A2E]">{value}</p>
+            </div>
+          ))}
+        </div>
+
         {/* Features */}
         <div className="border-t border-[rgba(0,0,0,0.06)] pt-4">
           <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-2">Fonctionnalités incluses</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
-            {PRO_FEATURES.map(f => (
-              <div key={f} className="flex items-center gap-2 text-[12px] text-[#1A1A2E]">
+            {includedFeatures.map(([, label]) => (
+              <div key={label} className="flex items-center gap-2 text-[12px] text-[#1A1A2E]">
                 <Check size={13} className="text-[#059669] flex-shrink-0" />
-                {f}
+                {label}
+              </div>
+            ))}
+            {missingFeatures.map(([, label]) => (
+              <div key={label} className="flex items-center gap-2 text-[12px] text-[#9CA3AF]">
+                <X size={13} className="text-[#D1D5DB] flex-shrink-0" />
+                {label}
               </div>
             ))}
           </div>

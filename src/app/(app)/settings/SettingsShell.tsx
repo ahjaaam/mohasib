@@ -122,7 +122,7 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
           {tab === "entreprise" && <EntrepriseTab userId={accountOwnerId} company={company} />}
           {tab === "profil" && <ProfilTab userId={userId} userEmail={userEmail} profile={profile} prefs={prefs} />}
           {tab === "apparence" && <ApparenceTab userId={accountOwnerId} company={company} />}
-          {tab === "abonnement" && <AbonnementTab userId={accountOwnerId} userEmail={userEmail} companyId={companyId} />}
+          {tab === "abonnement" && <AbonnementTab userId={accountOwnerId} userEmail={userEmail} companyId={companyId} company={company} />}
           {tab === "integrations" && <IntegrationsTab company={company} />}
           {tab === "tva"          && <TVAConfigTab companyId={companyId} />}
           {tab === "echeances"    && <DeadlinesTab userId={accountOwnerId} deadlines={prefs.dashboard_deadlines ?? null} />}
