@@ -56,11 +56,12 @@ interface Props {
   cabinetName?: string | null;
   permissions?: string[] | null;
   roleLabel?: string | null;
+  accessScope?: string | null;
   entitlements: PlanEntitlements;
   ownerId: string;
 }
 
-export default function FiduciaireShell({ children, userName, userEmail, cabinetName, permissions = null, roleLabel, entitlements, ownerId }: Props) {
+export default function FiduciaireShell({ children, userName, userEmail, cabinetName, permissions = null, roleLabel, accessScope, entitlements, ownerId }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -150,13 +151,15 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
         ))}
       </nav>
 
-      <div className="border-t border-white/[0.07] px-[18px] py-[7px]">
-        <Link href="/dashboard"
-          className="flex items-center gap-2 px-0 py-[7px] text-[12px] transition-all text-white/25 hover:text-white/55">
-          <ChevronLeft size={13} />
-          Retour à Mohasib
-        </Link>
-      </div>
+      {accessScope !== "comptable_pro_only" && (
+        <div className="border-t border-white/[0.07] px-[18px] py-[7px]">
+          <Link href="/dashboard"
+            className="flex items-center gap-2 px-0 py-[7px] text-[12px] transition-all text-white/25 hover:text-white/55">
+            <ChevronLeft size={13} />
+            Retour à Mohasib
+          </Link>
+        </div>
+      )}
 
       <div className="px-[18px] py-3 border-t border-white/[0.07] flex items-center gap-2.5">
         <div className="w-[30px] h-[30px] rounded-full bg-[#C8924A] flex items-center justify-center text-[11px] font-bold text-[#0D1526] flex-shrink-0">

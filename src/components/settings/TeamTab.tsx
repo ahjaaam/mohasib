@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Check, Clipboard, Lock, Plus, Shield, UserRound, X } from "lucide-react";
+import { BriefcaseBusiness, Building2, Check, Clipboard, Lock, Plus, Shield, Unlock, UserRound, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { ROUTES } from "@/lib/routes";
 
@@ -13,6 +13,7 @@ type Member = {
   last_name?: string | null;
   role_name: string;
   role_label: string;
+  access_scope?: AccessScope | null;
   dossier_scope?: string[] | null;
   status: "invited" | "active" | "suspended";
   invitation_url?: string | null;
@@ -20,6 +21,7 @@ type Member = {
   accepted_at?: string | null;
   created_at: string;
 };
+type AccessScope = "business_only" | "comptable_pro_only" | "both";
 type TeamData = {
   context: { track: "business" | "comptable"; accountName: string };
   plan: { allowed: boolean; limit: number };
@@ -27,6 +29,36 @@ type TeamData = {
   owner: { id: string; email: string; full_name: string; role_label: string };
   members: Member[];
 };
+
+const ACCESS_SCOPE_OPTIONS: Array<{
+  value: AccessScope;
+  title: string;
+  description: string;
+  icon: typeof BriefcaseBusiness;
+}> = [
+  {
+    value: "comptable_pro_only",
+    title: "Comptable Pro uniquement",
+    description: "Accès au cabinet et aux dossiers clients. Aucun accès au compte normal.",
+    icon: Building2,
+  },
+  {
+    value: "business_only",
+    title: "Compte normal uniquement",
+    description: "Accès à l'espace entreprise. Aucun accès à l'espace Comptable Pro.",
+    icon: BriefcaseBusiness,
+  },
+  {
+    value: "both",
+    title: "Les deux",
+    description: "Accès aux deux espaces. À réserver aux collaborateurs de confiance.",
+    icon: Unlock,
+  },
+];
+
+function defaultAccessScope(track: TeamData["context"]["track"]): AccessScope {
+  return track === "comptable" ? "comptable_pro_only" : "business_only";
+}
 
 export default function TeamTab({ title = "Équipe" }: { title?: string }) {
   const [data, setData] = useState<TeamData | null>(null);
@@ -105,8 +137,13 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
             {data.members.map(member => (
               <tr key={member.id}>
                 <td className="px-4 py-3"><MemberIdentity name={`${member.first_name ?? ""} ${member.last_name ?? ""}`.trim()} email={member.user_email} /></td>
-                <td className="px-4 py-3"><Badge label="Collaborateur" tone="gray" /></td>
-                <td className="px-4 py-3 text-[#6B7280]">Tout</td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge label="Collaborateur" tone="gray" />
+                    <ScopeBadge scope={member.access_scope ?? "both"} />
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-[#6B7280]">{scopeLabel(member.access_scope ?? "both")}</td>
                 <td className="px-4 py-3"><Status status={member.status} /></td>
                 <td className="px-4 py-3 text-[#9CA3AF]">{new Date(member.accepted_at || member.invited_at || member.created_at).toLocaleDateString("fr-FR")}</td>
                 <td className="px-4 py-3">
@@ -131,13 +168,28 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
           </tbody>
         </table>
       </div>
-      {modalOpen && <MemberModal member={editing} onClose={() => setModalOpen(false)} onSaved={async () => { setModalOpen(false); await load(); }} />}
+      {modalOpen && <MemberModal contextTrack={data.context.track} member={editing} onClose={() => setModalOpen(false)} onSaved={async () => { setModalOpen(false); await load(); }} />}
     </div>
   );
 }
 
-function MemberModal({ member, onClose, onSaved }: { member: Member | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ email: member?.user_email ?? "", first_name: member?.first_name ?? "", last_name: member?.last_name ?? "" });
+function MemberModal({
+  contextTrack,
+  member,
+  onClose,
+  onSaved,
+}: {
+  contextTrack: TeamData["context"]["track"];
+  member: Member | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    email: member?.user_email ?? "",
+    first_name: member?.first_name ?? "",
+    last_name: member?.last_name ?? "",
+    access_scope: member?.access_scope ?? defaultAccessScope(contextTrack),
+  });
   const [saving, setSaving] = useState(false);
   async function save() {
     setSaving(true);
@@ -162,6 +214,34 @@ function MemberModal({ member, onClose, onSaved }: { member: Member | null; onCl
           <strong className="text-[12px] text-[#0D1526]">Accès Collaborateur</strong>
           <p className="mt-1 text-[11px] text-[#6B7280]">Le collaborateur travaille sur les mêmes données opérationnelles, sans accès aux paramètres du compte.</p>
         </div>
+        <div className="mt-6">
+          <p className="text-[12px] font-semibold text-[#374151]">Périmètre d'accès *</p>
+          <div className="mt-2 grid gap-3">
+            {ACCESS_SCOPE_OPTIONS.map(option => {
+              const Icon = option.icon;
+              const selected = form.access_scope === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setForm({ ...form, access_scope: option.value })}
+                  className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                    selected ? "border-[#C8924A] bg-[#C8924A]/10 shadow-sm" : "border-black/[0.08] bg-white hover:border-[#C8924A]/45"
+                  }`}
+                >
+                  <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-[#C8924A] text-white" : "bg-[#F4F4F1] text-[#6B7280]"}`}>
+                    <Icon size={16} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[12px] font-bold text-[#0D1526]">{option.title}</span>
+                    <span className="mt-0.5 block text-[11px] leading-5 text-[#6B7280]">{option.description}</span>
+                  </span>
+                  <span className={`ml-auto mt-1 h-4 w-4 shrink-0 rounded-full border ${selected ? "border-[#C8924A] bg-[#C8924A] shadow-[inset_0_0_0_3px_white]" : "border-[#D1D5DB]"}`} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2 text-[12px] font-semibold text-[#374151]">Email *<input type="email" readOnly={!!member} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input mt-1" /></label>
           <label className="text-[12px] font-semibold text-[#374151]">Prénom<input value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} className="input mt-1" /></label>
@@ -183,6 +263,20 @@ function MemberIdentity({ name, email }: { name: string; email: string }) {
 }
 function Badge({ label, tone }: { label: string; tone: "gold" | "blue" | "gray" }) {
   const classes = tone === "gold" ? "bg-[#C8924A]/10 text-[#A66F27]" : tone === "blue" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600";
+  return <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${classes}`}>{label}</span>;
+}
+function scopeLabel(scope: AccessScope) {
+  if (scope === "business_only") return "Compte normal uniquement";
+  if (scope === "comptable_pro_only") return "Comptable Pro uniquement";
+  return "Les deux";
+}
+function ScopeBadge({ scope }: { scope: AccessScope }) {
+  const label = scopeLabel(scope);
+  const classes = scope === "business_only"
+    ? "bg-emerald-50 text-emerald-700"
+    : scope === "comptable_pro_only"
+      ? "bg-sky-50 text-sky-700"
+      : "bg-[#C8924A]/10 text-[#A66F27]";
   return <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${classes}`}>{label}</span>;
 }
 function Status({ status }: { status: Member["status"] | "active" }) {

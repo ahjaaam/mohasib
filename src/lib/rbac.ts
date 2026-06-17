@@ -5,9 +5,11 @@ export type PermissionContext = {
   userId: string;
   companyId?: string | null;
   dossierId?: string | null;
+  scope?: "business" | "comptable_pro" | null;
 };
 
 export type EffectivePermission = { resource: string; action: string };
+export type AccessScope = "business_only" | "comptable_pro_only" | "both";
 
 const FORBIDDEN_MESSAGE =
   "Vous n'avez pas la permission d'effectuer cette action. Contactez le propriétaire du compte.";
@@ -16,7 +18,7 @@ export async function getMembershipForContext(ctx: PermissionContext) {
   const admin = createAdminClient();
   let query = admin
     .from("user_memberships")
-    .select("id,user_id,user_email,company_id,dossier_id,role_name,dossier_scope,status,employee_id")
+    .select("id,user_id,user_email,company_id,dossier_id,role_name,dossier_scope,status,employee_id,access_scope")
     .eq("user_id", ctx.userId);
 
   if (ctx.companyId) query = query.eq("company_id", ctx.companyId);
@@ -24,6 +26,65 @@ export async function getMembershipForContext(ctx: PermissionContext) {
 
   const { data } = await query.limit(1).maybeSingle();
   return data;
+}
+
+async function ownsBusinessScope(userId: string) {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("companies")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return !!data;
+}
+
+async function ownsComptableScope(userId: string) {
+  const admin = createAdminClient();
+  const [{ data: company }, { data: cabinet }] = await Promise.all([
+    admin
+      .from("companies")
+      .select("id,user_type,plan")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    admin
+      .from("cabinets")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+
+  return !!cabinet || company?.user_type === "fiduciaire" || ["comptable_pro", "comptable_inf"].includes(company?.plan ?? "");
+}
+
+function scopeMatches(accessScope: AccessScope | null | undefined, scope: "business" | "comptable_pro") {
+  const current = accessScope ?? "both";
+  return current === "both"
+    || (scope === "business" && current === "business_only")
+    || (scope === "comptable_pro" && current === "comptable_pro_only");
+}
+
+export async function canEnterScope(
+  ctx: { userId: string },
+  scope: "business" | "comptable_pro",
+): Promise<boolean> {
+  if (scope === "business" && await ownsBusinessScope(ctx.userId)) return true;
+  if (scope === "comptable_pro" && await ownsComptableScope(ctx.userId)) return true;
+
+  const admin = createAdminClient();
+  const { data: memberships } = await admin
+    .from("user_memberships")
+    .select("access_scope,status,role_name")
+    .eq("user_id", ctx.userId)
+    .eq("status", "active");
+
+  if (!memberships?.length) return false;
+
+  return memberships.some(membership => {
+    if (["manager", "collaborateur"].includes(membership.role_name)) {
+      return scopeMatches(membership.access_scope as AccessScope | null, scope);
+    }
+    return true;
+  });
 }
 
 async function isOwner(ctx: PermissionContext) {
@@ -97,6 +158,8 @@ export async function can(ctx: PermissionContext, resource: string, action: stri
 
   const membership = await getMembershipForContext(ctx);
   if (!membership || membership.status !== "active") return false;
+  const requestScope = ctx.scope ?? (ctx.dossierId ? "comptable_pro" : "business");
+  if (!(await canEnterScope({ userId: ctx.userId }, requestScope))) return false;
   if (membership.role_name === "manager") return resource !== "settings";
 
   if (ctx.dossierId && membership.role_name === "collaborateur") {

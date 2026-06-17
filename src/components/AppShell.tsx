@@ -55,6 +55,7 @@ interface Props {
   isFiduciaire?: boolean;
   permissions?: string[] | null;
   roleLabel?: string | null;
+  accessScope?: string | null;
   accountState?: {
     subscription_status?: string | null;
     subscription_ends_at?: string | null;
@@ -71,7 +72,7 @@ interface Props {
   entitlements: PlanEntitlements;
 }
 
-export default function AppShell({ children, ownerId, userEmail, userName, userCompany, isFiduciaire, permissions = null, roleLabel, accountState, entitlements }: Props) {
+export default function AppShell({ children, ownerId, userEmail, userName, userCompany, isFiduciaire, permissions = null, roleLabel, accessScope, accountState, entitlements }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
@@ -175,7 +176,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
         })}
       </nav>
 
-      {isFiduciaire && (
+      {isFiduciaire && accessScope !== "business_only" && (
         <div className="border-t border-white/[0.07] py-[7px]">
           <Link href="/comptable-pro" title={sidebarCollapsed ? "Comptable Pro" : undefined}
             className={`flex items-center py-[7px] text-[13px] transition-all ${
@@ -366,7 +367,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
                 ))}
 
                 {/* Fiduciaire */}
-                {isFiduciaire && (
+                {isFiduciaire && accessScope !== "business_only" && (
                   <>
                     <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)", margin: "8px 20px" }} />
                     <Link href="/comptable-pro" onClick={() => setDrawerOpen(false)}

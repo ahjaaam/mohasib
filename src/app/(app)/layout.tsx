@@ -1,10 +1,12 @@
 import AppShell from "@/components/AppShell";
+import AccessRestricted from "@/components/AccessRestricted";
 import DossierBanner from "@/components/DossierBanner";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getUserAccessProfile, resolveTeamContext } from "@/lib/team";
 import { getPlanEntitlements } from "@/lib/plan-entitlements";
+import { canEnterScope } from "@/lib/rbac";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -16,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const activeDossierId = cookieStore.get("active_dossier_id")?.value;
   const teamContext = await resolveTeamContext(user.id);
   const isFiduciaire = teamContext?.track === "comptable";
+  const businessScopeAllowed = await canEnterScope({ userId: user.id }, "business");
 
 
   const [profileRes, dossierRes, companyRes, access, entitlements] = await Promise.all([
@@ -39,10 +42,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       isFiduciaire={isFiduciaire}
       permissions={access.permissions}
       roleLabel={access.roleLabel}
+      accessScope={access.accessScope}
       entitlements={entitlements}
       accountState={companyRes.data}>
-      {dossierRes.data && <DossierBanner dossier={dossierRes.data} />}
-      {children}
+      {businessScopeAllowed && dossierRes.data && <DossierBanner dossier={dossierRes.data} />}
+      {businessScopeAllowed ? children : (
+        <AccessRestricted backHref="/comptable-pro" message="Vous n'avez pas accès à cet espace." />
+      )}
     </AppShell>
   );
 }

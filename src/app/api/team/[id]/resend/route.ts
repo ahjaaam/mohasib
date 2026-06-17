@@ -12,7 +12,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const context = await resolveTeamContext(user.id);
   if (!context) return NextResponse.json({ error: "account_not_found" }, { status: 404 });
-  const denied = await requirePermission({ userId: user.id, companyId: context.companyId }, "settings", "manage_team");
+  const denied = await requirePermission({ userId: user.id, companyId: context.companyId, scope: context.track === "comptable" ? "comptable_pro" : "business" }, "settings", "manage_team");
   if (denied) return denied;
 
   const { id } = await params;

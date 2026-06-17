@@ -86,6 +86,20 @@ export function MemberToggle({ id, suspended, authBanned = false }: { id: string
   return <button className="rounded border border-black/10 px-2 py-1 text-[10px] font-semibold" onClick={() => void post(`/api/admin/members/${id}`, { suspended: !blocked }).catch(error => alert(error.message))}>{blocked ? "Réactiver" : "Suspendre"}</button>;
 }
 
+export function MemberAccessScopeSelect({ id, current }: { id: string; current?: string | null }) {
+  return (
+    <select
+      defaultValue={current ?? "both"}
+      className="rounded border border-black/10 bg-white px-2 py-1 text-[10px] font-semibold text-gray-700"
+      onChange={event => void post(`/api/admin/members/${id}`, { access_scope: event.target.value }).catch(error => alert(error.message))}
+    >
+      <option value="business_only">Compte normal</option>
+      <option value="comptable_pro_only">Comptable Pro</option>
+      <option value="both">Les deux</option>
+    </select>
+  );
+}
+
 export function AuthUnbanButton({ id }: { id: string }) {
   return <button className="rounded border border-red-200 px-2 py-1 text-[10px] font-semibold text-red-700" onClick={() => void post(`/api/admin/members/${id}/unban`, {}).catch(error => alert(error.message))}>Débloquer Auth</button>;
 }

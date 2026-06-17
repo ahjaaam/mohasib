@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       if (user && invitationToken && user.email) {
         const admin = createAdminClient();
         const { data: membership } = await admin.from("user_memberships")
-          .select("id,user_email,companies(user_type)")
+          .select("id,user_email,access_scope,companies(user_type)")
           .eq("invitation_token", invitationToken)
           .eq("status", "invited")
           .maybeSingle();
@@ -43,8 +43,23 @@ export async function GET(request: Request) {
             invitation_expires_at: null,
           }).eq("id", membership.id);
           const company = Array.isArray(membership.companies) ? membership.companies[0] : membership.companies;
-          const memberDest = company?.user_type === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
+          const memberDest = membership.access_scope === "comptable_pro_only"
+            ? "/comptable-pro"
+            : membership.access_scope === "business_only"
+              ? "/tableau-de-bord"
+              : company?.user_type === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
           return NextResponse.redirect(`${origin}${memberDest}`);
+        }
+      }
+      if (user) {
+        const admin = createAdminClient();
+        const { data: memberships } = await admin.from("user_memberships")
+          .select("access_scope,role_name")
+          .eq("user_id", user.id)
+          .eq("status", "active");
+        const collaboratorMemberships = (memberships ?? []).filter(membership => ["manager", "collaborateur"].includes(membership.role_name));
+        if (collaboratorMemberships.length > 0 && collaboratorMemberships.every(membership => membership.access_scope === "comptable_pro_only")) {
+          return NextResponse.redirect(`${origin}/comptable-pro`);
         }
       }
       const dest = user?.user_metadata?.user_type === "fiduciaire" ? "/comptable-pro" : next;

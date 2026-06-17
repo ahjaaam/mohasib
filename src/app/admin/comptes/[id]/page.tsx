@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { AccountControls, MemberToggle } from "@/components/admin/AdminControls";
+import { AccountControls, MemberAccessScopeSelect, MemberToggle } from "@/components/admin/AdminControls";
 import { StatusBadge } from "@/components/admin/AdminUI";
 import { accountStatus, adminContext, authUserMap, formatDate, formatMoney } from "@/lib/admin-data";
 import { TRIAL_LIMITS } from "@/lib/trial-limits";
@@ -40,7 +40,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     )}
     <AccountControls company={company} />
     <div className="mt-5 grid gap-5 xl:grid-cols-2">
-      <section className="rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Collaborateurs</h2><div className="divide-y divide-black/5">{(members.data ?? []).map(member => <div key={member.id} className="flex items-center justify-between px-4 py-3 text-[11px]"><div><b>{`${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || member.user_email || "Invitation"}</b><div className="text-gray-500">{member.user_email} · Collaborateur · {member.status}</div></div><MemberToggle id={member.id} suspended={member.status === "suspended"} /></div>)}</div></section>
+      <section className="rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Collaborateurs</h2><div className="divide-y divide-black/5">{(members.data ?? []).map(member => <div key={member.id} className="flex items-center justify-between gap-3 px-4 py-3 text-[11px]"><div><b>{`${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || member.user_email || "Invitation"}</b><div className="text-gray-500">{member.user_email} · Collaborateur · {member.status}</div></div><div className="flex flex-wrap items-center justify-end gap-2"><MemberAccessScopeSelect id={member.id} current={member.access_scope} /><MemberToggle id={member.id} suspended={member.status === "suspended"} /></div></div>)}</div></section>
       <section className="rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Historique d’abonnement</h2><div className="divide-y divide-black/5">{(subscriptions.data ?? []).map(item => <div key={item.id} className="grid grid-cols-3 px-4 py-3 text-[11px]"><b>{item.plan}</b><span>{formatMoney(item.amount_mad)}</span><span className="text-right text-gray-500">{formatDate(item.starts_at)} → {formatDate(item.ends_at)}</span></div>)}</div></section>
     </div>
     <section className="mt-5 rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Journal d’audit</h2><div className="divide-y divide-black/5">{(audits.data ?? []).map(item => <div key={item.id} className="grid gap-1 px-4 py-3 text-[11px] sm:grid-cols-[180px_1fr_180px]"><b>{item.action}</b><span>{item.entity_label || item.entity_type}</span><span className="text-gray-500 sm:text-right">{item.user_email} · {formatDate(item.created_at)}</span></div>)}</div></section>

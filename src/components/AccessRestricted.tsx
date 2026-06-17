@@ -6,15 +6,17 @@ import { Lock } from "lucide-react";
 export default function AccessRestricted({
   backHref = "/tableau-de-bord",
   reason = "permission",
+  message,
 }: {
   backHref?: string;
   reason?: "permission" | "plan" | "suspended";
+  message?: string;
 }) {
-  const copy = reason === "plan"
+  const copy = message ?? (reason === "plan"
     ? "Cette fonctionnalité n'est pas incluse dans le plan actuel du compte."
     : reason === "suspended"
       ? "Ce compte est suspendu. Contactez le support Mohasib pour obtenir de l'aide."
-      : "Le propriétaire ne vous a pas accordé l'accès à cette section. Demandez-lui d'ajuster vos permissions dans Paramètres > Équipe.";
+      : "Le propriétaire ne vous a pas accordé l'accès à cette section. Demandez-lui d'ajuster vos permissions dans Paramètres > Équipe.");
 
   return (
     <div className="flex min-h-[55vh] items-center justify-center p-5">

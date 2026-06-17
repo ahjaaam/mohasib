@@ -17,7 +17,7 @@ export async function resolveTeamContext(userId: string): Promise<TeamContext | 
 
   const { data: membership } = await admin
     .from("user_memberships")
-    .select("company_id,role_name")
+    .select("company_id,role_name,access_scope")
     .eq("user_id", userId)
     .eq("status", "active")
     .not("company_id", "is", null)
@@ -80,7 +80,7 @@ export const ROLE_LABELS: Record<string, string> = {
 export async function getUserAccessProfile(userId: string) {
   const admin = createAdminClient();
   const { data: membership } = await admin.from("user_memberships")
-    .select("id,role_name,dossier_scope,status")
+    .select("id,role_name,dossier_scope,status,access_scope")
     .eq("user_id", userId).eq("status", "active").limit(1).maybeSingle();
   if (membership && !["owner", "cabinet_owner"].includes(membership.role_name)) {
     if (membership.role_name === "manager") {
@@ -91,6 +91,7 @@ export async function getUserAccessProfile(userId: string) {
           .filter(permission => permission.resource !== "settings")
           .map(permission => `${permission.resource}:${permission.action}`),
         dossierScope: null,
+        accessScope: membership.access_scope ?? "both",
       };
     }
     return {
@@ -98,6 +99,7 @@ export async function getUserAccessProfile(userId: string) {
       roleLabel: ROLE_LABELS[membership.role_name] ?? membership.role_name,
       permissions: (await getEffectivePermissions(membership.id)).map(permission => `${permission.resource}:${permission.action}`),
       dossierScope: membership.dossier_scope as string[] | null,
+      accessScope: membership.access_scope ?? "both",
     };
   }
 
@@ -105,13 +107,14 @@ export async function getUserAccessProfile(userId: string) {
     admin.from("companies").select("id").eq("user_id", userId).maybeSingle(),
     admin.from("cabinets").select("id").eq("user_id", userId).maybeSingle(),
   ]);
-  if (company || cabinet) return { isOwner: true, roleLabel: "Propriétaire", permissions: null, dossierScope: null };
+  if (company || cabinet) return { isOwner: true, roleLabel: "Propriétaire", permissions: null, dossierScope: null, accessScope: "both" };
 
-  if (!membership) return { isOwner: false, roleLabel: "Accès restreint", permissions: [], dossierScope: [] };
+  if (!membership) return { isOwner: false, roleLabel: "Accès restreint", permissions: [], dossierScope: [], accessScope: null };
   return {
     isOwner: false,
     roleLabel: ROLE_LABELS[membership.role_name] ?? membership.role_name,
     permissions: (await getEffectivePermissions(membership.id)).map(permission => `${permission.resource}:${permission.action}`),
     dossierScope: membership.dossier_scope as string[] | null,
+    accessScope: membership.access_scope ?? "both",
   };
 }

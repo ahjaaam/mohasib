@@ -17,6 +17,17 @@ function teamDatabaseMessage(message?: string) {
   return message || "Impossible de créer l'invitation.";
 }
 
+const ACCESS_SCOPES = ["business_only", "comptable_pro_only", "both"] as const;
+type AccessScope = typeof ACCESS_SCOPES[number];
+
+function normalizeAccessScope(value: unknown, fallback: AccessScope): AccessScope {
+  return ACCESS_SCOPES.includes(value as AccessScope) ? value as AccessScope : fallback;
+}
+
+function defaultAccessScope(track: "business" | "comptable"): AccessScope {
+  return track === "comptable" ? "comptable_pro_only" : "business_only";
+}
+
 async function authContext() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -29,7 +40,7 @@ export async function GET() {
   const auth = await authContext();
   if (!auth) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { user, context } = auth;
-  const denied = await requirePermission({ userId: user.id, companyId: context.companyId }, "settings", "manage_team");
+  const denied = await requirePermission({ userId: user.id, companyId: context.companyId, scope: context.track === "comptable" ? "comptable_pro" : "business" }, "settings", "manage_team");
   if (denied) return denied;
 
   const admin = createAdminClient();
@@ -39,7 +50,7 @@ export async function GET() {
     .in("role_name", ["employee", "collaborateur", "read_auditor"]);
   const [{ data: memberships }, { data: owner }, planCheck] = await Promise.all([
     admin.from("user_memberships")
-      .select("id,user_id,user_email,first_name,last_name,role_name,dossier_scope,status,invitation_token,invited_at,accepted_at,created_at")
+      .select("id,user_id,user_email,first_name,last_name,role_name,dossier_scope,access_scope,status,invitation_token,invited_at,accepted_at,created_at")
       .eq("company_id", context.companyId)
       .neq("status", "revoked")
       .order("created_at"),
@@ -78,7 +89,7 @@ export async function POST(req: NextRequest) {
   const auth = await authContext();
   if (!auth) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { user, context } = auth;
-  const denied = await requirePermission({ userId: user.id, companyId: context.companyId }, "settings", "manage_team");
+  const denied = await requirePermission({ userId: user.id, companyId: context.companyId, scope: context.track === "comptable" ? "comptable_pro" : "business" }, "settings", "manage_team");
   if (denied) return denied;
 
   const planCheck = await checkPlanLimit(context.companyId, "multi_users");
@@ -99,6 +110,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const email = String(body.email ?? "").trim().toLowerCase();
+  const accessScope = normalizeAccessScope(body.access_scope, defaultAccessScope(context.track));
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "invalid_email", message: "Adresse e-mail invalide." }, { status: 400 });
   }
@@ -116,6 +128,7 @@ export async function POST(req: NextRequest) {
     company_id: context.companyId,
     role_name: "manager",
     dossier_scope: null,
+    access_scope: accessScope,
     status: "invited",
     invitation_token: token,
     invitation_expires_at: expiresAt,
@@ -143,7 +156,7 @@ export async function POST(req: NextRequest) {
     entityId: membership.id,
     entityLabel: email,
     companyId: context.companyId,
-    newValues: { email, role_name: "manager", dossier_scope: null },
+    newValues: { email, role_name: "manager", dossier_scope: null, access_scope: accessScope },
   });
 
   return NextResponse.json({ success: true, membershipId: membership.id, invitationUrl });

@@ -67,6 +67,21 @@ export default function ResponsibleInviteButton({ companies }: { companies: Comp
           <label className="text-[11px] font-semibold sm:col-span-2">Adresse e-mail *
             <input name="email" type="email" required className="input mt-1" />
           </label>
+          <fieldset className="sm:col-span-2">
+            <legend className="text-[11px] font-semibold">Périmètre d'accès *</legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              {[
+                ["business_only", "Compte normal"],
+                ["comptable_pro_only", "Comptable Pro"],
+                ["both", "Les deux"],
+              ].map(([value, label]) => (
+                <label key={value} className="flex items-center gap-2 rounded border border-black/10 px-3 py-2 text-[11px] font-semibold">
+                  <input type="radio" name="access_scope" value={value} defaultChecked={value === "both"} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <button disabled={busy || companies.length === 0} className="rounded bg-[#0D1526] px-4 py-2.5 text-xs font-bold text-white sm:col-span-2 disabled:opacity-40">
             {busy ? "Création..." : "Envoyer l'invitation"}
           </button>

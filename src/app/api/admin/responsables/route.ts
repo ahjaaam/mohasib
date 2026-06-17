@@ -4,6 +4,12 @@ import { Resend } from "resend";
 import { logAdminAudit, requireAdminApi } from "@/lib/admin-api";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const ACCESS_SCOPES = ["business_only", "comptable_pro_only", "both"] as const;
+type AccessScope = typeof ACCESS_SCOPES[number];
+
+function normalizeAccessScope(value: unknown): AccessScope {
+  return ACCESS_SCOPES.includes(value as AccessScope) ? value as AccessScope : "both";
+}
 
 export async function POST(request: Request) {
   const { user, admin, response } = await requireAdminApi();
@@ -14,6 +20,7 @@ export async function POST(request: Request) {
   const email = String(body.email ?? "").trim().toLowerCase();
   const firstName = String(body.first_name ?? "").trim();
   const lastName = String(body.last_name ?? "").trim();
+  const accessScope = normalizeAccessScope(body.access_scope);
   if (!companyId) return NextResponse.json({ message: "Sélectionnez un compte." }, { status: 400 });
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ message: "Adresse e-mail invalide." }, { status: 400 });
@@ -46,6 +53,7 @@ export async function POST(request: Request) {
     company_id: companyId,
     role_name: "manager",
     dossier_scope: null,
+    access_scope: accessScope,
     status: "invited",
     invitation_token: token,
     invitation_expires_at: expiresAt,
@@ -77,7 +85,7 @@ export async function POST(request: Request) {
     entityId: membership.id,
     entityLabel: email,
     companyId,
-    newValues: { email, first_name: firstName, last_name: lastName, role_name: "manager", status: "invited", email_sent: emailSent },
+    newValues: { email, first_name: firstName, last_name: lastName, role_name: "manager", status: "invited", access_scope: accessScope, email_sent: emailSent },
   });
 
   return NextResponse.json({ ok: true, invitationUrl, emailSent });
