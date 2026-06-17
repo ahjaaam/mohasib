@@ -254,8 +254,9 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
 
         {/* Main */}
         <div
-          className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-[margin] duration-200"
-          style={{ marginLeft: sidebarCollapsed ? 56 : 210 }}
+          className={`flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-[margin] duration-200 ${
+            sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[210px]"
+          }`}
         >
 
           {/* Page content */}
