@@ -189,13 +189,13 @@ export default function HomePageClient() {
               Découvrez Mohasib en quelques minutes
             </h2>
             <p style={{ fontSize: 15, color: "#6B7280", lineHeight: 1.6, maxWidth: 620, margin: 0, fontFamily: FONT }}>
-              Trois présentations courtes pour comprendre les workflows essentiels et démarrer plus vite.
+              Trois présentations pour comprendre les workflows essentiels et démarrer plus vite.
             </p>
           </div>
 
           <div className="video-showcase-grid">
             {APP_VIDEOS.map((video, index) => (
-              <article key={video.title} style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 8, overflow: "hidden" }}>
+              <article key={video.title} style={{ backgroundColor: "#FAFAF7", border: "1px solid rgba(0, 0, 0, 0.02)", borderRadius: 15, overflow: "hidden" }}>
                 <div className="video-frame">
                   {video.src ? (
                     <video controls preload="metadata" style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}>

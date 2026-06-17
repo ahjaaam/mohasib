@@ -157,7 +157,7 @@ begin
     new_json,
     fields,
     true,
-    encode(digest(coalesce(row_json::text, '') || tg_op || created_ts::text, 'sha256'), 'hex'),
+    md5(coalesce(row_json::text, '') || tg_op || created_ts::text),
     created_ts
   );
 
