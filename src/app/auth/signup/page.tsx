@@ -6,6 +6,7 @@ import { translateError } from "@/lib/errors";
 import Link from "next/link";
 import Image from "next/image";
 import { Eye, EyeOff, CheckCircle, Building2, Briefcase } from "lucide-react";
+import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS, validatePassword } from "@/lib/password-policy";
 
 type UserType = "entrepreneur" | "fiduciaire";
 
@@ -38,6 +39,12 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    const passwordError = validatePassword(form.password);
+    if (passwordError) {
+      setLoading(false);
+      setError(passwordError);
+      return;
+    }
 
     if (invitationToken) {
       const response = await fetch(`/api/invitations/${invitationToken}/signup`, {
@@ -61,8 +68,9 @@ export default function SignupPage() {
       return;
     }
 
-    const { error: err } = await supabase.auth.signUp({
-      email: form.email,
+    const email = form.email.trim().toLowerCase();
+    const { data, error: err } = await supabase.auth.signUp({
+      email,
       password: form.password,
       options: {
         data: {
@@ -77,6 +85,8 @@ export default function SignupPage() {
     setLoading(false);
     if (err) {
       setError(translateError(err));
+    } else if (data.user && (data.user.identities?.length ?? 0) === 0) {
+      setError("Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou réinitialisez votre mot de passe.");
     } else {
       setSuccess(true);
     }
@@ -192,34 +202,36 @@ export default function SignupPage() {
 
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
-              <label className="label">Nom complet</label>
-              <input className="input" placeholder="Prénom Nom" required
+              <label htmlFor="signup-full-name" className="label">Nom complet</label>
+              <input id="signup-full-name" className="input" placeholder="Prénom Nom" required
                 value={form.full_name}
                 onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
             </div>
             {!invitationToken && <div>
-              <label className="label">
+              <label htmlFor="signup-company" className="label">
                 {userType === "fiduciaire" ? "Nom du cabinet" : "Entreprise"}
               </label>
-              <input className="input"
+              <input id="signup-company" className="input"
                 placeholder={userType === "fiduciaire" ? "Cabinet Dupont & Associés" : "Ma Société SARL"}
                 value={form.company}
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
             </div>}
             <div>
-              <label className="label">Adresse e-mail</label>
-              <input type="email" className="input" placeholder="vous@exemple.ma" required readOnly={!!invitationToken}
+              <label htmlFor="signup-email" className="label">Adresse e-mail</label>
+              <input id="signup-email" type="email" className="input" placeholder="vous@exemple.ma" required readOnly={!!invitationToken}
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
             <div>
-              <label className="label">Mot de passe</label>
+              <label htmlFor="signup-password" className="label">Mot de passe</label>
               <div className="relative">
-                <input type={showPwd ? "text" : "password"} className="input pr-10"
-                  placeholder="Minimum 8 caractères" required minLength={8}
+                <input id="signup-password" type={showPwd ? "text" : "password"} className="input pr-10"
+                  placeholder={PASSWORD_REQUIREMENTS} required minLength={PASSWORD_MIN_LENGTH}
                   value={form.password}
                   onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-                <button type="button" onClick={() => setShowPwd(!showPwd)}
+                <button type="button"
+                  aria-label={showPwd ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  onClick={() => setShowPwd(!showPwd)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                   {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -227,7 +239,15 @@ export default function SignupPage() {
             </div>
 
             {error && (
-              <p className="text-xs text-red-500 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">{error}</p>
+              <div className="text-xs text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">
+                <p>{error}</p>
+                {error.startsWith("Un compte existe déjà") && (
+                  <div className="flex gap-3 mt-2 font-semibold">
+                    <Link href="/connexion" className="hover:underline">Se connecter</Link>
+                    <Link href="/mot-de-passe-oublie" className="hover:underline">Mot de passe oublié</Link>
+                  </div>
+                )}
+              </div>
             )}
 
             <button type="submit" disabled={loading}

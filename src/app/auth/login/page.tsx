@@ -9,19 +9,17 @@ import { translateError } from "@/lib/errors";
 import { Turnstile } from "@marsidev/react-turnstile";
 
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
-const CAPTCHA_THRESHOLD = 3;
-
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [captchaRequired, setCaptchaRequired] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const router = useRouter();
 
-  const needsCaptcha = SITE_KEY && failedAttempts >= CAPTCHA_THRESHOLD;
+  const needsCaptcha = SITE_KEY && captchaRequired;
   const captchaBlocking = needsCaptcha && !captchaToken;
 
   async function handleLogin(e: React.FormEvent) {
@@ -40,7 +38,6 @@ export default function LoginPage() {
       data = await res.json();
     } catch {
       setLoading(false);
-      setFailedAttempts((n) => n + 1);
       setError(translateError({ code: "NETWORK_ERROR" }));
       return;
     }
@@ -48,10 +45,11 @@ export default function LoginPage() {
     setLoading(false);
 
     if (!res.ok) {
-      setFailedAttempts((n) => n + 1);
+      if (data.captchaRequired || data.code === "captcha_required") setCaptchaRequired(true);
       setCaptchaToken(null); // force re-solve on next attempt
       setError(translateError(data));
     } else {
+      setCaptchaRequired(false);
       router.push("/tableau-de-bord");
       router.refresh();
     }
@@ -74,8 +72,9 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="label">Adresse e-mail</label>
+              <label htmlFor="login-email" className="label">Adresse e-mail</label>
               <input
+                id="login-email"
                 type="email"
                 className="input"
                 placeholder="vous@exemple.ma"
@@ -88,13 +87,14 @@ export default function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="label mb-0">Mot de passe</label>
+                <label htmlFor="login-password" className="label mb-0">Mot de passe</label>
                 <Link href="/mot-de-passe-oublie" className="text-xs text-gold hover:underline">
                   Mot de passe oublié ?
                 </Link>
               </div>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPwd ? "text" : "password"}
                   className="input pr-10"
                   placeholder="••••••••"
@@ -104,6 +104,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                 />
                 <button type="button"
+                  aria-label={showPwd ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                   onClick={() => setShowPwd(!showPwd)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                   {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}

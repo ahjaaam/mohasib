@@ -224,17 +224,26 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     try {
       const res = await fetch("/api/email/sync", { method: "POST" });
       const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Erreur de synchronisation");
       if (json.imported > 0) {
-        toast.success(`${json.imported} email(s) importé(s)`);
+        toast.success(`${json.imported} document(s) importé(s)`);
         await load();
       } else if (json.not_connected) {
         toast("Connectez votre email dans Paramètres → Intégrations", { icon: "📧" });
         router.push("/settings?tab=integrations");
+      } else if (json.errors?.length) {
+        toast.error(json.errors.join(" "), { duration: 5000 });
       } else {
-        toast("Aucun nouvel email");
+        toast(
+          `${json.messagesScanned ?? 0} email(s) vérifié(s), `
+          + `${json.attachmentsFound ?? 0} pièce(s) jointe(s), `
+          + `${json.skipped ?? 0} déjà importée(s), `
+          + `${json.failed ?? 0} échec(s).`,
+          { duration: 6000 },
+        );
       }
-    } catch {
-      toast.error("Erreur de synchronisation");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erreur de synchronisation");
     } finally {
       setSyncing(false);
     }

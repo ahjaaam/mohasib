@@ -1,6 +1,10 @@
 name            = "mohasib-email-inbound"
 main            = "src/index.js"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-05-15"
+preview_urls = false
+
+[observability.logs]
+enabled = true
 
 # Email handler — required for Cloudflare Email Routing workers
 [vars]

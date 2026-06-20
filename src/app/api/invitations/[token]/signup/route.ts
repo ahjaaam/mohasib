@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAdminAudit } from "@/lib/admin-api";
+import { validatePassword } from "@/lib/password-policy";
 
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const body = await request.json();
   const password = String(body.password ?? "");
   const fullName = String(body.full_name ?? "").trim();
-  if (password.length < 8) return NextResponse.json({ message: "Le mot de passe doit contenir au moins 8 caractères." }, { status: 400 });
+  const passwordError = validatePassword(password);
+  if (passwordError) return NextResponse.json({ message: passwordError }, { status: 400 });
 
   const admin = createAdminClient();
   const { data: membership, error: membershipError } = await admin.from("user_memberships")

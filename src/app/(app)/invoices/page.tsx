@@ -20,6 +20,28 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("fr-MA");
 }
 
+async function sendInvoiceEmail(invoiceId: string, savedEmail?: string | null) {
+  let recipientEmail = savedEmail?.trim() ?? "";
+  if (!recipientEmail) {
+    recipientEmail = window.prompt(
+      "Aucun email n'est enregistré pour ce client. Saisissez l'adresse du destinataire :",
+      "",
+    )?.trim() ?? "";
+    if (!recipientEmail) return false;
+  }
+
+  const response = await fetch(`/api/invoices/${invoiceId}/send-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipientEmail }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.message || result.error || "Erreur d'envoi email");
+  }
+  return true;
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type TabKey = "all" | InvoiceStatus | DevisStatus;
@@ -302,11 +324,11 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
   async function handleEmail() {
     setOpen(false); setEmailLoading(true);
     try {
-      const res = await fetch(`/api/invoices/${inv.id}/send-email`, { method: "POST" });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) toast.error(json.message || json.error || "Erreur d'envoi email", { duration: 5000 });
-      else toast.success("Email envoyé avec succès 📧");
-    } catch { toast.error("Erreur d'envoi. Vérifiez votre connexion.", { duration: 5000 }); }
+      const sent = await sendInvoiceEmail(inv.id, inv.clients?.email);
+      if (sent) toast.success("Email envoyé avec succès 📧");
+    } catch (error: any) {
+      toast.error(error.message || "Erreur d'envoi. Vérifiez votre connexion.", { duration: 5000 });
+    }
     finally { setEmailLoading(false); }
   }
 
@@ -537,11 +559,11 @@ function DevisMenu({ inv, onDelete, onAccept, onRefuse, onConvert }: {
   async function handleEmail() {
     setOpen(false); setEmailLoading(true);
     try {
-      const res = await fetch(`/api/invoices/${inv.id}/send-email`, { method: "POST" });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) toast.error(json.message || json.error || "Erreur d'envoi email", { duration: 5000 });
-      else toast.success("Email envoyé avec succès 📧");
-    } catch { toast.error("Erreur d'envoi. Vérifiez votre connexion.", { duration: 5000 }); }
+      const sent = await sendInvoiceEmail(inv.id, inv.clients?.email);
+      if (sent) toast.success("Email envoyé avec succès 📧");
+    } catch (error: any) {
+      toast.error(error.message || "Erreur d'envoi. Vérifiez votre connexion.", { duration: 5000 });
+    }
     finally { setEmailLoading(false); }
   }
 

@@ -2,9 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { ArrowLeftRight, FileText, FolderOpen, Inbox, PenLine, TrendingUp } from "lucide-react";
+import { ArrowLeftRight, FileText, FolderOpen, PenLine, TrendingUp } from "lucide-react";
 import type { Dossier } from "@/types/fiduciaire";
-import { getPlanEntitlements } from "@/lib/plan-entitlements";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 function daysSince(dateStr: string | null): number {
@@ -27,7 +26,6 @@ export default async function FiduciaireOverviewPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const ownerId = await resolveAccountOwnerId(user!.id);
-  const entitlements = await getPlanEntitlements(user!.id);
 
   const { data: dossiersData } = await supabase
     .from("dossiers").select("*").eq("fiduciaire_user_id", ownerId).order("raison_sociale");
@@ -42,7 +40,7 @@ export default async function FiduciaireOverviewPage() {
     .toLocaleDateString("fr-MA", { day: "numeric", month: "short" });
 
   // ── Fetch actual activity + deposited TVA in parallel ────────────────────────
-  const [invRes, txRes, ecrRes, depositedRes, unassignedRes] = dossierIds.length > 0
+  const [invRes, txRes, ecrRes, depositedRes] = dossierIds.length > 0
     ? await Promise.all([
         supabase.from("invoices").select("id, dossier_id, invoice_number, issue_date, total, status, clients(name)")
           .in("dossier_id", dossierIds).order("issue_date", { ascending: false }),
@@ -52,12 +50,8 @@ export default async function FiduciaireOverviewPage() {
           .in("dossier_id", dossierIds).order("date", { ascending: false }),
         supabase.from("dossier_tva").select("dossier_id")
           .eq("fiduciaire_user_id", ownerId).eq("periode", currentPeriod).eq("statut", "deposee"),
-        supabase.from("inbox_global").select("id", { count: "exact", head: true })
-          .eq("fiduciaire_user_id", ownerId).eq("status", "unassigned"),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { count: 0 }];
-
-  const unassignedCount = (unassignedRes as { count: number | null }).count ?? 0;
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   // ── Latest activity per dossier (max across invoices, transactions, ecritures) ─
   const latestByDossier: Record<string, string> = {};
@@ -196,20 +190,6 @@ export default async function FiduciaireOverviewPage() {
           </div>
         </div>
       </div>
-
-      {/* Unassigned emails banner */}
-      {entitlements.features.inbox_global && unassignedCount > 0 && (
-        <Link
-          href="/comptable-pro/inbox-global"
-          className="flex items-center gap-2.5 mb-5 px-4 py-3 rounded-xl bg-[#FEF3C7] border border-[#FCD34D] hover:bg-[#FDE68A] transition-colors"
-        >
-          <Inbox size={15} className="text-[#D97706] flex-shrink-0" />
-          <span className="text-[13px] font-semibold text-[#D97706]">
-            {unassignedCount} email{unassignedCount > 1 ? "s" : ""} non assigné{unassignedCount > 1 ? "s" : ""} — vérification requise
-          </span>
-          <span className="ml-auto text-[12px] text-[#D97706] font-medium">Voir l'inbox →</span>
-        </Link>
-      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
         {/* Dossiers table */}

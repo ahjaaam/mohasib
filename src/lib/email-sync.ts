@@ -1,0 +1,351 @@
+import "server-only";
+
+import { createAdminClient } from "@/lib/supabase/admin";
+import { decodeTokenPayload, encodeTokenPayload, type EmailProvider } from "@/lib/email-oauth";
+import { extractWithFallback } from "@/lib/ocr-engine";
+import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
+
+type OAuthToken = {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  expires_at?: number;
+  stored_at?: number;
+  token_type?: string;
+  scope?: string;
+};
+
+type EmailAttachment = {
+  provider: EmailProvider;
+  messageId: string;
+  attachmentId: string;
+  fileName: string;
+  mimeType: string;
+  subject: string;
+  sender: string;
+  receivedAt: string | null;
+  content: Buffer;
+};
+
+export type EmailSyncResult = {
+  messagesScanned: number;
+  messagesFound: number;
+  attachmentsFound: number;
+  imported: number;
+  skipped: number;
+  failed: number;
+  errors?: string[];
+};
+
+const MAX_MESSAGES = 20;
+const MAX_IMPORTS = 20;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const INVOICE_WORDS = /(facture|invoice|re[cç]u|receipt|avoir|credit.?note|note.?de.?cr[eé]dit|bill|(^|[_\W])(inv|fac)([_\W]|\d))/i;
+const ALLOWED_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+function normalizedMimeType(fileName: string, mimeType: string) {
+  const lowerName = fileName.toLowerCase();
+  if (lowerName.endsWith(".pdf")) return "application/pdf";
+  if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) return "image/jpeg";
+  if (lowerName.endsWith(".png")) return "image/png";
+  if (lowerName.endsWith(".webp")) return "image/webp";
+  if (lowerName.endsWith(".gif")) return "image/gif";
+  return mimeType.toLowerCase().split(";")[0];
+}
+
+function isSupportedAttachment(fileName: string, mimeType: string) {
+  return ALLOWED_MIME_TYPES.has(normalizedMimeType(fileName, mimeType));
+}
+
+function looksLikeInvoice(ocrData: Record<string, unknown>) {
+  const documentType = String(ocrData.document_type ?? "")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  return ["invoice", "facture", "avoir", "credit_note", "note_de_credit"].includes(documentType);
+}
+
+function tokenExpired(token: OAuthToken) {
+  const expiresAt = token.expires_at
+    ?? (token.stored_at && token.expires_in ? token.stored_at + token.expires_in * 1000 : 0);
+  if (!expiresAt && token.refresh_token) return true;
+  return !token.access_token || (expiresAt > 0 && Date.now() >= expiresAt - 60_000);
+}
+
+async function refreshToken(provider: EmailProvider, token: OAuthToken) {
+  if (!token.refresh_token) throw new Error(`La connexion ${provider} doit être renouvelée.`);
+
+  const isGmail = provider === "gmail";
+  const clientId = isGmail
+    ? process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID
+    : process.env.MICROSOFT_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID;
+  const clientSecret = isGmail
+    ? process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET
+    : process.env.MICROSOFT_CLIENT_SECRET || process.env.OUTLOOK_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error(`Configuration ${provider} incomplète.`);
+
+  const response = await fetch(
+    isGmail
+      ? "https://oauth2.googleapis.com/token"
+      : "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: token.refresh_token,
+        grant_type: "refresh_token",
+        ...(!isGmail ? { scope: "offline_access User.Read Mail.Read" } : {}),
+      }),
+    },
+  );
+  if (!response.ok) throw new Error(`Impossible de renouveler la connexion ${provider}.`);
+
+  const refreshed = await response.json() as OAuthToken;
+  return {
+    ...token,
+    ...refreshed,
+    refresh_token: refreshed.refresh_token || token.refresh_token,
+    stored_at: Date.now(),
+    expires_at: Date.now() + Number(refreshed.expires_in ?? 3600) * 1000,
+  };
+}
+
+async function usableToken(provider: EmailProvider, encoded: string) {
+  let token = decodeTokenPayload<OAuthToken>(encoded);
+  if (tokenExpired(token)) token = await refreshToken(provider, token);
+  if (!token.access_token) throw new Error(`Jeton ${provider} invalide.`);
+  return token;
+}
+
+function gmailHeader(headers: Array<{ name?: string; value?: string }> | undefined, name: string) {
+  return headers?.find(header => header.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
+}
+
+function gmailParts(parts: any[] | undefined): any[] {
+  return (parts ?? []).flatMap(part => [part, ...gmailParts(part.parts)]);
+}
+
+async function fetchGmailAttachments(accessToken: string): Promise<{ messagesScanned: number; messagesFound: number; attachments: EmailAttachment[] }> {
+  const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+  listUrl.searchParams.set("maxResults", String(MAX_MESSAGES));
+  listUrl.searchParams.set("q", "has:attachment");
+  const listResponse = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!listResponse.ok) throw new Error("Impossible de lire les emails Gmail.");
+  const list = await listResponse.json() as { messages?: Array<{ id: string }> };
+
+  const attachments: EmailAttachment[] = [];
+  let messagesFound = 0;
+  for (const item of list.messages ?? []) {
+    if (attachments.length >= MAX_IMPORTS) break;
+    const response = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}?format=full`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!response.ok) continue;
+    const message = await response.json() as any;
+    const subject = gmailHeader(message.payload?.headers, "Subject");
+    const sender = gmailHeader(message.payload?.headers, "From");
+    const receivedAt = message.internalDate ? new Date(Number(message.internalDate)).toISOString() : null;
+    const candidates = gmailParts(message.payload?.parts).filter(part =>
+      part.filename && part.body?.attachmentId && isSupportedAttachment(part.filename, part.mimeType ?? ""),
+    );
+    if (candidates.length) messagesFound++;
+
+    for (const part of candidates) {
+      if (attachments.length >= MAX_IMPORTS) break;
+      const attachmentResponse = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}/attachments/${encodeURIComponent(part.body.attachmentId)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (!attachmentResponse.ok) continue;
+      const attachment = await attachmentResponse.json() as { data?: string; size?: number };
+      if (!attachment.data || Number(attachment.size ?? 0) > MAX_FILE_SIZE) continue;
+      attachments.push({
+        provider: "gmail",
+        messageId: item.id,
+        attachmentId: part.body.attachmentId,
+        fileName: part.filename,
+        mimeType: normalizedMimeType(part.filename, part.mimeType ?? ""),
+        subject,
+        sender,
+        receivedAt,
+        content: Buffer.from(attachment.data.replace(/-/g, "+").replace(/_/g, "/"), "base64"),
+      });
+    }
+  }
+  return { messagesScanned: list.messages?.length ?? 0, messagesFound, attachments };
+}
+
+async function fetchOutlookAttachments(accessToken: string): Promise<{ messagesScanned: number; messagesFound: number; attachments: EmailAttachment[] }> {
+  const url = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages");
+  url.searchParams.set("$top", String(MAX_MESSAGES));
+  url.searchParams.set("$orderby", "receivedDateTime desc");
+  url.searchParams.set("$select", "id,subject,from,receivedDateTime,hasAttachments");
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!response.ok) throw new Error("Impossible de lire les emails Outlook.");
+  const list = await response.json() as { value?: any[] };
+
+  const attachments: EmailAttachment[] = [];
+  let messagesFound = 0;
+  for (const message of list.value ?? []) {
+    if (attachments.length >= MAX_IMPORTS) break;
+    if (!message.hasAttachments) continue;
+    const attachmentResponse = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(message.id)}/attachments?$select=id,name,contentType,size,contentBytes,isInline`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!attachmentResponse.ok) continue;
+    const attachmentList = await attachmentResponse.json() as { value?: any[] };
+    const candidates = (attachmentList.value ?? []).filter(attachment =>
+      !attachment.isInline
+      && attachment.contentBytes
+      && Number(attachment.size ?? 0) <= MAX_FILE_SIZE
+      && isSupportedAttachment(attachment.name ?? "", attachment.contentType ?? ""),
+    );
+    if (candidates.length) messagesFound++;
+
+    for (const attachment of candidates) {
+      if (attachments.length >= MAX_IMPORTS) break;
+      attachments.push({
+        provider: "outlook",
+        messageId: message.id,
+        attachmentId: attachment.id,
+        fileName: attachment.name,
+        mimeType: normalizedMimeType(attachment.name ?? "", attachment.contentType ?? ""),
+        subject: message.subject ?? "",
+        sender: message.from?.emailAddress?.address ?? "",
+        receivedAt: message.receivedDateTime ?? null,
+        content: Buffer.from(attachment.contentBytes, "base64"),
+      });
+    }
+  }
+  return { messagesScanned: list.value?.length ?? 0, messagesFound, attachments };
+}
+
+export async function syncCompanyEmail(provider: EmailProvider, companyId: string): Promise<EmailSyncResult> {
+  const admin = createAdminClient();
+  const tokenColumn = provider === "gmail" ? "gmail_token_encrypted" : "outlook_token_encrypted";
+  const lastSyncColumn = provider === "gmail" ? "gmail_last_sync" : "outlook_last_sync";
+  const importCountColumn = provider === "gmail" ? "gmail_import_count" : "outlook_import_count";
+  const { data: company, error: companyError } = await admin
+    .from("companies")
+    .select(`id, user_id, ${tokenColumn}, ${importCountColumn}`)
+    .eq("id", companyId)
+    .maybeSingle();
+  if (companyError || !company) throw new Error("Entreprise introuvable.");
+
+  const encoded = company[tokenColumn] as string | null;
+  if (!encoded) throw new Error(`${provider === "gmail" ? "Gmail" : "Outlook"} n'est pas connecté.`);
+  const token = await usableToken(provider, encoded);
+  const fetched = provider === "gmail"
+    ? await fetchGmailAttachments(token.access_token!)
+    : await fetchOutlookAttachments(token.access_token!);
+  const usage = await getMonthlyUsage(companyId);
+  if (!usage.allowed) {
+    throw new Error(
+      usage.isTrial
+        ? "La limite de documents de votre essai est atteinte."
+        : "La limite mensuelle d'import de documents est atteinte.",
+    );
+  }
+  const importLimit = usage.remaining < 0 ? MAX_IMPORTS : Math.min(MAX_IMPORTS, usage.remaining);
+
+  let imported = 0;
+  let skipped = 0;
+  let failed = 0;
+  const errors: string[] = [];
+  for (const attachment of fetched.attachments) {
+    if (imported >= importLimit) break;
+    const dedupeId = `${companyId}:${provider}:${attachment.messageId}:${attachment.attachmentId}`;
+    const { data: existing, error: dedupeError } = await admin
+      .from("receipts")
+      .select("id")
+      .contains("ocr_data", { email_import_id: dedupeId })
+      .maybeSingle();
+    if (dedupeError) {
+      errors.push(`Vérification doublon: ${dedupeError.message}`);
+    }
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    let ocrData: Record<string, unknown> = {};
+    try {
+      ocrData = await extractWithFallback(attachment.content, attachment.mimeType);
+      if (typeof ocrData.amount === "number") ocrData.type = ocrData.amount >= 0 ? "income" : "expense";
+    } catch {
+      // Filename/subject classification below can still identify an invoice.
+    }
+    if (!looksLikeInvoice(ocrData)) {
+      skipped++;
+      continue;
+    }
+
+    const extension = attachment.fileName.split(".").pop()?.toLowerCase() || (attachment.mimeType === "application/pdf" ? "pdf" : "jpg");
+    const storagePath = `${company.user_id}/email/${provider}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await admin.storage
+      .from("receipts")
+      .upload(storagePath, attachment.content, { contentType: attachment.mimeType, upsert: false });
+    if (uploadError) {
+      failed++;
+      errors.push(`Stockage ${attachment.fileName}: ${uploadError.message}`);
+      continue;
+    }
+
+    Object.assign(ocrData, {
+      email_import_id: dedupeId,
+      email_provider: provider,
+      email_from: attachment.sender,
+      email_subject: attachment.subject,
+      email_received_at: attachment.receivedAt,
+    });
+
+    const { error: insertError } = await admin.from("receipts").insert({
+      user_id: company.user_id,
+      storage_path: storagePath,
+      file_name: attachment.fileName,
+      mime_type: attachment.mimeType,
+      status: "pending",
+      ocr_data: ocrData,
+    });
+    if (insertError) {
+      await admin.storage.from("receipts").remove([storagePath]);
+      if (insertError.code === "23505") skipped++;
+      else {
+        failed++;
+        errors.push(`Enregistrement ${attachment.fileName}: ${insertError.message}`);
+      }
+      continue;
+    }
+    imported++;
+    await incrementUploadCount(companyId, company.user_id, {
+      fileName: attachment.fileName,
+      fileType: attachment.mimeType,
+      source: `email_${provider}`,
+    });
+  }
+
+  await admin.from("companies").update({
+    [tokenColumn]: encodeTokenPayload(token),
+    [lastSyncColumn]: new Date().toISOString(),
+    [importCountColumn]: Number(company[importCountColumn] ?? 0) + imported,
+  }).eq("id", companyId);
+
+  return {
+    messagesScanned: fetched.messagesScanned,
+    messagesFound: fetched.messagesFound,
+    attachmentsFound: fetched.attachments.length,
+    imported,
+    skipped,
+    failed,
+    errors: [...new Set(errors)].slice(0, 3),
+  };
+}

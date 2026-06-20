@@ -7,11 +7,16 @@ import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
 import { authorizePermission } from "@/lib/api-permissions";
 import { createVersion, getDiff, logAccountingEvent, logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 const EMAIL_LIMIT = 10;
 const EMAIL_OPTS = { maxAttempts: EMAIL_LIMIT, windowMs: 60 * 60_000, blockMs: 60 * 60_000 };
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -35,27 +40,52 @@ export async function POST(
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const permission = await authorizePermission("invoice", "send");
-    if (permission.response) return permission.response;
+    if (!resend) {
+      return NextResponse.json({
+        error: "EMAIL_NOT_CONFIGURED",
+        message: "Le service d'envoi d'emails n'est pas configuré.",
+      }, { status: 503 });
+    }
+
+    const ownerId = await resolveAccountOwnerId(user.id);
+    const payload = await req.json().catch(() => ({}));
+    const requestedRecipient = typeof payload?.recipientEmail === "string"
+      ? payload.recipientEmail.trim().toLowerCase()
+      : "";
 
     const { data: inv, error: invErr } = await supabase
       .from("invoices")
       .select("*, clients(*)")
       .eq("id", id)
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .single();
 
     if (invErr || !inv) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
+    const permission = await authorizePermission("invoice", "send", {
+      dossierId: inv.dossier_id ?? null,
+    });
+    if (permission.response) return permission.response;
+
     const client = inv.clients as any;
-    if (!client?.email) {
-      return NextResponse.json({ error: "NO_EMAIL", message: "Ce client n'a pas d'email enregistré" }, { status: 422 });
+    const recipientEmail = requestedRecipient || String(client?.email ?? "").trim().toLowerCase();
+    if (!recipientEmail) {
+      return NextResponse.json({
+        error: "NO_EMAIL",
+        message: "Aucun destinataire. Ajoutez l'email du client ou saisissez une adresse lors de l'envoi.",
+      }, { status: 422 });
+    }
+    if (!isValidEmail(recipientEmail)) {
+      return NextResponse.json({
+        error: "INVALID_EMAIL",
+        message: "L'adresse email du destinataire n'est pas valide.",
+      }, { status: 422 });
     }
 
     const { data: company } = await supabase
       .from("companies")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .single();
 
     // Build PDF
@@ -159,13 +189,28 @@ export async function POST(
 </body>
 </html>`;
 
-    await resend.emails.send({
-      from: `${companyName} via Mohasib AI <noreply@mohasibai.com>`,
-      to: client.email,
+    const configuredSender = process.env.RESEND_FROM_EMAIL || "noreply@mohasibai.com";
+    const senderAddress = configuredSender.match(/<([^>]+)>/)?.[1] ?? configuredSender;
+    const sender = `${companyName} via Mohasib AI <${senderAddress}>`;
+    const { data: resendData, error: resendError } = await resend.emails.send({
+      from: sender,
+      to: recipientEmail,
       subject: `Facture ${inv.invoice_number} — ${companyName}`,
       html: emailHtml,
       attachments: [{ filename, content: pdfBuffer }],
     });
+    if (resendError || !resendData?.id) {
+      const message = resendError?.message || "Resend n'a pas confirmé l'envoi de l'email.";
+      console.error("[send-email] Resend rejected message", {
+        invoiceId: id,
+        code: resendError?.name,
+        message,
+      });
+      return NextResponse.json({
+        error: "EMAIL_PROVIDER_ERROR",
+        message,
+      }, { status: 502 });
+    }
 
     // Update invoice email tracking
     const currentCount = Number((inv as any).email_sent_count ?? 0);
@@ -213,10 +258,14 @@ export async function POST(
       amount: Number(inv.total ?? 0),
       periodMois: inv.issue_date ? Number(String(inv.issue_date).slice(5, 7)) : null,
       periodAnnee: inv.issue_date ? Number(String(inv.issue_date).slice(0, 4)) : null,
-      eventData: { invoice: updatedInvoice, client_email: client.email },
+      eventData: { invoice: updatedInvoice, client_email: recipientEmail, resend_email_id: resendData.id },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      emailId: resendData.id,
+      recipientEmail,
+    });
   } catch (err: any) {
     const msg = err?.message ?? String(err);
     console.error("[send-email]", msg, err);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOAuthConfig, oauthRedirect } from "@/lib/email-oauth";
+import { createOAuthState, getOAuthConfig, oauthRedirect, oauthStateCookieName } from "@/lib/email-oauth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -18,7 +18,16 @@ export async function GET(request: Request) {
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("response_mode", "query");
   authUrl.searchParams.set("scope", "offline_access User.Read Mail.Read");
-  authUrl.searchParams.set("state", "outlook");
+  const state = createOAuthState("outlook", user.id);
+  authUrl.searchParams.set("state", state);
 
-  return NextResponse.redirect(authUrl);
+  const response = NextResponse.redirect(authUrl);
+  response.cookies.set(oauthStateCookieName("outlook"), state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/api/oauth/outlook/callback",
+    maxAge: 10 * 60,
+  });
+  return response;
 }

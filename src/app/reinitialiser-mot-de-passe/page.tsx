@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS, validatePassword } from "@/lib/password-policy";
 import { translateError } from "@/lib/errors";
 
 export default function ResetPasswordPage() {
@@ -84,6 +85,8 @@ export default function ResetPasswordPage() {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (password !== confirmation) return setError("Les mots de passe ne correspondent pas.");
+    const passwordError = validatePassword(password);
+    if (passwordError) return setError(passwordError);
     setLoading(true);
     setError("");
     const { error: updateError } = await supabase.auth.updateUser({ password });
@@ -100,8 +103,8 @@ export default function ResetPasswordPage() {
       <p className="mt-2 text-sm text-gray-500">Choisissez un nouveau mot de passe sécurisé.</p>
       {checking && <p className="mt-6 text-sm text-gray-500">Vérification du lien...</p>}
       {ready && <form onSubmit={submit} className="mt-6 space-y-4">
-        <label className="label">Nouveau mot de passe<input type="password" minLength={8} required value={password} onChange={event => setPassword(event.target.value)} className="input mt-1" /></label>
-        <label className="label">Confirmer le mot de passe<input type="password" minLength={8} required value={confirmation} onChange={event => setConfirmation(event.target.value)} className="input mt-1" /></label>
+        <label className="label">Nouveau mot de passe<input type="password" minLength={PASSWORD_MIN_LENGTH} required value={password} onChange={event => setPassword(event.target.value)} className="input mt-1" placeholder={PASSWORD_REQUIREMENTS} /></label>
+        <label className="label">Confirmer le mot de passe<input type="password" minLength={PASSWORD_MIN_LENGTH} required value={confirmation} onChange={event => setConfirmation(event.target.value)} className="input mt-1" /></label>
         {error && <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
         <button disabled={loading} className="w-full rounded-lg bg-[#C8924A] py-2.5 text-sm font-semibold text-white disabled:opacity-60">{loading ? "Enregistrement..." : "Enregistrer le nouveau mot de passe"}</button>
       </form>}

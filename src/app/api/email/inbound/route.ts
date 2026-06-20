@@ -55,12 +55,15 @@ export async function POST(request: Request) {
 
     const attachments = parsed.attachments ?? [];
     let processed = 0;
+    let supportedAttachments = 0;
+    const failures: string[] = [];
 
     for (const attachment of attachments) {
       const mime: string = attachment.contentType ?? "application/octet-stream";
       const isPdf = mime === "application/pdf" || attachment.filename?.toLowerCase().endsWith(".pdf");
       const isImage = mime.startsWith("image/");
       if (!isPdf && !isImage) continue;
+      supportedAttachments++;
 
       const fileBuffer = attachment.content as Buffer;
       const originalName = attachment.filename ?? `attachment-${Date.now()}`;
@@ -73,6 +76,7 @@ export async function POST(request: Request) {
 
       if (uploadErr) {
         console.error("[inbound] Upload error:", uploadErr.message);
+        failures.push(`upload:${originalName}`);
         continue;
       }
 
@@ -110,6 +114,7 @@ export async function POST(request: Request) {
 
       if (dbErr) {
         console.error("[inbound] DB error:", dbErr.message);
+        failures.push(`database:${originalName}`);
       } else {
         processed++;
         console.log(`[inbound] Imported to ${dossier.raison_sociale}: ${originalName}`);
@@ -121,6 +126,9 @@ export async function POST(request: Request) {
       routed: true,
       dossier: dossier.raison_sociale,
       processed,
+      attachments: attachments.length,
+      supportedAttachments,
+      failures,
     });
   } catch (err: any) {
     console.error("[inbound] Error:", err);

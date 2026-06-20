@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOAuthConfig, oauthRedirect } from "@/lib/email-oauth";
+import { createOAuthState, getOAuthConfig, oauthRedirect, oauthStateCookieName } from "@/lib/email-oauth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -24,7 +24,16 @@ export async function GET(request: Request) {
     "profile",
     "https://www.googleapis.com/auth/gmail.readonly",
   ].join(" "));
-  authUrl.searchParams.set("state", "gmail");
+  const state = createOAuthState("gmail", user.id);
+  authUrl.searchParams.set("state", state);
 
-  return NextResponse.redirect(authUrl);
+  const response = NextResponse.redirect(authUrl);
+  response.cookies.set(oauthStateCookieName("gmail"), state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/api/oauth/gmail/callback",
+    maxAge: 10 * 60,
+  });
+  return response;
 }

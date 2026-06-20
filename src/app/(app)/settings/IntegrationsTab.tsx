@@ -57,6 +57,8 @@ function OAuthFeedback() {
     if (error === "outlook_failed") toast.error("Connexion Outlook échouée. Réessayez.");
     if (error === "gmail_not_configured") toast.error("OAuth Gmail n'est pas encore configuré côté serveur.");
     if (error === "outlook_not_configured") toast.error("OAuth Outlook n'est pas encore configuré côté serveur.");
+    if (error === "gmail_invalid_state") toast.error("La demande Gmail a expiré ou n'est plus valide. Recommencez la connexion.");
+    if (error === "outlook_invalid_state") toast.error("La demande Outlook a expiré ou n'est plus valide. Recommencez la connexion.");
   }, [searchParams]);
   return null;
 }
@@ -110,7 +112,7 @@ export default function IntegrationsTab({ company }: Props) {
       const imp = json.imported ?? 0;
       toast.success(
         found === 0
-          ? "Aucun email de facture trouvé dans Gmail"
+          ? `${json.messagesScanned ?? 0} email(s) vérifié(s), aucune facture trouvée`
           : `${found} email(s) trouvé(s) — ${imp} document(s) importé(s)`
       );
       window.location.reload();
@@ -127,7 +129,11 @@ export default function IntegrationsTab({ company }: Props) {
       const res = await fetch("/api/oauth/outlook/sync", { method: "POST" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Erreur de synchronisation");
-      toast.success(`${json.imported ?? 0} document(s) importé(s) depuis Outlook`);
+      toast.success(
+        (json.imported ?? 0) > 0
+          ? `${json.imported} document(s) importé(s) depuis Outlook`
+          : `${json.messagesScanned ?? 0} email(s) vérifié(s), ${json.attachmentsFound ?? 0} pièce(s) jointe(s) trouvée(s)`,
+      );
       window.location.reload();
     } catch (e: any) {
       toast.error(e?.message ?? "Erreur de synchronisation", { duration: 5000 });

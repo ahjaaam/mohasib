@@ -6,8 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
-  LayoutDashboard, Folder, FolderPlus, Receipt, Download,
-  Banknote, Settings, LogOut, Calendar, Building2, X, Menu,
+  LayoutDashboard, Folder, FolderPlus, Download,
+  Settings, LogOut, Calendar, Building2, X, Menu,
   ChevronLeft, Lock,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -17,36 +17,13 @@ import { type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 
-const NAV_GROUPS = [
-  {
-    group: "VUE GLOBALE",
-    items: [
-      { href: "/comptable-pro", icon: LayoutDashboard, label: "Vue d'ensemble", exact: true, permission: "dossier:read" },
-      { href: "/comptable-pro/calendrier", icon: Calendar, label: "Calendrier comptable", exact: false, permission: "dossier:read" },
-      { href: "/comptable-pro/inbox-global", icon: Receipt, label: "Inbox global", exact: false, permission: "document:read", feature: "inbox_global" as PlanFeature },
-    ],
-  },
-  {
-    group: "DOSSIERS CLIENTS",
-    items: [
-      { href: "/comptable-pro/dossiers", icon: Folder, label: "Tous les dossiers", exact: false, permission: "dossier:read" },
-      { href: "/comptable-pro/dossiers/new", icon: FolderPlus, label: "+ Nouveau dossier", exact: true, permission: "settings:update" },
-    ],
-  },
-  {
-    group: "MASSE",
-    items: [
-      { href: "/comptable-pro/declarations", icon: Receipt, label: "Déclarations TVA", exact: false, permission: "tva_declaration:read", feature: "mass_declarations" as PlanFeature },
-      { href: "/comptable-pro/exports", icon: Download, label: "Exports CGNC", exact: false, permission: "report:export", feature: "mass_declarations" as PlanFeature },
-      { href: "/comptable-pro/paie", icon: Banknote, label: "Bulletins de paie", exact: false, permission: "bulletin_paie:read" },
-    ],
-  },
-  {
-    group: "PARAMÈTRES",
-    items: [
-      { href: "/comptable-pro/settings", icon: Settings, label: "Mon cabinet", exact: false, permission: "settings:update" },
-    ],
-  },
+const NAV_ITEMS = [
+  { href: "/comptable-pro", icon: LayoutDashboard, label: "Vue d'ensemble", exact: true, permission: "dossier:read" },
+  { href: "/comptable-pro/calendrier", icon: Calendar, label: "Calendrier comptable", exact: false, permission: "dossier:read" },
+  { href: "/comptable-pro/dossiers", icon: Folder, label: "Tous les dossiers", exact: false, permission: "dossier:read" },
+  { href: "/comptable-pro/dossiers/new", icon: FolderPlus, label: "+ Nouveau dossier", exact: true, permission: "settings:update" },
+  { href: "/comptable-pro/exports", icon: Download, label: "Exports CGNC", exact: false, permission: "report:export", feature: "mass_declarations" as PlanFeature },
+  { href: "/comptable-pro/settings", icon: Settings, label: "Mon cabinet", exact: false, permission: "settings:update" },
 ];
 
 interface Props {
@@ -70,7 +47,7 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
   const { can } = usePermissions(permissions);
   const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
   const entitled = (feature?: PlanFeature) => !feature || entitlements.features[feature];
-  const currentItem = NAV_GROUPS.flatMap(group => group.items)
+  const currentItem = [...NAV_ITEMS]
     .sort((a, b) => b.href.length - a.href.length)
     .find(item => item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`));
   const permissionAllowed = allowed(currentItem?.permission);
@@ -124,31 +101,24 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
         </div>
       </div>
 
-      <nav className="flex-1 py-2 overflow-y-auto">
-        {NAV_GROUPS.map(({ group, items }) => (
-          <div key={group}>
-            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: "rgba(255,255,255,0.14)", padding: "14px 18px 6px" }}>
-              {group}
-            </div>
-            {items.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, exact, permission }) => {
-              const locked = !allowed(permission);
-              return (
-              <Link key={href} href={href}
-                className={`flex items-center gap-2.5 px-[18px] py-[10px] text-[13px] transition-all border-r-2 ${
-                  isActive(href, exact)
-                    ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                    : locked
-                      ? "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
-                      : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
-                }`}>
-                <Icon size={15} />
-                {label}
-                {locked && <Lock size={11} className="ml-auto opacity-70" />}
-              </Link>
-              );
-            })}
-          </div>
-        ))}
+      <nav className="flex-1 py-3 overflow-y-auto">
+        {NAV_ITEMS.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, exact, permission }) => {
+          const locked = !allowed(permission);
+          return (
+            <Link key={href} href={href}
+              className={`flex items-center gap-2.5 px-[18px] py-[10px] text-[13px] transition-all border-r-2 ${
+                isActive(href, exact)
+                  ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
+                  : locked
+                    ? "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+              }`}>
+              <Icon size={15} />
+              {label}
+              {locked && <Lock size={11} className="ml-auto opacity-70" />}
+            </Link>
+          );
+        })}
       </nav>
 
       {accessScope !== "comptable_pro_only" && (

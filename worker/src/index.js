@@ -34,10 +34,15 @@ export default {
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error(`[mohasib-email] inbound webhook failed ${res.status}: ${text}`);
-      // Don't throw — Cloudflare will retry and potentially bounce the email
+      // Signal a temporary delivery failure so Cloudflare can retry instead of
+      // silently accepting and losing the message.
+      throw new Error(`Inbound webhook failed with HTTP ${res.status}`);
     } else {
       const json = await res.json().catch(() => ({}));
       console.log(`[mohasib-email] routed to ${json.dossier ?? "?"}, processed ${json.processed ?? 0} attachment(s)`);
+      if (json.routed === false) {
+        throw new Error(`Inbound message was not routed: ${json.reason ?? "unknown reason"}`);
+      }
     }
   },
 };

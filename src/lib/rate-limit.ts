@@ -16,6 +16,86 @@ export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   resetTime: number;  // unix timestamp (seconds)
+  attempts?: number;
+}
+
+async function getExistingRateLimit(key: string, endpoint: string) {
+  if (!adminClient) return null;
+  const { data } = await adminClient
+    .from("rate_limits")
+    .select("*")
+    .eq("ip", key)
+    .eq("endpoint", endpoint)
+    .maybeSingle();
+  return data;
+}
+
+export async function getRateLimitStatus(
+  key: string,
+  endpoint: string,
+  opts: RateLimitOptions,
+): Promise<RateLimitResult> {
+  if (!adminClient) {
+    return { allowed: true, remaining: opts.maxAttempts, resetTime: Math.ceil(Date.now() / 1000), attempts: 0 };
+  }
+  const now = new Date();
+  const existing = await getExistingRateLimit(key, endpoint);
+  if (existing?.blocked_until && new Date(existing.blocked_until) > now) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetTime: Math.floor(new Date(existing.blocked_until).getTime() / 1000),
+      attempts: Number(existing.attempts ?? opts.maxAttempts),
+    };
+  }
+  if (!existing || new Date(existing.first_attempt).getTime() < now.getTime() - opts.windowMs) {
+    return {
+      allowed: true,
+      remaining: opts.maxAttempts,
+      resetTime: Math.floor((now.getTime() + opts.windowMs) / 1000),
+      attempts: 0,
+    };
+  }
+  const attempts = Number(existing.attempts ?? 0);
+  return {
+    allowed: true,
+    remaining: Math.max(0, opts.maxAttempts - attempts),
+    resetTime: Math.floor((new Date(existing.first_attempt).getTime() + opts.windowMs) / 1000),
+    attempts,
+  };
+}
+
+export async function recordRateLimitFailure(
+  key: string,
+  endpoint: string,
+  opts: RateLimitOptions,
+): Promise<RateLimitResult> {
+  if (!adminClient) {
+    return { allowed: true, remaining: opts.maxAttempts, resetTime: Math.ceil(Date.now() / 1000), attempts: 0 };
+  }
+  const now = new Date();
+  const existing = await getExistingRateLimit(key, endpoint);
+  const expired = !existing || new Date(existing.first_attempt).getTime() < now.getTime() - opts.windowMs;
+  const attempts = expired ? 1 : Number(existing.attempts ?? 0) + 1;
+  const blockedUntil = attempts >= opts.maxAttempts ? new Date(now.getTime() + opts.blockMs) : null;
+  await adminClient.from("rate_limits").upsert({
+    ip: key,
+    endpoint,
+    attempts,
+    first_attempt: expired ? now.toISOString() : existing.first_attempt,
+    blocked_until: blockedUntil?.toISOString() ?? null,
+  }, { onConflict: "ip,endpoint" });
+  return {
+    allowed: !blockedUntil,
+    remaining: Math.max(0, opts.maxAttempts - attempts),
+    resetTime: Math.floor((blockedUntil?.getTime() ?? (now.getTime() + opts.windowMs)) / 1000),
+    attempts,
+  };
+}
+
+export async function clearRateLimit(key: string, endpoint: string) {
+  if (!adminClient) return;
+  await adminClient.from("rate_limits").delete().eq("ip", key).eq("endpoint", endpoint);
 }
 
 export function getClientIp(req: NextRequest): string {

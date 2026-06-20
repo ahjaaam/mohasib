@@ -1008,6 +1008,7 @@ function EmployesTab({ employees, loading, deletingId, onAdd, onEdit, onDelete, 
 // ─── Congés & Absences Tab ───────────────────────────────────────────────────
 
 function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loading, periodLabel, selectedMonth, selectedYear, onPrev, onNext }: any) {
+  const weekDays = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
   const monthPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`;
   const leavesByEmployee = new Map<string, EmployeeLeave[]>();
   for (const leave of leaves as EmployeeLeave[]) {
@@ -1017,23 +1018,43 @@ function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loadi
   }
 
   const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+  const firstDayOffset = (new Date(selectedYear, selectedMonth - 1, 1).getDay() + 6) % 7;
+  const today = new Date();
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const calendarDays = Array.from({ length: daysInMonth }, (_, i) => {
     const day = i + 1;
     const iso = `${monthPrefix}-${String(day).padStart(2, "0")}`;
-    const date = new Date(iso);
+    const date = new Date(selectedYear, selectedMonth - 1, day);
     const dayLeaves = (leaves as EmployeeLeave[]).filter(l => l.date_debut <= iso && l.date_fin >= iso);
-    return { day, iso, isSunday: date.getDay() === 0, isHoliday: holidays.has(iso), dayLeaves };
+    return {
+      day,
+      iso,
+      isToday: iso === todayIso,
+      isWeekend: date.getDay() === 0 || date.getDay() === 6,
+      isHoliday: holidays.has(iso),
+      dayLeaves,
+    };
   });
+  const calendarCells = [
+    ...Array.from({ length: firstDayOffset }, () => null),
+    ...calendarDays,
+  ];
+  const trailingCells = (7 - (calendarCells.length % 7)) % 7;
+  calendarCells.push(...Array.from({ length: trailingCells }, () => null));
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
+      <div className="flex flex-col gap-3 rounded-2xl border border-[rgba(0,0,0,0.07)] bg-gradient-to-r from-white to-[#FBF8F2] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[#C8924A]">Suivi mensuel</p>
+          <h2 className="mt-0.5 text-[15px] font-bold text-[#1A1A2E]">Congés & absences</h2>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-1 shadow-sm">
+          <button aria-label="Mois précédent" onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A2E] transition-colors">
             <ChevronLeft size={16} />
           </button>
-          <span className="text-[14px] font-semibold text-[#1A1A2E] min-w-[130px] text-center">{periodLabel}</span>
-          <button onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
+          <span className="min-w-[142px] text-center text-[13px] font-semibold capitalize text-[#1A1A2E]">{periodLabel}</span>
+          <button aria-label="Mois suivant" onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A2E] transition-colors">
             <ChevronRight size={16} />
           </button>
         </div>
@@ -1055,10 +1076,13 @@ function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loadi
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start">
         <div className="space-y-4 min-w-0">
-          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.07)] flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold text-[#1A1A2E]">Calendrier des absences</h2>
-            <div className="flex flex-wrap gap-2 text-[10.5px] text-[#6B7280]">
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="px-4 py-3.5 border-b border-[rgba(0,0,0,0.07)] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-[13px] font-semibold text-[#1A1A2E]">Calendrier des absences</h2>
+              <p className="mt-0.5 text-[10.5px] text-[#9CA3AF]">Vue du lundi au dimanche</p>
+            </div>
+            <div className="flex flex-wrap gap-x-2.5 gap-y-1 text-[10px] text-[#6B7280]">
               {leaveTypes.slice(0, 5).map((t: LeaveType) => (
                 <span key={t.id ?? t.name} className="inline-flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full" style={{ background: t.color ?? "#C8924A" }} /> {t.name}
@@ -1069,24 +1093,63 @@ function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loadi
           {loading ? (
             <div className="h-40 animate-pulse bg-[#F9F9F6]" />
           ) : (
-            <div className="grid grid-cols-7 gap-px bg-[rgba(0,0,0,0.06)] text-[11px]">
-              {calendarDays.map(day => (
-                <div key={day.iso} className={`min-h-[74px] p-2 ${day.isSunday ? "bg-[#F3F4F6]" : day.isHoliday ? "bg-[#FEF3C7]" : "bg-white"}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-[#1A1A2E]">{day.day}</span>
-                    {day.isHoliday && <span className="text-[9px] text-[#92400E]">Férié</span>}
-                  </div>
-                  <div className="space-y-1">
-                    {day.dayLeaves.slice(0, 3).map((leave: EmployeeLeave) => (
-                      <div key={leave.id} className="truncate rounded px-1.5 py-0.5 text-[10px] text-white"
-                        style={{ background: leave.leave_types?.color ?? "#C8924A" }}>
-                        {leave.employees?.prenom?.[0] ?? ""}. {leave.employees?.nom ?? ""}
-                      </div>
-                    ))}
-                    {day.dayLeaves.length > 3 && <div className="text-[9px] text-[#6B7280]">+{day.dayLeaves.length - 3}</div>}
-                  </div>
+            <div className="overflow-x-auto">
+              <div className="min-w-[680px]">
+                <div className="grid grid-cols-7 border-b border-[rgba(0,0,0,0.07)] bg-[#F8F8F5]">
+                  {weekDays.map((day, index) => (
+                    <div
+                      key={day}
+                      className={`px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-[0.7px] ${
+                        index >= 5 ? "text-[#C8924A]" : "text-[#6B7280]"
+                      }`}
+                    >
+                      {day}
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <div className="grid grid-cols-7 gap-px bg-[rgba(0,0,0,0.06)] text-[11px]">
+                  {calendarCells.map((day, index) => day ? (
+                    <div
+                      key={day.iso}
+                      className={`group min-h-[96px] p-2 transition-colors ${
+                        day.isHoliday
+                          ? "bg-[#FFFBEB]"
+                          : day.isWeekend
+                            ? "bg-[#FAFAF8]"
+                            : "bg-white hover:bg-[#FCFCFA]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[11px] font-semibold ${
+                          day.isToday
+                            ? "bg-[#1A1A2E] text-white"
+                            : day.isWeekend
+                              ? "text-[#9CA3AF]"
+                              : "text-[#1A1A2E]"
+                        }`}>
+                          {day.day}
+                        </span>
+                        {day.isHoliday && <span className="rounded-full bg-[#FEF3C7] px-1.5 py-0.5 text-[8px] font-semibold uppercase text-[#92400E]">Férié</span>}
+                      </div>
+                      <div className="space-y-1">
+                        {day.dayLeaves.slice(0, 3).map((leave: EmployeeLeave) => (
+                          <div
+                            key={leave.id}
+                            title={`${leave.employees?.prenom ?? ""} ${leave.employees?.nom ?? ""} — ${leave.leave_types?.name ?? "Absence"}`}
+                            className="truncate rounded-md px-1.5 py-1 text-[9.5px] font-medium text-white shadow-sm"
+                            style={{ background: leave.leave_types?.color ?? "#C8924A" }}
+                          >
+                            {leave.employees?.prenom?.[0] ?? ""}. {leave.employees?.nom ?? ""}
+                          </div>
+                        ))}
+                        {day.dayLeaves.length > 3 && <div className="px-1 text-[9px] font-medium text-[#6B7280]">+{day.dayLeaves.length - 3} autre{day.dayLeaves.length - 3 > 1 ? "s" : ""}</div>}
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={`empty-${index}`} className="min-h-[96px] bg-[#F7F7F4]" aria-hidden="true" />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
           </div>

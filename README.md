@@ -2,7 +2,7 @@
 
 **AI-powered accounting SaaS for Moroccan SMEs**
 
-Built with Next.js 14, Supabase, Tailwind CSS, and the Anthropic SDK.
+Built with Next.js 16, Supabase, Tailwind CSS, and the Anthropic SDK.
 
 ---
 
@@ -10,7 +10,7 @@ Built with Next.js 14, Supabase, Tailwind CSS, and the Anthropic SDK.
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 14 (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Auth & DB | Supabase (PostgreSQL + Auth) |
 | Styling | Tailwind CSS |
 | AI | Anthropic Claude (claude-opus-4-6) |
@@ -42,14 +42,9 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Fill in your keys in `.env.local`:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-```
+Fill in every variable required by the features you deploy. The maintained
+reference is [`.env.local.example`](.env.local.example), including OAuth,
+Turnstile, email, cron, worker, PDF, Sanity, Supabase, and Anthropic settings.
 
 ### 3. Set Up Supabase Database
 
@@ -80,6 +75,17 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) — you'll be redirected to `/auth/login`.
+
+### Verify a release
+
+```bash
+npm run verify
+npm run test:e2e
+```
+
+The release runbook and rollback triggers live in
+[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md). The deployed
+application exposes a no-cache readiness endpoint at `/api/health`.
 
 ---
 

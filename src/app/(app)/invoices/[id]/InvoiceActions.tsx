@@ -294,9 +294,22 @@ export default function InvoiceActions({
   }
 
   async function sendEmail() {
+    let recipientEmail = clientEmail?.trim() ?? "";
+    if (!recipientEmail) {
+      recipientEmail = window.prompt(
+        "Aucun email n'est enregistré pour ce client. Saisissez l'adresse du destinataire :",
+        "",
+      )?.trim() ?? "";
+      if (!recipientEmail) return;
+    }
+
     setEmailState("loading");
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}/send-email`, { method: "POST" });
+      const res = await fetch(`/api/invoices/${invoiceId}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientEmail }),
+      });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (json.error === "NO_EMAIL") {
@@ -439,7 +452,7 @@ export default function InvoiceActions({
         )}
         {!clientEmail && (
           <div className="text-[10.5px] text-[#D97706] bg-[#FEF3C7] rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-            <span>⚠️ Aucun email pour ce client</span>
+            <span>⚠️ Aucun email enregistré — il sera demandé à l&apos;envoi</span>
             {clientId && (
               <Link href="/clients" className="text-[10px] text-[#D97706] underline hover:text-[#B45309] flex-shrink-0">
                 Ajouter →

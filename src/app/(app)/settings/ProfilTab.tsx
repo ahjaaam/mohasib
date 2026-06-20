@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import { PASSWORD_REQUIREMENTS, validatePassword } from "@/lib/password-policy";
 import { translateError } from "@/lib/errors";
 import { Camera } from "lucide-react";
 
@@ -87,7 +88,8 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
   }
 
   async function changePassword() {
-    if (pwd.next.length < 8) { toast.error("Le mot de passe doit contenir au moins 8 caractères"); return; }
+    const passwordError = validatePassword(pwd.next);
+    if (passwordError) { toast.error(passwordError); return; }
     if (pwd.next !== pwd.confirm) { toast.error("Les mots de passe ne correspondent pas"); return; }
     setSavingPwd(true);
     const { error } = await supabase.auth.updateUser({ password: pwd.next });
@@ -178,7 +180,7 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label className="text-[11px] font-medium text-[#6B7280]">Nouveau mot de passe</label>
-            <input type="password" className="input" value={pwd.next} onChange={e => setPwd(p => ({ ...p, next: e.target.value }))} placeholder="Min. 8 caractères" />
+            <input type="password" className="input" value={pwd.next} onChange={e => setPwd(p => ({ ...p, next: e.target.value }))} placeholder={PASSWORD_REQUIREMENTS} />
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label className="text-[11px] font-medium text-[#6B7280]">Confirmer le nouveau mot de passe</label>
