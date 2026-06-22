@@ -7,12 +7,14 @@ import { redirect } from "next/navigation";
 import { getUserAccessProfile, resolveTeamContext } from "@/lib/team";
 import { getPlanEntitlements } from "@/lib/plan-entitlements";
 import { canEnterScope } from "@/lib/rbac";
+import { isAccountApproved } from "@/lib/account-approval";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect("/connexion");
+  if (!(await isAccountApproved(user.id))) redirect("/en-attente");
 
   const cookieStore = await cookies();
   const activeDossierId = cookieStore.get("active_dossier_id")?.value;
@@ -27,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ? supabase.from("dossiers").select("id, raison_sociale, ice, regime_tva")
           .eq("id", activeDossierId).eq("fiduciaire_user_id", teamContext?.ownerId ?? user.id).single()
       : Promise.resolve({ data: null }),
-    supabase.from("companies").select("subscription_status, subscription_ends_at, trial_ends_at, is_suspended, suspended_reason, trial_invoices_used, trial_ocr_used, trial_bank_statements_used, trial_employees_used, trial_tva_declarations_used, trial_dossiers_used").eq("user_id", teamContext?.ownerId ?? user.id).maybeSingle(),
+    supabase.from("companies").select("subscription_status, subscription_ends_at, trial_ends_at, is_suspended, suspended_reason, trial_invoices_used, trial_ocr_used, trial_documents_used, trial_bank_statements_used, trial_employees_used, trial_tva_declarations_used, trial_dossiers_used").eq("user_id", teamContext?.ownerId ?? user.id).maybeSingle(),
     getUserAccessProfile(user.id),
     getPlanEntitlements(user.id),
   ]);

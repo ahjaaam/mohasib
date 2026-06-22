@@ -30,10 +30,11 @@ const ERROR_MAP: Record<string, string> = {
 const MESSAGE_MAP: [string, string][] = [
   ["trial_limit_reached:invoices", "Vous avez atteint la limite de votre essai gratuit (10 factures/devis/avoirs). Passez à un plan payant pour continuer."],
   ["trial_limit_reached:ocr_scans", "Vous avez atteint la limite de votre essai gratuit (10 documents scannés). Passez à un plan payant pour continuer."],
+  ["trial_limit_reached:documents", "L'essai gratuit permet d'archiver 10 documents. Passez à un plan payant pour continuer."],
   ["trial_limit_reached:bank_statements", "L'essai gratuit permet d'importer 1 relevé bancaire. Passez à un plan payant pour importer tous vos relevés."],
   ["trial_limit_reached:employees", "L'essai gratuit permet de gérer 1 employé. Passez à un plan payant pour votre équipe complète."],
   ["trial_limit_reached:dossiers", "L'essai gratuit permet de créer 1 dossier client. Passez à un plan Comptable Pro pour en gérer davantage."],
-  ["trial_feature_locked:tva_declarations", "La validation des déclarations TVA nécessite un plan payant. Vous pouvez continuer à préparer et prévisualiser votre déclaration."],
+  ["trial_limit_reached:tva_declarations", "L'essai gratuit permet de valider 1 déclaration TVA. Passez à un plan payant pour continuer."],
   ["idx_invoices_number", "Ce numéro de facture existe déjà pour ce dossier. Utilisez un numéro différent."],
   ["duplicate key", "Cette valeur existe déjà."],
   ["new row violates row-level security", "Accès non autorisé."],

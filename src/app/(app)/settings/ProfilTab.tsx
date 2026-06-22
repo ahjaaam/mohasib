@@ -105,10 +105,14 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
         {sub && <div className="text-[11px] text-[#9CA3AF]">{sub}</div>}
       </div>
       <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        aria-label={label}
         onClick={onChange}
         className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${value ? "bg-[#C8924A]" : "bg-[#D1D5DB]"}`}
       >
-        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? "translate-x-5" : "translate-x-0.5"}`} />
+        <span className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? "translate-x-5" : "translate-x-0"}`} />
       </button>
     </div>
   );
@@ -187,7 +191,7 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
             <input type="password" className="input" value={pwd.confirm} onChange={e => setPwd(p => ({ ...p, confirm: e.target.value }))} />
           </div>
         </div>
-        <button onClick={changePassword} disabled={savingPwd || !pwd.next} className="btn btn-outline mt-3 disabled:opacity-60">
+        <button onClick={changePassword} disabled={savingPwd || !pwd.next} className="btn btn-gold mt-3 disabled:opacity-60">
           {savingPwd ? "..." : "Changer le mot de passe"}
         </button>
       </div>
@@ -196,13 +200,13 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-5">
         <h3 className="text-[13px] font-semibold text-[#1A1A2E] mb-3">Préférences de notifications</h3>
         <Toggle value={notifs.notif_tva_email} onChange={() => setNotifs(n => ({ ...n, notif_tva_email: !n.notif_tva_email }))}
-          label="📧 Rappels de déclarations TVA par email" />
+          label="Rappels de déclarations TVA par email" />
         <Toggle value={notifs.notif_overdue_email} onChange={() => setNotifs(n => ({ ...n, notif_overdue_email: !n.notif_overdue_email }))}
-          label="📧 Alertes factures en retard par email" />
+          label="Alertes factures en retard par email" />
         <Toggle value={notifs.notif_weekly_summary} onChange={() => setNotifs(n => ({ ...n, notif_weekly_summary: !n.notif_weekly_summary }))}
-          label="📧 Résumé financier hebdomadaire" />
+          label="Résumé financier hebdomadaire" />
         <Toggle value={notifs.notif_whatsapp} onChange={() => setNotifs(n => ({ ...n, notif_whatsapp: !n.notif_whatsapp }))}
-          label="📱 Notifications WhatsApp" sub="Nécessite un numéro WhatsApp configuré" />
+          label="Notifications WhatsApp" sub="Nécessite un numéro WhatsApp configuré" />
       </div>
 
       {/* Language & Region */}

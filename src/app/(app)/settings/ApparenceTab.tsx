@@ -79,7 +79,8 @@ export default function ApparenceTab({ userId, company }: Props) {
               type="color"
               value={color}
               onChange={e => setColor(e.target.value)}
-              className="w-8 h-8 rounded-full border-none cursor-pointer"
+              aria-label="Choisir une couleur personnalisée"
+              className="w-8 h-8 shrink-0 cursor-pointer overflow-hidden rounded-full border-0 bg-transparent p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
             />
             <input
               className="input w-[100px]"

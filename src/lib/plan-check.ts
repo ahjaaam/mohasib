@@ -95,6 +95,7 @@ export async function checkTrialLimit(companyId: string, feature: TrialFeature):
     subscription_status: string | null;
     trial_invoices_used: number | null;
     trial_ocr_used: number | null;
+    trial_documents_used: number | null;
     trial_bank_statements_used: number | null;
     trial_employees_used: number | null;
     trial_tva_declarations_used: number | null;
@@ -106,6 +107,7 @@ export async function checkTrialLimit(companyId: string, feature: TrialFeature):
       "subscription_status",
       "trial_invoices_used",
       "trial_ocr_used",
+      "trial_documents_used",
       "trial_bank_statements_used",
       "trial_employees_used",
       "trial_tva_declarations_used",

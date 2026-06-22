@@ -34,6 +34,15 @@ export async function POST(request: Request) {
     admin!.from("user_memberships").insert({ user_id: owner.id, user_email: owner.email, company_id: company.id, role_name: body.user_type === "fiduciaire" ? "cabinet_owner" : "owner", status: "active", accepted_at: new Date().toISOString() }),
     body.user_type === "fiduciaire" ? admin!.from("cabinets").upsert({ user_id: owner.id, nom_cabinet: body.raison_sociale, email: owner.email }) : Promise.resolve(),
   ]);
+  if (body.waitlist_id) {
+    await admin!.from("fiduciaire_waitlist").update({
+      auth_user_id: owner.id,
+      user_id: owner.id,
+      status: "approved",
+      approved_at: new Date().toISOString(),
+      approved_by: user!.email,
+    }).eq("id", body.waitlist_id);
+  }
   const link = await admin!.auth.admin.generateLink({ type: "recovery", email: owner.email! });
   await logAdminAudit({ adminEmail: user!.email!, action: "ACCOUNT_CREATE", entityType: "company", entityId: company.id, entityLabel: company.raison_sociale, companyId: company.id, newValues: { plan: company.plan, user_type: company.user_type, owner_email: owner.email } });
   return NextResponse.json({ companyId: company.id, recoveryLink: link.data.properties?.action_link ?? null });

@@ -40,6 +40,7 @@ export async function updateSession(request: NextRequest) {
     "/ressources",
     "/cgu",
     "/confidentialite",
+    "/en-attente",
     "/auth/callback",
     "/invitations",
     "/f",

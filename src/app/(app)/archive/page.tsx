@@ -8,6 +8,7 @@ import {
   Search, Loader2, Building2, FileArchive,
 } from "lucide-react";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { translateError } from "@/lib/errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -221,8 +222,8 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
   async function handleUpload() {
     if (!file) return;
     setUploading(true);
+    let uploadedPath: string | null = null;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const ext = file.name.split(".").pop();
       const scope = dossierId ? `dossiers/${dossierId}` : "main";
       const path = `${ownerId}/${scope}/${Date.now()}.${ext}`;
@@ -230,6 +231,7 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
       const { error: uploadError } = await supabase.storage
         .from("company-documents").upload(path, file);
       if (uploadError) throw uploadError;
+      uploadedPath = path;
 
       const { data: urlData } = supabase.storage
         .from("company-documents").getPublicUrl(path);
@@ -252,7 +254,11 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
         .select()
         .single();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        await supabase.storage.from("company-documents").remove([path]);
+        uploadedPath = null;
+        throw dbError;
+      }
 
       toast.success("Document ajouté à l'archive");
       onUploaded({
@@ -268,9 +274,13 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
         subtitle: category,
         storage_path: path,
       });
+      uploadedPath = null;
       onClose();
     } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'upload");
+      if (uploadedPath) {
+        await supabase.storage.from("company-documents").remove([uploadedPath]);
+      }
+      toast.error(translateError(err));
     } finally {
       setUploading(false);
     }

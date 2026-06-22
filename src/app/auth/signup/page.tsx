@@ -13,7 +13,7 @@ type UserType = "entrepreneur" | "fiduciaire";
 export default function SignupPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [userType, setUserType] = useState<UserType>("entrepreneur");
-  const [form, setForm] = useState({ full_name: "", company: "", email: "", password: "" });
+  const [form, setForm] = useState({ full_name: "", company: "", phone: "", email: "", password: "" });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +45,17 @@ export default function SignupPage() {
       setError(passwordError);
       return;
     }
+    if (!form.phone.trim()) {
+      setLoading(false);
+      setError("Le numéro de téléphone est obligatoire.");
+      return;
+    }
 
     if (invitationToken) {
       const response = await fetch(`/api/invitations/${invitationToken}/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name: form.full_name, password: form.password }),
+        body: JSON.stringify({ full_name: form.full_name, phone: form.phone, password: form.password }),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -76,6 +81,7 @@ export default function SignupPage() {
         data: {
           full_name: form.full_name,
           company: form.company,
+          phone: form.phone.trim(),
           user_type: userType,
           invitation_token: invitationToken,
         },
@@ -87,6 +93,8 @@ export default function SignupPage() {
       setError(translateError(err));
     } else if (data.user && (data.user.identities?.length ?? 0) === 0) {
       setError("Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou réinitialisez votre mot de passe.");
+    } else if (data.session) {
+      window.location.href = userType === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
     } else {
       setSuccess(true);
     }
@@ -101,7 +109,7 @@ export default function SignupPage() {
           </div>
           <h1 className="text-xl font-bold text-navy mb-2">Compte créé !</h1>
           <p className="text-sm text-gray-500 mb-5">
-            Vérifiez votre boîte mail et cliquez sur le lien de confirmation pour activer votre compte.
+            Vérifiez votre boîte mail et cliquez sur le lien de confirmation pour accéder à votre compte.
           </p>
           <Link href="/connexion"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white"
@@ -216,6 +224,13 @@ export default function SignupPage() {
                 value={form.company}
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
             </div>}
+            <div>
+              <label htmlFor="signup-phone" className="label">Numéro de téléphone</label>
+              <input id="signup-phone" type="tel" className="input" placeholder="+212 6 12 34 56 78" required
+                autoComplete="tel"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+            </div>
             <div>
               <label htmlFor="signup-email" className="label">Adresse e-mail</label>
               <input id="signup-email" type="email" className="input" placeholder="vous@exemple.ma" required readOnly={!!invitationToken}

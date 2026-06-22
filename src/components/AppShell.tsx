@@ -64,6 +64,7 @@ interface Props {
     suspended_reason?: string | null;
     trial_invoices_used?: number | null;
     trial_ocr_used?: number | null;
+    trial_documents_used?: number | null;
     trial_bank_statements_used?: number | null;
     trial_employees_used?: number | null;
     trial_tva_declarations_used?: number | null;

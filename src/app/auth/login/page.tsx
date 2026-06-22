@@ -47,7 +47,7 @@ export default function LoginPage() {
     if (!res.ok) {
       if (data.captchaRequired || data.code === "captcha_required") setCaptchaRequired(true);
       setCaptchaToken(null); // force re-solve on next attempt
-      setError(translateError(data));
+      setError(data.code === "account_pending" ? data.message : translateError(data));
     } else {
       setCaptchaRequired(false);
       router.push("/tableau-de-bord");

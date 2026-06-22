@@ -8,8 +8,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const body = await request.json();
   const password = String(body.password ?? "");
   const fullName = String(body.full_name ?? "").trim();
+  const phone = String(body.phone ?? "").trim();
   const passwordError = validatePassword(password);
   if (passwordError) return NextResponse.json({ message: passwordError }, { status: 400 });
+  if (!phone) return NextResponse.json({ message: "Le numéro de téléphone est obligatoire." }, { status: 400 });
 
   const admin = createAdminClient();
   const { data: membership, error: membershipError } = await admin.from("user_memberships")
@@ -30,7 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name: fullName, user_type: company?.user_type ?? "entrepreneur", invited_member: true },
+    user_metadata: { full_name: fullName, phone, user_type: company?.user_type ?? "entrepreneur", invited_member: true },
   });
   if (created.error || !created.data.user) {
     const exists = created.error?.message?.toLowerCase().includes("already") || created.error?.code === "email_exists";
@@ -52,7 +54,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ message: `Impossible d'activer l'accès Collaborateur : ${activated.error.message}` }, { status: 400 });
   }
 
-  await admin.from("users").upsert({ id: authUser.id, email, full_name: fullName, company: company?.raison_sociale ?? null });
+  await admin.from("users").upsert({ id: authUser.id, email, full_name: fullName, phone, company: company?.raison_sociale ?? null });
   await logAdminAudit({
     adminEmail: email,
     action: "MEMBER_ACCEPT_INVITATION",

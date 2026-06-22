@@ -34,7 +34,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
       <section className="mb-5 rounded-md border border-amber-200 bg-amber-50 p-4">
         <h2 className="text-sm font-bold">Utilisation essai</h2>
         <p className="mt-2 text-[12px] text-amber-900">
-          Factures {company.trial_invoices_used ?? 0}/{TRIAL_LIMITS.invoices} · Scans {company.trial_ocr_used ?? 0}/{TRIAL_LIMITS.ocr_scans} · Relevés {company.trial_bank_statements_used ?? 0}/{TRIAL_LIMITS.bank_statements} · Employés {company.trial_employees_used ?? 0}/{TRIAL_LIMITS.employees} · Dossiers {company.trial_dossiers_used ?? 0}/{TRIAL_LIMITS.dossiers} · TVA {company.trial_tva_declarations_used ?? 0}/{TRIAL_LIMITS.tva_declarations}
+          Factures {company.trial_invoices_used ?? 0}/{TRIAL_LIMITS.invoices} · Scans {company.trial_ocr_used ?? 0}/{TRIAL_LIMITS.ocr_scans} · Documents {company.trial_documents_used ?? 0}/{TRIAL_LIMITS.documents} · Relevés {company.trial_bank_statements_used ?? 0}/{TRIAL_LIMITS.bank_statements} · Employés {company.trial_employees_used ?? 0}/{TRIAL_LIMITS.employees} · Dossiers {company.trial_dossiers_used ?? 0}/{TRIAL_LIMITS.dossiers} · TVA {company.trial_tva_declarations_used ?? 0}/{TRIAL_LIMITS.tva_declarations}
         </p>
       </section>
     )}

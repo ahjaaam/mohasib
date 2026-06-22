@@ -10,7 +10,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ type: stri
     return csvResponse((data ?? []).map(item => ({ compte: (item.companies as { raison_sociale?: string } | null)?.raison_sociale, plan: item.plan, periode: item.billing_period, montant_mad: item.amount_mad, debut: item.starts_at, fin: item.ends_at, statut: item.status, reference: item.payment_reference })), "abonnements-mohasib.csv");
   }
   if (type === "waitlist") {
-    const { data } = await admin!.from("fiduciaire_waitlist").select("*").order("created_at", { ascending: false });
+    const { data } = await admin!.from("fiduciaire_waitlist").select("*").eq("request_kind", "demo").order("created_at", { ascending: false });
     return csvResponse(data ?? [], "liste-attente-mohasib.csv");
   }
   return new Response(null, { status: 404 });

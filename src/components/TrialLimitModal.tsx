@@ -16,9 +16,10 @@ type TrialLimitPayload = {
 const BODY: Record<TrialFeature, string> = {
   invoices: "Vous avez créé 10 factures/devis/avoirs, la limite de votre essai gratuit. Passez à un plan payant pour continuer sans interruption.",
   ocr_scans: "Vous avez scanné 10 documents, la limite de votre essai gratuit.",
+  documents: "Vous avez archivé 10 documents, la limite de votre essai gratuit.",
   bank_statements: "L'essai gratuit permet d'importer 1 relevé bancaire. Passez à un plan payant pour importer tous vos relevés.",
   employees: "L'essai gratuit permet de gérer 1 employé. Passez à un plan payant pour votre équipe complète.",
-  tva_declarations: "La validation des déclarations TVA nécessite un plan payant.",
+  tva_declarations: "L'essai gratuit permet de valider 1 déclaration TVA.",
   dossiers: "L'essai gratuit permet de créer 1 dossier client. Passez à un plan Comptable Pro pour en gérer davantage.",
 };
 

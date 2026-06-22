@@ -35,7 +35,7 @@ export const FEATURE_COLUMNS: Record<Exclude<PlanFeature, "multi_users">, string
 };
 
 export const DEFAULT_PLAN_LIMITS: Record<string, Record<string, number | boolean>> = {
-  trial:         { ocr_limit: -1,  storage_gb: 5,   dossiers_limit: -1, users_limit: 3, employee_limit: -1, has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: true,  has_tva_edi: true,  has_inbox_global: true,  has_mass_declarations: true },
+  trial:         { ocr_limit: -1,  storage_gb: 1,   dossiers_limit: -1, users_limit: 2, employee_limit: -1, has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: true,  has_tva_edi: true,  has_inbox_global: true,  has_mass_declarations: true },
   starter:       { ocr_limit: 50,  storage_gb: 5,   dossiers_limit: 0,  users_limit: 1, employee_limit: 0,  has_bank_import: false, has_saisie: false, has_paie: false, has_export_fiduciaire: false, has_avoirs: false, has_bilan: false, has_tva_edi: false, has_inbox_global: false, has_mass_declarations: false },
   business:      { ocr_limit: 250, storage_gb: 25,  dossiers_limit: 0,  users_limit: 1, employee_limit: 10, has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: false, has_tva_edi: true,  has_inbox_global: false, has_mass_declarations: false },
   business_pro:  { ocr_limit: -1,  storage_gb: -1,  dossiers_limit: 0,  users_limit: 3, employee_limit: -1, has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: true,  has_tva_edi: true,  has_inbox_global: false, has_mass_declarations: false },

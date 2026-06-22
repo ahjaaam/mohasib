@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
@@ -18,13 +17,19 @@ function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
   const [form, setForm] = useState({ nom: "", email: "", telephone: "", entreprise: "" });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.email) return;
     setLoading(true);
-    await supabase.from("demo_requests").insert(form);
+    setError("");
+    const { error: requestError } = await supabase.from("demo_requests").insert(form);
     setLoading(false);
+    if (requestError) {
+      setError("Impossible d'envoyer la demande. Veuillez réessayer.");
+      return;
+    }
     setDone(true);
     onSuccess?.();
   }
@@ -33,7 +38,7 @@ function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
     <div style={{ textAlign: "center", padding: "32px 0" }}>
       <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
       <p style={{ fontSize: 16, fontWeight: 600, color: "#FFFFFF", fontFamily: FONT, margin: "0 0 8px" }}>Demande reçue !</p>
-      <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", fontFamily: FONT, margin: 0 }}>On vous rappelle sous 24h.</p>
+      <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", fontFamily: FONT, margin: 0 }}>Votre demande a été ajoutée à notre liste de validation. On vous rappelle sous 24h.</p>
     </div>
   );
 
@@ -71,8 +76,9 @@ function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
       >
         {loading ? "Envoi…" : "Demander une démo →"}
       </button>
+      {error && <p style={{ fontSize: 12, color: "#FCA5A5", textAlign: "center", margin: 0, fontFamily: FONT }}>{error}</p>}
       <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", textAlign: "center", margin: 0, fontFamily: FONT }}>
-        Rappel sous 24h · Aucun engagement
+        Validation manuelle · Rappel sous 24h · Aucun engagement
       </p>
     </form>
   );

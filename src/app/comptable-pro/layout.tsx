@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import { getUserAccessProfile, resolveTeamContext } from "@/lib/team";
 import { getPlanEntitlements } from "@/lib/plan-entitlements";
 import { canEnterScope } from "@/lib/rbac";
+import { isAccountApproved } from "@/lib/account-approval";
 
 export default async function FiduciaireLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect("/connexion");
+  if (!(await isAccountApproved(user.id))) redirect("/en-attente");
   const teamContext = await resolveTeamContext(user.id);
   const scopeAllowed = await canEnterScope({ userId: user.id }, "comptable_pro");
   if (teamContext?.track !== "comptable" || !scopeAllowed) {

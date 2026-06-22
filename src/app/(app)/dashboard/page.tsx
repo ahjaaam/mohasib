@@ -51,7 +51,7 @@ export default async function DashboardPage() {
 
   const companyRes = await supabase
     .from("companies")
-    .select("id, subscription_status, trial_ends_at, trial_invoices_used, trial_ocr_used, trial_bank_statements_used, trial_employees_used, trial_tva_declarations_used, trial_dossiers_used")
+    .select("id, subscription_status, trial_ends_at, trial_invoices_used, trial_ocr_used, trial_documents_used, trial_bank_statements_used, trial_employees_used, trial_tva_declarations_used, trial_dossiers_used")
     .eq("user_id", ownerId)
     .single();
   const companyId = companyRes.data?.id ?? null;
@@ -126,6 +126,7 @@ export default async function DashboardPage() {
             {[
               ["Factures", Number(company.trial_invoices_used ?? 0), TRIAL_LIMITS.invoices],
               ["Scans", Number(company.trial_ocr_used ?? 0), TRIAL_LIMITS.ocr_scans],
+              ["Documents", Number(company.trial_documents_used ?? 0), TRIAL_LIMITS.documents],
               ["Relevés", Number(company.trial_bank_statements_used ?? 0), TRIAL_LIMITS.bank_statements],
               ["Employés", Number(company.trial_employees_used ?? 0), TRIAL_LIMITS.employees],
               ["Dossiers", Number(company.trial_dossiers_used ?? 0), TRIAL_LIMITS.dossiers],

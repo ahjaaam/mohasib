@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { applyRateLimitHeaders, clearRateLimit, getClientIp, getRateLimitStatus, recordRateLimitFailure, tooManyRequests } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
+import { getAccountApprovalStatus } from "@/lib/account-approval";
 
 const LIMIT = 5;
 const CAPTCHA_THRESHOLD = 3;
@@ -99,6 +100,18 @@ export async function POST(req: NextRequest) {
     }, { status: 401 });
     applyRateLimitHeaders(res, LIMIT, ipFailure.remaining < emailFailure.remaining ? ipFailure : emailFailure);
     return res;
+  }
+
+  if (data.user) {
+    const approvalStatus = await getAccountApprovalStatus(data.user.id);
+    if (approvalStatus === "pending" || approvalStatus === "rejected") {
+      await supabase.auth.signOut();
+      return NextResponse.json({
+        error: "ACCOUNT_PENDING",
+        code: "account_pending",
+        message: "Votre compte est en attente de validation par l'équipe Mohasib.",
+      }, { status: 403 });
+    }
   }
 
   await Promise.all([

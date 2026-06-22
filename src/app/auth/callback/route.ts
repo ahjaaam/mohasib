@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
+import { getAccountApprovalStatus } from "@/lib/account-approval";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -15,6 +16,13 @@ export async function GET(request: Request) {
 
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
+      if (user && !user.user_metadata?.invitation_token) {
+        const approvalStatus = await getAccountApprovalStatus(user.id);
+        if (approvalStatus === "pending" || approvalStatus === "rejected") {
+          await supabase.auth.signOut();
+          return NextResponse.redirect(`${origin}/en-attente`);
+        }
+      }
       if (user) {
         logAudit({
           userId: user.id,
