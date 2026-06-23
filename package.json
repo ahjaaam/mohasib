@@ -24,6 +24,7 @@
     "@react-pdf/renderer": "^4.5.1",
     "@sanity/icons": "^3.7.4",
     "@sanity/image-url": "^2.1.1",
+    "@sentry/nextjs": "^10.60.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.108.2",
     "@types/mailparser": "^3.4.6",
