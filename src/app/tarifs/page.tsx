@@ -273,7 +273,7 @@ function PlanCard({ plan }: { plan: Plan }) {
         href="/inscription"
         className={`mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full px-4 text-center text-[12px] font-bold transition hover:-translate-y-0.5 ${plan.popular || plan.dark ? "bg-[#C8924A] text-white hover:bg-[#B6813F]" : "border border-[#0D1526] text-[#0D1526] hover:bg-[#0D1526] hover:text-white"}`}
       >
-        Créer un compte
+        Créer un compte gratuitement
       </Link>
 
       <div className={`my-6 h-px ${plan.dark ? "bg-white/10" : "bg-black/[0.07]"}`} />

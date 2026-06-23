@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-const UPDATED_AT = "16 juin 2026";
+const UPDATED_AT = "23 juin 2026";
 
 const sections: LegalSection[] = [
   {
@@ -14,10 +14,9 @@ const sections: LegalSection[] = [
     title: "Responsable du traitement",
     content: (
       <>
-        <p>[TODO: legal company name once SARL is created]</p>
-        <p>[TODO: registered address]</p>
-        <p>Contact protection des données : [TODO: DPO / privacy contact email]</p>
-        <p>Informations légales : [TODO: RC / ICE / IF numbers once available]</p>
+        <p>Mohasib AI</p>
+        <p>Responsable : Abdelhamid Ahjame</p>
+        <p>Contact protection des données : a.ahjame@gmail.com</p>
       </>
     ),
   },
@@ -159,7 +158,7 @@ const sections: LegalSection[] = [
           <li>droit d&apos;opposition au traitement, sous réserve des obligations légales de conservation ;</li>
           <li>droit de retrait du consentement pour les traitements fondés sur le consentement.</li>
         </ul>
-        <p>Pour exercer ces droits : [TODO: DPO / privacy contact email]</p>
+        <p>Pour exercer ces droits : a.ahjame@gmail.com</p>
         <p>
           Mohasib AI répondra dans un délai raisonnable, conformément à la réglementation applicable. Vous pouvez
           également introduire une réclamation auprès de la Commission Nationale de Contrôle de la Protection des
@@ -209,9 +208,9 @@ const sections: LegalSection[] = [
     title: "Contact",
     content: (
       <>
-        <p>[TODO: DPO / privacy contact email]</p>
-        <p>[TODO: registered address]</p>
-        <p>[TODO: CNDP registration number once issued]</p>
+        <p>Email : a.ahjame@gmail.com</p>
+        <p>Téléphone : +212777884056</p>
+        <p>Téléphone : +212670101952</p>
       </>
     ),
   },
@@ -226,7 +225,7 @@ export default function ConfidentialitePage() {
         <p>
           Mohasib AI s&apos;engage à protéger les données personnelles de ses utilisateurs conformément à la loi
           marocaine n°09-08 relative à la protection des personnes physiques à l&apos;égard du traitement des données à
-          caractère personnel, et conformément à sa déclaration auprès de la CNDP [TODO: CNDP registration number once issued].
+          caractère personnel.
         </p>
       }
       sections={sections}

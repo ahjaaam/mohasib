@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-const UPDATED_AT = "16 juin 2026";
+const UPDATED_AT = "23 juin 2026";
 
 const sections: LegalSection[] = [
   {
@@ -101,7 +101,7 @@ const sections: LegalSection[] = [
       <>
         <p>
           L&apos;abonnement peut être résilié à tout moment depuis les paramètres du compte ou par demande écrite à
-          [TODO: support email].
+          a.ahjame@gmail.com.
         </p>
         <p>
           Les données restent accessibles en lecture pendant [TODO: durée d&apos;accès après résiliation, ex. 30 jours]
@@ -144,7 +144,7 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          Le logiciel, son code, son design, ses interfaces et sa marque appartiennent à [TODO: legal company name once SARL is created].
+          Le logiciel, son code, son design, ses interfaces et sa marque appartiennent à Mohasib AI.
         </p>
         <p>
           Les données saisies par l&apos;utilisateur, notamment factures, clients, écritures, documents et informations
@@ -189,10 +189,11 @@ const sections: LegalSection[] = [
     title: "Contact",
     content: (
       <>
-        <p>[TODO: support email]</p>
-        <p>[TODO: legal company name once SARL is created]</p>
-        <p>[TODO: registered address]</p>
-        <p>[TODO: RC / ICE / IF numbers once available]</p>
+        <p>Mohasib AI</p>
+        <p>Responsable : Abdelhamid Ahjame</p>
+        <p>Email : a.ahjame@gmail.com</p>
+        <p>Téléphone : +212777884056</p>
+        <p>Téléphone : +212670101952</p>
       </>
     ),
   },

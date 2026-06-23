@@ -118,7 +118,7 @@ export default function HomePageClient() {
                 href="/inscription"
                 style={{ fontSize: 15, fontWeight: 600, color: "#FFFFFF", backgroundColor: NAVY, padding: "14px 28px", borderRadius: 5, textDecoration: "none", fontFamily: FONT, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
               >
-                Créer un compte
+                Créer un compte gratuitement
               </a>
               <a
                 href="https://wa.me/212777884056"
