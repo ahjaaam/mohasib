@@ -69,6 +69,11 @@ interface Props {
     trial_employees_used?: number | null;
     trial_tva_declarations_used?: number | null;
     trial_dossiers_used?: number | null;
+    trial_clients_used?: number | null;
+    trial_transactions_used?: number | null;
+    trial_accounting_entries_used?: number | null;
+    trial_rapprochement_sessions_used?: number | null;
+    trial_rapprochement_matches_used?: number | null;
   } | null;
   entitlements: PlanEntitlements;
 }
@@ -127,6 +132,10 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
     invoices: Number(accountState.trial_invoices_used ?? 0),
     ocr: Number(accountState.trial_ocr_used ?? 0),
     bank: Number(accountState.trial_bank_statements_used ?? 0),
+    clients: Number(accountState.trial_clients_used ?? 0),
+    transactions: Number(accountState.trial_transactions_used ?? 0),
+    entries: Number(accountState.trial_accounting_entries_used ?? 0),
+    rapprochement: Number(accountState.trial_rapprochement_sessions_used ?? 0),
   } : null;
 
   const initials = userName
@@ -268,7 +277,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
             {!accountState?.is_suspended && isTrial && trialDays !== null && trialDays >= 0 && (
               <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">
                 <span className="hidden sm:inline">
-                  Essai gratuit — {trialDays} jour{trialDays > 1 ? "s" : ""} restant{trialDays > 1 ? "s" : ""} · Factures {trialSummary?.invoices ?? 0}/{TRIAL_LIMITS.invoices} · Scans {trialSummary?.ocr ?? 0}/{TRIAL_LIMITS.ocr_scans} · Relevés {trialSummary?.bank ?? 0}/{TRIAL_LIMITS.bank_statements} ·{" "}
+                  Essai gratuit — {trialDays} jour{trialDays > 1 ? "s" : ""} restant{trialDays > 1 ? "s" : ""} · Factures {trialSummary?.invoices ?? 0}/{TRIAL_LIMITS.invoices} · Clients {trialSummary?.clients ?? 0}/{TRIAL_LIMITS.clients} · Transactions {trialSummary?.transactions ?? 0}/{TRIAL_LIMITS.transactions} · Écritures {trialSummary?.entries ?? 0}/{TRIAL_LIMITS.accounting_entries} · Rapprochements {trialSummary?.rapprochement ?? 0}/{TRIAL_LIMITS.rapprochement_sessions} ·{" "}
                 </span>
                 <span className="sm:hidden">Essai · {trialDays}j restants · </span>
                 <Link href="/tarifs" className="underline">Passer à un plan payant</Link>

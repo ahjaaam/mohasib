@@ -51,7 +51,7 @@ export default async function DashboardPage() {
 
   const companyRes = await supabase
     .from("companies")
-    .select("id, subscription_status, trial_ends_at, trial_invoices_used, trial_ocr_used, trial_documents_used, trial_bank_statements_used, trial_employees_used, trial_tva_declarations_used, trial_dossiers_used")
+    .select("id, subscription_status, trial_ends_at, trial_invoices_used, trial_ocr_used, trial_documents_used, trial_bank_statements_used, trial_employees_used, trial_tva_declarations_used, trial_dossiers_used, trial_clients_used, trial_transactions_used, trial_accounting_entries_used, trial_rapprochement_sessions_used, trial_rapprochement_matches_used")
     .eq("user_id", ownerId)
     .single();
   const companyId = companyRes.data?.id ?? null;
@@ -131,6 +131,11 @@ export default async function DashboardPage() {
               ["Employés", Number(company.trial_employees_used ?? 0), TRIAL_LIMITS.employees],
               ["Dossiers", Number(company.trial_dossiers_used ?? 0), TRIAL_LIMITS.dossiers],
               ["TVA", Number(company.trial_tva_declarations_used ?? 0), TRIAL_LIMITS.tva_declarations],
+              ["Clients", Number(company.trial_clients_used ?? 0), TRIAL_LIMITS.clients],
+              ["Transactions", Number(company.trial_transactions_used ?? 0), TRIAL_LIMITS.transactions],
+              ["Écritures", Number(company.trial_accounting_entries_used ?? 0), TRIAL_LIMITS.accounting_entries],
+              ["Rapprochements", Number(company.trial_rapprochement_sessions_used ?? 0), TRIAL_LIMITS.rapprochement_sessions],
+              ["Lignes rapprochées", Number(company.trial_rapprochement_matches_used ?? 0), TRIAL_LIMITS.rapprochement_matches],
             ].map(([label, used, limit]) => {
               const ratio = Math.min(1, Number(used) / Number(limit));
               return (

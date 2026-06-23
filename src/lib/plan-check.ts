@@ -100,6 +100,11 @@ export async function checkTrialLimit(companyId: string, feature: TrialFeature):
     trial_employees_used: number | null;
     trial_tva_declarations_used: number | null;
     trial_dossiers_used: number | null;
+    trial_clients_used: number | null;
+    trial_transactions_used: number | null;
+    trial_accounting_entries_used: number | null;
+    trial_rapprochement_sessions_used: number | null;
+    trial_rapprochement_matches_used: number | null;
   };
   const { data } = await supabase
     .from("companies")
@@ -112,6 +117,11 @@ export async function checkTrialLimit(companyId: string, feature: TrialFeature):
       "trial_employees_used",
       "trial_tva_declarations_used",
       "trial_dossiers_used",
+      "trial_clients_used",
+      "trial_transactions_used",
+      "trial_accounting_entries_used",
+      "trial_rapprochement_sessions_used",
+      "trial_rapprochement_matches_used",
     ].join(","))
     .eq("id", companyId)
     .single();

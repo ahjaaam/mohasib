@@ -21,6 +21,11 @@ const BODY: Record<TrialFeature, string> = {
   employees: "L'essai gratuit permet de gérer 1 employé. Passez à un plan payant pour votre équipe complète.",
   tva_declarations: "L'essai gratuit permet de valider 1 déclaration TVA.",
   dossiers: "L'essai gratuit permet de créer 1 dossier client. Passez à un plan Comptable Pro pour en gérer davantage.",
+  clients: "L'essai gratuit permet de créer 5 clients. Passez à un plan payant pour gérer toute votre base clients.",
+  transactions: "L'essai gratuit permet de créer 20 transactions.",
+  accounting_entries: "L'essai gratuit permet de créer 20 écritures comptables.",
+  rapprochement_sessions: "L'essai gratuit permet de lancer 1 rapprochement bancaire.",
+  rapprochement_matches: "L'essai gratuit permet de rapprocher 20 lignes bancaires.",
 };
 
 export default function TrialLimitModal() {
