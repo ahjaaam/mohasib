@@ -4,7 +4,7 @@ import PublicFooter from "@/components/PublicFooter";
 import { getAllPosts, getSlugValue, type BlogPostListItem } from "@/lib/blog";
 import { urlFor } from "@/lib/sanity";
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 const filters = ["Tous", "TVA", "IS", "Paie", "Tresorerie", "Creation d'entreprise"];
 

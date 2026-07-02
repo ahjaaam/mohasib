@@ -6,7 +6,7 @@ import PublicFooter from "@/components/PublicFooter";
 import { getAllPosts, getPostBySlug, getSlugValue } from "@/lib/blog";
 import { urlFor } from "@/lib/sanity";
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 const categoryLabels: Record<string, string> = {
   tva: "TVA",
@@ -75,8 +75,9 @@ function formatDate(value?: string) {
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }
 
-export default async function ArticlePage({ params }: { params: { slug: string } }) {
-  const post = await getPostBySlug(params.slug);
+export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = await getPostBySlug(slug);
   if (!post) notFound();
 
   const category = post.category || "comptabilite";

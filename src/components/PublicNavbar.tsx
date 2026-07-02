@@ -24,8 +24,8 @@ const RESOURCE_NAV = [
   },
   {
     href: "/ressources/guides",
-    title: "Guides téléchargeables",
-    subtitle: "Ressources gratuites conçues pour les entrepreneurs",
+    title: "Documents téléchargeables",
+    subtitle: "Modèles, templates et documents prêts à l’emploi",
     icon: Download,
   },
 ];

@@ -23,11 +23,11 @@ const cards = [
     icon: Calculator,
   },
   {
-    title: "Guides telechargeables",
-    subtitle: "Ressources gratuites concues pour les entrepreneurs",
+    title: "Documents téléchargeables",
+    subtitle: "Modèles, templates et documents prêts à l’emploi",
     description:
-      "PDFs pratiques sur les declarations TVA, le plan comptable marocain, la creation d'entreprise et la gestion de la paie.",
-    cta: "Telecharger les guides ->",
+      "Contrats, modèles Word, PDF pratiques, checklists et documents utiles pour les entrepreneurs, financiers et comptables au Maroc.",
+    cta: "Voir les documents ->",
     href: "/ressources/guides",
     icon: Download,
   },
@@ -44,7 +44,7 @@ export default function RessourcesPage() {
             Tout ce qu'il vous faut pour gerer votre comptabilite
           </h1>
           <p className="mt-4 max-w-2xl text-[15px] leading-7 text-white/60">
-            Articles, simulateurs et guides gratuits concus pour les entrepreneurs marocains
+            Articles, simulateurs et documents gratuits conçus pour les entrepreneurs marocains
           </p>
         </div>
       </section>

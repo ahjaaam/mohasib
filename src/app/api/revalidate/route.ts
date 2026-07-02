@@ -6,8 +6,20 @@ export async function POST(request: Request) {
   if (!configuredSecret || suppliedSecret !== configuredSecret) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const payload = await request.json().catch(() => null) as {
+    _type?: string;
+    slug?: string | { current?: string };
+  } | null;
+  const slug = typeof payload?.slug === "string" ? payload.slug : payload?.slug?.current;
+
   revalidatePath("/ressources/blog");
   revalidatePath("/ressources/blog/[slug]", "page");
   revalidatePath("/ressources/guides");
-  return Response.json({ revalidated: true });
+
+  if (payload?._type === "post" && slug) {
+    revalidatePath(`/ressources/blog/${slug}`);
+  }
+
+  return Response.json({ revalidated: true, slug: slug ?? null });
 }

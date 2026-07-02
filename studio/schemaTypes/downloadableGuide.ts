@@ -3,7 +3,7 @@ import { defineArrayMember, defineField, defineType } from "sanity";
 
 export default defineType({
   name: "guide",
-  title: "Guide téléchargeable",
+  title: "Document téléchargeable",
   type: "document",
   icon: DocumentTextIcon,
   fields: [
@@ -21,6 +21,13 @@ export default defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: "active",
+      title: "Publié sur le site",
+      type: "boolean",
+      initialValue: true,
+      description: "Désactivez ce champ pour masquer le document sans le supprimer.",
+    }),
+    defineField({
       name: "description",
       title: "Description",
       type: "text",
@@ -31,9 +38,16 @@ export default defineType({
       name: "file",
       title: "Fichier PDF",
       type: "file",
+      description: "Recommandé : téléversez le fichier ici pour permettre un vrai téléchargement.",
       options: {
         accept: "application/pdf",
       },
+    }),
+    defineField({
+      name: "fileUrl",
+      title: "Lien externe du document",
+      type: "url",
+      description: "Optionnel. À utiliser seulement si le document est hébergé ailleurs.",
     }),
     defineField({
       name: "pages",

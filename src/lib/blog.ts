@@ -55,7 +55,7 @@ export async function getAllPosts() {
   if (!hasSanityConfig) return fallbackList();
   try {
     return await client.fetch<BlogPostListItem[]>(`
-      *[_type == "post"] | order(publishedAt desc) {
+      *[_type == "post" && defined(slug.current)] | order(publishedAt desc) {
         _id,
         title,
         slug,
@@ -101,7 +101,7 @@ export async function getPostsByCategory(category: string) {
   }
   try {
     return await client.fetch<BlogPostListItem[]>(`
-      *[_type == "post" && category == $category] 
+      *[_type == "post" && defined(slug.current) && category == $category] 
       | order(publishedAt desc) {
         _id, title, slug, category, 
         excerpt, readTime, publishedAt

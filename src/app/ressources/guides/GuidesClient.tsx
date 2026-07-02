@@ -5,19 +5,18 @@ import { CheckCircle, Download, FileText, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DownloadableGuide } from "@/lib/guides";
 
+function slugValue(slug: DownloadableGuide["slug"]) {
+  return typeof slug === "string" ? slug : slug?.current ?? null;
+}
+
 function sourceFor(title: string) {
-  return `guide_${title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
+  return `document_${title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
 }
 
 function downloadGuide(guide: DownloadableGuide) {
   if (!guide.fileUrl) return;
 
-  const link = document.createElement("a");
-  link.href = guide.fileUrl;
-  link.download = `${sourceFor(guide.title)}.pdf`;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.click();
+  window.open(guide.fileUrl, "_blank", "noopener,noreferrer");
 }
 
 export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }) {
@@ -31,9 +30,21 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
     event.preventDefault();
     if (!selectedGuide || !email.trim()) return;
     setSaving(true);
-    const { error } = await supabase.from("fiduciaire_waitlist").insert({
-      email: email.trim(),
+    const params = new URLSearchParams(window.location.search);
+    const { error } = await supabase.from("resource_leads").insert({
+      email: email.trim().toLowerCase(),
+      resource_id: selectedGuide._id,
+      resource_title: selectedGuide.title,
+      resource_slug: slugValue(selectedGuide.slug),
+      resource_type: "document",
       source: sourceFor(selectedGuide.title),
+      page_path: window.location.pathname,
+      utm_source: params.get("utm_source"),
+      utm_medium: params.get("utm_medium"),
+      utm_campaign: params.get("utm_campaign"),
+      utm_content: params.get("utm_content"),
+      utm_term: params.get("utm_term"),
+      referrer: document.referrer || null,
     });
     setSaving(false);
     if (error) return;
@@ -56,9 +67,9 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#C8924A]/10 text-[#C8924A]">
               <FileText size={26} />
             </div>
-            <h2 className="mt-5 text-[20px] font-bold text-[#0D1526]">Aucun guide publié</h2>
+            <h2 className="mt-5 text-[20px] font-bold text-[#0D1526]">Aucun document publié</h2>
             <p className="mx-auto mt-3 max-w-xl text-[13.5px] leading-6 text-[#6B7280]">
-              Les guides affichés ici seront uniquement ceux publiés dans Sanity.
+              Les documents affichés ici seront uniquement ceux publiés dans Sanity.
             </p>
           </div>
         ) : (
@@ -86,7 +97,7 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
                   disabled={!guide.fileUrl}
                   className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-[#C8924A] px-4 py-3 text-[13px] font-bold text-[#C8924A] transition hover:bg-[#C8924A] hover:text-white disabled:cursor-not-allowed disabled:border-[#D1D5DB] disabled:text-[#9CA3AF] disabled:hover:bg-transparent"
                 >
-                  <Download size={15} /> Telecharger gratuitement
+                  <Download size={15} /> Ouvrir gratuitement
                 </button>
               </article>
             ))}
@@ -99,9 +110,9 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-[22px] font-bold text-[#0D1526]">Telechargez gratuitement</h2>
+                <h2 className="text-[22px] font-bold text-[#0D1526]">Accédez gratuitement au document</h2>
                 <p className="mt-2 text-[13px] leading-6 text-[#6B7280]">
-                  Entrez votre email pour recevoir le guide:
+                  Entrez votre email pour accéder au document :
                 </p>
               </div>
               <button type="button" onClick={closeModal} className="rounded-md p-1 text-[#6B7280] hover:bg-[#F3F4F6]">
@@ -112,7 +123,18 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
             {success ? (
               <div className="mt-6 rounded-xl bg-[#ECFDF5] p-5 text-center">
                 <CheckCircle className="mx-auto text-[#059669]" size={32} />
-                <p className="mt-3 text-[14px] font-bold text-[#065F46]">Verifiez votre email!</p>
+                <p className="mt-3 text-[14px] font-bold text-[#065F46]">Merci, votre document est prêt.</p>
+                <p className="mt-2 text-[12px] leading-5 text-[#047857]">
+                  Si l&apos;ouverture automatique a été bloquée par votre navigateur, utilisez le bouton ci-dessous.
+                </p>
+                <a
+                  href={selectedGuide.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center justify-center rounded-lg bg-[#059669] px-4 py-2.5 text-[12px] font-bold text-white transition hover:bg-[#047857]"
+                >
+                  Ouvrir le document
+                </a>
               </div>
             ) : (
               <form onSubmit={submit} className="mt-6 space-y-4">
@@ -128,7 +150,7 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
                   disabled={saving}
                   className="w-full rounded-lg bg-[#C8924A] px-4 py-3 text-[13px] font-bold text-white transition hover:bg-[#B7833F] disabled:opacity-60"
                 >
-                  {saving ? "Telechargement..." : "Telecharger maintenant ->"}
+                  {saving ? "Ouverture..." : "Accéder au document ->"}
                 </button>
               </form>
             )}

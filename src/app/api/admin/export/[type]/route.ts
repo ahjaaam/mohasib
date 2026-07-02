@@ -13,5 +13,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ type: stri
     const { data } = await admin!.from("fiduciaire_waitlist").select("*").eq("request_kind", "demo").order("created_at", { ascending: false });
     return csvResponse(data ?? [], "liste-attente-mohasib.csv");
   }
+  if (type === "resource-leads") {
+    const { data } = await admin!.from("resource_leads").select("*").order("created_at", { ascending: false });
+    return csvResponse(data ?? [], "leads-documents-mohasib.csv");
+  }
   return new Response(null, { status: 404 });
 }
