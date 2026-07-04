@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, Download, FileText, X } from "lucide-react";
+import { CheckCircle, Download, FileText, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DownloadableGuide } from "@/lib/guides";
 
@@ -25,6 +25,12 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filteredGuides = guides.filter((guide) => {
+    const searchText = `${guide.title} ${guide.description ?? ""} ${guide.tags.join(" ")}`.toLowerCase();
+    return !query.trim() || searchText.includes(query.trim().toLowerCase());
+  });
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -61,6 +67,31 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
 
   return (
     <>
+      <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[64px]">
+        <div className="mx-auto max-w-4xl text-center">
+          <a href="/ressources" className="text-[12px] font-semibold text-[#C8924A]">← Ressources</a>
+          <p className="mt-6 text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Documents téléchargeables</p>
+          <h1 className="mt-4 text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">Modèles, templates et documents gratuits</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-7 text-[#6B7280]">
+            Une bibliothèque de documents utiles pour gérer, créer et sécuriser votre activité au Maroc.
+          </p>
+          {guides.length > 0 && (
+            <div className="mx-auto mt-8 max-w-3xl">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" size={18} />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  type="search"
+                  placeholder="Rechercher un document, contrat, modèle, TVA..."
+                  className="w-full rounded-2xl border border-[rgba(13,21,38,0.10)] bg-white py-4 pl-12 pr-4 text-left text-[14px] text-[#0D1526] shadow-[0_14px_35px_rgba(13,21,38,0.08)] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#C8924A]"
+                />
+              </label>
+            </div>
+          )}
+        </div>
+      </section>
+
       <section className="px-6 py-10">
         {guides.length === 0 ? (
           <div className="mx-auto max-w-3xl rounded-2xl border border-dashed border-[rgba(13,21,38,0.16)] bg-white p-8 text-center">
@@ -73,8 +104,9 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
             </p>
           </div>
         ) : (
+          <>
           <div className="mx-auto grid max-w-6xl gap-5 md:grid-cols-2">
-            {guides.map((guide) => (
+            {filteredGuides.map((guide) => (
               <article key={guide._id} className="rounded-2xl border border-[rgba(0,0,0,0.08)] bg-white p-6 shadow-[0_10px_28px_rgba(13,21,38,0.05)]">
                 <div className="flex gap-4">
                   <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#C8924A]/10 text-[#C8924A]">
@@ -102,6 +134,15 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
               </article>
             ))}
           </div>
+          {filteredGuides.length === 0 && (
+            <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-dashed border-[rgba(13,21,38,0.16)] bg-white p-8 text-center">
+              <h2 className="text-[18px] font-bold text-[#0D1526]">Aucun document trouvé</h2>
+              <p className="mx-auto mt-2 max-w-xl text-[13px] leading-6 text-[#6B7280]">
+                Essayez avec un autre mot-clé comme contrat, TVA, facture ou bail.
+              </p>
+            </div>
+          )}
+          </>
         )}
       </section>
 
@@ -152,6 +193,9 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
                 >
                   {saving ? "Ouverture..." : "Accéder au document ->"}
                 </button>
+                <p className="text-center text-[11.5px] leading-5 text-[#9CA3AF]">
+                  Pas de spam. Désabonnement en un clic.
+                </p>
               </form>
             )}
           </div>

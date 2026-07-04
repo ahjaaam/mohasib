@@ -23,7 +23,7 @@ const RESOURCE_NAV = [
     icon: Calculator,
   },
   {
-    href: "/ressources/guides",
+    href: "/ressources/documents",
     title: "Documents téléchargeables",
     subtitle: "Modèles, templates et documents prêts à l’emploi",
     icon: Download,

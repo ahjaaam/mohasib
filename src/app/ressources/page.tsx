@@ -28,7 +28,7 @@ const cards = [
     description:
       "Contrats, modèles Word, PDF pratiques, checklists et documents utiles pour les entrepreneurs, financiers et comptables au Maroc.",
     cta: "Voir les documents ->",
-    href: "/ressources/guides",
+    href: "/ressources/documents",
     icon: Download,
   },
 ];
@@ -37,13 +37,13 @@ export default function RessourcesPage() {
   return (
     <main className="min-h-screen bg-white">
       <PublicNavbar />
-      <section className="bg-[#0D1526] px-6 py-[60px]">
-        <div className="mx-auto max-w-6xl">
+      <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[60px]">
+        <div className="mx-auto max-w-4xl text-center">
           <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Ressources</p>
-          <h1 className="mt-4 max-w-3xl text-[38px] font-bold leading-tight text-white md:text-[52px]">
+          <h1 className="mx-auto mt-4 max-w-3xl text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">
             Tout ce qu'il vous faut pour gerer votre comptabilite
           </h1>
-          <p className="mt-4 max-w-2xl text-[15px] leading-7 text-white/60">
+          <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-7 text-[#6B7280]">
             Articles, simulateurs et documents gratuits conçus pour les entrepreneurs marocains
           </p>
         </div>

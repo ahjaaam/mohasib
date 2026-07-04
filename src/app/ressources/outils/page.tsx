@@ -34,12 +34,12 @@ export default function OutilsPage() {
   return (
     <main className="min-h-screen bg-[#FAFAF6]">
       <PublicNavbar />
-      <section className="bg-[#0D1526] px-6 py-[60px]">
-        <div className="mx-auto max-w-6xl">
+      <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[60px]">
+        <div className="mx-auto max-w-4xl text-center">
           <Link href="/ressources" className="text-[12px] font-semibold text-[#C8924A]">← Ressources</Link>
           <p className="mt-6 text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Outils de simulation</p>
-          <h1 className="mt-4 text-[38px] font-bold leading-tight text-white md:text-[52px]">Choisissez un simulateur</h1>
-          <p className="mt-4 max-w-2xl text-[15px] leading-7 text-white/60">
+          <h1 className="mt-4 text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">Choisissez un simulateur</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-7 text-[#6B7280]">
             Des calculateurs simples pour anticiper vos obligations fiscales, sociales et financieres.
           </p>
         </div>

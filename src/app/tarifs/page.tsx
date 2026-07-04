@@ -96,7 +96,7 @@ const businessPlans: Plan[] = [
 
 const comptablePlans: Plan[] = [
   {
-    name: "Comptable Pro Starter",
+    name: "Starter",
     price: 299,
     tagline: "Pour débuter avec vos premiers clients",
     features: [
@@ -123,13 +123,13 @@ const comptablePlans: Plan[] = [
     ],
   },
   {
-    name: "Comptable Pro",
+    name: "Essentiel",
     price: 599,
     tagline: "Le cabinet connecté et productif",
     popular: true,
     features: [
       "20 dossiers clients",
-      "Tout Comptable Starter +",
+      "Tout Starter +",
       "Déclarations TVA en masse",
       "Export ZIP multi-dossiers (1 click)",
       "Inbox global + routage IA",
@@ -142,13 +142,13 @@ const comptablePlans: Plan[] = [
     missing: ["Dossiers illimités", "White label cabinet", "Accès API"],
   },
   {
-    name: "Comptable Illimité",
+    name: "Illimité",
     price: 999,
     tagline: "Toute la puissance pour votre cabinet",
     dark: true,
     features: [
       "Dossiers illimités",
-      "Tout Comptable Pro +",
+      "Tout Essentiel +",
       "Employés illimités par dossier",
       "Scans OCR illimités",
       "Archive illimitée",
@@ -290,7 +290,7 @@ function ComparisonTable({ track }: { track: Track }) {
   const sections = track === "business" ? businessComparison : comptableComparison;
   const headings = track === "business"
     ? ["Fonctionnalité", "Starter", "Business", "Business Pro"]
-    : ["Fonctionnalité", "Comptable S", "Comptable Pro", "Comptable ∞"];
+    : ["Fonctionnalité", "Starter", "Essentiel", "Illimité"];
 
   return (
     <div className="overflow-x-auto rounded-lg border border-black/[0.08] bg-white">
@@ -332,12 +332,12 @@ function PricingContent() {
 
   return (
     <main className="min-h-screen bg-[#FAFAF6] text-[#0D1526]">
-      <PublicNavbar showBorder={false} />
+      <PublicNavbar />
 
       <div className="mx-auto max-w-[1200px] px-5 pb-20 pt-16 sm:px-10 sm:pb-24 sm:pt-24">
         <header className="text-center">
           <p className="text-[11px] font-bold uppercase tracking-[2px] text-[#C8924A]">Tarifs</p>
-          <h1 className="mt-3 text-[clamp(28px,4vw,42px)] font-bold">Choisissez votre plan</h1>
+          <h1 className="mt-3 text-[38px] font-bold leading-tight md:text-[52px]">Choisissez votre plan</h1>
           <p className="mt-3 text-[15px] text-[#6B7280]">Des plans adaptés à votre activité et à la taille de votre équipe.</p>
 
           <div className="mt-9 inline-flex rounded-full border border-black/[0.08] bg-white p-1 shadow-sm" role="tablist" aria-label="Type de plan">

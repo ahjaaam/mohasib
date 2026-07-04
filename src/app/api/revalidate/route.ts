@@ -15,6 +15,7 @@ export async function POST(request: Request) {
 
   revalidatePath("/ressources/blog");
   revalidatePath("/ressources/blog/[slug]", "page");
+  revalidatePath("/ressources/documents");
   revalidatePath("/ressources/guides");
 
   if (payload?._type === "post" && slug) {

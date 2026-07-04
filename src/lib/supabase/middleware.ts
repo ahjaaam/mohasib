@@ -38,6 +38,7 @@ export async function updateSession(request: NextRequest) {
     "/reinitialiser-mot-de-passe",
     "/tarifs",
     "/ressources",
+    "/centre-aide",
     "/cgu",
     "/confidentialite",
     "/en-attente",

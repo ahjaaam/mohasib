@@ -7,11 +7,11 @@ export default function RentabiliteToolPage() {
   return (
     <main className="min-h-screen bg-[#FAFAF6]">
       <PublicNavbar />
-      <section className="bg-[#0D1526] px-6 py-[52px]">
-        <div className="mx-auto max-w-6xl">
+      <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[52px]">
+        <div className="mx-auto max-w-4xl text-center">
           <Link href="/ressources/outils" className="text-[12px] font-semibold text-[#C8924A]">← Outils de simulation</Link>
-          <h1 className="mt-5 font-serif text-[38px] leading-tight text-white md:text-[52px]">Simulateur Rentabilite</h1>
-          <p className="mt-4 max-w-2xl text-[15px] leading-7 text-white/60">Projetez votre resultat net estime et votre marge avec vos charges et votre masse salariale.</p>
+          <h1 className="mt-5 font-serif text-[38px] leading-tight text-[#0D1526] md:text-[52px]">Simulateur Rentabilite</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-7 text-[#6B7280]">Projetez votre resultat net estime et votre marge avec vos charges et votre masse salariale.</p>
         </div>
       </section>
       <section className="px-6 py-10">

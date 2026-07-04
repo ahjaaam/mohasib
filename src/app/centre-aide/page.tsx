@@ -38,13 +38,13 @@ export default function CentreAidePage() {
     <main className="min-h-screen bg-white">
       <PublicNavbar />
 
-      <section className="bg-[#0D1526] px-6 py-[64px]">
-        <div className="mx-auto max-w-5xl">
+      <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[64px]">
+        <div className="mx-auto max-w-4xl text-center">
           <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Centre d&apos;aide</p>
-          <h1 className="mt-4 max-w-3xl text-[38px] font-bold leading-tight text-white md:text-[54px]">
+          <h1 className="mx-auto mt-4 max-w-3xl text-[38px] font-bold leading-tight text-[#0D1526] md:text-[54px]">
             Comment pouvons-nous vous aider ?
           </h1>
-          <p className="mt-4 max-w-2xl text-[15px] leading-7 text-white/65">
+          <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-7 text-[#6B7280]">
             Retrouvez les moyens simples pour contacter Mohasib AI, suivre les nouveautés ou demander de l&apos;aide.
           </p>
         </div>
