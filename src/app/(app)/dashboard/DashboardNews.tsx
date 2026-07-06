@@ -1,6 +1,6 @@
 "use client";
 
-import { getDefaultDashboardDeadlines, parseDeadlineDate, type DashboardDeadline } from "@/lib/dashboard-deadlines";
+import { mergeDashboardDeadlines, parseDeadlineDate, type DashboardDeadline } from "@/lib/dashboard-deadlines";
 
 function daysUntilDate(date: Date, from: Date): number {
   return Math.ceil((date.getTime() - from.getTime()) / 86400000);
@@ -10,9 +10,17 @@ function fmtDate(date: Date): string {
   return date.toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" });
 }
 
-export default function DashboardNews({ deadlines: savedDeadlines }: { deadlines: DashboardDeadline[] | null }) {
+export default function DashboardNews({
+  deadlines: savedDeadlines,
+  tvaRegime,
+  tvaAssujetti,
+}: {
+  deadlines: DashboardDeadline[] | null;
+  tvaRegime?: string | null;
+  tvaAssujetti?: boolean | null;
+}) {
   const now = new Date();
-  const deadlines = (savedDeadlines ?? getDefaultDashboardDeadlines(now))
+  const deadlines = mergeDashboardDeadlines(savedDeadlines, now, { tvaRegime, tvaAssujetti })
     .map(item => {
       const dueDate = parseDeadlineDate(item.date);
       return { ...item, dueDate, daysUntil: daysUntilDate(dueDate, now) };

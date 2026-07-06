@@ -51,7 +51,7 @@ export default async function DashboardPage() {
 
   const companyRes = await supabase
     .from("companies")
-    .select("id, subscription_status, trial_ends_at, trial_invoices_used, trial_ocr_used, trial_documents_used, trial_bank_statements_used, trial_employees_used, trial_tva_declarations_used, trial_dossiers_used, trial_clients_used, trial_transactions_used, trial_accounting_entries_used, trial_rapprochement_sessions_used, trial_rapprochement_matches_used")
+    .select("id, tva_regime, tva_assujetti, subscription_status, trial_ends_at, trial_invoices_used, trial_ocr_used, trial_documents_used, trial_bank_statements_used, trial_employees_used, trial_tva_declarations_used, trial_dossiers_used, trial_clients_used, trial_transactions_used, trial_accounting_entries_used, trial_rapprochement_sessions_used, trial_rapprochement_matches_used")
     .eq("user_id", ownerId)
     .single();
   const companyId = companyRes.data?.id ?? null;
@@ -215,7 +215,11 @@ export default async function DashboardPage() {
         {/* Prochaines échéances */}
         <div>
           <SectionLabel>Prochaines échéances</SectionLabel>
-          <DashboardNews deadlines={prefsRes.data?.dashboard_deadlines ?? null} />
+          <DashboardNews
+            deadlines={prefsRes.data?.dashboard_deadlines ?? null}
+            tvaRegime={company?.tva_regime ?? null}
+            tvaAssujetti={company?.tva_assujetti ?? null}
+          />
         </div>
       </div>
 

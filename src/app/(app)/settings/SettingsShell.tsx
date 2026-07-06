@@ -125,7 +125,14 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
           {tab === "abonnement" && <AbonnementTab userId={accountOwnerId} userEmail={userEmail} companyId={companyId} company={company} />}
           {tab === "integrations" && <IntegrationsTab company={company} />}
           {tab === "tva"          && <TVAConfigTab companyId={companyId} />}
-          {tab === "echeances"    && <DeadlinesTab userId={accountOwnerId} deadlines={prefs.dashboard_deadlines ?? null} />}
+          {tab === "echeances"    && (
+            <DeadlinesTab
+              userId={accountOwnerId}
+              deadlines={prefs.dashboard_deadlines ?? null}
+              tvaRegime={company?.tva_regime ?? null}
+              tvaAssujetti={company?.tva_assujetti ?? null}
+            />
+          )}
           {tab === "messages"     && <MessagesTab userId={accountOwnerId} companyId={companyId} company={company} />}
           {tab === "equipe"       && entitlements.features.multi_users && <TeamTab />}
           {tab === "audit"        && <AuditLogTab logs={auditLogs} />}
