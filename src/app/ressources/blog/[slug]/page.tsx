@@ -4,6 +4,7 @@ import { PortableText, type PortableTextComponents } from "@portabletext/react";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
 import { getAllPosts, getPostBySlug, getSlugValue } from "@/lib/blog";
+import { appUrl } from "@/lib/public-urls";
 import { urlFor } from "@/lib/sanity";
 
 export const revalidate = 60;
@@ -114,7 +115,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
             Plus besoin de tout faire manuellement. Centralisez vos factures, calculez vos declarations et gardez une vision claire de vos obligations.
           </p>
           <Link
-            href="/inscription"
+            href={appUrl("/inscription")}
             className="mt-6 inline-flex rounded-lg bg-[#C8924A] px-5 py-3 text-[13px] font-bold text-white transition hover:bg-[#B7833F]"
           >
             Créer un compte -&gt;

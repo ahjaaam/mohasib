@@ -1,6 +1,50 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function hostFromUrl(value: string | undefined, fallback: string) {
+  try {
+    return new URL(value || fallback).host;
+  } catch {
+    return new URL(fallback).host;
+  }
+}
+
+const marketingHost = hostFromUrl(
+  process.env.NEXT_PUBLIC_MARKETING_URL || process.env.NEXT_PUBLIC_SITE_URL,
+  "https://mohasibai.com",
+);
+const appHost = hostFromUrl(process.env.NEXT_PUBLIC_APP_URL, "https://app.mohasibai.com");
+const bareMarketingHost = marketingHost.replace(/^www\./, "");
+const marketingHosts = new Set([marketingHost, bareMarketingHost, `www.${bareMarketingHost}`]);
+
+const marketingRoutes = [
+  "/",
+  "/tarifs",
+  "/logiciels",
+  "/ressources",
+  "/centre-aide",
+  "/cgu",
+  "/confidentialite",
+  "/en-attente",
+  "/liste-attente",
+];
+
+const appPublicRoutes = [
+  "/connexion",
+  "/inscription",
+  "/mot-de-passe-oublie",
+  "/reinitialiser-mot-de-passe",
+  "/auth/callback",
+  "/auth/recuperation",
+  "/invitations",
+];
+
+const sharedPublicRoutes = ["/f"];
+
+function matchesRoute(path: string, routes: string[]) {
+  return routes.some((route) => path === route || path.startsWith(`${route}/`));
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -30,27 +74,41 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const publicRoutes = [
-    "/",
-    "/connexion",
-    "/inscription",
-    "/mot-de-passe-oublie",
-    "/reinitialiser-mot-de-passe",
-    "/tarifs",
-    "/ressources",
-    "/centre-aide",
-    "/cgu",
-    "/confidentialite",
-    "/en-attente",
-    "/auth/callback",
-    "/invitations",
-    "/f",
-  ];
+  const host = request.headers.get("host") || "";
+  const isAppHost = host === appHost;
+  const isMarketingHost = marketingHosts.has(host);
   const isAuthPage = path.startsWith("/auth");
   const isApiRoute = path.startsWith("/api");
-  const isPublic = publicRoutes.some((route) =>
-    path === route || path.startsWith(`${route}/`)
-  );
+  const isMarketingRoute = matchesRoute(path, marketingRoutes);
+  const isAppPublicRoute = matchesRoute(path, appPublicRoutes);
+  const isSharedPublicRoute = matchesRoute(path, sharedPublicRoutes);
+  const isPublic = isMarketingRoute || isAppPublicRoute || isSharedPublicRoute;
+
+  if (isMarketingHost && isAppPublicRoute) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = appHost;
+    return NextResponse.redirect(url);
+  }
+
+  if (isMarketingHost && !isApiRoute && !isSharedPublicRoute && !isMarketingRoute) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = appHost;
+    return NextResponse.redirect(url);
+  }
+
+  if (isAppHost && isMarketingRoute) {
+    if (path === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = user ? "/tableau-de-bord" : "/connexion";
+      return NextResponse.redirect(url);
+    }
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = marketingHost;
+    return NextResponse.redirect(url);
+  }
 
   // The founder back office must remain undiscoverable to unauthenticated users.
   if (!user && (path === "/admin" || path.startsWith("/admin/"))) {
@@ -61,6 +119,7 @@ export async function updateSession(request: NextRequest) {
   if (!user && !isAuthPage && !isApiRoute && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/connexion";
+    if (isMarketingHost) url.host = appHost;
     return NextResponse.redirect(url);
   }
 

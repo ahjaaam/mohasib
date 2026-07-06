@@ -79,7 +79,7 @@ export function oauthRedirect(request: Request, params: Record<string, string>) 
 
 export function appOrigin(request: Request) {
   const url = new URL(request.url);
-  return process.env.NEXT_PUBLIC_SITE_URL || url.origin;
+  return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || url.origin;
 }
 
 export function getOAuthConfig(provider: EmailProvider, request: Request) {

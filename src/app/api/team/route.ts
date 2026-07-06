@@ -7,6 +7,7 @@ import { checkPlanLimit } from "@/lib/plan-check";
 import { getActiveUserCount, requirePermission } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { resolveTeamContext, ROLE_LABELS } from "@/lib/team";
+import { appUrl } from "@/lib/public-urls";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -65,7 +66,7 @@ export async function GET() {
   const members = (memberships ?? []).map(membership => ({
     ...membership,
     invitation_url: membership.invitation_token
-      ? `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/invitations/${membership.invitation_token}`
+      ? appUrl(`/invitations/${membership.invitation_token}`)
       : null,
     invitation_token: undefined,
     role_label: ROLE_LABELS[membership.role_name] ?? membership.role_name,
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
 
   if (error || !membership) return NextResponse.json({ error: "create_failed", message: teamDatabaseMessage(error?.message) }, { status: 500 });
 
-  const invitationUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/invitations/${token}`;
+  const invitationUrl = appUrl(`/invitations/${token}`);
   if (resend) {
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "Mohasib <noreply@mohasibai.com>",

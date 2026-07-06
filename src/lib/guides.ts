@@ -30,3 +30,24 @@ export async function getAllGuides() {
     return [];
   }
 }
+
+export async function getGuideBySlug(slug: string) {
+  if (!hasSanityConfig) return null;
+  try {
+    const decodedSlug = decodeURIComponent(slug);
+    return await client.fetch<DownloadableGuide | null>(`
+      *[_type == "guide" && active == true && slug.current == $slug][0] {
+        _id,
+        title,
+        slug,
+        "description": coalesce(description, excerpt, ""),
+        pages,
+        "tags": coalesce(tags, []),
+        "fileUrl": coalesce(fileUrl, downloadFile.asset->url, file.asset->url, pdf.asset->url),
+        publishedAt
+      }
+    `, { slug: decodedSlug });
+  } catch {
+    return null;
+  }
+}

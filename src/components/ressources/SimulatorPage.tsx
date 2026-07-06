@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Calculator } from "lucide-react";
+import { appUrl } from "@/lib/public-urls";
 
 export type SimulatorKind = "tva" | "is" | "paie" | "rentabilite";
 
@@ -62,7 +63,7 @@ function ToolPanel({ title, children }: { title: string; children: React.ReactNo
         <h2 className="text-[18px] font-bold text-[#0D1526]">{title}</h2>
       </div>
       {children}
-      <Link href="/inscription" className="mt-6 flex w-full justify-center rounded-lg border border-[#C8924A] px-4 py-3 text-[13px] font-bold text-[#C8924A] transition hover:bg-[#C8924A] hover:text-white">
+      <Link href={appUrl("/inscription")} className="mt-6 flex w-full justify-center rounded-lg border border-[#C8924A] px-4 py-3 text-[13px] font-bold text-[#C8924A] transition hover:bg-[#C8924A] hover:text-white">
         Calculer avec mes vraies donnees -&gt;
       </Link>
     </section>

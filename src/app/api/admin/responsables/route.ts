@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { logAdminAudit, requireAdminApi } from "@/lib/admin-api";
+import { appUrl } from "@/lib/public-urls";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const ACCESS_SCOPES = ["business_only", "comptable_pro_only", "both"] as const;
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: error?.message || "Impossible de créer l'invitation." }, { status: 400 });
   }
 
-  const invitationUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/invitations/${token}`;
+  const invitationUrl = appUrl(`/invitations/${token}`);
   let emailSent = false;
   if (resend) {
     const result = await resend.emails.send({

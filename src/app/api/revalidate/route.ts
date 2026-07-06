@@ -22,5 +22,10 @@ export async function POST(request: Request) {
     revalidatePath(`/ressources/blog/${slug}`);
   }
 
+  if (payload?._type === "guide" && slug) {
+    revalidatePath(`/ressources/documents/${slug}`);
+    revalidatePath(`/ressources/guides/${slug}`);
+  }
+
   return Response.json({ revalidated: true, slug: slug ?? null });
 }

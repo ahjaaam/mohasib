@@ -13,22 +13,22 @@ const cards = [
   {
     title: "Follow us on LinkedIn",
     description: "Suivez les nouveautés, annonces produit et conseils pratiques autour de Mohasib AI.",
-    cta: "Lien LinkedIn à ajouter",
-    href: null,
+    cta: "Suivre Mohasib AI",
+    href: "https://www.linkedin.com/company/mohasibai/",
     icon: Linkedin,
   },
   {
     title: "Email us",
     description: "Pour une question, un bug, une demande de démo ou un besoin d'accompagnement.",
-    cta: "a.ahjame@gmail.com",
+    cta: "Envoyer un email",
     href: "mailto:a.ahjame@gmail.com",
     icon: Mail,
   },
   {
     title: "Live chat on WhatsApp",
-    description: "Le chat WhatsApp sera disponible bientôt pour échanger rapidement avec l'équipe Mohasib.",
-    cta: "Numéro à ajouter bientôt",
-    href: null,
+    description: "Échangez rapidement avec l'équipe Mohasib pour une question, une démo ou un besoin d'aide.",
+    cta: "Ouvrir WhatsApp",
+    href: "https://wa.me/212777884056",
     icon: MessageCircle,
   },
 ];
@@ -66,8 +66,16 @@ export default function CentreAidePage() {
               </div>
             );
 
+            const isExternal = href?.startsWith("http");
+
             return href ? (
-              <Link key={title} href={href} className="block no-underline">
+              <Link
+                key={title}
+                href={href}
+                className="block no-underline"
+                target={isExternal ? "_blank" : undefined}
+                rel={isExternal ? "noopener noreferrer" : undefined}
+              >
                 {content}
               </Link>
             ) : (

@@ -11,6 +11,7 @@ import {
 import { Fragment, Suspense, useState } from "react";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
+import { appUrl } from "@/lib/public-urls";
 
 type Track = "business" | "comptable";
 
@@ -267,11 +268,11 @@ function PlanCard({ plan }: { plan: Plan }) {
         <span className="text-[45px]">{plan.price}</span>
         <span className={`pb-1 text-[12px] font-semibold ${plan.dark ? "text-white/55" : "text-[#6B7280]"}`}>MAD/mois</span>
       </p>
-      <p className={`mt-3 min-h-10 text-[13px] ${plan.dark ? "text-white/55" : "text-[#6B7280]"}`}>{plan.tagline}</p>
+      <p className={`mt-3 text-[13px] ${plan.dark ? "text-white/55" : "text-[#6B7280]"}`}>{plan.tagline}</p>
 
       <Link
-        href="/inscription"
-        className={`mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full px-4 text-center text-[12px] font-bold transition hover:-translate-y-0.5 ${plan.popular || plan.dark ? "bg-[#C8924A] text-white hover:bg-[#B6813F]" : "border border-[#0D1526] text-[#0D1526] hover:bg-[#0D1526] hover:text-white"}`}
+        href={appUrl("/inscription")}
+        className={`mt-3 inline-flex w-fit text-[12px] font-bold underline underline-offset-4 transition hover:text-[#B6813F] ${plan.dark ? "text-[#D9AE73]" : "text-[#C8924A]"}`}
       >
         Créer un compte gratuitement
       </Link>
@@ -291,6 +292,11 @@ function ComparisonTable({ track }: { track: Track }) {
   const headings = track === "business"
     ? ["Fonctionnalité", "Starter", "Business", "Business Pro"]
     : ["Fonctionnalité", "Starter", "Essentiel", "Illimité"];
+  const renderValue = (value: string) => {
+    if (value === "✓") return <Check aria-label="Inclus" className="text-[#C8924A]" size={17} strokeWidth={2.8} />;
+    if (value === "✗") return <X aria-label="Non inclus" className="text-[#B8BEC7]" size={16} strokeWidth={2.4} />;
+    return value;
+  };
 
   return (
     <div className="overflow-x-auto rounded-lg border border-black/[0.08] bg-white">
@@ -307,7 +313,11 @@ function ComparisonTable({ track }: { track: Track }) {
               {section.rows.map((row, rowIndex) => (
                 <tr key={`${section.title}-${row[0]}`} className={rowIndex % 2 === 0 ? "bg-white" : "bg-[#FAFAF6]"}>
                   {row.map((value, index) => (
-                    <td key={`${row[0]}-${index}`} className={`border-t border-black/[0.06] px-5 py-3.5 ${index === 0 ? "font-semibold text-[#374151]" : value === "✓" ? "text-[16px] font-bold text-[#C8924A]" : value === "✗" ? "text-[15px] text-[#9CA3AF]" : "text-[#6B7280]"}`}>{value}</td>
+                    <td key={`${row[0]}-${index}`} className={`border-t border-black/[0.06] px-5 py-3.5 ${index === 0 ? "font-semibold text-[#374151]" : value === "✓" || value === "✗" ? "text-left" : "text-[#6B7280]"}`}>
+                      <span className={value === "✓" || value === "✗" ? "inline-flex items-center justify-start" : undefined}>
+                        {renderValue(value)}
+                      </span>
+                    </td>
                   ))}
                 </tr>
               ))}

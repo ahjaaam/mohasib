@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/rbac";
 import { resolveTeamContext, ROLE_LABELS } from "@/lib/team";
+import { appUrl } from "@/lib/public-urls";
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
@@ -29,7 +30,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     invited_at: new Date().toISOString(),
   }).eq("id", id);
 
-  const invitationUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/invitations/${token}`;
+  const invitationUrl = appUrl(`/invitations/${token}`);
   if (process.env.RESEND_API_KEY) {
     await new Resend(process.env.RESEND_API_KEY).emails.send({
       from: process.env.RESEND_FROM_EMAIL || "Mohasib <noreply@mohasibai.com>",

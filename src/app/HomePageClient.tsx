@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
+import { appUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
 const NAVY: React.CSSProperties["color"] = "#0D1526";
@@ -115,7 +116,7 @@ export default function HomePageClient() {
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
               <a
-                href="/inscription"
+                href={appUrl("/inscription")}
                 style={{ fontSize: 15, fontWeight: 600, color: "#FFFFFF", backgroundColor: NAVY, padding: "14px 28px", borderRadius: 5, textDecoration: "none", fontFamily: FONT, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
               >
                 Créer un compte gratuit
@@ -229,7 +230,7 @@ export default function HomePageClient() {
             </ul>
 
             <Link
-              href="/inscription"
+              href={appUrl("/inscription")}
               style={{ marginTop: 24, display: "block", textAlign: "center", padding: "13px", borderRadius: 6, border: `1.5px solid ${NAVY}`, color: NAVY, backgroundColor: "transparent", fontSize: 14, fontWeight: 600, textDecoration: "none", fontFamily: FONT, transition: "all 0.15s" }}
             >
               Créer un compte Pro →
