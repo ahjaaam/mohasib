@@ -25,6 +25,7 @@ function openDocument(fileUrl?: string | null) {
 export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
   const supabase = createClient();
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -38,6 +39,7 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
     const params = new URLSearchParams(window.location.search);
     const { error: insertError } = await supabase.from("resource_leads").insert({
       email: email.trim().toLowerCase(),
+      phone: phone.trim() || null,
       resource_id: resource.id,
       resource_title: resource.title,
       resource_slug: resource.slug,
@@ -96,6 +98,13 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="votre@email.com"
+            className="w-full rounded-lg border border-[rgba(13,21,38,0.12)] px-3 py-3 text-[14px] outline-none focus:border-[#C8924A]"
+          />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder="Téléphone (optionnel)"
             className="w-full rounded-lg border border-[rgba(13,21,38,0.12)] px-3 py-3 text-[14px] outline-none focus:border-[#C8924A]"
           />
           {error && <p className="text-[12px] leading-5 text-red-600">{error}</p>}

@@ -5,6 +5,7 @@ import { adminContext, formatDate } from "@/lib/admin-data";
 type ResourceLead = {
   id: string;
   email: string;
+  phone: string | null;
   resource_title: string | null;
   resource_slug: string | null;
   source: string | null;
@@ -22,13 +23,13 @@ export default async function ResourceLeadsPage({
   const { admin } = await adminContext();
   const { data } = await admin
     .from("resource_leads")
-    .select("id,email,resource_title,resource_slug,source,utm_source,utm_campaign,created_at")
+    .select("id,email,phone,resource_title,resource_slug,source,utm_source,utm_campaign,created_at")
     .order("created_at", { ascending: false })
     .limit(500);
 
   const q = (filters.q ?? "").toLowerCase();
   const rows = ((data ?? []) as ResourceLead[]).filter((item) => {
-    const searchable = `${item.email ?? ""} ${item.resource_title ?? ""} ${item.resource_slug ?? ""} ${item.source ?? ""}`.toLowerCase();
+    const searchable = `${item.email ?? ""} ${item.phone ?? ""} ${item.resource_title ?? ""} ${item.resource_slug ?? ""} ${item.source ?? ""}`.toLowerCase();
     return !q || searchable.includes(q);
   });
 
@@ -43,7 +44,7 @@ export default async function ResourceLeadsPage({
       <div className="mb-5 flex items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Leads documents</h1>
-          <p className="mt-1 text-xs text-gray-500">{rows.length} email(s) capturé(s) via la bibliothèque de documents</p>
+          <p className="mt-1 text-xs text-gray-500">{rows.length} lead(s) capturé(s) via la bibliothèque de documents</p>
         </div>
         <Link href="/api/admin/export/resource-leads" className="inline-flex items-center gap-1.5 rounded border border-black/10 bg-white px-3 py-2 text-xs font-semibold">
           <Download size={13} /> CSV
@@ -52,7 +53,7 @@ export default async function ResourceLeadsPage({
 
       <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_320px]">
         <form className="rounded-md border border-black/10 bg-white p-3">
-          <input name="q" defaultValue={filters.q} placeholder="Rechercher email, document, source..." className="input text-xs" />
+          <input name="q" defaultValue={filters.q} placeholder="Rechercher email, téléphone, document, source..." className="input text-xs" />
         </form>
         <section className="rounded-md border border-black/10 bg-white p-3">
           <h2 className="text-xs font-bold text-[#0D1526]">Top documents</h2>
@@ -72,7 +73,7 @@ export default async function ResourceLeadsPage({
         <table className="w-full text-left text-[11px]">
           <thead className="bg-[#F8F8F5] text-gray-500">
             <tr>
-              {["Email", "Document", "Source", "UTM", "Date"].map((value) => (
+              {["Email", "Téléphone", "Document", "Source", "UTM", "Date"].map((value) => (
                 <th key={value} className="px-3 py-2.5">{value}</th>
               ))}
             </tr>
@@ -81,6 +82,7 @@ export default async function ResourceLeadsPage({
             {rows.map((item) => (
               <tr key={item.id}>
                 <td className="px-3 py-3 font-semibold">{item.email}</td>
+                <td className="px-3 py-3 text-gray-600">{item.phone || "—"}</td>
                 <td className="px-3 py-3">
                   <div className="font-bold">{item.resource_title || "—"}</div>
                   {item.resource_slug && <div className="mt-0.5 text-gray-400">{item.resource_slug}</div>}
@@ -94,7 +96,7 @@ export default async function ResourceLeadsPage({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-xs text-gray-400">Aucun lead document trouvé</td>
+                <td colSpan={6} className="px-3 py-8 text-center text-xs text-gray-400">Aucun lead document trouvé</td>
               </tr>
             )}
           </tbody>
