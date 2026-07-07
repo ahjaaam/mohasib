@@ -47,6 +47,43 @@ function matchesRoute(path: string, routes: string[]) {
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  const path = request.nextUrl.pathname;
+  const host = request.headers.get("host") || "";
+  const isAppHost = host === appHost;
+  const isMarketingHost = marketingHosts.has(host);
+  const isAuthPage = path.startsWith("/auth");
+  const isApiRoute = path.startsWith("/api");
+  const isMarketingRoute = matchesRoute(path, marketingRoutes);
+  const isAppPublicRoute = matchesRoute(path, appPublicRoutes);
+  const isSharedPublicRoute = matchesRoute(path, sharedPublicRoutes);
+  const isPublic = isMarketingRoute || isAppPublicRoute || isSharedPublicRoute;
+
+  // Domain-only routing should not pay the Supabase auth round-trip.
+  if (isMarketingHost && isAppPublicRoute) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = appHost;
+    return NextResponse.redirect(url);
+  }
+
+  if (isMarketingHost && !isApiRoute && !isSharedPublicRoute && !isMarketingRoute) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = appHost;
+    return NextResponse.redirect(url);
+  }
+
+  if (isAppHost && isMarketingRoute) {
+    if (path === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/connexion";
+      return NextResponse.redirect(url);
+    }
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = marketingHost;
+    return NextResponse.redirect(url);
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,43 +109,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const path = request.nextUrl.pathname;
-  const host = request.headers.get("host") || "";
-  const isAppHost = host === appHost;
-  const isMarketingHost = marketingHosts.has(host);
-  const isAuthPage = path.startsWith("/auth");
-  const isApiRoute = path.startsWith("/api");
-  const isMarketingRoute = matchesRoute(path, marketingRoutes);
-  const isAppPublicRoute = matchesRoute(path, appPublicRoutes);
-  const isSharedPublicRoute = matchesRoute(path, sharedPublicRoutes);
-  const isPublic = isMarketingRoute || isAppPublicRoute || isSharedPublicRoute;
-
-  if (isMarketingHost && isAppPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.protocol = "https:";
-    url.host = appHost;
-    return NextResponse.redirect(url);
-  }
-
-  if (isMarketingHost && !isApiRoute && !isSharedPublicRoute && !isMarketingRoute) {
-    const url = request.nextUrl.clone();
-    url.protocol = "https:";
-    url.host = appHost;
-    return NextResponse.redirect(url);
-  }
-
-  if (isAppHost && isMarketingRoute) {
-    if (path === "/") {
-      const url = request.nextUrl.clone();
-      url.pathname = user ? "/tableau-de-bord" : "/connexion";
-      return NextResponse.redirect(url);
-    }
-    const url = request.nextUrl.clone();
-    url.protocol = "https:";
-    url.host = marketingHost;
-    return NextResponse.redirect(url);
-  }
 
   // The founder back office must remain undiscoverable to unauthenticated users.
   if (!user && (path === "/admin" || path.startsWith("/admin/"))) {
