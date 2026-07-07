@@ -6,7 +6,9 @@ import { PortableText } from "@portabletext/react";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import DocumentLeadForm from "@/components/ressources/DocumentLeadForm";
+import DocumentShareButtons from "@/components/ressources/DocumentShareButtons";
 import { getAllGuides, getGuideBySlug } from "@/lib/guides";
+import { marketingUrl } from "@/lib/public-urls";
 
 export const revalidate = 60;
 
@@ -58,6 +60,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   if (!document) notFound();
 
   const currentSlug = slugValue(document.slug);
+  const pageUrl = marketingUrl(`/ressources/documents/${encodeURIComponent(currentSlug ?? slug)}`);
 
   return (
     <main className="min-h-screen bg-[#FAFAF6]">
@@ -113,6 +116,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
                   <span className="rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-[#6B7280]">{document.pages} {typeof document.pages === "number" ? "pages" : ""}</span>
                 )}
               </div>
+              <DocumentShareButtons title={document.title} url={pageUrl} />
             </div>
 
             <DocumentLeadForm
