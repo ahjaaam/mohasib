@@ -8,7 +8,6 @@ import type { Invoice, Transaction } from "@/types";
 import DashboardNews from "./DashboardNews";
 import DashboardGreeting from "./DashboardGreeting";
 import { getMonthlyUsage } from "@/lib/usage";
-import { TRIAL_LIMITS } from "@/lib/trial-limits";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -72,7 +71,6 @@ export default async function DashboardPage() {
 
   const usageData = companyId ? await getMonthlyUsage(companyId) : null;
   const showUsageWarning = usageData && usageData.used / usageData.limit >= 0.8;
-  const trialDays = company?.trial_ends_at ? Math.max(0, Math.ceil((new Date(company.trial_ends_at).getTime() - Date.now()) / 86400000)) : null;
 
   const invoices: Invoice[] = invoicesRes.data ?? [];
   const transactions: Transaction[] = transactionsRes.data ?? [];
@@ -112,46 +110,6 @@ export default async function DashboardPage() {
     <div>
       {/* Greeting */}
       <DashboardGreeting firstName={firstName} />
-
-      {company?.subscription_status === "trial" && (
-        <div className="mb-5 rounded-xl border border-[#F6D18A] bg-[#FFFBEB] p-4">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div>
-              <div className="text-[14px] font-bold text-[#1A1A2E]">Votre essai gratuit</div>
-              <div className="text-[11.5px] text-[#92400E]">{trialDays ?? "—"} jour{trialDays === 1 ? "" : "s"} restant{trialDays === 1 ? "" : "s"}</div>
-            </div>
-            <Link href="/tarifs" className="btn btn-gold btn-sm">Passer à un plan payant →</Link>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {[
-              ["Factures", Number(company.trial_invoices_used ?? 0), TRIAL_LIMITS.invoices],
-              ["Scans", Number(company.trial_ocr_used ?? 0), TRIAL_LIMITS.ocr_scans],
-              ["Documents", Number(company.trial_documents_used ?? 0), TRIAL_LIMITS.documents],
-              ["Relevés", Number(company.trial_bank_statements_used ?? 0), TRIAL_LIMITS.bank_statements],
-              ["Employés", Number(company.trial_employees_used ?? 0), TRIAL_LIMITS.employees],
-              ["Dossiers", Number(company.trial_dossiers_used ?? 0), TRIAL_LIMITS.dossiers],
-              ["TVA", Number(company.trial_tva_declarations_used ?? 0), TRIAL_LIMITS.tva_declarations],
-              ["Clients", Number(company.trial_clients_used ?? 0), TRIAL_LIMITS.clients],
-              ["Transactions", Number(company.trial_transactions_used ?? 0), TRIAL_LIMITS.transactions],
-              ["Écritures", Number(company.trial_accounting_entries_used ?? 0), TRIAL_LIMITS.accounting_entries],
-              ["Rapprochements", Number(company.trial_rapprochement_sessions_used ?? 0), TRIAL_LIMITS.rapprochement_sessions],
-              ["Lignes rapprochées", Number(company.trial_rapprochement_matches_used ?? 0), TRIAL_LIMITS.rapprochement_matches],
-            ].map(([label, used, limit]) => {
-              const ratio = Math.min(1, Number(used) / Number(limit));
-              return (
-                <div key={String(label)} className="rounded-lg bg-white/80 border border-[#FDE68A] p-2">
-                  <div className="flex justify-between text-[11px] font-semibold text-[#1A1A2E]">
-                    <span>{label}</span><span>{used}/{limit}</span>
-                  </div>
-                  <div className="mt-1 h-1.5 rounded-full bg-[#F3E8C8] overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${ratio * 100}%`, backgroundColor: ratio >= 1 ? "#DC2626" : "#C8924A" }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Usage warning banner */}
       {showUsageWarning && usageData && (
