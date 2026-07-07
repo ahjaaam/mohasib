@@ -5,6 +5,7 @@ export type DownloadableGuide = {
   title: string;
   slug?: { current: string } | string;
   description?: string;
+  descriptionRich?: unknown;
   pages?: string | number;
   tags: string[];
   fileUrl?: string;
@@ -19,7 +20,8 @@ export async function getAllGuides() {
         _id,
         title,
         slug,
-        "description": coalesce(description, excerpt, ""),
+        "description": coalesce(pt::text(description), description, excerpt, ""),
+        "descriptionRich": description,
         pages,
         "tags": coalesce(tags, []),
         "fileUrl": coalesce(fileUrl, downloadFile.asset->url, file.asset->url, pdf.asset->url),
@@ -40,7 +42,8 @@ export async function getGuideBySlug(slug: string) {
         _id,
         title,
         slug,
-        "description": coalesce(description, excerpt, ""),
+        "description": coalesce(pt::text(description), description, excerpt, ""),
+        "descriptionRich": description,
         pages,
         "tags": coalesce(tags, []),
         "fileUrl": coalesce(fileUrl, downloadFile.asset->url, file.asset->url, pdf.asset->url),

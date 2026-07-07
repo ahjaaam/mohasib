@@ -30,8 +30,49 @@ export default defineType({
     defineField({
       name: "description",
       title: "Description",
-      type: "text",
-      rows: 3,
+      type: "array",
+      of: [
+        defineArrayMember({
+          type: "block",
+          styles: [
+            { title: "Paragraphe", value: "normal" },
+            { title: "Titre H2", value: "h2" },
+            { title: "Titre H3", value: "h3" },
+            { title: "Citation", value: "blockquote" },
+          ],
+          lists: [
+            { title: "Liste à puces", value: "bullet" },
+            { title: "Liste numérotée", value: "number" },
+          ],
+          marks: {
+            decorators: [
+              { title: "Gras", value: "strong" },
+              { title: "Italique", value: "em" },
+              { title: "Code", value: "code" },
+              { title: "Souligné", value: "underline" },
+            ],
+            annotations: [
+              {
+                name: "link",
+                title: "Lien",
+                type: "object",
+                fields: [
+                  defineField({
+                    name: "href",
+                    title: "URL",
+                    type: "url",
+                    validation: (rule) =>
+                      rule.uri({
+                        scheme: ["http", "https", "mailto", "tel"],
+                      }),
+                  }),
+                ],
+              },
+            ],
+          },
+        }),
+      ],
+      description: "Texte riche affiché sur la page SEO du document : titres, listes, liens, citations, gras, italique…",
       validation: (rule) => rule.required(),
     }),
     defineField({

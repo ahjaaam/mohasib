@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
+import { PortableText } from "@portabletext/react";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import DocumentLeadForm from "@/components/ressources/DocumentLeadForm";
@@ -11,6 +12,10 @@ export const revalidate = 60;
 
 function slugValue(slug: { current?: string } | string | undefined) {
   return typeof slug === "string" ? slug : slug?.current ?? null;
+}
+
+function isPortableText(value: unknown): value is unknown[] {
+  return Array.isArray(value) && value.some((block) => typeof block === "object" && block !== null && "_type" in block);
 }
 
 export async function generateStaticParams() {
@@ -65,8 +70,40 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
             <div>
               <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Modèle gratuit</p>
               <h1 className="mt-4 text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">{document.title}</h1>
-              {document.description && (
+              {isPortableText(document.descriptionRich) ? (
+                <div className="mt-5 max-w-2xl space-y-4 text-[15px] leading-7 text-[#6B7280]">
+                  <PortableText
+                    value={document.descriptionRich as any}
+                    components={{
+                      block: {
+                        normal: ({ children }) => <p>{children}</p>,
+                        h2: ({ children }) => <h2 className="pt-3 text-[24px] font-bold leading-tight text-[#0D1526]">{children}</h2>,
+                        h3: ({ children }) => <h3 className="pt-2 text-[19px] font-bold leading-tight text-[#0D1526]">{children}</h3>,
+                        blockquote: ({ children }) => (
+                          <blockquote className="border-l-4 border-[#C8924A] bg-white/70 py-2 pl-4 italic text-[#4B5563]">{children}</blockquote>
+                        ),
+                      },
+                      list: {
+                        bullet: ({ children }) => <ul className="ml-5 list-disc space-y-2">{children}</ul>,
+                        number: ({ children }) => <ol className="ml-5 list-decimal space-y-2">{children}</ol>,
+                      },
+                      marks: {
+                        link: ({ children, value }) => (
+                          <a href={value?.href} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#C8924A] underline underline-offset-4">
+                            {children}
+                          </a>
+                        ),
+                        code: ({ children }) => <code className="rounded bg-white px-1.5 py-0.5 text-[13px] text-[#0D1526]">{children}</code>,
+                        underline: ({ children }) => <span className="underline underline-offset-4">{children}</span>,
+                      },
+                    }}
+                  />
+                </div>
+              ) : document.description ? (
                 <p className="mt-5 max-w-2xl text-[15px] leading-7 text-[#6B7280]">{document.description}</p>
+              ) : null}
+              {isPortableText(document.descriptionRich) && document.description && (
+                <p className="sr-only">{document.description}</p>
               )}
               <div className="mt-6 flex flex-wrap gap-2">
                 {document.tags.map((tag) => (
