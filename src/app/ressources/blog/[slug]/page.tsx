@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { PortableText, type PortableTextComponents } from "@portabletext/react";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
+import DocumentShareButtons from "@/components/ressources/DocumentShareButtons";
 import { getAllPosts, getPostBySlug, getSlugValue } from "@/lib/blog";
-import { appUrl } from "@/lib/public-urls";
+import { appUrl, marketingUrl } from "@/lib/public-urls";
 import { urlFor } from "@/lib/sanity";
 
 export const revalidate = 60;
@@ -83,6 +84,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
   const category = post.category || "comptabilite";
   const coverImageUrl = post.coverImage ? urlFor(post.coverImage).width(1200).height(560).fit("crop").url() : null;
+  const articleUrl = marketingUrl(`/ressources/blog/${encodeURIComponent(getSlugValue(post.slug) ?? slug)}`);
 
   return (
     <main className="min-h-screen bg-[#FAFAF6]">
@@ -97,6 +99,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <p className="mt-4 text-[13px] text-[#6B7280]">
             {formatDate(post.publishedAt)} · {formatReadTime(post.readTime)} · Equipe Mohasib
           </p>
+          <DocumentShareButtons title={post.title} url={articleUrl} description="article Mohasib AI" />
         </div>
 
         {coverImageUrl && <img src={coverImageUrl} alt="" className="mt-8 w-full rounded-2xl object-cover" />}

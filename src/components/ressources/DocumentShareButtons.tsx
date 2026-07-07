@@ -6,18 +6,19 @@ import { Check, Copy, Linkedin, MessageCircle, Share2 } from "lucide-react";
 type DocumentShareButtonsProps = {
   title: string;
   url: string;
+  description?: string;
 };
 
-export default function DocumentShareButtons({ title, url }: DocumentShareButtonsProps) {
+export default function DocumentShareButtons({ title, url, description = "document gratuit Mohasib AI" }: DocumentShareButtonsProps) {
   const [copied, setCopied] = useState(false);
   const encodedUrl = encodeURIComponent(url);
   const encodedTitle = encodeURIComponent(title);
-  const shareText = encodeURIComponent(`${title} — document gratuit Mohasib AI`);
+  const shareText = encodeURIComponent(`${title} — ${description}`);
 
   async function nativeShare() {
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
-        await navigator.share({ title, text: `${title} — document gratuit Mohasib AI`, url });
+        await navigator.share({ title, text: `${title} — ${description}`, url });
       } catch {
         // User cancelled or browser blocked it. No need to show an error.
       }
