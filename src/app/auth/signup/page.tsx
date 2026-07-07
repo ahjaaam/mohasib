@@ -94,19 +94,6 @@ export default function SignupPage() {
     } else if (data.user && (data.user.identities?.length ?? 0) === 0) {
       setError("Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou réinitialisez votre mot de passe.");
     } else {
-      void fetch("/api/notify/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        keepalive: true,
-        body: JSON.stringify({
-          full_name: form.full_name,
-          email,
-          phone: form.phone,
-          company: form.company,
-          user_type: userType,
-        }),
-      }).catch(() => {});
-
       if (data.session) {
         window.location.href = userType === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
         return;
