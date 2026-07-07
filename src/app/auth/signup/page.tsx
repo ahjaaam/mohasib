@@ -73,30 +73,46 @@ export default function SignupPage() {
       return;
     }
 
-    const response = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        full_name: form.full_name,
-        company: form.company,
-        phone: form.phone,
-        email: form.email,
-        password: form.password,
-        user_type: userType,
-      }),
+    const email = form.email.trim().toLowerCase();
+    const { data, error: err } = await supabase.auth.signUp({
+      email,
+      password: form.password,
+      options: {
+        data: {
+          full_name: form.full_name,
+          company: form.company,
+          phone: form.phone.trim(),
+          user_type: userType,
+          invitation_token: invitationToken,
+        },
+      },
     });
-    const result = await response.json();
 
     setLoading(false);
-    if (!response.ok) {
-      setError(result.code === "email_exists" ? result.error : translateError(result));
-      return;
+    if (err) {
+      setError(translateError(err));
+    } else if (data.user && (data.user.identities?.length ?? 0) === 0) {
+      setError("Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou réinitialisez votre mot de passe.");
+    } else {
+      void fetch("/api/notify/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          full_name: form.full_name,
+          email,
+          phone: form.phone,
+          company: form.company,
+          user_type: userType,
+        }),
+      }).catch(() => {});
+
+      if (data.session) {
+        window.location.href = userType === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
+        return;
+      }
+      setSuccess(true);
     }
-    if (result.hasSession) {
-      window.location.href = result.redirect ?? (userType === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord");
-      return;
-    }
-    setSuccess(true);
   }
 
   if (success) {
