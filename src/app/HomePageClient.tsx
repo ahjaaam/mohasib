@@ -31,6 +31,11 @@ function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
       setError("Impossible d'envoyer la demande. Veuillez réessayer.");
       return;
     }
+    void fetch("/api/notify/demo-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    }).catch(() => {});
     setDone(true);
     onSuccess?.();
   }
