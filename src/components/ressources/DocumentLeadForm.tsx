@@ -60,6 +60,18 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
       return;
     }
 
+    void fetch("/api/resources/send-document", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        resourceId: resource.id,
+      }),
+      keepalive: true,
+    }).catch((sendError) => {
+      console.error("Document email failed", sendError);
+    });
+
     openDocument(resource.fileUrl);
     setSuccess(true);
   }
@@ -79,7 +91,7 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
           <CheckCircle className="mx-auto text-[#059669]" size={32} />
           <p className="mt-3 text-[14px] font-bold text-[#065F46]">Merci, votre document est prêt.</p>
           <p className="mt-2 text-[12px] leading-5 text-[#047857]">
-            Si l&apos;ouverture automatique a été bloquée par votre navigateur, utilisez le bouton ci-dessous.
+            Nous vous envoyons aussi le lien par email. Si l&apos;ouverture automatique a été bloquée par votre navigateur, utilisez le bouton ci-dessous.
           </p>
           <a
             href={resource.fileUrl ?? "#"}
