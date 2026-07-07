@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PortableText, type PortableTextComponents } from "@portabletext/react";
 import PublicNavbar from "@/components/PublicNavbar";
@@ -7,6 +8,7 @@ import DocumentShareButtons from "@/components/ressources/DocumentShareButtons";
 import { getAllPosts, getPostBySlug, getSlugValue } from "@/lib/blog";
 import { appUrl, marketingUrl } from "@/lib/public-urls";
 import { urlFor } from "@/lib/sanity";
+import { seoMetadata } from "@/lib/seo";
 
 export const revalidate = 60;
 
@@ -64,6 +66,31 @@ export async function generateStaticParams() {
   return posts.map((post) => ({ slug: getSlugValue(post.slug) })).filter((item) => item.slug);
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPostBySlug(slug);
+
+  if (!post) {
+    return seoMetadata({
+      title: "Article introuvable | Mohasib AI",
+      description: "Cet article Mohasib AI est introuvable.",
+      path: `/ressources/blog/${encodeURIComponent(slug)}`,
+      noIndex: true,
+    });
+  }
+
+  const resolvedSlug = getSlugValue(post.slug) ?? slug;
+  const image = post.coverImage ? urlFor(post.coverImage).width(1200).height(630).fit("crop").url() : "/og-image.png";
+
+  return seoMetadata({
+    title: post.seoTitle || `${post.title} | Mohasib AI`,
+    description: post.seoDescription || post.excerpt || "Article Mohasib AI sur la comptabilité, la fiscalité et l’entrepreneuriat au Maroc.",
+    path: `/ressources/blog/${encodeURIComponent(resolvedSlug)}`,
+    type: "article",
+    image,
+  });
+}
+
 function formatReadTime(readTime?: number | string) {
   if (!readTime) return "5 min de lecture";
   if (typeof readTime === "number") return `${readTime} min de lecture`;
@@ -85,10 +112,38 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const category = post.category || "comptabilite";
   const coverImageUrl = post.coverImage ? urlFor(post.coverImage).width(1200).height(560).fit("crop").url() : null;
   const articleUrl = marketingUrl(`/ressources/blog/${encodeURIComponent(getSlugValue(post.slug) ?? slug)}`);
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: post.seoDescription || post.excerpt,
+    image: coverImageUrl ? [coverImageUrl] : [marketingUrl("/og-image.png")],
+    datePublished: post.publishedAt,
+    dateModified: post.publishedAt,
+    author: {
+      "@type": "Organization",
+      name: "Mohasib AI",
+      url: marketingUrl("/"),
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Mohasib AI",
+      logo: {
+        "@type": "ImageObject",
+        url: marketingUrl("/logo.png"),
+      },
+    },
+    mainEntityOfPage: articleUrl,
+    inLanguage: "fr-MA",
+  };
 
   return (
     <main className="min-h-screen bg-[#FAFAF6]">
       <PublicNavbar />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <article className="mx-auto max-w-3xl px-6 py-10">
         <Link href="/ressources/blog" className="text-[13px] font-semibold text-[#C8924A]">← Retour au blog</Link>
         <div className="mt-8">

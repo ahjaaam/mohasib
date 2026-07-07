@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Plus_Jakarta_Sans, Instrument_Serif } from "next/font/google";
+import { MARKETING_URL } from "@/lib/public-urls";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -17,6 +19,7 @@ const serif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(MARKETING_URL),
   icons: { icon: "/favicon.png" },
   title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
   description:
@@ -49,6 +52,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" style={{ scrollBehavior: "smooth" }} className={`${jakarta.variable} ${serif.variable}`}>
       <body suppressHydrationWarning style={{ fontFamily: "var(--font-jakarta), sans-serif" }}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationJsonLd, websiteJsonLd]) }}
+        />
         {children}
       </body>
     </html>

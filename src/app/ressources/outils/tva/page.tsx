@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import { SimulatorPage } from "@/components/ressources/SimulatorPage";
+import { seoMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = seoMetadata({
+  title: "Simulateur TVA Maroc gratuit — Calcul TVA collectée et déductible",
+  description: "Calculez gratuitement votre TVA au Maroc : TVA collectée, TVA déductible et montant net estimé à payer selon vos taux et montants.",
+  path: "/ressources/outils/tva",
+});
 
 export default function TvaToolPage() {
   return (

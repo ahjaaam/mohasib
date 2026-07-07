@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import ProductPage from "../ProductPage";
+import { seoMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = seoMetadata({
   title: "Logiciel de gestion et comptabilité pour PME marocaines | Mohasib AI",
   description: "Découvrez Mohasib Business : facturation, TVA, OCR, trésorerie, paie, documents et exports comptables pour entrepreneurs, TPE et PME au Maroc.",
-};
+  path: "/logiciels/business",
+});
 
 export default function BusinessSoftwarePage() {
   return (

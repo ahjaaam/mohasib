@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Calculator, ChartNoAxesCombined, Landmark, ReceiptText } from "lucide-react";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
+import { seoMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = seoMetadata({
+  title: "Simulateurs comptables Maroc — TVA, IS, paie et rentabilité",
+  description: "Utilisez les simulateurs gratuits Mohasib AI pour calculer la TVA, estimer l’IS, simuler un bulletin de paie et projeter votre rentabilité au Maroc.",
+  path: "/ressources/outils",
+});
 
 const tools = [
   {

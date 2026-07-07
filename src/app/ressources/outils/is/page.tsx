@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import { SimulatorPage } from "@/components/ressources/SimulatorPage";
+import { seoMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = seoMetadata({
+  title: "Simulateur IS Maroc gratuit — Estimation impôt sur les sociétés",
+  description: "Estimez gratuitement l’impôt sur les sociétés au Maroc à partir de votre chiffre d’affaires, charges et résultat fiscal.",
+  path: "/ressources/outils/is",
+});
 
 export default function IsToolPage() {
   return (

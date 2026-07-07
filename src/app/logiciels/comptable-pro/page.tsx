@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import ProductPage from "../ProductPage";
+import { seoMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = seoMetadata({
   title: "Logiciel cabinet comptable et fiduciaire au Maroc | Mohasib AI",
   description: "Découvrez Mohasib Comptable Pro : dossiers clients, facturation par dossier, TVA, paie, saisie comptable, calendrier fiscal et exports CGNC pour cabinets comptables.",
-};
+  path: "/logiciels/comptable-pro",
+});
 
 export default function ComptableProSoftwarePage() {
   return (

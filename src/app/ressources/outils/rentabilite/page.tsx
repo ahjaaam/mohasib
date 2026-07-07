@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import { SimulatorPage } from "@/components/ressources/SimulatorPage";
+import { seoMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = seoMetadata({
+  title: "Simulateur rentabilité gratuit — Marge, charges et résultat net",
+  description: "Projetez votre rentabilité avec un simulateur simple : chiffre d’affaires, charges, salaires, marge et résultat net estimé.",
+  path: "/ressources/outils/rentabilite",
+});
 
 export default function RentabiliteToolPage() {
   return (

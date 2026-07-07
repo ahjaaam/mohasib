@@ -1,10 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
 import { getAllPosts, getSlugValue, type BlogPostListItem } from "@/lib/blog";
+import { seoMetadata } from "@/lib/seo";
 import { urlFor } from "@/lib/sanity";
 
 export const revalidate = 60;
+
+export const metadata: Metadata = seoMetadata({
+  title: "Blog comptabilité Maroc — TVA, IS, paie et entrepreneuriat | Mohasib AI",
+  description: "Conseils pratiques pour entrepreneurs et cabinets au Maroc : TVA, IS, paie, facturation, trésorerie, obligations fiscales et comptabilité.",
+  path: "/ressources/blog",
+});
 
 const filters = ["Tous", "TVA", "IS", "Paie", "Tresorerie", "Creation d'entreprise"];
 

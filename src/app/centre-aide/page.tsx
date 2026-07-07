@@ -3,11 +3,13 @@ import Link from "next/link";
 import { Linkedin, Mail, MessageCircle } from "lucide-react";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
+import { seoMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = seoMetadata({
   title: "Centre d'aide | Mohasib AI",
-  description: "Contactez Mohasib AI par email, LinkedIn ou WhatsApp.",
-};
+  description: "Contactez Mohasib AI par email, LinkedIn ou WhatsApp pour une question, une démo ou un besoin d’accompagnement.",
+  path: "/centre-aide",
+});
 
 const cards = [
   {

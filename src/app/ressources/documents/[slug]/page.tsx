@@ -61,10 +61,29 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
 
   const currentSlug = slugValue(document.slug);
   const pageUrl = marketingUrl(`/ressources/documents/${encodeURIComponent(currentSlug ?? slug)}`);
+  const documentJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name: document.title,
+    description: document.description,
+    url: pageUrl,
+    inLanguage: "fr-MA",
+    isAccessibleForFree: true,
+    publisher: {
+      "@type": "Organization",
+      name: "Mohasib AI",
+      url: marketingUrl("/"),
+    },
+    about: document.tags,
+  };
 
   return (
     <main className="min-h-screen bg-[#FAFAF6]">
       <PublicNavbar />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(documentJsonLd) }}
+      />
 
       <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[56px]">
         <div className="mx-auto max-w-5xl">

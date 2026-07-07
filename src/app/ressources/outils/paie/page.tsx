@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import { SimulatorPage } from "@/components/ressources/SimulatorPage";
+import { seoMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = seoMetadata({
+  title: "Simulateur bulletin de paie Maroc gratuit — Net à payer et coût employeur",
+  description: "Simulez gratuitement un bulletin de paie au Maroc : net à payer, retenues salariales et coût total employeur.",
+  path: "/ressources/outils/paie",
+});
 
 export default function PaieToolPage() {
   return (

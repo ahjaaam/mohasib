@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { BookOpen, Calculator, Download } from "lucide-react";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
+import { seoMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = seoMetadata({
+  title: "Ressources comptabilité Maroc — Blog, simulateurs et documents gratuits",
+  description: "Explorez les ressources Mohasib AI : articles de comptabilité marocaine, simulateurs TVA/IS/paie et modèles Word, Excel ou PDF à télécharger.",
+  path: "/ressources",
+});
 
 const cards = [
   {
