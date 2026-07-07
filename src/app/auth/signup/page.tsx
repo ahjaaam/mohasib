@@ -97,6 +97,7 @@ export default function SignupPage() {
       void fetch("/api/notify/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        keepalive: true,
         body: JSON.stringify({
           full_name: form.full_name,
           email,

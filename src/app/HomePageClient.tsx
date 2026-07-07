@@ -34,6 +34,7 @@ function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
     void fetch("/api/notify/demo-request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      keepalive: true,
       body: JSON.stringify(form),
     }).catch(() => {});
     setDone(true);
