@@ -39,7 +39,7 @@ const appPublicRoutes = [
   "/invitations",
 ];
 
-const sharedPublicRoutes = ["/f"];
+const sharedPublicRoutes = ["/f", "/robots.txt", "/sitemap.xml"];
 
 function matchesRoute(path: string, routes: string[]) {
   return routes.some((route) => path === route || path.startsWith(`${route}/`));
