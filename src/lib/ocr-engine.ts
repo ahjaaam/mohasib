@@ -78,6 +78,35 @@ function computeTvaAmount(amountTtc: number | null, amountHt: number | null, tva
   return null;
 }
 
+function cleanDescription(value: unknown): string | null {
+  if (value == null) return null;
+  const text = String(value)
+    .replace(/\s+/g, " ")
+    .replace(/\b(qté|quantité|prix unitaire|pu ht|total ht|total ttc)\b/gi, "")
+    .trim();
+  if (!text) return null;
+  return text.length > 140 ? `${text.slice(0, 137).trim()}…` : text;
+}
+
+function fallbackAccountingDescription(input: {
+  category?: unknown;
+  vendorName?: unknown;
+  invoiceNumber?: unknown;
+  date?: string | null;
+  documentType?: unknown;
+}) {
+  const category = typeof input.category === "string" && input.category.trim() ? input.category.trim() : "Achat";
+  const vendor = typeof input.vendorName === "string" && input.vendorName.trim() ? input.vendorName.trim() : null;
+  const reference = typeof input.invoiceNumber === "string" && input.invoiceNumber.trim() ? input.invoiceNumber.trim() : null;
+  const isAvoir = String(input.documentType ?? "").toLowerCase() === "avoir";
+
+  const parts = [isAvoir ? `Avoir fournisseur — ${category}` : `Achat ${category.toLowerCase()}`];
+  if (vendor) parts.push(vendor);
+  if (reference) parts.push(`Facture ${reference}`);
+  if (input.date) parts.push(input.date.slice(0, 7));
+  return parts.join(" — ");
+}
+
 // ── Prompts ───────────────────────────────────────────────────────────────────
 
 const MAIN_PROMPT = `You are an expert at reading Moroccan business invoices and receipts, including old, scanned, faded, or low-quality documents.
@@ -92,7 +121,7 @@ Extract:
 5. tva_rate: TVA percentage — only 7, 10, 14, or 20. Default to 20 if unclear.
 6. tva_amount: TVA amount in MAD
 7. amount_ttc: Total including tax (TTC, toutes taxes). This is usually the most visible amount.
-8. description: What was purchased or service provided
+8. description: A proper accounting description in French, not a raw copy of the line-item designation. It should summarize the accounting nature of the invoice for bookkeeping.
 9. payment_method: Cash, Virement, Chèque, or Carte
 10. category: Best guess from: Achats, Salaires, Loyer, Fournitures, Transport, Communication, Fiscalité, Autre dépense
 11. document_type: Use "avoir" if the document is a credit note / avoir fournisseur (keywords: AVOIR, Note de crédit, Credit Note, Avoir N°, rectificatif)
@@ -109,6 +138,14 @@ IMPORTANT RULES:
 - TVA: actively look for labels such as "TVA", "Taux TVA", "Montant TVA", "Taxe", "VAT", "Total TVA", or tax columns in line-item tables.
 - If HT and TTC are visible but TVA rate is not written, infer the rate from TTC - HT.
 - If the TVA rate is not visible or cannot be inferred, return tva_rate = 20. Do not return null for tva_rate on invoices/receipts with an amount.
+- Description: generate a clean French bookkeeping label. Do NOT just copy the "Désignation" text or product/service line details.
+- Good description examples:
+  - "Achat fournitures de bureau — Facture F2026-018"
+  - "Prestation télécom internet — Facture INV-4421 — juillet 2026"
+  - "Loyer professionnel — Quittance juillet 2026"
+  - "Achat carburant et transport — Ticket caisse"
+  - "Avoir fournisseur — correction facture F2026-018"
+- Keep description short, useful for an accounting ledger, and under 140 characters.
 
 Confidence scoring:
 - high: You can clearly read the value
@@ -144,6 +181,7 @@ ${text}
 Extract the invoice/receipt data from this text. Follow the same rules as for visual extraction.
 For TVA, search for labels like "TVA", "Taux TVA", "Montant TVA", "Taxe", "VAT", "Total TVA". If HT and TTC are visible, infer the rate. If no rate is visible or inferable, default tva_rate to 20.
 For due_date, search for "Échéance", "Date d'échéance", "Payable avant", "Net 30/60", "Paiement à X jours". If missing, default to invoice date + 60 days.
+For description, generate a clean French bookkeeping label. Do not copy the raw "Désignation" line. Examples: "Achat fournitures de bureau — Facture F2026-018", "Prestation télécom internet — juillet 2026", "Loyer professionnel — Quittance juillet 2026".
 
 Return ONLY this JSON, nothing else:
 {
@@ -206,6 +244,14 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
   const parsedDueDate = parseDate(val(raw.due_date));
   const dueDate = parsedDueDate ?? addDays(invoiceDate, 60);
   const dueDateConfidence = conf(raw.due_date) ?? (dueDate ? "low" : null);
+  const invoiceNumber = val(raw.invoice_number);
+  const description = cleanDescription(val(raw.description)) ?? fallbackAccountingDescription({
+    category: val(raw.category),
+    vendorName,
+    invoiceNumber,
+    date: invoiceDate,
+    documentType: raw.document_type,
+  });
   const overall = raw.overall_confidence ?? "medium";
 
   return {
@@ -216,10 +262,10 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
     tva_rate:    tvaRate,
     tva_amount:  tvaAmount,
     amount_ht:   amountHt,
-    description: val(raw.description) ?? null,
+    description,
     category:    val(raw.category)    ?? null,
     payment_method: val(raw.payment_method) ?? null,
-    receipt_number: val(raw.invoice_number) ?? null,
+    receipt_number: invoiceNumber ?? null,
     due_date:       dueDate,
     due_date_confidence: dueDateConfidence,
     is_supplier_invoice: val(raw.is_supplier_invoice) ?? true,
