@@ -463,22 +463,22 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
             </div>
 
             <div className="flex gap-2 justify-center flex-wrap">
+              {!dossierId && (
+                <button data-permission="document:create" onClick={handleEmailSync} disabled={syncing}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-colors disabled:opacity-50"
+                  style={{ backgroundColor: "#C8924A", color: "#fff", border: "none" }}>
+                  <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
+                  {syncing ? "Synchronisation…" : "Sync mes emails"}
+                </button>
+              )}
               <button data-permission="document:create" onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-colors"
-                style={{ backgroundColor: "#C8924A", color: "#fff", border: "none" }}>
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                 <Upload size={13} /> Importer des documents
               </button>
               <button data-permission="document:create" onClick={() => cameraInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                 <Camera size={13} /> Prendre une photo
               </button>
-              {!dossierId && (
-                <button data-permission="document:create" onClick={handleEmailSync} disabled={syncing}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors disabled:opacity-50">
-                  <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
-                  {syncing ? "Synchronisation…" : "Sync mes emails"}
-                </button>
-              )}
             </div>
 
             <div className="text-center mt-3 text-[10.5px] text-[#9CA3AF]">
