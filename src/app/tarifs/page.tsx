@@ -346,7 +346,7 @@ function PricingContent() {
 
       <div className="mx-auto max-w-[1200px] px-5 pb-20 pt-16 sm:px-10 sm:pb-24 sm:pt-24">
         <header className="text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[2px] text-[#C8924A]">Tarifs</p>
+          <p className="text-[11px] font-bold uppercase tracking-[2px] text-[#C8924A]">Tarification</p>
           <h1 className="mt-3 text-[38px] font-bold leading-tight md:text-[52px]">Choisissez votre plan</h1>
           <p className="mt-3 text-[15px] text-[#6B7280]">Des plans adaptés à votre activité et à la taille de votre équipe.</p>
 

@@ -150,7 +150,7 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
                 </div>
               </div>
               <Link href="/tarifs" style={{ fontSize: 13, fontWeight: 600, color: "#374151", textDecoration: "none", fontFamily: FONT }}>
-                Tarifs
+                Tarification
               </Link>
               <Link href="/centre-aide" style={{ fontSize: 13, fontWeight: 600, color: "#374151", textDecoration: "none", fontFamily: FONT }}>
                 Centre d&apos;aide
@@ -204,7 +204,7 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
                 </Link>
               ))}
             </div>
-            <Link href="/tarifs" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>Tarifs</Link>
+            <Link href="/tarifs" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>Tarification</Link>
             <Link href="/centre-aide" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>Centre d&apos;aide</Link>
             <Link href={appUrl("/inscription")} className="public-mobile-trial public-trial-pop" onClick={() => setMobileOpen(false)}>Essayez</Link>
             <Link href={appUrl("/connexion")} className="public-mobile-login" onClick={() => setMobileOpen(false)}>Se connecter</Link>

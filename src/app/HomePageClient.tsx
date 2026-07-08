@@ -181,7 +181,7 @@ export default function HomePageClient() {
 
         {/* Section header */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: GOLD, letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: FONT, margin: "0 0 10px" }}>Tarifs</p>
+          <p style={{ fontSize: 12, fontWeight: 700, color: GOLD, letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: FONT, margin: "0 0 10px" }}>Tarification</p>
           <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 700, color: "#0A0A0A", margin: "0 0 14px", letterSpacing: "-0.8px", fontFamily: FONT }}>
             Choisissez le plan adapté<br />à votre activité
           </h2>
