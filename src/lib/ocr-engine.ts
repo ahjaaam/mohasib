@@ -27,6 +27,14 @@ function parseDate(v: unknown): string | null {
   return null;
 }
 
+function addDays(date: string | null, days: number): string | null {
+  if (!date) return null;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
 const MOROCCAN_TVA_RATES = [7, 10, 14, 20] as const;
 
 function normalizeTvaRate(value: unknown): number | null {
@@ -88,7 +96,7 @@ Extract:
 9. payment_method: Cash, Virement, Chèque, or Carte
 10. category: Best guess from: Achats, Salaires, Loyer, Fournitures, Transport, Communication, Fiscalité, Autre dépense
 11. document_type: Use "avoir" if the document is a credit note / avoir fournisseur (keywords: AVOIR, Note de crédit, Credit Note, Avoir N°, rectificatif)
-12. due_date: Payment due date — look for: "Date d'échéance", "Payable avant", "À régler avant", "Due date", "Net 30/60", "Échéance", "Paiement à X jours" (add X days to invoice date). Format: DD/MM/YYYY. Return null if not found.
+12. due_date: Payment due date — look for: "Date d'échéance", "Payable avant", "À régler avant", "Due date", "Net 30/60", "Échéance", "Paiement à X jours" (add X days to invoice date). Format: DD/MM/YYYY. If no due date/payment term is found, default to invoice date + 60 days.
 13. is_supplier_invoice: true if this document was issued BY a supplier TO you (you are the buyer/recipient — check the "À:" section). true for receipts/tickets. false if your company is in the "De:" section (it's your own invoice). Default: true.
 
 IMPORTANT RULES:
@@ -135,6 +143,7 @@ ${text}
 
 Extract the invoice/receipt data from this text. Follow the same rules as for visual extraction.
 For TVA, search for labels like "TVA", "Taux TVA", "Montant TVA", "Taxe", "VAT", "Total TVA". If HT and TTC are visible, infer the rate. If no rate is visible or inferable, default tva_rate to 20.
+For due_date, search for "Échéance", "Date d'échéance", "Payable avant", "Net 30/60", "Paiement à X jours". If missing, default to invoice date + 60 days.
 
 Return ONLY this JSON, nothing else:
 {
@@ -193,12 +202,16 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
     ?? (amountTtc != null ? 20 : null);
   const amountHt = rawAmountHt ?? computeAmountHt(amountTtc, rawTvaAmount, tvaRate);
   const tvaAmount = rawTvaAmount ?? computeTvaAmount(amountTtc, amountHt, tvaRate);
+  const invoiceDate = parseDate(val(raw.date));
+  const parsedDueDate = parseDate(val(raw.due_date));
+  const dueDate = parsedDueDate ?? addDays(invoiceDate, 60);
+  const dueDateConfidence = conf(raw.due_date) ?? (dueDate ? "low" : null);
   const overall = raw.overall_confidence ?? "medium";
 
   return {
     vendor_name: vendorName,
     vendor:      vendorName,
-    date:        parseDate(val(raw.date)),
+    date:        invoiceDate,
     amount:      amountTtc != null ? -amountTtc : null,
     tva_rate:    tvaRate,
     tva_amount:  tvaAmount,
@@ -207,8 +220,8 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
     category:    val(raw.category)    ?? null,
     payment_method: val(raw.payment_method) ?? null,
     receipt_number: val(raw.invoice_number) ?? null,
-    due_date:       parseDate(val(raw.due_date)) ?? null,
-    due_date_confidence: conf(raw.due_date) ?? null,
+    due_date:       dueDate,
+    due_date_confidence: dueDateConfidence,
     is_supplier_invoice: val(raw.is_supplier_invoice) ?? true,
     document_type:  raw.document_type ?? null,
     overall_confidence: overall,

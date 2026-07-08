@@ -22,6 +22,14 @@ function fmtDate(d: string) {
   catch { return d; }
 }
 
+function addDays(date: string | null | undefined, days: number) {
+  if (!date) return "";
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return "";
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
 function computeAmounts(ocr: OcrData) {
   const ttc = Math.abs(ocr.amount ?? 0);
   const tvaRate = ocr.tva_rate ?? 0;
@@ -79,12 +87,13 @@ function initForm(ocr: OcrData): CardForm {
   const category = ocr.category ?? "Achats";
   const compte = ocr.compte ?? categoryToCompte[category] ?? "";
   const tvaRate = ocr.tva_rate ?? (ocr.amount != null ? 20 : null);
+  const invoiceDate = ocr.date ?? new Date().toISOString().split("T")[0];
   return {
     amount: signedAmt,
     category,
     description: vendor ? (desc ? `${vendor} — ${desc}` : vendor) : desc,
-    date: ocr.date ?? new Date().toISOString().split("T")[0],
-    due_date: ocr.due_date ?? "",
+    date: invoiceDate,
+    due_date: ocr.due_date ?? addDays(invoiceDate, 60),
     tva_rate: String(tvaRate ?? ""),
     compte_comptable: compte,
   };
