@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
@@ -82,6 +82,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
   const { can } = usePermissions(permissions);
@@ -106,6 +107,11 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
   const pageAllowed = permissionAllowed && featureAllowed;
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!searchParams.get("dossier_id")) {
+      document.cookie = "active_dossier_id=; path=/; max-age=0";
+    }
+  }, [pathname, searchParams]);
 
   const isActive = (href: string) => {
     const frenchToEnglish: Record<string, string> = {

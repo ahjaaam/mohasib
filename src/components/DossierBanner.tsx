@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Folder, X } from "lucide-react";
 
 interface Props {
@@ -9,6 +9,10 @@ interface Props {
 
 export default function DossierBanner({ dossier }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const dossierIdParam = searchParams.get("dossier_id");
+
+  if (dossierIdParam !== dossier.id) return null;
 
   function exitDossier() {
     document.cookie = "active_dossier_id=; path=/; max-age=0";
