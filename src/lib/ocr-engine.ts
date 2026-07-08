@@ -27,6 +27,49 @@ function parseDate(v: unknown): string | null {
   return null;
 }
 
+const MOROCCAN_TVA_RATES = [7, 10, 14, 20] as const;
+
+function normalizeTvaRate(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const parsed = typeof value === "number" ? value : parseFloat(String(value).replace("%", "").replace(",", "."));
+  if (!Number.isFinite(parsed)) return null;
+  const rounded = Math.round(parsed);
+  return MOROCCAN_TVA_RATES.includes(rounded as any) ? rounded : null;
+}
+
+function inferTvaRate(amountTtc: number | null, tvaAmount: number | null, amountHt: number | null): number | null {
+  if (tvaAmount == null || tvaAmount <= 0) return null;
+
+  const fromHt = amountHt != null && amountHt > 0
+    ? (tvaAmount / amountHt) * 100
+    : null;
+  const fromTtc = amountTtc != null && amountTtc > tvaAmount
+    ? (tvaAmount / (amountTtc - tvaAmount)) * 100
+    : null;
+
+  const candidates = [fromHt, fromTtc].filter((rate): rate is number => rate != null && Number.isFinite(rate));
+  for (const candidate of candidates) {
+    const match = MOROCCAN_TVA_RATES.find((rate) => Math.abs(candidate - rate) <= 1);
+    if (match) return match;
+  }
+  return null;
+}
+
+function computeAmountHt(amountTtc: number | null, tvaAmount: number | null, tvaRate: number | null): number | null {
+  if (amountTtc == null) return null;
+  if (tvaAmount != null && tvaAmount > 0) return Math.max(0, amountTtc - tvaAmount);
+  if (tvaRate != null && tvaRate > 0) return amountTtc / (1 + tvaRate / 100);
+  return null;
+}
+
+function computeTvaAmount(amountTtc: number | null, amountHt: number | null, tvaRate: number | null): number | null {
+  if (amountTtc != null && amountHt != null && amountTtc >= amountHt) return amountTtc - amountHt;
+  if (amountTtc != null && tvaRate != null && tvaRate > 0) {
+    return amountTtc - amountTtc / (1 + tvaRate / 100);
+  }
+  return null;
+}
+
 // ── Prompts ───────────────────────────────────────────────────────────────────
 
 const MAIN_PROMPT = `You are an expert at reading Moroccan business invoices and receipts, including old, scanned, faded, or low-quality documents.
@@ -55,6 +98,9 @@ IMPORTANT RULES:
 - If date is ambiguous: prefer more recent dates
 - Vendor name: use the ISSUER not the recipient
 - If document is in Arabic, still extract the numbers
+- TVA: actively look for labels such as "TVA", "Taux TVA", "Montant TVA", "Taxe", "VAT", "Total TVA", or tax columns in line-item tables.
+- If HT and TTC are visible but TVA rate is not written, infer the rate from TTC - HT.
+- If the TVA rate is not visible or cannot be inferred, return tva_rate = 20. Do not return null for tva_rate on invoices/receipts with an amount.
 
 Confidence scoring:
 - high: You can clearly read the value
@@ -88,6 +134,7 @@ ${text}
 </document_text>
 
 Extract the invoice/receipt data from this text. Follow the same rules as for visual extraction.
+For TVA, search for labels like "TVA", "Taux TVA", "Montant TVA", "Taxe", "VAT", "Total TVA". If HT and TTC are visible, infer the rate. If no rate is visible or inferable, default tva_rate to 20.
 
 Return ONLY this JSON, nothing else:
 {
@@ -137,11 +184,15 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
 
   const vendorName = val(raw.vendor_name) ?? null;
   const amountTtc = parseAmount(val(raw.amount_ttc));
-  const tvaAmount = parseAmount(val(raw.tva_amount));
-  const amountHt  = parseAmount(val(raw.amount_ht)) ??
-    (amountTtc != null && tvaAmount != null ? amountTtc - tvaAmount : null);
+  const rawTvaAmount = parseAmount(val(raw.tva_amount));
+  const rawAmountHt = parseAmount(val(raw.amount_ht));
   const rawRate = val(raw.tva_rate);
-  const tvaRate = rawRate != null ? (typeof rawRate === "number" ? rawRate : parseFloat(String(rawRate)) || null) : null;
+  const tvaRate =
+    normalizeTvaRate(rawRate)
+    ?? inferTvaRate(amountTtc, rawTvaAmount, rawAmountHt)
+    ?? (amountTtc != null ? 20 : null);
+  const amountHt = rawAmountHt ?? computeAmountHt(amountTtc, rawTvaAmount, tvaRate);
+  const tvaAmount = rawTvaAmount ?? computeTvaAmount(amountTtc, amountHt, tvaRate);
   const overall = raw.overall_confidence ?? "medium";
 
   return {

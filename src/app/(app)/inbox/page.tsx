@@ -78,13 +78,14 @@ function initForm(ocr: OcrData): CardForm {
       : String(ocr.amount ?? "");
   const category = ocr.category ?? "Achats";
   const compte = ocr.compte ?? categoryToCompte[category] ?? "";
+  const tvaRate = ocr.tva_rate ?? (ocr.amount != null ? 20 : null);
   return {
     amount: signedAmt,
     category,
     description: vendor ? (desc ? `${vendor} — ${desc}` : vendor) : desc,
     date: ocr.date ?? new Date().toISOString().split("T")[0],
     due_date: ocr.due_date ?? "",
-    tva_rate: String(ocr.tva_rate ?? ""),
+    tva_rate: String(tvaRate ?? ""),
     compte_comptable: compte,
   };
 }
