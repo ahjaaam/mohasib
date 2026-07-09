@@ -18,6 +18,7 @@ type Track = "business" | "comptable";
 type Plan = {
   name: string;
   price: number;
+  priceLabel?: string;
   tagline: string;
   features: string[];
   missing?: string[];
@@ -39,20 +40,19 @@ const businessPlans: Plan[] = [
     features: [
       "Factures illimitées",
       "Devis illimités",
+      "Avoirs illimités",
       "Clients illimités",
-      "Déclarations TVA",
+      "Déclaration TVA + EDI XML",
       "Boîte de réception (50 docs OCR/mois)",
       "Archivage documents (5 GB)",
       "Suivi des paiements",
-      "Export PDF factures",
-      "Support 24/7",
+      "Import relevés bancaires",
+      "Support 7j/7",
     ],
     missing: [
-      "Import relevés bancaires",
       "Saisie comptable",
-      "La Paie",
-      "Export Fiduciaire CGNC",
-      "Avoirs clients/fournisseurs",
+      "La paie",
+      "Export CGNC",
     ],
   },
   {
@@ -61,20 +61,17 @@ const businessPlans: Plan[] = [
     tagline: "La solution complète pour votre activité",
     popular: true,
     features: [
-      "Tout Starter +",
-      "Import relevés bancaires PDF",
+      "Toutes les fonctionnalités Starter",
+      "Import relevés bancaires",
       "Saisie comptable",
-      "La Paie (10 employés)",
-      "Export Fiduciaire CGNC complet",
-      "Avoirs clients et fournisseurs",
+      "La paie (10 employés)",
+      "Export CGNC complet",
       "Boîte de réception (250 docs OCR/mois)",
       "Archivage documents (25 GB)",
-      "Déclaration TVA avancée + EDI XML",
-      "Suivi paiements (clients + fournisseurs)",
-      "Devis avec signature client",
-      "Support 24/7",
+      "Suivi des paiements",
+      "Support 7j/7",
     ],
-    missing: ["Multi-utilisateurs", "Comptable partenaire"],
+    missing: ["Multi-utilisateurs"],
   },
   {
     name: "Business Pro",
@@ -82,15 +79,14 @@ const businessPlans: Plan[] = [
     tagline: "Pour piloter sans limites",
     dark: true,
     features: [
-      "Tout Business +",
-      "Employés illimités (La Paie)",
-      "Scans OCR illimités",
-      "Archive illimitée",
+      "Toutes les fonctionnalités Business",
+      "Gestion de la paie sans limite d’employés",
+      "Boîte de réception illimitée",
+      "Archivage des documents illimité",
       "3 utilisateurs inclus",
       "Bilan comptable automatique",
-      "CPC (Compte de Produits et Charges)",
-      "Comptable partenaire (2h/mois)",
-      "Support 24/7",
+      "CPC automatique",
+      "Support 7j/7",
     ],
   },
 ];
@@ -107,15 +103,14 @@ const comptablePlans: Plan[] = [
       "Facturation complète par dossier",
       "Saisie comptable par dossier",
       "Déclaration TVA + EDI XML",
-      "La Paie (5 employés par dossier)",
+      "La paie (5 employés par dossier)",
       "Export CGNC par dossier",
-      "Avoirs clients et fournisseurs",
       "Suivi des paiements",
       "Bilan & CPC automatique",
       "Calendrier fiscal intégré",
       "100 scans OCR/mois (tous dossiers)",
       "Archive (25 GB)",
-      "Support 24/7",
+      "Support 7j/7",
     ],
     missing: [
       "Déclarations TVA en masse",
@@ -135,16 +130,17 @@ const comptablePlans: Plan[] = [
       "Export ZIP multi-dossiers (1 click)",
       "Inbox global + routage IA",
       "2 collaborateurs du cabinet",
-      "La Paie (10 employés par dossier)",
+      "La paie (10 employés par dossier)",
       "500 scans OCR/mois (tous dossiers)",
       "Archive (100 GB)",
-      "Support 24/7",
+      "Support 7j/7",
     ],
     missing: ["Dossiers illimités", "White label cabinet", "Accès API"],
   },
   {
     name: "Illimité",
     price: 999,
+    priceLabel: "À partir de 999",
     tagline: "Toute la puissance pour votre cabinet",
     dark: true,
     features: [
@@ -157,7 +153,7 @@ const comptablePlans: Plan[] = [
       "White label (votre logo cabinet)",
       "Accès API Mohasib",
       "Support prioritaire WhatsApp",
-      "Support 24/7",
+      "Support 7j/7",
       "Onboarding + formation incluse",
       "Migration depuis Synergie/Sage assistée",
     ],
@@ -170,18 +166,17 @@ const businessComparison: ComparisonSection[] = [
     rows: [
       ["Factures", "Illimitées", "Illimitées", "Illimitées"],
       ["Devis", "Illimités", "Illimités", "Illimités"],
-      ["Avoirs", "✗", "✓", "✓"],
+      ["Avoirs", "Illimités", "Illimités", "Illimités"],
       ["Envoi WhatsApp", "✓", "✓", "✓"],
-      ["Signature client devis", "✗", "✓", "✓"],
     ],
   },
   {
     title: "Comptabilité",
     rows: [
-      ["Import relevé bancaire", "✗", "✓", "✓"],
+      ["Import relevé bancaire", "✓", "✓", "✓"],
       ["Saisie comptable", "✗", "✓", "✓"],
-      ["Déclaration TVA", "Basique", "Complète + EDI", "Complète + EDI"],
-      ["Export Fiduciaire CGNC", "✗", "✓", "✓"],
+      ["Déclaration TVA + EDI XML", "✓", "✓", "✓"],
+      ["Export CGNC", "✗", "✓", "✓"],
       ["Bilan & CPC", "✗", "✗", "✓"],
     ],
   },
@@ -204,8 +199,7 @@ const businessComparison: ComparisonSection[] = [
     rows: [
       ["Archive", "5 GB", "25 GB", "Illimitée"],
       ["Utilisateurs", "1", "1", "3"],
-      ["Comptable partenaire", "✗", "✗", "2h/mois"],
-      ["Support 24/7", "✓", "✓", "✓"],
+      ["Support 7j/7", "✓", "✓", "✓"],
     ],
   },
   { title: "Prix", rows: [["Prix mensuel", "99 MAD", "229 MAD", "449 MAD"]] },
@@ -244,10 +238,10 @@ const comptableComparison: ComparisonSection[] = [
       ["Scans OCR", "100/mois", "500/mois", "Illimités"],
       ["Archive", "25 GB", "100 GB", "Illimitée"],
       ["Collaborateurs", "1", "2", "5"],
-      ["Support 24/7", "✓", "✓", "✓"],
+      ["Support 7j/7", "✓", "✓", "✓"],
     ],
   },
-  { title: "Prix", rows: [["Prix mensuel", "299 MAD", "599 MAD", "999 MAD"]] },
+  { title: "Prix", rows: [["Prix mensuel", "299 MAD", "599 MAD", "À partir de 999 MAD"]] },
 ];
 
 function Feature({ children, missing = false, dark = false }: { children: React.ReactNode; missing?: boolean; dark?: boolean }) {
@@ -265,7 +259,7 @@ function PlanCard({ plan }: { plan: Plan }) {
     <article className={`relative flex h-full flex-col rounded-2xl border p-7 ${plan.popular ? "border-2 border-[#C8924A] bg-white shadow-[0_18px_50px_rgba(13,21,38,0.10)]" : plan.dark ? "border-[#0D1526] bg-[#0D1526]" : "border-black/[0.08] bg-white"}`}>
       <h2 className={`text-[17px] font-bold uppercase ${plan.dark ? "text-white" : "text-[#0D1526]"}`}>{plan.name}</h2>
       <p className={`mt-3 flex items-end gap-1 font-extrabold leading-none ${plan.popular ? "text-[#C8924A]" : plan.dark ? "text-white" : "text-[#0D1526]"}`}>
-        <span className="text-[45px]">{plan.price}</span>
+        <span className={plan.priceLabel ? "text-[28px]" : "text-[45px]"}>{plan.priceLabel ?? plan.price}</span>
         <span className={`pb-1 text-[12px] font-semibold ${plan.dark ? "text-white/55" : "text-[#6B7280]"}`}>MAD/mois</span>
       </p>
       <p className={`mt-3 text-[13px] ${plan.dark ? "text-white/55" : "text-[#6B7280]"}`}>{plan.tagline}</p>

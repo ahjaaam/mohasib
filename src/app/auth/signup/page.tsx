@@ -10,10 +10,32 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS, validatePassword } from "@/
 
 type UserType = "entrepreneur" | "fiduciaire";
 
+const NEED_OPTIONS = [
+  "Facturation et devis",
+  "Boîte de réception et OCR",
+  "TVA et déclarations",
+  "Suivi des paiements",
+  "Transactions et rapprochement",
+  "Saisie comptable",
+  "Paie",
+  "Archivage et exports",
+];
+
 export default function SignupPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [userType, setUserType] = useState<UserType>("entrepreneur");
-  const [form, setForm] = useState({ full_name: "", company: "", phone: "", email: "", password: "" });
+  const [form, setForm] = useState({
+    full_name: "",
+    company: "",
+    phone: "",
+    email: "",
+    password: "",
+    role: "",
+    organization_size: "",
+    monthly_volume: "",
+    needs: [] as string[],
+    other_need: "",
+  });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +72,16 @@ export default function SignupPage() {
       setError("Le numéro de téléphone est obligatoire.");
       return;
     }
+    if (!invitationToken && (!form.role || !form.organization_size || !form.monthly_volume || form.needs.length === 0)) {
+      setLoading(false);
+      setError("Complétez les informations sur votre activité et sélectionnez au moins un besoin.");
+      return;
+    }
+    if (!invitationToken && form.needs.includes("Autre") && !form.other_need.trim()) {
+      setLoading(false);
+      setError("Précisez votre autre besoin.");
+      return;
+    }
 
     if (invitationToken) {
       const response = await fetch(`/api/invitations/${invitationToken}/signup`, {
@@ -83,6 +115,11 @@ export default function SignupPage() {
           company: form.company,
           phone: form.phone.trim(),
           user_type: userType,
+          role: form.role,
+          organization_size: form.organization_size,
+          monthly_volume: form.monthly_volume,
+          needs: form.needs,
+          other_need: form.other_need.trim(),
           invitation_token: invitationToken,
         },
       },
@@ -139,7 +176,11 @@ export default function SignupPage() {
 
             <div className="space-y-3 mb-7">
               <button
-                onClick={() => { setUserType("entrepreneur"); setStep(2); }}
+                onClick={() => {
+                  setUserType("entrepreneur");
+                  setForm((current) => ({ ...current, role: "", organization_size: "", monthly_volume: "", needs: [], other_need: "" }));
+                  setStep(2);
+                }}
                 className="w-full p-4 rounded-xl border-2 text-left transition-all hover:-translate-y-0.5"
                 style={{
                   borderColor: "rgba(0,0,0,0.1)",
@@ -161,7 +202,11 @@ export default function SignupPage() {
               </button>
 
               <button
-                onClick={() => { setUserType("fiduciaire"); setStep(2); }}
+                onClick={() => {
+                  setUserType("fiduciaire");
+                  setForm((current) => ({ ...current, role: "", organization_size: "", monthly_volume: "", needs: [], other_need: "" }));
+                  setStep(2);
+                }}
                 className="w-full p-4 rounded-xl border-2 text-left transition-all hover:-translate-y-0.5"
                 style={{
                   borderColor: "rgba(0,0,0,0.1)",
@@ -179,9 +224,6 @@ export default function SignupPage() {
                     <div className="font-semibold text-[#1A1A2E] text-[14px]">Un comptable / Expert-comptable</div>
                     <div className="text-[12px] text-[#6B7280] mt-0.5">Gérez plusieurs dossiers clients</div>
                   </div>
-                  <span className="ml-auto flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#0D1526] text-white">
-                    Nouveau
-                  </span>
                 </div>
               </button>
             </div>
@@ -192,7 +234,7 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#FAFAF6" }}>
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-lg">
           <div className="mb-8">
             <Image src="/logo2.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain", height: "auto" }} />
           </div>
@@ -226,6 +268,89 @@ export default function SignupPage() {
                 value={form.company}
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
             </div>}
+            {!invitationToken && <>
+              <div>
+                <label htmlFor="signup-role" className="label">Votre rôle</label>
+                <select id="signup-role" className="input" required value={form.role}
+                  onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
+                  <option value="">Sélectionnez votre rôle</option>
+                  {(userType === "fiduciaire"
+                    ? ["Expert-comptable", "Gérant de cabinet", "Comptable", "Collaborateur de cabinet", "Autre"]
+                    : ["Entrepreneur / indépendant", "Dirigeant de TPE/PME", "Comptable en entreprise", "Responsable administratif et financier", "Autre"]
+                  ).map((role) => <option key={role} value={role}>{role}</option>)}
+                </select>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="signup-size" className="label">
+                    {userType === "fiduciaire" ? "Nombre de collaborateurs" : "Taille de l’entreprise"}
+                  </label>
+                  <select id="signup-size" className="input" required value={form.organization_size}
+                    onChange={(e) => setForm((f) => ({ ...f, organization_size: e.target.value }))}>
+                    <option value="">Sélectionnez</option>
+                    {["1", "2–5", "6–10", "11–25", "Plus de 25"].map((size) => <option key={size} value={size}>{size}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="signup-volume" className="label">
+                    {userType === "fiduciaire" ? "Dossiers clients gérés" : "Documents par mois"}
+                  </label>
+                  <select id="signup-volume" className="input" required value={form.monthly_volume}
+                    onChange={(e) => setForm((f) => ({ ...f, monthly_volume: e.target.value }))}>
+                    <option value="">Sélectionnez</option>
+                    {(userType === "fiduciaire"
+                      ? ["1–10", "11–25", "26–50", "51–100", "Plus de 100"]
+                      : ["Moins de 20", "20–50", "51–100", "101–300", "Plus de 300"]
+                    ).map((volume) => <option key={volume} value={volume}>{volume}</option>)}
+                  </select>
+                </div>
+              </div>
+              <fieldset>
+                <legend className="label">Quels sont vos principaux besoins ?</legend>
+                <div className="grid gap-2 rounded-lg border border-black/10 bg-white p-3 sm:grid-cols-2">
+                  {[...NEED_OPTIONS, ...(userType === "fiduciaire" ? ["Gestion multi-dossiers", "Bilan et CPC"] : [])].map((need) => (
+                    <label key={need} className="flex cursor-pointer items-center gap-2 text-[12px] text-[#374151]">
+                      <input
+                        type="checkbox"
+                        checked={form.needs.includes(need)}
+                        onChange={(event) => setForm((current) => ({
+                          ...current,
+                          needs: event.target.checked
+                            ? [...current.needs, need]
+                            : current.needs.filter((item) => item !== need),
+                        }))}
+                        className="accent-[#C8924A]"
+                      />
+                      {need}
+                    </label>
+                  ))}
+                  <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[#374151]">
+                    <input
+                      type="checkbox"
+                      checked={form.needs.includes("Autre")}
+                      onChange={(event) => setForm((current) => ({
+                        ...current,
+                        needs: event.target.checked
+                          ? [...current.needs, "Autre"]
+                          : current.needs.filter((item) => item !== "Autre"),
+                        other_need: event.target.checked ? current.other_need : "",
+                      }))}
+                      className="accent-[#C8924A]"
+                    />
+                    Autre
+                  </label>
+                </div>
+                {form.needs.includes("Autre") && (
+                  <input
+                    className="input mt-2"
+                    placeholder="Décrivez votre besoin"
+                    required
+                    value={form.other_need}
+                    onChange={(event) => setForm((current) => ({ ...current, other_need: event.target.value }))}
+                  />
+                )}
+              </fieldset>
+            </>}
             <div>
               <label htmlFor="signup-phone" className="label">Numéro de téléphone</label>
               <input id="signup-phone" type="tel" className="input" placeholder="+212 6 12 34 56 78" required

@@ -19,6 +19,12 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const company = companyRes.data;
   if (!company) notFound();
   const owner = users.get(company.user_id);
+  const qualification = owner?.user_metadata ?? {};
+  const selectedNeeds = Array.isArray(qualification.needs) ? qualification.needs.filter((need: string) => need !== "Autre") : [];
+  const needs = [
+    ...(selectedNeeds as string[]),
+    ...(qualification.other_need ? [`Autre : ${qualification.other_need}`] : []),
+  ].join(", ") || qualification.needs;
   const plan = (limits.data ?? []).find(item => item.plan === company.plan);
   return <div>
     <div className="mb-5"><div className="flex items-center gap-2"><h1 className="text-xl font-bold">{company.raison_sociale || "Compte sans nom"}</h1><StatusBadge status={accountStatus(company)} /></div><p className="mt-1 text-xs text-gray-500">{owner?.email || "—"} · {company.user_type || "—"} · créé {formatDate(company.created_at)}</p></div>
@@ -30,6 +36,24 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
       ["Revenu cumulé", formatMoney((subscriptions.data ?? []).reduce((sum, item) => sum + Number(item.amount_mad ?? 0), 0))],
     ].map(([label, value]) => <div key={label} className="rounded-md border border-black/10 bg-white p-4"><div className="text-[10px] text-gray-500">{label}</div><div className="mt-2 text-sm font-bold">{value}</div></div>)}</div>
     <section className="mb-5 rounded-md border border-black/10 bg-white p-4"><h2 className="text-sm font-bold">Identité</h2><div className="mt-3 grid gap-3 text-[11px] sm:grid-cols-3 xl:grid-cols-6">{[["Email", owner?.email], ["ICE", company.ice], ["IF", company.if_number], ["Ville", company.city], ["Type", company.user_type], ["Dernière connexion", formatDate(owner?.last_sign_in_at)]].map(([label, value]) => <div key={label}><div className="text-gray-400">{label}</div><div className="mt-1 font-semibold">{value || "—"}</div></div>)}</div></section>
+    {(qualification.role || qualification.organization_size || qualification.monthly_volume || needs) && (
+      <section className="mb-5 rounded-md border border-[#C8924A]/30 bg-[#FFF9F0] p-4">
+        <h2 className="text-sm font-bold">Profil et besoins déclarés à l’inscription</h2>
+        <div className="mt-3 grid gap-3 text-[11px] sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Rôle", qualification.role],
+            [company.user_type === "fiduciaire" ? "Collaborateurs" : "Taille de l’entreprise", qualification.organization_size],
+            [company.user_type === "fiduciaire" ? "Dossiers clients" : "Documents par mois", qualification.monthly_volume],
+            ["Besoins", needs],
+          ].map(([label, value]) => (
+            <div key={String(label)}>
+              <div className="text-gray-500">{String(label)}</div>
+              <div className="mt-1 font-semibold">{String(value || "—")}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
     {company.subscription_status === "trial" && (
       <section className="mb-5 rounded-md border border-amber-200 bg-amber-50 p-4">
         <h2 className="text-sm font-bold">Utilisation essai</h2>
