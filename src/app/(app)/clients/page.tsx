@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Users, Plus, FileText, Upload, Download, X, Loader2, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { Users, Plus, FileText, Upload, Download, X, Loader2, CheckCircle, AlertCircle, Info, ArrowDown, ArrowUp } from "lucide-react";
 import type { Client } from "@/types";
 import ClientModal from "./ClientModal";
 import * as XLSX from "xlsx";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 
 type InvoiceRow = {
   id: string;
@@ -26,6 +27,8 @@ type ClientWithStats = Client & {
   _avgDelay: number | null;
   _overdueCount: number;
 };
+
+type ClientSortKey = "name" | "city" | "ca" | "count" | "delay" | "overdue";
 
 function initials(name: string) {
   return name
@@ -129,6 +132,8 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
   const [clients, setClients] = useState<ClientWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string>("");
+  const [sortKey, setSortKey] = useState<ClientSortKey>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -244,6 +249,27 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
     setEditClient(c);
     setModalOpen(true);
   }
+
+  function handleSort(nextKey: ClientSortKey) {
+    const next = nextSort(sortKey, sortDirection, nextKey);
+    setSortKey(next.key);
+    setSortDirection(next.direction);
+  }
+
+  const sortedClients = useMemo(() => {
+    const valueFor = (client: ClientWithStats, key: ClientSortKey): string | number | null => {
+      switch (key) {
+        case "name": return client.name;
+        case "city": return client.city ?? "";
+        case "ca": return client._ca;
+        case "count": return client._count;
+        case "delay": return client._avgDelay ?? 99999;
+        case "overdue": return client._overdueCount;
+        default: return "";
+      }
+    };
+    return [...clients].sort((a, b) => compareValues(valueFor(a, sortKey), valueFor(b, sortKey), sortDirection));
+  }, [clients, sortKey, sortDirection]);
 
   const header = (
     <div className="flex items-center justify-between gap-3 mb-5">
@@ -422,8 +448,38 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
 
       {header}
 
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.5px] text-[#6B7280]">Trier par</span>
+        {([
+          ["name", "Nom"],
+          ["city", "Ville"],
+          ["ca", "CA"],
+          ["count", "Factures"],
+          ["delay", "Délai"],
+          ["overdue", "Retards"],
+        ] as [ClientSortKey, string][]).map(([key, label]) => {
+          const active = sortKey === key;
+          const Icon = sortDirection === "asc" ? ArrowUp : ArrowDown;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleSort(key)}
+              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-semibold transition ${
+                active
+                  ? "border-[#C8924A]/40 bg-[#FFF7ED] text-[#9A672E]"
+                  : "border-[rgba(0,0,0,0.08)] bg-white text-[#6B7280] hover:border-[#C8924A]/30 hover:text-[#C8924A]"
+              }`}
+            >
+              {label}
+              {active && <Icon size={11} />}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-        {clients.map((c) => (
+        {sortedClients.map((c) => (
           <div
             key={c.id}
             onClick={() => openEdit(c)}

@@ -51,21 +51,24 @@ export default function BusinessSoftwarePage() {
       ]}
       screenshots={[
         {
-          src: "/images/logiciels/business-new-invoice.png",
-          alt: "Écran Nouvelle facture Mohasib avec informations légales marocaines, client, date, échéance, lignes, TVA et total TTC",
-          title: "Facturation : créer une facture propre sans repartir d’un modèle Word",
-          description: "La facture reprend les éléments importants : numéro, client, date, échéance, lignes, TVA, total HT/TTC et mentions marocaines. L’utilisateur peut enregistrer un brouillon ou créer et envoyer directement le document.",
+          src: "/images/logiciels/business-invoice-creation.gif",
+          alt: "GIF Mohasib montrant la création d'une facture depuis la liste des factures jusqu'au formulaire de nouvelle facture",
+          label: "Facturation",
+          title: "Créer une facture sans repartir d’un modèle Word",
+          description: "Depuis la liste des factures, l’utilisateur lance une nouvelle facture, complète les informations client, les lignes, la TVA et l’échéance, puis peut enregistrer ou envoyer le document. La facturation devient un flux guidé, pas un fichier isolé.",
         },
         {
           src: "/images/logiciels/business-inbox-ocr.png",
           alt: "Boîte de réception Mohasib avec synchronisation email, import de documents, OCR et formulaire de validation d'une facture fournisseur",
-          title: "Boîte de réception : les factures fournisseurs deviennent des données vérifiables",
+          label: "Boîte de réception",
+          title: "Les factures fournisseurs deviennent des données vérifiables",
           description: "L’utilisateur peut synchroniser ses emails, importer des documents ou prendre une photo. Mohasib lit la facture, propose le fournisseur, le montant, la date, l’échéance, la catégorie, le compte comptable et la TVA. L’humain garde le contrôle : il vérifie, corrige si besoin, puis confirme.",
         },
         {
           src: "/images/logiciels/business-payment-tracking.png",
           alt: "Suivi des paiements Mohasib avec montants à encaisser, clients en retard, fournisseurs à payer et factures fournisseurs en attente",
-          title: "Suivi des paiements : voir ce qui doit entrer et sortir",
+          label: "Suivi des paiements",
+          title: "Voir ce qui doit entrer et sortir",
           description: "Le suivi des paiements met côte à côte les encaissements clients et les paiements fournisseurs. Vous voyez les montants à encaisser, les retards, les factures payées, les soldes restants et les échéances à surveiller.",
         },
       ]}

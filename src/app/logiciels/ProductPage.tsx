@@ -32,6 +32,7 @@ type ProductPageProps = {
   screenshots?: Array<{
     src: string;
     alt: string;
+    label: string;
     title: string;
     description: string;
   }>;
@@ -152,12 +153,8 @@ export default function ProductPage({
               </div>
               <div className="grid gap-5">
                 {screenshots.map((screenshot) => (
-                  <article key={screenshot.src} className="overflow-hidden rounded-3xl border border-[rgba(13,21,38,0.08)] bg-white shadow-[0_14px_40px_rgba(13,21,38,0.07)]">
-                    <div className="p-6 md:p-7">
-                      <h3 className="text-[20px] font-bold text-[#0D1526]">{screenshot.title}</h3>
-                      <p className="mt-2 max-w-3xl text-[13.5px] leading-6 text-[#6B7280]">{screenshot.description}</p>
-                    </div>
-                    <div className="border-t border-black/[0.06] bg-[#F7F4EE] p-2">
+                  <article key={screenshot.src} className="grid overflow-hidden rounded-3xl border border-[rgba(13,21,38,0.08)] bg-white shadow-[0_14px_40px_rgba(13,21,38,0.07)] md:grid-cols-[1.35fr_0.65fr]">
+                    <div className="border-b border-black/[0.06] bg-[#F7F4EE] p-2 md:border-b-0 md:border-r">
                       <Image
                         src={screenshot.src}
                         alt={screenshot.alt}
@@ -165,6 +162,11 @@ export default function ProductPage({
                         height={1051}
                         className="h-auto w-full rounded-2xl border border-black/[0.04]"
                       />
+                    </div>
+                    <div className="flex flex-col justify-center p-6 md:p-8 lg:p-10">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#C8924A]">{screenshot.label}</p>
+                      <h3 className="mt-3 text-[22px] font-bold leading-tight text-[#0D1526] lg:text-[26px]">{screenshot.title}</h3>
+                      <p className="mt-4 text-[13.5px] leading-7 text-[#6B7280]">{screenshot.description}</p>
                     </div>
                   </article>
                 ))}

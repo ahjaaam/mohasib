@@ -10,6 +10,7 @@ import {
   Send, Mail, ChevronDown, ChevronUp, CheckCircle,
   MoreHorizontal, Eye, Download,
 } from "lucide-react";
+import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,8 @@ interface SupplierItem {
 }
 
 type SubTab = "all" | "overdue" | "week" | "upcoming" | "paid";
+type ClientPaymentSortKey = "number" | "client" | "issue" | "due" | "total" | "paid" | "balance" | "late" | "status";
+type SupplierPaymentSortKey = "supplier" | "reference" | "received" | "due" | "total" | "paid" | "balance" | "late" | "status";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -601,6 +604,35 @@ function ClientsSection({
   agingOpen: boolean;
   setAgingOpen: (v: boolean) => void;
 }) {
+  const [sortKey, setSortKey] = useState<ClientPaymentSortKey>("due");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  function handleSort(nextKey: ClientPaymentSortKey) {
+    const next = nextSort(sortKey, sortDirection, nextKey);
+    setSortKey(next.key);
+    setSortDirection(next.direction);
+  }
+
+  const sorted = useMemo(() => {
+    const valueFor = (invoice: ClientInvoice, key: ClientPaymentSortKey): string | number | null => {
+      const paid = Number(invoice.montant_recu ?? 0);
+      const balance = Math.max(Number(invoice.total) - paid, 0);
+      switch (key) {
+        case "number": return invoice.invoice_number;
+        case "client": return invoice.clients?.name ?? "";
+        case "issue": return invoice.issue_date;
+        case "due": return invoice.due_date ?? "";
+        case "total": return Number(invoice.total ?? 0);
+        case "paid": return paid;
+        case "balance": return balance;
+        case "late": return daysFromNow(invoice.due_date) ?? 99999;
+        case "status": return invoice.status;
+        default: return "";
+      }
+    };
+    return [...filtered].sort((a, b) => compareValues(valueFor(a, sortKey), valueFor(b, sortKey), sortDirection));
+  }, [filtered, sortKey, sortDirection]);
+
   return (
     <div>
       <SubTabBar tabs={CLIENT_SUBTABS} active={subTab} onSelect={setSubTab} countFn={countFn} />
@@ -615,13 +647,20 @@ function ClientsSection({
             <table className="w-full text-[12px] min-w-[900px]">
               <thead>
                 <tr className="bg-[#F9F9F6] border-b border-[rgba(0,0,0,0.08)]">
-                  {["N° Facture", "Client", "Émission", "Échéance", "TTC", "Reçu", "Solde", "Retard", "Statut", "Actions"].map(h => (
-                    <th key={h} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap">{h}</th>
-                  ))}
+                  <SortableTh sortKey="number" label="N° Facture" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="client" label="Client" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="issue" label="Émission" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="due" label="Échéance" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="total" label="TTC" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="paid" label="Reçu" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="balance" label="Solde" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="late" label="Retard" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="status" label="Statut" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <th className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((inv, idx) => {
+                {sorted.map((inv, idx) => {
                   const montantRecu = Number(inv.montant_recu ?? 0);
                   const solde = Number(inv.total) - montantRecu;
                   const isPaid = inv.status === "paid";
@@ -703,6 +742,37 @@ function SuppliersSection({
   agingOpen: boolean;
   setAgingOpen: (v: boolean) => void;
 }) {
+  const [sortKey, setSortKey] = useState<SupplierPaymentSortKey>("due");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  function handleSort(nextKey: SupplierPaymentSortKey) {
+    const next = nextSort(sortKey, sortDirection, nextKey);
+    setSortKey(next.key);
+    setSortDirection(next.direction);
+  }
+
+  const sorted = useMemo(() => {
+    const valueFor = (item: SupplierItem, key: SupplierPaymentSortKey): string | number | null => {
+      const total = supplierTotal(item);
+      const paid = supplierPaid(item);
+      const balance = Math.max(total - paid, 0);
+      const dueDate = item.ocr_data?.due_date ?? null;
+      switch (key) {
+        case "supplier": return supplierName(item);
+        case "reference": return item.ocr_data?.receipt_number ?? "";
+        case "received": return item.created_at?.slice(0, 10) ?? "";
+        case "due": return dueDate ?? "";
+        case "total": return total;
+        case "paid": return paid;
+        case "balance": return balance;
+        case "late": return daysFromNow(dueDate) ?? 99999;
+        case "status": return isSupplierPaid(item) ? "paid" : (dueDate && daysFromNow(dueDate) !== null && (daysFromNow(dueDate) ?? 1) < 0) ? "overdue" : "sent";
+        default: return "";
+      }
+    };
+    return [...filtered].sort((a, b) => compareValues(valueFor(a, sortKey), valueFor(b, sortKey), sortDirection));
+  }, [filtered, sortKey, sortDirection]);
+
   return (
     <div>
       <SubTabBar tabs={SUPPLIER_SUBTABS} active={subTab} onSelect={setSubTab} countFn={countFn} />
@@ -720,13 +790,20 @@ function SuppliersSection({
             <table className="w-full text-[12px] min-w-[900px]">
               <thead>
                 <tr className="bg-[#F9F9F6] border-b border-[rgba(0,0,0,0.08)]">
-                  {["Fournisseur", "Référence", "Réception", "Échéance", "TTC", "Payé", "Solde", "Retard", "Statut", "Actions"].map(h => (
-                    <th key={h} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap">{h}</th>
-                  ))}
+                  <SortableTh sortKey="supplier" label="Fournisseur" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="reference" label="Référence" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="received" label="Réception" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="due" label="Échéance" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="total" label="TTC" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="paid" label="Payé" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="balance" label="Solde" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="late" label="Retard" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="status" label="Statut" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <th className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((item, idx) => {
+                {sorted.map((item, idx) => {
                   const total = supplierTotal(item);
                   const paid = supplierPaid(item);
                   const solde = Math.max(total - paid, 0);

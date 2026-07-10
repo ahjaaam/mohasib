@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import PageHeader from "@/components/PageHeader";
+import BackIconLink from "@/components/BackIconLink";
 import NewAvoirForm from "./NewAvoirForm";
 import type { Client } from "@/types";
 
@@ -50,7 +51,7 @@ export default async function NewAvoirClientPage() {
 
   return (
     <>
-      <PageHeader title="Nouvel avoir client" subtitle="Émettre un avoir sur facture client" />
+      <PageHeader title="Nouvel avoir client" subtitle="Émettre un avoir sur facture client" icon={<BackIconLink href="/invoices?mode=avoirs" label="Retour aux avoirs" />} />
       <NewAvoirForm
         clients={clients}
         nextNumber={nextNumber}

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import PageHeader from "@/components/PageHeader";
+import BackIconLink from "@/components/BackIconLink";
 import NewDevisForm from "./NewDevisForm";
 import type { Client } from "@/types";
 
@@ -35,7 +36,7 @@ export default async function NewDevisPage() {
 
   return (
     <>
-      <PageHeader title="Nouveau devis" subtitle="Créez un devis commercial pour votre client" />
+      <PageHeader title="Nouveau devis" subtitle="Créez un devis commercial pour votre client" icon={<BackIconLink href="/invoices?mode=devis" label="Retour aux devis" />} />
       <NewDevisForm clients={clients} nextNumber={nextNumber} userId={ownerId} />
     </>
   );

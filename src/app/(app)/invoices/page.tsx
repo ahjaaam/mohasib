@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import { Loader2, FileText, Plus, X, Search, ReceiptText, ClipboardList } from "
 import type { Invoice, InvoiceStatus, PartialPayment, DevisStatus } from "@/types";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,8 @@ type InvoiceExt = Invoice & {
   reste_a_payer?: number | null;
   paiements?: PartialPayment[];
 };
+
+type InvoiceSortKey = "number" | "client" | "object" | "subtotal" | "tva" | "total" | "date" | "due" | "status";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -662,6 +665,8 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
   const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [paymentModal, setPaymentModal] = useState<InvoiceExt | null>(null);
+  const [sortKey, setSortKey] = useState<InvoiceSortKey>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const supabase = createClient();
 
   async function load() {
@@ -778,6 +783,30 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
       if (dateTo && i.issue_date > dateTo) return false;
       return true;
     });
+
+  function handleSort(nextKey: InvoiceSortKey) {
+    const next = nextSort(sortKey, sortDirection, nextKey);
+    setSortKey(next.key);
+    setSortDirection(next.direction);
+  }
+
+  const sorted = useMemo(() => {
+    const valueFor = (invoice: InvoiceExt, key: InvoiceSortKey): string | number | null => {
+      switch (key) {
+        case "number": return invoice.invoice_number;
+        case "client": return (invoice as any).clients?.name ?? "";
+        case "object": return mode === "devis" ? ((invoice as any).devis_objet ?? "") : ((invoice as any).avoir_reason ?? "");
+        case "subtotal": return Number(invoice.subtotal ?? 0);
+        case "tva": return Number(invoice.tax_amount ?? 0);
+        case "total": return Number(invoice.total ?? 0);
+        case "date": return invoice.issue_date;
+        case "due": return mode === "devis" ? ((invoice as any).devis_expiry_date ?? "") : (invoice.due_date ?? "");
+        case "status": return mode === "devis" ? ((invoice as any).devis_status ?? "") : (invoice.status ?? "");
+        default: return "";
+      }
+    };
+    return [...filtered].sort((a, b) => compareValues(valueFor(a, sortKey), valueFor(b, sortKey), sortDirection));
+  }, [filtered, sortKey, sortDirection, mode]);
 
   const hasFilters = search || dateFrom || dateTo;
 
@@ -911,14 +940,21 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
         <table>
           <thead>
             <tr>
-              <th>{mode === "avoirs" ? "N° Avoir" : mode === "devis" ? "N° Devis" : "N° Facture"}</th>
-              <th>Client</th>
-              {mode === "devis" ? <th>Objet</th> : <><th>HT</th><th>TVA</th></>}
-              <th>{mode === "avoirs" ? "Montant crédité" : mode === "devis" ? "Total HT" : "TTC / Paiement"}</th>
-              {mode === "devis" && <th>TTC</th>}
-              <th>Date</th>
-              {mode === "avoirs" ? <th>Motif</th> : mode === "devis" ? <th>Expiration</th> : <th>Échéance</th>}
-              <th>Statut</th>
+              <SortableTh sortKey="number" label={mode === "avoirs" ? "N° Avoir" : mode === "devis" ? "N° Devis" : "N° Facture"} activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              <SortableTh sortKey="client" label="Client" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              {mode === "devis"
+                ? <SortableTh sortKey="object" label="Objet" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+                : <>
+                  <SortableTh sortKey="subtotal" label="HT" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+                  <SortableTh sortKey="tva" label="TVA" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+                </>}
+              <SortableTh sortKey={mode === "devis" ? "subtotal" : "total"} label={mode === "avoirs" ? "Montant crédité" : mode === "devis" ? "Total HT" : "TTC / Paiement"} activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              {mode === "devis" && <SortableTh sortKey="total" label="TTC" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />}
+              <SortableTh sortKey="date" label="Date" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              {mode === "avoirs"
+                ? <SortableTh sortKey="object" label="Motif" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+                : <SortableTh sortKey="due" label={mode === "devis" ? "Expiration" : "Échéance"} activeKey={sortKey} direction={sortDirection} onSort={handleSort} />}
+              <SortableTh sortKey="status" label="Statut" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
               <th></th>
             </tr>
           </thead>
@@ -950,7 +986,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
                 </td>
               </tr>
             )}
-            {filtered.map((inv) => {
+            {sorted.map((inv) => {
               const totalTtc = Number(inv.total);
 
               if (mode === "devis") {

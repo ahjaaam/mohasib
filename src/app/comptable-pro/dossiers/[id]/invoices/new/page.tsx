@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import NewInvoiceForm from "@/app/(app)/invoices/new/NewInvoiceForm";
+import BackIconLink from "@/components/BackIconLink";
 import type { Client } from "@/types";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 
@@ -39,12 +40,21 @@ export default async function DossierNewInvoicePage({
   const backHref = `/comptable-pro/dossiers/${dossierId}/invoices`;
 
   return (
-    <NewInvoiceForm
-      clients={(clientsRes.data ?? []) as Pick<Client, "id" | "name" | "email">[]}
-      nextNumber={nextNumber}
-      userId={ownerId}
-      dossierId={dossierId}
-      backHref={backHref}
-    />
+    <>
+      <div className="mb-5 flex items-start gap-3">
+        <BackIconLink href={backHref} label="Retour aux factures" />
+        <div>
+          <h1 className="text-[18px] font-semibold leading-tight text-[#1A1A2E]">Nouvelle facture</h1>
+          <p className="mt-0.5 text-[13px] text-[#6B7280]">Créer et envoyer une facture</p>
+        </div>
+      </div>
+      <NewInvoiceForm
+        clients={(clientsRes.data ?? []) as Pick<Client, "id" | "name" | "email">[]}
+        nextNumber={nextNumber}
+        userId={ownerId}
+        dossierId={dossierId}
+        backHref={backHref}
+      />
+    </>
   );
 }

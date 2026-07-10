@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Toaster } from "react-hot-toast";
-import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText, Users, CalendarDays, Lock, ScrollText } from "lucide-react";
+import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText, Users, CalendarDays, Lock, ScrollText, Package } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
 import ApparenceTab from "./ApparenceTab";
@@ -13,6 +13,7 @@ import TVAConfigTab from "@/components/parametres/TVAConfigTab";
 import TeamTab from "@/components/settings/TeamTab";
 import DeadlinesTab from "./DeadlinesTab";
 import AuditLogTab from "./AuditLogTab";
+import InvoiceItemsTab from "./InvoiceItemsTab";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -34,6 +35,7 @@ const TABS = [
   { id: "apparence", label: "Apparence", icon: Palette, permission: "settings:update" },
   { id: "abonnement", label: "Abonnement", icon: CreditCard, ownerOnly: true },
   { id: "integrations", label: "Intégrations", icon: Plug, permission: "settings:update" },
+  { id: "articles",     label: "Articles & prestations", icon: Package, permission: "settings:update" },
   { id: "tva",          label: "Déclaration TVA", icon: FileText, permission: "settings:update" },
   { id: "echeances",    label: "Échéances",       icon: CalendarDays, permission: "settings:update" },
   { id: "messages",     label: "Messages",     icon: MessageSquare, permission: "settings:update" },
@@ -124,6 +126,7 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
           {tab === "apparence" && <ApparenceTab userId={accountOwnerId} company={company} />}
           {tab === "abonnement" && <AbonnementTab userId={accountOwnerId} userEmail={userEmail} companyId={companyId} company={company} />}
           {tab === "integrations" && <IntegrationsTab company={company} />}
+          {tab === "articles"     && <InvoiceItemsTab userId={accountOwnerId} />}
           {tab === "tva"          && <TVAConfigTab companyId={companyId} />}
           {tab === "echeances"    && (
             <DeadlinesTab

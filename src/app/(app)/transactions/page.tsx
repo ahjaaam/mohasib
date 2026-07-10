@@ -9,6 +9,7 @@ import { ArrowLeftRight, Plus, Filter } from "lucide-react";
 import BankImportModal from "./BankImportModal";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
@@ -16,6 +17,7 @@ function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
 const today = new Date().toISOString().split("T")[0];
 
 const ALL_CATS = ["Toutes", ...TRANSACTION_CATEGORIES.income, ...TRANSACTION_CATEGORIES.expense];
+type TransactionSortKey = "date" | "description" | "category" | "amount";
 
 export default function TransactionsPage({ dossierId: propDossierId }: { dossierId?: string } = {}) {
   const ownerId = useAccountOwnerId();
@@ -33,6 +35,8 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [filterAmount, setFilterAmount] = useState("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
+  const [sortKey, setSortKey] = useState<TransactionSortKey>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const searchParams = useSearchParams();
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
@@ -119,6 +123,25 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       return true;
     });
   }, [transactions, filterDesc, filterCat, filterAmount, filterFrom, filterTo]);
+
+  function handleSort(nextKey: TransactionSortKey) {
+    const next = nextSort(sortKey, sortDirection, nextKey);
+    setSortKey(next.key);
+    setSortDirection(next.direction);
+  }
+
+  const sorted = useMemo(() => {
+    const valueFor = (tx: Transaction, key: TransactionSortKey): string | number | null => {
+      switch (key) {
+        case "date": return tx.date;
+        case "description": return tx.description ?? "";
+        case "category": return tx.category ?? tx.type ?? "";
+        case "amount": return Number(tx.amount ?? 0);
+        default: return "";
+      }
+    };
+    return [...filtered].sort((a, b) => compareValues(valueFor(a, sortKey), valueFor(b, sortKey), sortDirection));
+  }, [filtered, sortKey, sortDirection]);
 
   const hasFilter = filterDesc || filterCat !== "Toutes" || filterAmount || filterFrom || filterTo;
 
@@ -281,10 +304,10 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
         <table>
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Catégorie</th>
-              <th>Montant</th>
+              <SortableTh sortKey="date" label="Date" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              <SortableTh sortKey="description" label="Description" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              <SortableTh sortKey="category" label="Catégorie" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              <SortableTh sortKey="amount" label="Montant" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
             </tr>
           </thead>
           <tbody>
@@ -296,7 +319,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
                 {hasFilter ? "Aucun résultat" : "Aucune transaction"}
               </td></tr>
             )}
-            {filtered.map((tx) => (
+            {sorted.map((tx) => (
               <tr key={tx.id}>
                 <td className="text-[#6B7280]">{fmtDate(tx.date)}</td>
                 <td>{tx.description}</td>

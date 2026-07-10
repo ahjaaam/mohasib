@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
-import { Trash2, Plus, Loader2, Send, Mail, Download } from "lucide-react";
+import { Trash2, Plus, Loader2, Send, Mail, Download, Save } from "lucide-react";
 import type { Client } from "@/types";
 
 interface LineItem {
@@ -13,6 +13,15 @@ interface LineItem {
   qty: number;
   pu: number;
   tva: number;
+}
+
+interface CatalogItem {
+  id: string;
+  name: string;
+  description: string | null;
+  unit_price: number | string;
+  tva_rate: number | string;
+  is_active: boolean;
 }
 
 interface Props {
@@ -46,6 +55,8 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
   const [waState, setWaState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [emailState, setEmailState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [pdfState, setPdfState] = useState<"idle" | "loading" | "error">("idle");
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [selectedCatalogItem, setSelectedCatalogItem] = useState("");
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -78,6 +89,16 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
       });
   }, [userId]);
 
+  useEffect(() => {
+    supabase
+      .from("invoice_items_catalog")
+      .select("id, name, description, unit_price, tva_rate, is_active")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("name")
+      .then(({ data }) => setCatalogItems((data ?? []) as CatalogItem[]));
+  }, [userId]);
+
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
 
   function updateLine(i: number, field: keyof LineItem, val: string | number) {
@@ -86,6 +107,54 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
       next[i] = { ...next[i], [field]: field === "desc" ? val : Number(val) };
       return next;
     });
+  }
+
+  function addCatalogItem(itemId: string) {
+    const item = catalogItems.find((catalogItem) => catalogItem.id === itemId);
+    if (!item) return;
+    const nextLine: LineItem = {
+      desc: item.description || item.name,
+      qty: 1,
+      pu: Number(item.unit_price || 0),
+      tva: Number(item.tva_rate || 0),
+    };
+    setLines((prev) => {
+      const firstEmptyIndex = prev.findIndex((line) => !line.desc.trim() && Number(line.pu || 0) === 0);
+      if (firstEmptyIndex >= 0) {
+        const next = [...prev];
+        next[firstEmptyIndex] = nextLine;
+        return next;
+      }
+      return [...prev, nextLine];
+    });
+    setSelectedCatalogItem("");
+  }
+
+  async function saveLineAsCatalogItem(line: LineItem) {
+    if (!line.desc.trim()) {
+      toast.error("Description requise pour enregistrer l’article");
+      return;
+    }
+    const { error } = await supabase.from("invoice_items_catalog").insert({
+      user_id: userId,
+      name: line.desc.trim().slice(0, 90),
+      description: line.desc.trim(),
+      unit_price: Number(line.pu || 0),
+      tva_rate: Number(line.tva || 0),
+      unit: "unité",
+      is_active: true,
+    });
+    if (error) toast.error(translateError(error));
+    else {
+      toast.success("Ligne enregistrée dans vos articles");
+      const { data } = await supabase
+        .from("invoice_items_catalog")
+        .select("id, name, description, unit_price, tva_rate, is_active")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .order("name");
+      setCatalogItems((data ?? []) as CatalogItem[]);
+    }
   }
 
   const lineAmounts = lines.map((l) => ({ ht: l.qty * l.pu, tva: l.qty * l.pu * l.tva / 100 }));
@@ -327,6 +396,27 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
 
       {/* Line items */}
       <div className="mt-4">
+        {catalogItems.length > 0 && (
+          <div className="mb-3 rounded-lg border border-[rgba(200,146,74,0.18)] bg-[#FFF7ED] p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="flex flex-1 flex-col gap-1.5">
+                <span className="text-[11px] font-semibold text-[#9A672E]">Ajouter un article enregistré</span>
+                <select className="input bg-white" value={selectedCatalogItem} onChange={(e) => setSelectedCatalogItem(e.target.value)}>
+                  <option value="">Sélectionner un article ou une prestation...</option>
+                  {catalogItems.map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} — {Number(item.unit_price || 0).toLocaleString("fr-MA", { minimumFractionDigits: 2 })} MAD HT · TVA {Number(item.tva_rate || 0)}%
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" onClick={() => selectedCatalogItem && addCatalogItem(selectedCatalogItem)} disabled={!selectedCatalogItem} className="btn btn-gold disabled:cursor-not-allowed disabled:opacity-50">
+                Ajouter
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-1.5 mb-1.5" style={{ gridTemplateColumns: "2fr 58px 90px 76px 28px" }}>
           {["Description", "Qté", "P.U. HT", "TVA %", ""].map((h) => (
             <span key={h} className="text-[10.5px] text-[#6B7280] font-semibold uppercase tracking-[0.5px]">{h}</span>
@@ -334,21 +424,28 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
         </div>
 
         {lines.map((line, i) => (
-          <div key={i} className="grid gap-1.5 mb-1.5 items-center" style={{ gridTemplateColumns: "2fr 58px 90px 76px 28px" }}>
-            <input className="input" placeholder="Description de la prestation..." value={line.desc}
-              onChange={(e) => updateLine(i, "desc", e.target.value)} />
-            <input type="number" min={1} className="input text-right" value={line.qty}
-              onChange={(e) => updateLine(i, "qty", e.target.value)} />
-            <input type="number" min={0} step={0.01} className="input text-right" placeholder="0" value={line.pu || ""}
-              onChange={(e) => updateLine(i, "pu", e.target.value)} />
-            <select className="input" value={line.tva} onChange={(e) => updateLine(i, "tva", e.target.value)}>
-              {TVA_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
-            </select>
-            <button type="button" onClick={() => lines.length > 1 && setLines(p => p.filter((_, j) => j !== i))}
-              className="flex items-center justify-center w-7 h-7 rounded bg-[#FEE2E2] text-[#DC2626] hover:bg-[#FCA5A5] transition-colors disabled:opacity-40"
-              disabled={lines.length === 1}>
-              <Trash2 size={12} />
-            </button>
+          <div key={i} className="mb-2">
+            <div className="grid gap-1.5 items-center" style={{ gridTemplateColumns: "2fr 58px 90px 76px 28px" }}>
+              <input className="input" placeholder="Description de la prestation..." value={line.desc}
+                onChange={(e) => updateLine(i, "desc", e.target.value)} />
+              <input type="number" min={1} className="input text-right" value={line.qty}
+                onChange={(e) => updateLine(i, "qty", e.target.value)} />
+              <input type="number" min={0} step={0.01} className="input text-right" placeholder="0" value={line.pu || ""}
+                onChange={(e) => updateLine(i, "pu", e.target.value)} />
+              <select className="input" value={line.tva} onChange={(e) => updateLine(i, "tva", e.target.value)}>
+                {TVA_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
+              </select>
+              <button type="button" onClick={() => lines.length > 1 && setLines(p => p.filter((_, j) => j !== i))}
+                className="flex items-center justify-center w-7 h-7 rounded bg-[#FEE2E2] text-[#DC2626] hover:bg-[#FCA5A5] transition-colors disabled:opacity-40"
+                disabled={lines.length === 1}>
+                <Trash2 size={12} />
+              </button>
+            </div>
+            {(line.desc.trim() || Number(line.pu || 0) > 0) && (
+              <button type="button" onClick={() => saveLineAsCatalogItem(line)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#9A672E] hover:text-[#C8924A]">
+                <Save size={11} /> Enregistrer cette ligne comme article
+              </button>
+            )}
           </div>
         ))}
 

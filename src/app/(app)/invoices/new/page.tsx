@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import PageHeader from "@/components/PageHeader";
+import BackIconLink from "@/components/BackIconLink";
 import NewInvoiceForm from "./NewInvoiceForm";
 import type { Client } from "@/types";
 
@@ -35,7 +36,7 @@ export default async function NewInvoicePage() {
 
   return (
     <>
-      <PageHeader title="Nouvelle facture" subtitle="Créer et envoyer une facture" />
+      <PageHeader title="Nouvelle facture" subtitle="Créer et envoyer une facture" icon={<BackIconLink href="/invoices" label="Retour aux factures" />} />
       <NewInvoiceForm clients={clients} nextNumber={nextNumber} userId={ownerId} />
     </>
   );
