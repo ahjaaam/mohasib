@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight, PenLine,
-  Receipt, Download, BarChart2, Banknote, Archive,
+  Calculator, Download, BarChart2, Banknote, Archive,
   Inbox, ChevronLeft, Building2, LogOut, X, Menu, ChevronDown, GitMerge, Lock,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -35,7 +35,7 @@ const NAV_GROUPS = [
   {
     group: "FISCAL",
     items: [
-      { slug: "tva",         icon: Receipt,   label: "Déclaration TVA", permission: "tva_declaration:read" },
+      { slug: "tva",         icon: Calculator, label: "Déclaration TVA", permission: "tva_declaration:read" },
       { slug: "grand-livre", icon: BarChart2, label: "Grand Livre", permission: "report:read" },
       { slug: "export",      icon: Download,  label: "Export CGNC", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
       { slug: "bilan",       icon: BarChart2, label: "Bilan / CPC", permission: "report:read", feature: "bilan" as PlanFeature },

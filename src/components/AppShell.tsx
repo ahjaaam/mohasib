@@ -9,7 +9,7 @@ import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
   LogOut, Menu, Inbox, Download,
-  Settings, Receipt, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine,
+  Settings, Calculator, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine,
   ChevronLeft, ChevronRight, GitMerge, Lock,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -30,7 +30,7 @@ const NAV_MAIN = [
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions", permission: "accounting:read" },
   { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
   { href: "/saisie",       icon: PenLine,         label: "Saisie comptable",   key: "saisie", permission: "accounting:read", feature: "saisie" as PlanFeature },
-  { href: "/tva",          icon: Receipt,         label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
+  { href: "/tva",          icon: Calculator,      label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
   { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
   { href: "/export",       icon: Download,        label: "Exports",            key: "export", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
   { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive", permission: "document:read" },

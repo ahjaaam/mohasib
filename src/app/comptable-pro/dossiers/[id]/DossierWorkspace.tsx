@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import {
   ChevronLeft, Save, Plus, Trash2, Download, FileText,
-  BarChart2, Receipt, Banknote, FolderOpen, Package,
+  BarChart2, Calculator, Banknote, FolderOpen, Package,
   TrendingUp, CheckCircle, AlertTriangle,
 } from "lucide-react";
 import type { Dossier, DossierEcriture, DossierTva, JournalCode } from "@/types/fiduciaire";
@@ -24,7 +24,7 @@ const TABS = [
   { key: "saisie", label: "Saisie", icon: FileText },
   { key: "factures", label: "Factures clients", icon: FileText },
   { key: "achats", label: "Achats fournisseurs", icon: FileText },
-  { key: "tva", label: "Déclaration TVA", icon: Receipt },
+  { key: "tva", label: "Déclaration TVA", icon: Calculator },
   { key: "paie", label: "Paie", icon: Banknote },
   { key: "bilan", label: "Bilan / CPC", icon: BarChart2 },
   { key: "documents", label: "Archive", icon: FolderOpen },

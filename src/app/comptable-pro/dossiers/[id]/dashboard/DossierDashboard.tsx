@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, TrendingUp, Wallet, ArrowLeftRight, PenLine, Receipt } from "lucide-react";
+import { Calculator, FileText, TrendingUp, Wallet, ArrowLeftRight, PenLine } from "lucide-react";
 import type { DossierEcriture } from "@/types/fiduciaire";
 
 function fmt(n: number) {
@@ -146,7 +146,7 @@ export default function DossierDashboard({ dossier, ecritures, invoices, transac
           { href: `${base}/saisie`,       icon: PenLine,         label: "Saisie",      color: "#C8924A" },
           { href: `${base}/invoices`,     icon: FileText,        label: "Factures",    color: "#059669" },
           { href: `${base}/transactions`, icon: ArrowLeftRight,  label: "Transactions",color: "#7C3AED" },
-          { href: `${base}/tva`,          icon: Receipt,         label: "TVA",         color: "#1D4ED8" },
+          { href: `${base}/tva`,          icon: Calculator,      label: "TVA",         color: "#1D4ED8" },
           { href: `${base}/clients`,      icon: Wallet,          label: "Clients",     color: "#0891B2" },
           { href: `${base}/bilan`,        icon: TrendingUp,      label: "Bilan",       color: "#DB2777" },
         ].map(({ href, icon: Icon, label, color }) => (
