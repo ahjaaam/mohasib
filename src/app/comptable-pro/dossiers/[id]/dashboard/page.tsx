@@ -15,7 +15,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ id: 
   const [dossierRes, ecrRes, invRes, txRes] = await Promise.all([
     supabase.from("dossiers").select("*").eq("id", id).eq("fiduciaire_user_id", ownerId).single(),
     supabase.from("dossier_ecritures").select("*").eq("dossier_id", id).order("date", { ascending: false }).limit(50),
-    supabase.from("invoices").select("id, invoice_number, issue_date, total, status, clients(name)").eq("dossier_id", id).order("issue_date", { ascending: false }).limit(50),
+    supabase.from("invoices").select("id, invoice_number, issue_date, subtotal, tax_amount, total, status, clients(name)").eq("dossier_id", id).order("issue_date", { ascending: false }).limit(50),
     supabase.from("transactions").select("id, date, description, amount, type, category").eq("dossier_id", id).order("date", { ascending: false }).limit(50),
   ]);
 

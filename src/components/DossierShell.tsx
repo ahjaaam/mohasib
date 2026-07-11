@@ -8,7 +8,7 @@ import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight, PenLine,
   Calculator, Download, BarChart2, Banknote, Archive,
-  Inbox, ChevronLeft, Building2, LogOut, X, Menu, ChevronDown, GitMerge, Lock,
+  Inbox, ChevronLeft, ChevronRight, Building2, LogOut, X, Menu, ChevronDown, GitMerge, Lock,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -64,6 +64,7 @@ interface Props {
 
 export default function DossierShell({ children, dossier, dossiers = [dossier], userName, userEmail, permissions = null, roleLabel, entitlements, ownerId }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -98,12 +99,12 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
     router.push(`/comptable-pro/dossiers/${nextId}/${getCurrentSection()}`);
   }
 
-  const initials = dossier.raison_sociale
-    .split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-
   const userInitials = userName
     ? userName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
     : userEmail?.slice(0, 2).toUpperCase() ?? "U";
+
+  const initials = dossier.raison_sociale
+    .split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -132,45 +133,51 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
     </div>
   );
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ compact = false }: { compact?: boolean } = {}) => (
     <>
       {/* Dossier identity */}
-      <div className="px-[18px] pt-4 pb-3 border-b border-white/[0.07]">
-        <div className="flex items-center gap-2.5">
+      <div className={`pt-4 pb-3 border-b border-white/[0.07] ${compact ? "px-0" : "px-[18px]"}`}>
+        <div className={`flex items-center ${compact ? "justify-center" : "gap-2.5"}`}>
           <div className="w-9 h-9 rounded-lg bg-[#C8924A] flex items-center justify-center flex-shrink-0 text-[13px] font-bold text-white">
             {initials}
           </div>
-          <div className="min-w-0">
-            <div className="text-[13px] font-semibold text-white truncate leading-tight">
-              {dossier.raison_sociale}
+          {!compact && (
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold text-white truncate leading-tight">
+                {dossier.raison_sociale}
+              </div>
+              {dossier.regime_tva && (
+                <div className="text-[10px] text-[#C8924A]/70 mt-0.5 capitalize">TVA {dossier.regime_tva}</div>
+              )}
             </div>
-            {dossier.regime_tva && (
-              <div className="text-[10px] text-[#C8924A]/70 mt-0.5 capitalize">TVA {dossier.regime_tva}</div>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
         {NAV_GROUPS.map(({ group, items }) => (
           <div key={group}>
-            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: "rgba(255,255,255,0.14)", padding: "14px 18px 6px" }}>
-              {group}
-            </div>
+            {!compact && (
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: "rgba(255,255,255,0.14)", padding: "14px 18px 6px" }}>
+                {group}
+              </div>
+            )}
             {items.filter(item => entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
               const locked = !allowed(permission);
               return (
-              <Link key={slug} href={`${base}/${slug}`}
-                className={`flex items-center gap-2.5 px-[18px] py-[9px] text-[12.5px] transition-all border-r-2 ${
+              <Link key={slug} href={`${base}/${slug}`} title={compact ? label : undefined}
+                className={`flex items-center py-[9px] text-[12.5px] transition-all border-r-2 ${
+                  compact ? "justify-center px-0" : "gap-2.5 px-[18px]"
+                } ${
                   isActive(slug)
                     ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
                     : locked
                       ? "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
                       : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
                 }`}>
-                <Icon size={14} />
-                {label}
-                {locked && <Lock size={11} className="ml-auto opacity-70" />}
+                <Icon size={compact ? 18 : 14} />
+                {!compact && label}
+                {!compact && locked && <Lock size={11} className="ml-auto opacity-70" />}
               </Link>
               );
             })}
@@ -179,17 +186,21 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
       </nav>
 
       {/* User footer */}
-      <div className="px-[18px] py-3 border-t border-white/[0.07] flex items-center gap-2.5">
+      <div className={`py-3 border-t border-white/[0.07] flex items-center ${compact ? "justify-center px-0" : "px-[18px] gap-2.5"}`}>
         <div className="w-[28px] h-[28px] rounded-full bg-[#C8924A] flex items-center justify-center text-[10px] font-bold text-[#0D1526] flex-shrink-0">
           {userInitials}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-[11.5px] text-white/70 font-medium truncate">{userName || userEmail}</div>
-          <div className="text-[10px] text-white/30">{roleLabel || "Comptable Pro"}</div>
-        </div>
-        <button onClick={signOut} className="text-white/30 hover:text-red-400 transition-colors ml-1">
-          <LogOut size={13} />
-        </button>
+        {!compact && (
+          <>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11.5px] text-white/70 font-medium truncate">{userName || userEmail}</div>
+              <div className="text-[10px] text-white/30">{roleLabel || "Comptable Pro"}</div>
+            </div>
+            <button onClick={signOut} className="text-white/30 hover:text-red-400 transition-colors ml-1">
+              <LogOut size={13} />
+            </button>
+          </>
+        )}
       </div>
     </>
   );
@@ -227,12 +238,33 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
         </div>
 
         {/* Desktop sidebar (below banner) */}
-        <aside className="hidden md:flex fixed top-[48px] left-0 bottom-0 w-[210px] flex-col z-20 bg-[#0D1526]">
-          <SidebarContent />
+        <aside
+          className="hidden md:flex fixed top-[48px] left-0 bottom-0 flex-col z-50 bg-[#0D1526] transition-[width] duration-200 overflow-visible"
+          style={{ width: sidebarCollapsed ? 56 : 210 }}
+        >
+          <SidebarContent compact={sidebarCollapsed} />
+          <button
+            onClick={() => setSidebarCollapsed(v => !v)}
+            title={sidebarCollapsed ? "Développer" : "Réduire"}
+            className="absolute top-[42px] -right-[11px] w-[22px] h-[22px] rounded-full flex items-center justify-center transition-colors z-[70]"
+            style={{
+              background: "#1a2540",
+              border: "1px solid rgba(255,255,255,0.14)",
+              color: "rgba(255,255,255,0.45)",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.9)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.3)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.45)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.14)"; }}
+          >
+            {sidebarCollapsed ? <ChevronRight size={11} /> : <ChevronLeft size={11} />}
+          </button>
         </aside>
 
         {/* Main content — fixed so height is always exactly viewport minus banner/sidebar */}
-        <div className="fixed top-[48px] left-0 md:left-[210px] right-0 bottom-0 overflow-y-auto bg-[#FAFAF6] z-40">
+        <div
+          className={`fixed top-[48px] left-0 right-0 bottom-0 overflow-y-auto bg-[#FAFAF6] z-40 transition-[left] duration-200 ${
+            sidebarCollapsed ? "md:left-[56px]" : "md:left-[210px]"
+          }`}
+        >
           <div className="page-fade p-4 md:p-[24px_22px_18px] pb-[72px] md:pb-[18px]">
             {pageAllowed ? children : <AccessRestricted backHref="/comptable-pro" reason={featureAllowed ? "permission" : "plan"} />}
           </div>
