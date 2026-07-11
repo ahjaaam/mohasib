@@ -63,7 +63,7 @@ export default function DocumentShareButtons({ title, url, description = "docume
         <button
           type="button"
           onClick={nativeShare}
-          className="inline-flex items-center gap-2 rounded-full border border-[rgba(13,21,38,0.10)] bg-white px-3.5 py-2 text-[12px] font-bold text-[#0D1526] transition hover:border-[#C8924A] hover:text-[#C8924A]"
+          className="inline-flex items-center gap-2 rounded-full border border-[rgba(13,21,38,0.16)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-bold text-[#0D1526] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]"
         >
           <Share2 size={14} />
           Partager
@@ -74,7 +74,7 @@ export default function DocumentShareButtons({ title, url, description = "docume
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-[rgba(13,21,38,0.10)] bg-white px-3.5 py-2 text-[12px] font-bold text-[#0D1526] transition hover:border-[#C8924A] hover:text-[#C8924A]"
+            className="inline-flex items-center gap-2 rounded-full border border-[rgba(13,21,38,0.16)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-bold text-[#0D1526] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]"
           >
             <Icon size={14} />
             {label}
@@ -83,7 +83,7 @@ export default function DocumentShareButtons({ title, url, description = "docume
         <button
           type="button"
           onClick={copyLink}
-          className="inline-flex items-center gap-2 rounded-full border border-[rgba(13,21,38,0.10)] bg-white px-3.5 py-2 text-[12px] font-bold text-[#0D1526] transition hover:border-[#C8924A] hover:text-[#C8924A]"
+          className="inline-flex items-center gap-2 rounded-full border border-[rgba(13,21,38,0.16)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-bold text-[#0D1526] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]"
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
           {copied ? "Copié" : "Copier le lien"}

@@ -928,7 +928,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
         {hasFilters && (
           <button
             onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }}
-            className="px-3 py-2 rounded-lg text-[12px] text-[#6B7280] hover:text-[#1A1A2E] border border-[rgba(0,0,0,0.10)] bg-white flex items-center gap-1.5"
+            className="px-3 py-2 rounded-lg text-[12px] text-[#6B7280] hover:text-[#1A1A2E] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] flex items-center gap-1.5"
           >
             <X size={12} /> Effacer
           </button>

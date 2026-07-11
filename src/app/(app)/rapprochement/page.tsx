@@ -394,7 +394,7 @@ function Metric({ label, value, sub, danger = false }: { label: string; value: s
 }
 
 function Tabs({ items, active, onChange }: { items: string[]; active: string; onChange: (value: string) => void }) {
-  return <div className="flex gap-2 overflow-x-auto">{items.map((item) => <button key={item} onClick={() => onChange(item)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[11.5px] font-bold ${active === item ? "bg-[#0D1526] text-white" : "bg-white text-[#6B7280] border border-[rgba(0,0,0,0.08)]"}`}>{item}</button>)}</div>;
+  return <div className="flex gap-2 overflow-x-auto">{items.map((item) => <button key={item} onClick={() => onChange(item)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[11.5px] font-bold ${active === item ? "bg-[#0D1526] text-white" : "bg-[#FAFAF6] text-[#6B7280] border border-[rgba(0,0,0,0.16)] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5]"}`}>{item}</button>)}</div>;
 }
 
 function Panel({ title, sub, children, cream = false, className = "" }: { title: string; sub: string; children: React.ReactNode; cream?: boolean; className?: string }) {

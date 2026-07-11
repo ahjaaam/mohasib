@@ -472,11 +472,11 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                 </button>
               )}
               <button data-permission="document:create" onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.18)] text-[12px] font-medium text-[#374151] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                 <Upload size={13} /> Importer des documents
               </button>
               <button data-permission="document:create" onClick={() => cameraInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] text-[12px] font-medium text-[#374151] bg-white hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.18)] text-[12px] font-medium text-[#374151] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                 <Camera size={13} /> Prendre une photo
               </button>
             </div>

@@ -29,7 +29,7 @@ export default async function WaitlistPage({
           <h1 className="text-xl font-bold">Liste d’attente</h1>
           <p className="mt-1 text-xs text-gray-500">{rows.length} demande(s)</p>
         </div>
-        <Link href="/api/admin/export/waitlist" className="inline-flex items-center gap-1.5 rounded border border-black/10 bg-white px-3 py-2 text-xs font-semibold">
+        <Link href="/api/admin/export/waitlist" className="inline-flex items-center gap-1.5 rounded border border-black/20 bg-[#FAFAF6] px-3 py-2 text-xs font-semibold shadow-sm hover:bg-[#F0EDE5]">
           <Download size={13} /> CSV
         </Link>
       </div>

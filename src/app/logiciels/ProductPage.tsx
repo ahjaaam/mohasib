@@ -77,7 +77,7 @@ export default function ProductPage({
             <Link href={resolvedCtaHref} className="inline-flex items-center gap-2 rounded-lg bg-[#C8924A] px-5 py-3 text-[13px] font-bold text-white transition hover:bg-[#B7833F]">
               {ctaLabel} <ArrowRight size={15} />
             </Link>
-            <Link href="/tarifs" className="inline-flex items-center gap-2 rounded-lg border border-[#C8924A] bg-white px-5 py-3 text-[13px] font-bold text-[#C8924A] transition hover:bg-[#FFF7ED]">
+            <Link href="/tarifs" className="inline-flex items-center gap-2 rounded-lg border border-[rgba(200,146,74,0.55)] bg-[#FFF7ED] px-5 py-3 text-[13px] font-bold text-[#9A672E] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition hover:border-[#C8924A] hover:bg-[#F0EDE5]">
               Voir les tarifs
             </Link>
           </div>

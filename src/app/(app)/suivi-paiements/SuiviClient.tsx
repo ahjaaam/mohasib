@@ -686,7 +686,7 @@ function ClientsSection({
                           )}
                           {!isPaid && (
                             <button onClick={() => onRelance(inv)}
-                              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-[rgba(0,0,0,0.15)] text-[#374151] bg-white hover:bg-[#F3F4F6] transition-colors">
+                              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-[rgba(0,0,0,0.18)] text-[#374151] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] transition-colors">
                               <Send size={10} /> Relancer
                             </button>
                           )}
@@ -830,7 +830,7 @@ function SuppliersSection({
                             </button>
                           )}
                           <a href={`/inbox`}
-                            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-[rgba(0,0,0,0.15)] text-[#374151] bg-white hover:bg-[#F3F4F6] transition-colors">
+                            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-[rgba(0,0,0,0.18)] text-[#374151] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] transition-colors">
                             <Eye size={10} /> Voir
                           </a>
                         </div>

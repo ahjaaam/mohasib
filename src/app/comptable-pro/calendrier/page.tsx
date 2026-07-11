@@ -356,19 +356,19 @@ export default function CalendrierPage() {
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         <div className="flex items-center gap-2">
           <button onClick={prev}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.10)] bg-white hover:border-[#C8924A] transition-colors">
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] transition-colors">
             <ChevronLeft size={15} />
           </button>
           <h2 className="text-[16px] font-bold text-[#1A1A2E] min-w-[180px] text-center select-none">
             {MONTHS_FR[month - 1]} {year}
           </h2>
           <button onClick={next}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.10)] bg-white hover:border-[#C8924A] transition-colors">
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] transition-colors">
             <ChevronRight size={15} />
           </button>
         </div>
         <button onClick={goToday}
-          className="text-[12px] font-medium text-[#6B7280] border border-[rgba(0,0,0,0.10)] bg-white px-3 py-1.5 rounded-lg hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+          className="text-[12px] font-medium text-[#6B7280] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-3 py-1.5 rounded-lg shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
           Aujourd'hui
         </button>
         <div className="ml-auto flex items-center gap-2 flex-wrap">

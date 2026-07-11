@@ -30,7 +30,7 @@
   /* Buttons */
   .btn { @apply inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer border-none transition-all duration-100 whitespace-nowrap font-sans; }
   .btn-gold { @apply bg-[#C8924A] text-white hover:bg-[#B8823A]; }
-  .btn-outline { @apply bg-white text-[#1A1A2E] border border-[rgba(0,0,0,0.14)] hover:bg-[#F0EDE5]; }
+  .btn-outline { @apply bg-[#FAFAF6] text-[#1A1A2E] border border-[rgba(0,0,0,0.18)] shadow-[0_1px_2px_rgba(13,21,38,0.06)] hover:bg-[#F0EDE5] hover:border-[rgba(200,146,74,0.42)]; }
   .btn-sm { @apply px-2.5 py-1 text-[11.5px]; }
 
   /* Cards */

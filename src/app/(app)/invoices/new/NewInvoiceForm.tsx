@@ -163,6 +163,11 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   const totalTTC = totalHT + totalTVA;
 
   async function save(status: "draft" | "sent") {
+    if (totalHT <= 0) {
+      setError("Le montant de la facture doit être supérieur à 0. Sélectionnez un article du catalogue ou ajoutez une ligne avec un prix.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -396,7 +401,11 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
                 <select
                   className="input bg-white"
                   value={selectedCatalogItem}
-                  onChange={(e) => setSelectedCatalogItem(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSelectedCatalogItem(value);
+                    if (value) addCatalogItem(value);
+                  }}
                 >
                   <option value="">Sélectionner un article ou une prestation...</option>
                   {catalogItems.map(item => (
@@ -406,14 +415,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
                   ))}
                 </select>
               </label>
-              <button
-                type="button"
-                onClick={() => selectedCatalogItem && addCatalogItem(selectedCatalogItem)}
-                disabled={!selectedCatalogItem}
-                className="btn btn-gold disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Ajouter
-              </button>
+              <p className="pb-2 text-[11px] font-medium text-[#9A672E]">Ajout automatique après sélection.</p>
             </div>
           </div>
         )}

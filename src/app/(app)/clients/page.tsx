@@ -468,7 +468,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
               className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-semibold transition ${
                 active
                   ? "border-[#C8924A]/40 bg-[#FFF7ED] text-[#9A672E]"
-                  : "border-[rgba(0,0,0,0.08)] bg-white text-[#6B7280] hover:border-[#C8924A]/30 hover:text-[#C8924A]"
+                  : "border-[rgba(0,0,0,0.16)] bg-[#FAFAF6] text-[#6B7280] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:border-[#C8924A]/30 hover:bg-[#F0EDE5] hover:text-[#C8924A]"
               }`}
             >
               {label}

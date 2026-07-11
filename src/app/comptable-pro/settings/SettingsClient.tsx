@@ -214,7 +214,7 @@ export default function SettingsClient({ userId, profile, cabinet }: Props) {
             <p className="text-[12px] text-[#6B7280] mb-3">
               Retourner en mode entrepreneur convertira votre compte et vos dossiers seront archivés.
             </p>
-            <button className="btn btn-sm text-[#DC2626] border border-[#FECACA] bg-white hover:bg-[#FEE2E2]">
+            <button className="btn btn-sm text-[#DC2626] border border-[#FCA5A5] bg-[#FFF7F7] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#FEE2E2]">
               Passer en mode entrepreneur
             </button>
           </div>

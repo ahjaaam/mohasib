@@ -163,6 +163,11 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
   const totalTTC = totalHT + totalTVA;
 
   async function save(devisStatus: "brouillon" | "envoyé") {
+    if (totalHT <= 0) {
+      setError("Le montant du devis doit être supérieur à 0. Sélectionnez un article du catalogue ou ajoutez une ligne avec un prix.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -401,7 +406,15 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <label className="flex flex-1 flex-col gap-1.5">
                 <span className="text-[11px] font-semibold text-[#9A672E]">Ajouter un article enregistré</span>
-                <select className="input bg-white" value={selectedCatalogItem} onChange={(e) => setSelectedCatalogItem(e.target.value)}>
+                <select
+                  className="input bg-white"
+                  value={selectedCatalogItem}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSelectedCatalogItem(value);
+                    if (value) addCatalogItem(value);
+                  }}
+                >
                   <option value="">Sélectionner un article ou une prestation...</option>
                   {catalogItems.map(item => (
                     <option key={item.id} value={item.id}>
@@ -410,9 +423,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
                   ))}
                 </select>
               </label>
-              <button type="button" onClick={() => selectedCatalogItem && addCatalogItem(selectedCatalogItem)} disabled={!selectedCatalogItem} className="btn btn-gold disabled:cursor-not-allowed disabled:opacity-50">
-                Ajouter
-              </button>
+              <p className="pb-2 text-[11px] font-medium text-[#9A672E]">Ajout automatique après sélection.</p>
             </div>
           </div>
         )}

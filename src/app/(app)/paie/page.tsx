@@ -1479,7 +1479,7 @@ function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onN
           <button onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
             <ChevronRight size={16} />
           </button>
-          <button onClick={onDownloadExcel} disabled={actionLoading === "cnss-excel" || loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.12)] bg-white hover:bg-[#F9F9F6] transition-colors disabled:opacity-50">
+          <button onClick={onDownloadExcel} disabled={actionLoading === "cnss-excel" || loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] transition-colors disabled:opacity-50">
             {actionLoading === "cnss-excel" ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Exporter Excel
           </button>
           <button onClick={onDownloadPdf} disabled={actionLoading === "cnss-pdf" || loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-white transition-colors disabled:opacity-50" style={{ backgroundColor: "#1A1A2E" }}>

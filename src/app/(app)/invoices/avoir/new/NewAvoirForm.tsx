@@ -466,7 +466,15 @@ export default function NewAvoirForm({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <label className="flex flex-1 flex-col gap-1.5">
                 <span className="text-[11px] font-semibold text-[#9A672E]">Ajouter un article enregistré</span>
-                <select className="input bg-white" value={selectedCatalogItem} onChange={(e) => setSelectedCatalogItem(e.target.value)}>
+                <select
+                  className="input bg-white"
+                  value={selectedCatalogItem}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSelectedCatalogItem(value);
+                    if (value) addCatalogItem(value);
+                  }}
+                >
                   <option value="">Sélectionner un article ou une prestation...</option>
                   {catalogItems.map(item => (
                     <option key={item.id} value={item.id}>
@@ -475,9 +483,7 @@ export default function NewAvoirForm({
                   ))}
                 </select>
               </label>
-              <button type="button" onClick={() => selectedCatalogItem && addCatalogItem(selectedCatalogItem)} disabled={!selectedCatalogItem} className="btn btn-gold disabled:cursor-not-allowed disabled:opacity-50">
-                Ajouter
-              </button>
+              <p className="pb-2 text-[11px] font-medium text-[#9A672E]">Ajout automatique après sélection.</p>
             </div>
           </div>
         )}

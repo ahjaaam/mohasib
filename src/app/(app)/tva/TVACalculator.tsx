@@ -473,7 +473,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
             B: {activeBLines.length} · C: {activeCLines.length} · D: {activeDLines.length} · E: {activeELines.length}
           </p>
         </div>
-        <Link href="/settings?tab=tva" className="btn btn-outline bg-white text-[11.5px] text-[#92400E]">
+        <Link href="/settings?tab=tva" className="btn btn-outline text-[11.5px] text-[#92400E]">
           Gérer les lignes actives
         </Link>
       </div>
