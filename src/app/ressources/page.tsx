@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BookOpen, Calculator, Download } from "lucide-react";
+import { BookOpen, Download } from "lucide-react";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
 import { seoMetadata } from "@/lib/seo";
@@ -20,15 +20,6 @@ const cards = [
     cta: "Lire les articles ->",
     href: "/ressources/blog",
     icon: BookOpen,
-  },
-  {
-    title: "Outils de simulation",
-    subtitle: "Simulations personnalisees",
-    description:
-      "Calculez votre TVA, estimez votre IS, simulez vos bulletins de paie et anticipez vos charges sociales - sans inscription requise.",
-    cta: "Acceder aux outils ->",
-    href: "/ressources/outils",
-    icon: Calculator,
   },
   {
     title: "Documents téléchargeables",
@@ -58,7 +49,7 @@ export default function RessourcesPage() {
       </section>
 
       <section className="bg-white px-6 py-16 md:px-10 md:py-20">
-        <div className="mx-auto grid max-w-6xl gap-5 md:grid-cols-3">
+        <div className="mx-auto grid max-w-4xl gap-5 md:grid-cols-2">
           {cards.map(({ title, subtitle, description, cta, href, icon: Icon }) => (
             <Link
               key={title}

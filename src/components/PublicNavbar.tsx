@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, Building2, Calculator, ChevronDown, Download, Landmark, Menu, X } from "lucide-react";
+import { BookOpen, ChevronDown, Download, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { appUrl } from "@/lib/public-urls";
 
@@ -10,35 +10,12 @@ const FONT = "var(--font-jakarta), sans-serif";
 const NAVY = "#0D1526";
 const GOLD = "#C8924A";
 
-const SOFTWARE_NAV = [
-  {
-    href: "/logiciels/business",
-    title: "Mohasib Business",
-    subtitle: "Pour entrepreneurs, TPE et PME",
-    icon: Building2,
-    features: ["Facturation & devis", "TVA et trésorerie", "OCR, documents et exports"],
-  },
-  {
-    href: "/logiciels/comptable-pro",
-    title: "Comptable Pro",
-    subtitle: "Pour fiduciaires et cabinets comptables",
-    icon: Landmark,
-    features: ["Dossiers clients", "Production comptable", "TVA, paie et exports CGNC"],
-  },
-];
-
 const RESOURCE_NAV = [
   {
     href: "/ressources/blog",
     title: "Blog",
     subtitle: "Tout savoir sur la comptabilité et l'entrepreneuriat",
     icon: BookOpen,
-  },
-  {
-    href: "/ressources/outils",
-    title: "Outils de simulation",
-    subtitle: "Simulations personnalisées",
-    icon: Calculator,
   },
   {
     href: "/ressources/documents",
@@ -67,12 +44,6 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
         .public-resources-menu:hover .public-resources-panel, .public-resources-menu:focus-within .public-resources-panel { opacity: 1; visibility: visible; transform: translateY(0); }
         .public-resources-item { display: flex; gap: 12px; padding: 12px; border-radius: 8px; text-decoration: none; transition: background 0.15s ease; }
         .public-resources-item:hover { background: #FAFAF6; }
-        .public-software-panel { width: 620px; padding: 10px; }
-        .public-software-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-        .public-software-card { display: block; min-height: 100%; border-radius: 10px; padding: 14px; text-decoration: none; transition: background 0.15s ease, border-color 0.15s ease; border: 1px solid transparent; }
-        .public-software-card:hover { background: #FAFAF6; border-color: rgba(200,146,74,0.22); }
-        .public-software-feature { display: flex; align-items: center; gap: 7px; margin-top: 8px; color: #6B7280; font-size: 11.5px; line-height: 1.35; font-family: ${FONT}; }
-        .public-software-dot { width: 5px; height: 5px; border-radius: 999px; background: ${GOLD}; flex-shrink: 0; }
         .public-nav-actions { display: flex; align-items: center; gap: 10px; }
         .public-mobile-toggle, .public-mobile-panel { display: none; }
         @keyframes nav-trial-pop {
@@ -104,33 +75,6 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
               <Image className="public-brand-image" src="/logo2.png" alt="Mohasib" width={168} height={50} style={{ width: 168, height: "auto", objectFit: "contain" }} />
             </Link>
             <div className="public-nav-links">
-              <div className="public-resources-menu">
-                <Link href="/logiciels/business" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600, color: "#374151", textDecoration: "none", fontFamily: FONT }}>
-                  Logiciels <ChevronDown size={14} />
-                </Link>
-                <div className="public-resources-panel public-software-panel">
-                  <div className="public-software-grid">
-                    {SOFTWARE_NAV.map(({ href, title, subtitle, features, icon: Icon }) => (
-                      <Link key={href} href={href} className="public-software-card">
-                        <span style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(200,146,74,0.10)", color: GOLD, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Icon size={18} />
-                        </span>
-                        <span style={{ display: "block", marginTop: 12, fontSize: 14, fontWeight: 800, color: NAVY, fontFamily: FONT }}>{title}</span>
-                        <span style={{ display: "block", marginTop: 3, fontSize: 12, lineHeight: 1.45, color: "#6B7280", fontFamily: FONT }}>{subtitle}</span>
-                        <span style={{ display: "block", marginTop: 10 }}>
-                          {features.map((feature) => (
-                            <span key={feature} className="public-software-feature">
-                              <span className="public-software-dot" />
-                              {feature}
-                            </span>
-                          ))}
-                        </span>
-                        <span style={{ display: "inline-flex", marginTop: 14, fontSize: 12, fontWeight: 800, color: GOLD, fontFamily: FONT }}>Voir le logiciel →</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
               <div className="public-resources-menu">
                 <Link href="/ressources" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600, color: "#374151", textDecoration: "none", fontFamily: FONT }}>
                   Ressources <ChevronDown size={14} />
@@ -178,19 +122,6 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
         </div>
         {mobileOpen && (
           <div className="public-mobile-panel">
-            <Link href="/logiciels/business" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
-              Logiciels <ChevronDown size={15} />
-            </Link>
-            <div>
-              {SOFTWARE_NAV.map(({ href, title, icon: Icon }) => (
-                <Link key={href} href={href} className="public-mobile-resource" onClick={() => setMobileOpen(false)}>
-                  <span style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(200,146,74,0.10)", color: GOLD, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon size={15} />
-                  </span>
-                  {title}
-                </Link>
-              ))}
-            </div>
             <Link href="/ressources" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
               Ressources <ChevronDown size={15} />
             </Link>
