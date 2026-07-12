@@ -4,6 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import BackIconLink from "@/components/BackIconLink";
 import NewInvoiceForm from "./NewInvoiceForm";
 import type { Client } from "@/types";
+import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 
 export default async function NewInvoicePage() {
   const supabase = await createClient();
@@ -19,20 +20,10 @@ export default async function NewInvoicePage() {
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];
 
-  // Get last invoice number
-  const { data: lastInv } = await supabase
-    .from("invoices")
-    .select("invoice_number")
-    .eq("user_id", ownerId)
-    .is("dossier_id", null)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  const lastNum = lastInv?.[0]
-    ? parseInt(lastInv[0].invoice_number.split("-").pop() ?? "0", 10)
-    : 0;
-  const year = new Date().getFullYear();
-  const nextNumber = `FAC-${year}-${String(lastNum + 1).padStart(4, "0")}`;
+  const nextNumber = await getNextInvoiceDocumentNumber(supabase, {
+    prefix: "FAC",
+    userId: ownerId,
+  });
 
   return (
     <>

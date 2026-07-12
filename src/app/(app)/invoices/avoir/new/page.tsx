@@ -4,6 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import BackIconLink from "@/components/BackIconLink";
 import NewAvoirForm from "./NewAvoirForm";
 import type { Client } from "@/types";
+import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 
 export default async function NewAvoirClientPage() {
   const supabase = await createClient();
@@ -19,22 +20,10 @@ export default async function NewAvoirClientPage() {
 
   const clients: Pick<Client, "id" | "name" | "email">[] = clientsData ?? [];
 
-  // Get next avoir number: AV-YYYY-NNNN
-  const year = new Date().getFullYear();
-  const { data: lastAv } = await supabase
-    .from("invoices")
-    .select("invoice_number")
-    .eq("user_id", ownerId)
-    .is("dossier_id", null)
-    .eq("invoice_type", "avoir_client")
-    .ilike("invoice_number", `AV-${year}-%`)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  const lastNum = lastAv?.[0]
-    ? parseInt(lastAv[0].invoice_number.split("-").pop() ?? "0", 10)
-    : 0;
-  const nextNumber = `AV-${year}-${String(lastNum + 1).padStart(4, "0")}`;
+  const nextNumber = await getNextInvoiceDocumentNumber(supabase, {
+    prefix: "AV",
+    userId: ownerId,
+  });
 
   // Recent sent/paid invoices for linking
   const { data: invoicesData } = await supabase

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
+import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 import { Trash2, Plus, Loader2, Send, Mail, Download, Save } from "lucide-react";
 import type { Client } from "@/types";
 
@@ -162,6 +163,11 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
   const totalTVA = lineAmounts.reduce((s, l) => s + l.tva, 0);
   const totalTTC = totalHT + totalTVA;
 
+  function isDuplicateInvoiceNumberError(err: any) {
+    const text = `${err?.code ?? ""} ${err?.message ?? ""} ${err?.details ?? ""}`;
+    return text.includes("23505") || text.includes("idx_invoices_number") || /duplicate key/i.test(text);
+  }
+
   async function save(devisStatus: "brouillon" | "envoyé") {
     if (totalHT <= 0) {
       setError("Le montant du devis doit être supérieur à 0. Sélectionnez un article du catalogue ou ajoutez une ligne avec un prix.");
@@ -181,31 +187,54 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
 
     const avgTVA = totalHT > 0 ? (totalTVA / totalHT) * 100 : 20;
 
-    const { data: row, error: err } = await supabase
-      .from("invoices")
-      .insert({
-        user_id: userId,
-        client_id: form.client_id || null,
-        invoice_number: form.num,
-        invoice_type: "devis",
-        status: "draft",
-        devis_status: devisStatus,
-        devis_objet: form.objet || null,
-        devis_validity_days: form.validity_days,
-        devis_expiry_date: expiryDate,
-        devis_conditions: form.conditions || null,
-        devis_notes: form.notes || null,
-        issue_date: form.date,
-        due_date: null,
-        subtotal: totalHT,
-        tax_rate: Math.round(avgTVA * 100) / 100,
-        tax_amount: totalTVA,
-        total: totalTTC,
-        currency: "MAD",
-        items,
-      })
-      .select("id, invoice_number, clients(email)")
-      .single();
+    let invoiceNumber = await getAvailableInvoiceDocumentNumber(supabase, {
+      preferredNumber: form.num,
+      prefix: "DEV",
+      userId,
+    });
+
+    if (invoiceNumber !== form.num) {
+      setForm((f) => ({ ...f, num: invoiceNumber }));
+    }
+
+    const insertDevis = (number: string) => supabase
+        .from("invoices")
+        .insert({
+          user_id: userId,
+          client_id: form.client_id || null,
+          invoice_number: number,
+          invoice_type: "devis",
+          status: "draft",
+          devis_status: devisStatus,
+          devis_objet: form.objet || null,
+          devis_validity_days: form.validity_days,
+          devis_expiry_date: expiryDate,
+          devis_conditions: form.conditions || null,
+          devis_notes: form.notes || null,
+          issue_date: form.date,
+          due_date: null,
+          subtotal: totalHT,
+          tax_rate: Math.round(avgTVA * 100) / 100,
+          tax_amount: totalTVA,
+          total: totalTTC,
+          currency: "MAD",
+          items,
+        })
+        .select("id, invoice_number, clients(email)")
+        .single();
+
+    let { data: row, error: err } = await insertDevis(invoiceNumber);
+
+    if (err && isDuplicateInvoiceNumberError(err)) {
+      invoiceNumber = await getNextInvoiceDocumentNumber(supabase, {
+        prefix: "DEV",
+        userId,
+      });
+      setForm((f) => ({ ...f, num: invoiceNumber }));
+      const retry = await insertDevis(invoiceNumber);
+      row = retry.data;
+      err = retry.error;
+    }
 
     setSaving(false);
     if (err) {

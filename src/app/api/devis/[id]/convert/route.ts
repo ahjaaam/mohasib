@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { authorizePermission } from "@/lib/api-permissions";
 import { createVersion, logAccountingEvent, logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
+import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 
 export async function POST(
   req: NextRequest,
@@ -31,31 +32,22 @@ export async function POST(
       return NextResponse.json({ error: "Ce document n'est pas un devis" }, { status: 400 });
     }
 
-    // Generate next FAC- number
-    const { data: lastInv } = await supabase
-      .from("invoices")
-      .select("invoice_number")
-      .eq("user_id", user.id)
-      .not("invoice_type", "eq", "devis")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const lastNum = lastInv?.[0]
-      ? parseInt(lastInv[0].invoice_number.split("-").pop() ?? "0", 10)
-      : 0;
-    const year = new Date().getFullYear();
-    const invoiceNumber = `FAC-${year}-${String(lastNum + 1).padStart(4, "0")}`;
+    let invoiceNumber = await getNextInvoiceDocumentNumber(supabase, {
+      prefix: "FAC",
+      userId: devis.user_id,
+      dossierId: devis.dossier_id,
+    });
 
     const today = new Date().toISOString().split("T")[0];
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);
 
-    const { data: newInv, error: insertErr } = await supabase
-      .from("invoices")
-      .insert({
-        user_id: user.id,
+    const insertInvoice = (number: string) => supabase
+        .from("invoices")
+        .insert({
+        user_id: devis.user_id,
         client_id: devis.client_id,
-        invoice_number: invoiceNumber,
+        invoice_number: number,
         invoice_type: "facture",
         status: "sent",
         issue_date: today,
@@ -67,9 +59,23 @@ export async function POST(
         currency: devis.currency ?? "MAD",
         notes: devis.devis_notes ?? devis.notes,
         items: devis.items,
+        ...(devis.dossier_id ? { dossier_id: devis.dossier_id } : {}),
       })
-      .select("*")
-      .single();
+        .select("*")
+        .single();
+
+    let { data: newInv, error: insertErr } = await insertInvoice(invoiceNumber);
+
+    if (insertErr && (insertErr.code === "23505" || /duplicate key/i.test(insertErr.message ?? ""))) {
+      invoiceNumber = await getNextInvoiceDocumentNumber(supabase, {
+        prefix: "FAC",
+        userId: devis.user_id,
+        dossierId: devis.dossier_id,
+      });
+      const retry = await insertInvoice(invoiceNumber);
+      newInv = retry.data;
+      insertErr = retry.error;
+    }
 
     if (insertErr || !newInv) {
       return NextResponse.json({ error: insertErr?.message ?? "Erreur lors de la création de la facture" }, { status: 500 });

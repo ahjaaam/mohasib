@@ -4,6 +4,7 @@ import NewInvoiceForm from "@/app/(app)/invoices/new/NewInvoiceForm";
 import BackIconLink from "@/components/BackIconLink";
 import type { Client } from "@/types";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 
 export const dynamic = "force-dynamic";
 
@@ -18,25 +19,19 @@ export default async function DossierNewInvoicePage({
   if (!user) notFound();
   const ownerId = await resolveAccountOwnerId(user.id);
 
-  const [clientsRes, lastInvRes] = await Promise.all([
+  const [clientsRes, nextNumber] = await Promise.all([
     supabase
       .from("clients")
       .select("id, name, email")
       .eq("dossier_id", dossierId)
       .order("name"),
-    supabase
-      .from("invoices")
-      .select("invoice_number")
-      .eq("dossier_id", dossierId)
-      .order("created_at", { ascending: false })
-      .limit(1),
+    getNextInvoiceDocumentNumber(supabase, {
+      prefix: "FAC",
+      userId: ownerId,
+      dossierId,
+    }),
   ]);
 
-  const lastNum = lastInvRes.data?.[0]
-    ? parseInt(lastInvRes.data[0].invoice_number.split("-").pop() ?? "0", 10)
-    : 0;
-  const year = new Date().getFullYear();
-  const nextNumber = `FAC-${year}-${String(lastNum + 1).padStart(4, "0")}`;
   const backHref = `/comptable-pro/dossiers/${dossierId}/invoices`;
 
   return (

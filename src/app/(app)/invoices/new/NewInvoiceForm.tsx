@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
+import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 import { Trash2, Plus, Loader2, Send, Mail, Download, Save } from "lucide-react";
 import type { Client } from "@/types";
 
@@ -162,6 +163,11 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   const totalTVA = lineAmounts.reduce((s, l) => s + l.tva, 0);
   const totalTTC = totalHT + totalTVA;
 
+  function isDuplicateInvoiceNumberError(err: any) {
+    const text = `${err?.code ?? ""} ${err?.message ?? ""} ${err?.details ?? ""}`;
+    return text.includes("23505") || text.includes("idx_invoices_number") || /duplicate key/i.test(text);
+  }
+
   async function save(status: "draft" | "sent") {
     if (totalHT <= 0) {
       setError("Le montant de la facture doit être supérieur à 0. Sélectionnez un article du catalogue ou ajoutez une ligne avec un prix.");
@@ -182,25 +188,50 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
     // Use weighted avg TVA rate for the record
     const avgTVA = totalHT > 0 ? (totalTVA / totalHT) * 100 : 20;
 
-    const { data: row, error: err } = await supabase
-      .from("invoices")
-      .insert({
-        user_id: userId,
-        ...(dossierId ? { dossier_id: dossierId } : {}),
-        client_id: form.client_id || null,
-        invoice_number: form.num,
-        status,
-        issue_date: form.date,
-        due_date: form.due || null,
-        subtotal: totalHT,
-        tax_rate: Math.round(avgTVA * 100) / 100,
-        tax_amount: totalTVA,
-        total: totalTTC,
-        currency: "MAD",
-        items,
-      })
-      .select("id, invoice_number")
-      .single();
+    let invoiceNumber = await getAvailableInvoiceDocumentNumber(supabase, {
+      preferredNumber: form.num,
+      prefix: "FAC",
+      userId,
+      dossierId,
+    });
+
+    if (invoiceNumber !== form.num) {
+      setForm((f) => ({ ...f, num: invoiceNumber }));
+    }
+
+    const insertInvoice = (number: string) => supabase
+        .from("invoices")
+        .insert({
+          user_id: userId,
+          ...(dossierId ? { dossier_id: dossierId } : {}),
+          client_id: form.client_id || null,
+          invoice_number: number,
+          status,
+          issue_date: form.date,
+          due_date: form.due || null,
+          subtotal: totalHT,
+          tax_rate: Math.round(avgTVA * 100) / 100,
+          tax_amount: totalTVA,
+          total: totalTTC,
+          currency: "MAD",
+          items,
+        })
+        .select("id, invoice_number")
+        .single();
+
+    let { data: row, error: err } = await insertInvoice(invoiceNumber);
+
+    if (err && isDuplicateInvoiceNumberError(err)) {
+      invoiceNumber = await getNextInvoiceDocumentNumber(supabase, {
+        prefix: "FAC",
+        userId,
+        dossierId,
+      });
+      setForm((f) => ({ ...f, num: invoiceNumber }));
+      const retry = await insertInvoice(invoiceNumber);
+      row = retry.data;
+      err = retry.error;
+    }
 
     setSaving(false);
     if (err) { setError(translateError(err)); }

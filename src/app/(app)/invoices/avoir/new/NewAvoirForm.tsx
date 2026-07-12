@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
+import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 import { Trash2, Plus, Loader2, Mail, Download, Send, Save } from "lucide-react";
 import type { Client } from "@/types";
 
@@ -157,6 +158,11 @@ export default function NewAvoirForm({
   const totalTVA = lineAmounts.reduce((s, l) => s + l.tva, 0);
   const totalTTC = totalHT + totalTVA;
 
+  function isDuplicateInvoiceNumberError(err: any) {
+    const text = `${err?.code ?? ""} ${err?.message ?? ""} ${err?.details ?? ""}`;
+    return text.includes("23505") || text.includes("idx_invoices_number") || /duplicate key/i.test(text);
+  }
+
   async function save(status: "draft" | "sent") {
     if (!form.client_id) { setError("Veuillez sélectionner un client."); return; }
     if (totalHT <= 0) { setError("Le montant de l'avoir doit être supérieur à 0."); return; }
@@ -174,29 +180,54 @@ export default function NewAvoirForm({
 
     const avgTVA = totalHT > 0 ? (totalTVA / totalHT) * 100 : 20;
 
-    const { data: row, error: err } = await supabase
-      .from("invoices")
-      .insert({
-        user_id: userId,
-        ...(dossierId ? { dossier_id: dossierId } : {}),
-        client_id: form.client_id,
-        invoice_number: form.num,
-        invoice_type: "avoir_client",
-        linked_invoice_id: form.linked_invoice_id || null,
-        avoir_reason: form.motif,
-        status,
-        issue_date: form.date,
-        due_date: null,
-        subtotal: totalHT,
-        tax_rate: Math.round(avgTVA * 100) / 100,
-        tax_amount: totalTVA,
-        total: totalTTC,
-        currency: "MAD",
-        notes: form.notes || null,
-        items,
-      })
-      .select("id, invoice_number, clients(email)")
-      .single();
+    let invoiceNumber = await getAvailableInvoiceDocumentNumber(supabase, {
+      preferredNumber: form.num,
+      prefix: "AV",
+      userId,
+      dossierId,
+    });
+
+    if (invoiceNumber !== form.num) {
+      setForm((f) => ({ ...f, num: invoiceNumber }));
+    }
+
+    const insertAvoir = (number: string) => supabase
+        .from("invoices")
+        .insert({
+          user_id: userId,
+          ...(dossierId ? { dossier_id: dossierId } : {}),
+          client_id: form.client_id,
+          invoice_number: number,
+          invoice_type: "avoir_client",
+          linked_invoice_id: form.linked_invoice_id || null,
+          avoir_reason: form.motif,
+          status,
+          issue_date: form.date,
+          due_date: null,
+          subtotal: totalHT,
+          tax_rate: Math.round(avgTVA * 100) / 100,
+          tax_amount: totalTVA,
+          total: totalTTC,
+          currency: "MAD",
+          notes: form.notes || null,
+          items,
+        })
+        .select("id, invoice_number, clients(email)")
+        .single();
+
+    let { data: row, error: err } = await insertAvoir(invoiceNumber);
+
+    if (err && isDuplicateInvoiceNumberError(err)) {
+      invoiceNumber = await getNextInvoiceDocumentNumber(supabase, {
+        prefix: "AV",
+        userId,
+        dossierId,
+      });
+      setForm((f) => ({ ...f, num: invoiceNumber }));
+      const retry = await insertAvoir(invoiceNumber);
+      row = retry.data;
+      err = retry.error;
+    }
 
     if (err) {
       setSaving(false);
