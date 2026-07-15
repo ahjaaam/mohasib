@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 async function post(endpoint: string, body: Record<string, unknown>) {
   const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -73,6 +74,62 @@ export function AccountControls({ company }: { company: Record<string, any> }) {
       </form>
     </section>
   </div>;
+}
+
+export function DeleteAccountControl({ companyId, companyName }: { companyId: string; companyName: string }) {
+  const router = useRouter();
+  const [confirmation, setConfirmation] = useState("");
+  const [busy, setBusy] = useState(false);
+  const expected = companyName.trim();
+  const confirmed = confirmation.trim() === expected;
+
+  async function deleteAccount() {
+    if (!confirmed || busy) return;
+    if (!window.confirm("Cette suppression est définitive. Continuer ?")) return;
+
+    setBusy(true);
+    const response = await fetch(`/api/admin/accounts/${companyId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmation: confirmation.trim() }),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      alert(data.message || "La suppression du compte a échoué.");
+      setBusy(false);
+      return;
+    }
+
+    router.push("/admin/comptes");
+    router.refresh();
+  }
+
+  return (
+    <section className="mt-5 rounded-md border border-red-200 bg-red-50 p-4">
+      <h2 className="text-sm font-bold text-red-800">Zone dangereuse</h2>
+      <p className="mt-2 text-[11px] text-red-700">
+        Supprime définitivement l’utilisateur Supabase Auth, son entreprise et les données liées. Cette action est irréversible.
+      </p>
+      <label className="mt-3 block text-[11px] font-semibold text-red-800">
+        Saisissez <b>{expected}</b> pour confirmer
+        <input
+          value={confirmation}
+          onChange={event => setConfirmation(event.target.value)}
+          className="input mt-1 max-w-md bg-white text-xs"
+          autoComplete="off"
+        />
+      </label>
+      <button
+        type="button"
+        disabled={!confirmed || busy}
+        onClick={() => void deleteAccount()}
+        className="mt-3 rounded bg-red-700 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {busy ? "Suppression…" : "Supprimer définitivement le compte"}
+      </button>
+    </section>
+  );
 }
 
 export function RequestStatus({ id, current }: { id: string; current?: string | null }) {

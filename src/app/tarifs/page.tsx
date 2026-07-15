@@ -79,6 +79,7 @@ const businessPlans: Plan[] = [
   {
     name: "Business Pro",
     price: 449,
+    priceLabel: "À partir de 449",
     tagline: "Pour piloter sans limites",
     dark: true,
     features: [
@@ -205,7 +206,7 @@ const businessComparison: ComparisonSection[] = [
       ["Support 7j/7", "✓", "✓", "✓"],
     ],
   },
-  { title: "Prix", rows: [["Prix mensuel", "99 MAD", "229 MAD", "449 MAD"]] },
+  { title: "Prix", rows: [["Prix mensuel", "99 MAD", "229 MAD", "À partir de 449 MAD"]] },
 ];
 
 const comptableComparison: ComparisonSection[] = [

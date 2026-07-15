@@ -1,7 +1,9 @@
 import type React from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowUpRight, Banknote, Building2, CheckCircle2, CreditCard, Gauge, Inbox, Users } from "lucide-react";
+import { AdminDateRangeFilter } from "@/components/admin/AdminDateRangeFilter";
 import { adminContext, formatDate, formatMoney } from "@/lib/admin-data";
+import { adminDateRange, inAdminDateRange } from "@/lib/admin-date-range";
 import { TRIAL_LIMITS, TRIAL_FEATURE_LABELS, TRIAL_USAGE_COLUMNS, type TrialFeature } from "@/lib/trial-limits";
 
 type CompanyRow = {
@@ -90,14 +92,6 @@ function startOfDay(date: Date) {
   return value;
 }
 
-function since(days: number) {
-  return new Date(Date.now() - days * DAY).toISOString();
-}
-
-function isSince(value: string | null | undefined, iso: string) {
-  return Boolean(value && value >= iso);
-}
-
 function pct(value: number, total: number) {
   if (!total) return "0%";
   return `${Math.round((value / total) * 100)}%`;
@@ -156,15 +150,14 @@ function Bar({ value, max, label }: { value: number; max: number; label: string 
   );
 }
 
-export default async function AdminKpisPage() {
+export default async function AdminKpisPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const filters = await searchParams;
+  const dateRange = adminDateRange(filters);
   const { admin } = await adminContext();
   const now = new Date();
   const today = startOfDay(now);
   const next7 = new Date(today.getTime() + 7 * DAY).toISOString().slice(0, 10);
   const todayDate = today.toISOString().slice(0, 10);
-  const sevenDaysAgo = since(7);
-  const thirtyDaysAgo = since(30);
-
   const [
     companiesRes,
     subscriptionsRes,
@@ -195,8 +188,9 @@ export default async function AdminKpisPage() {
     admin.from("fiduciaire_waitlist").select("id, created_at, status, request_kind"),
   ]);
 
-  const companies = (companiesRes.data ?? []) as unknown as CompanyRow[];
-  const subscriptions = (subscriptionsRes.data ?? []) as unknown as SubscriptionRow[];
+  const allCompanies = (companiesRes.data ?? []) as unknown as CompanyRow[];
+  const companies = allCompanies.filter(row => inAdminDateRange(row.created_at, dateRange));
+  const subscriptions = ((subscriptionsRes.data ?? []) as unknown as SubscriptionRow[]).filter(row => inAdminDateRange(row.created_at, dateRange));
   const invoices = (invoicesRes.data ?? []) as unknown as CreatedRow[];
   const receipts = (receiptsRes.data ?? []) as unknown as CreatedRow[];
   const documents = (documentsRes.data ?? []) as unknown as CreatedRow[];
@@ -210,8 +204,6 @@ export default async function AdminKpisPage() {
   const waitlist = (waitlistRes.data ?? []) as unknown as Array<CreatedRow & { request_kind?: string | null }>;
 
   const totalAccounts = companies.length;
-  const new7 = companies.filter(c => isSince(c.created_at, sevenDaysAgo)).length;
-  const new30 = companies.filter(c => isSince(c.created_at, thirtyDaysAgo)).length;
   const trials = companies.filter(c => statusOf(c) === "trial");
   const activePaid = companies.filter(c => statusOf(c) === "active");
   const expired = companies.filter(c => statusOf(c) === "expired");
@@ -221,13 +213,13 @@ export default async function AdminKpisPage() {
   const expiringTrials = trials.filter(c => c.trial_ends_at && c.trial_ends_at.slice(0, 10) >= todayDate && c.trial_ends_at.slice(0, 10) <= next7).length;
   const activeSubs = subscriptions.filter(s => s.status === "active");
   const mrr = sum(activeSubs);
-  const paidRevenue30 = subscriptions.filter(s => s.status === "active" && isSince(s.created_at, thirtyDaysAgo)).reduce((total, item) => total + Number(item.amount_mad ?? 0), 0);
+  const paidRevenue = subscriptions.filter(s => s.status === "active").reduce((total, item) => total + Number(item.amount_mad ?? 0), 0);
 
-  const companyByOwner = new Map(companies.map(company => [company.user_id, company.id]));
-  const activated7CompanyIds = new Set<string>();
-  const touch = (rows: CreatedRow[]) => rows.filter(r => isSince(r.created_at, sevenDaysAgo)).forEach(r => {
+  const companyByOwner = new Map(allCompanies.map(company => [company.user_id, company.id]));
+  const activatedCompanyIds = new Set<string>();
+  const touch = (rows: CreatedRow[]) => rows.filter(r => inAdminDateRange(r.created_at, dateRange)).forEach(r => {
     const companyId = r.company_id ?? (r.user_id ? companyByOwner.get(r.user_id) : null);
-    if (companyId) activated7CompanyIds.add(companyId);
+    if (companyId) activatedCompanyIds.add(companyId);
   });
   touch(invoices);
   touch(receipts);
@@ -236,17 +228,17 @@ export default async function AdminKpisPage() {
   touch(rapprochements);
   touch(employees);
 
-  const activeNew7 = companies.filter(c => isSince(c.created_at, sevenDaysAgo) && activated7CompanyIds.has(c.id)).length;
-  const usage30 = {
-    invoices: invoices.filter(r => isSince(r.created_at, thirtyDaysAgo)).length,
-    receipts: receipts.filter(r => isSince(r.created_at, thirtyDaysAgo)).length,
-    documents: documents.filter(r => isSince(r.created_at, thirtyDaysAgo)).length,
-    bankStatements: bankStatements.filter(r => isSince(r.created_at, thirtyDaysAgo)).length,
-    rapprochements: rapprochements.filter(r => isSince(r.created_at, thirtyDaysAgo)).length,
-    employees: employees.filter(r => isSince(r.created_at, thirtyDaysAgo)).length,
-    dossiers: dossiers.filter(r => isSince(r.created_at, thirtyDaysAgo)).length,
+  const activeAccounts = companies.filter(c => activatedCompanyIds.has(c.id)).length;
+  const usage = {
+    invoices: invoices.filter(r => inAdminDateRange(r.created_at, dateRange)).length,
+    receipts: receipts.filter(r => inAdminDateRange(r.created_at, dateRange)).length,
+    documents: documents.filter(r => inAdminDateRange(r.created_at, dateRange)).length,
+    bankStatements: bankStatements.filter(r => inAdminDateRange(r.created_at, dateRange)).length,
+    rapprochements: rapprochements.filter(r => inAdminDateRange(r.created_at, dateRange)).length,
+    employees: employees.filter(r => inAdminDateRange(r.created_at, dateRange)).length,
+    dossiers: dossiers.filter(r => inAdminDateRange(r.created_at, dateRange)).length,
   };
-  const usageMax = Math.max(1, ...Object.values(usage30));
+  const usageMax = Math.max(1, ...Object.values(usage));
 
   const limitHits = TRIAL_FEATURES.map(feature => {
     const hit = trials.filter(company => featureUsage(company, feature) >= TRIAL_LIMITS[feature]).length;
@@ -255,10 +247,10 @@ export default async function AdminKpisPage() {
     return { feature, hit, near, used };
   }).sort((a, b) => (b.hit - a.hit) || (b.near - a.near) || (b.used - a.used));
 
-  const openUpgrades = upgradeRequests.filter(r => r.status === "nouveau").length;
-  const openCustom = customRequests.filter(r => r.status === "nouveau").length;
-  const demo30 = demoRequests.filter(r => isSince(r.created_at, thirtyDaysAgo)).length;
-  const waitlistDemoOpen = waitlist.filter(r => r.request_kind === "demo" && (r.status === "pending" || r.status === "nouveau")).length;
+  const openUpgrades = upgradeRequests.filter(r => inAdminDateRange(r.created_at, dateRange) && r.status === "nouveau").length;
+  const openCustom = customRequests.filter(r => inAdminDateRange(r.created_at, dateRange) && r.status === "nouveau").length;
+  const demoCount = demoRequests.filter(r => inAdminDateRange(r.created_at, dateRange)).length;
+  const waitlistDemoOpen = waitlist.filter(r => inAdminDateRange(r.created_at, dateRange) && r.request_kind === "demo" && (r.status === "pending" || r.status === "nouveau")).length;
 
   const planCounts = companies.reduce<Record<string, number>>((acc, company) => {
     const plan = company.plan || "unknown";
@@ -285,13 +277,19 @@ export default async function AdminKpisPage() {
         <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9A672E]">Retour dashboard <ArrowUpRight size={13} /></Link>
       </div>
 
+      <form className="mb-5 flex flex-col gap-2 rounded-md border border-black/10 bg-white p-3 lg:flex-row lg:items-center">
+        <AdminDateRangeFilter range={dateRange} className="flex-1" />
+        <button className="min-h-10 rounded bg-[#0D1526] px-4 text-xs font-bold text-white">Appliquer</button>
+        <span className="px-1 text-[11px] text-gray-500">{dateRange.label}</span>
+      </form>
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <KpiCard icon={Building2} label="Comptes total" value={totalAccounts} sub={`${new7} nouveaux sur 7j · ${new30} sur 30j`} />
-        <KpiCard icon={Gauge} label="Activation 7j" value={pct(activeNew7, new7)} sub={`${activeNew7}/${new7} nouveaux ont créé/chargé quelque chose`} tone={activeNew7 && activeNew7 >= Math.ceil(new7 * 0.5) ? "good" : "warn"} />
+        <KpiCard icon={Building2} label="Nouveaux comptes" value={totalAccounts} sub={dateRange.label} />
+        <KpiCard icon={Gauge} label="Activation" value={pct(activeAccounts, totalAccounts)} sub={`${activeAccounts}/${totalAccounts} comptes ont créé/chargé quelque chose`} tone={activeAccounts && activeAccounts >= Math.ceil(totalAccounts * 0.5) ? "good" : "warn"} />
         <KpiCard icon={Users} label="Essais actifs" value={trials.length} sub={`${expiringTrials} expirent sous 7 jours`} />
         <KpiCard icon={CreditCard} label="Payants actifs" value={activePaid.length} sub={`${pct(activePaid.length, totalAccounts)} des comptes`} tone={activePaid.length ? "good" : "warn"} />
-        <KpiCard icon={Banknote} label="MRR estimé" value={formatMoney(mrr)} sub={`Encaissement abonnements 30j : ${formatMoney(paidRevenue30)}`} tone={mrr ? "good" : "warn"} />
-        <KpiCard icon={Inbox} label="Demandes ouvertes" value={openUpgrades + openCustom + waitlistDemoOpen} sub={`${demo30} demandes démo sur 30j`} tone={openUpgrades + openCustom + waitlistDemoOpen ? "warn" : "good"} />
+        <KpiCard icon={Banknote} label="MRR estimé" value={formatMoney(mrr)} sub={`Encaissement sur la période : ${formatMoney(paidRevenue)}`} tone={mrr ? "good" : "warn"} />
+        <KpiCard icon={Inbox} label="Demandes ouvertes" value={openUpgrades + openCustom + waitlistDemoOpen} sub={`${demoCount} demandes démo sur la période`} tone={openUpgrades + openCustom + waitlistDemoOpen ? "warn" : "good"} />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-3">
@@ -309,13 +307,13 @@ export default async function AdminKpisPage() {
 
         <Section title="Activation produit" subtitle="La vraie valeur : l'utilisateur crée un élément utile.">
           <div className="space-y-3">
-            <Bar label="Factures créées 30j" value={usage30.invoices} max={usageMax} />
-            <Bar label="Documents OCR reçus 30j" value={usage30.receipts} max={usageMax} />
-            <Bar label="Documents archivés 30j" value={usage30.documents} max={usageMax} />
-            <Bar label="Relevés importés 30j" value={usage30.bankStatements} max={usageMax} />
-            <Bar label="Rapprochements 30j" value={usage30.rapprochements} max={usageMax} />
-            <Bar label="Employés ajoutés 30j" value={usage30.employees} max={usageMax} />
-            <Bar label="Dossiers créés 30j" value={usage30.dossiers} max={usageMax} />
+            <Bar label="Factures créées" value={usage.invoices} max={usageMax} />
+            <Bar label="Documents OCR reçus" value={usage.receipts} max={usageMax} />
+            <Bar label="Documents archivés" value={usage.documents} max={usageMax} />
+            <Bar label="Relevés importés" value={usage.bankStatements} max={usageMax} />
+            <Bar label="Rapprochements" value={usage.rapprochements} max={usageMax} />
+            <Bar label="Employés ajoutés" value={usage.employees} max={usageMax} />
+            <Bar label="Dossiers créés" value={usage.dossiers} max={usageMax} />
           </div>
         </Section>
 
@@ -360,7 +358,7 @@ export default async function AdminKpisPage() {
               </thead>
               <tbody className="divide-y divide-black/5">
                 {companies.slice(0, 10).map(company => {
-                  const activated = activated7CompanyIds.has(company.id);
+                  const activated = activatedCompanyIds.has(company.id);
                   return (
                     <tr key={company.id}>
                       <td className="px-3 py-2.5 font-semibold"><Link href={`/admin/comptes/${company.id}`}>{company.raison_sociale || "Sans nom"}</Link></td>
@@ -389,7 +387,7 @@ export default async function AdminKpisPage() {
 
         <Section title="Demandes & leads" subtitle="Signaux commerciaux à suivre chaque semaine.">
           <div className="space-y-3 text-[12px]">
-            <div className="flex justify-between"><span className="text-gray-500">Demandes démo 30j</span><b>{demo30}</b></div>
+            <div className="flex justify-between"><span className="text-gray-500">Demandes démo</span><b>{demoCount}</b></div>
             <div className="flex justify-between"><span className="text-gray-500">Démos en attente</span><b>{waitlistDemoOpen}</b></div>
             <div className="flex justify-between"><span className="text-gray-500">Upgrade requests ouvertes</span><b>{openUpgrades}</b></div>
             <div className="flex justify-between"><span className="text-gray-500">Demandes custom ouvertes</span><b>{openCustom}</b></div>

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { AccountControls, MemberAccessScopeSelect, MemberToggle } from "@/components/admin/AdminControls";
+import { AccountControls, DeleteAccountControl, MemberAccessScopeSelect, MemberToggle } from "@/components/admin/AdminControls";
 import { StatusBadge } from "@/components/admin/AdminUI";
 import { accountStatus, adminContext, authUserMap, formatDate, formatMoney } from "@/lib/admin-data";
 import { TRIAL_LIMITS } from "@/lib/trial-limits";
@@ -35,7 +35,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
       ["Utilisateurs", `${(members.data ?? []).filter(item => item.status === "active").length} / ${override.data?.users_limit ?? plan?.users_limit ?? "—"}`],
       ["Revenu cumulé", formatMoney((subscriptions.data ?? []).reduce((sum, item) => sum + Number(item.amount_mad ?? 0), 0))],
     ].map(([label, value]) => <div key={label} className="rounded-md border border-black/10 bg-white p-4"><div className="text-[10px] text-gray-500">{label}</div><div className="mt-2 text-sm font-bold">{value}</div></div>)}</div>
-    <section className="mb-5 rounded-md border border-black/10 bg-white p-4"><h2 className="text-sm font-bold">Identité</h2><div className="mt-3 grid gap-3 text-[11px] sm:grid-cols-3 xl:grid-cols-6">{[["Email", owner?.email], ["ICE", company.ice], ["IF", company.if_number], ["Ville", company.city], ["Type", company.user_type], ["Dernière connexion", formatDate(owner?.last_sign_in_at)]].map(([label, value]) => <div key={label}><div className="text-gray-400">{label}</div><div className="mt-1 font-semibold">{value || "—"}</div></div>)}</div></section>
+    <section className="mb-5 rounded-md border border-black/10 bg-white p-4"><h2 className="text-sm font-bold">Identité</h2><div className="mt-3 grid gap-3 text-[11px] sm:grid-cols-3 xl:grid-cols-7">{[["Email", owner?.email], ["Téléphone", company.phone || owner?.user_metadata?.phone], ["ICE", company.ice], ["IF", company.if_number], ["Ville", company.city], ["Type", company.user_type], ["Dernière connexion", formatDate(owner?.last_sign_in_at)]].map(([label, value]) => <div key={label}><div className="text-gray-400">{label}</div><div className="mt-1 font-semibold">{value || "—"}</div></div>)}</div></section>
     {(qualification.role || qualification.organization_size || qualification.monthly_volume || needs) && (
       <section className="mb-5 rounded-md border border-[#C8924A]/30 bg-[#FFF9F0] p-4">
         <h2 className="text-sm font-bold">Profil et besoins déclarés à l’inscription</h2>
@@ -68,5 +68,6 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
       <section className="rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Historique d’abonnement</h2><div className="divide-y divide-black/5">{(subscriptions.data ?? []).map(item => <div key={item.id} className="grid grid-cols-3 px-4 py-3 text-[11px]"><b>{item.plan}</b><span>{formatMoney(item.amount_mad)}</span><span className="text-right text-gray-500">{formatDate(item.starts_at)} → {formatDate(item.ends_at)}</span></div>)}</div></section>
     </div>
     <section className="mt-5 rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Journal d’audit</h2><div className="divide-y divide-black/5">{(audits.data ?? []).map(item => <div key={item.id} className="grid gap-1 px-4 py-3 text-[11px] sm:grid-cols-[180px_1fr_180px]"><b>{item.action}</b><span>{item.entity_label || item.entity_type}</span><span className="text-gray-500 sm:text-right">{item.user_email} · {formatDate(item.created_at)}</span></div>)}</div></section>
+    <DeleteAccountControl companyId={company.id} companyName={company.raison_sociale || "Compte sans nom"} />
   </div>;
 }

@@ -19,7 +19,7 @@ export function StatusBadge({ status }: { status?: string | null }) {
   return <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${map[status ?? ""] ?? "bg-gray-100 text-gray-600"}`}>{status || "—"}</span>;
 }
 
-export function CreateAccountButton({ prefill, waitlistId }: { prefill?: { email?: string; name?: string; company?: string }; waitlistId?: string }) {
+export function CreateAccountButton({ prefill, waitlistId }: { prefill?: { email?: string; name?: string; company?: string; phone?: string }; waitlistId?: string }) {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState("");
   async function submit(form: HTMLFormElement) {
@@ -37,6 +37,7 @@ export function CreateAccountButton({ prefill, waitlistId }: { prefill?: { email
         <label className="sm:col-span-2 text-[11px] font-semibold">Email *<input name="email" type="email" required defaultValue={prefill?.email} className="input mt-1" /></label>
         <label className="text-[11px] font-semibold">Nom complet<input name="full_name" defaultValue={prefill?.name} className="input mt-1" /></label>
         <label className="text-[11px] font-semibold">Raison sociale *<input name="raison_sociale" required defaultValue={prefill?.company} className="input mt-1" /></label>
+        <label className="sm:col-span-2 text-[11px] font-semibold">Téléphone *<input name="phone" type="tel" autoComplete="tel" required defaultValue={prefill?.phone} placeholder="+212 6 12 34 56 78" className="input mt-1" /></label>
         <label className="text-[11px] font-semibold">Type<select name="user_type" className="input mt-1"><option value="entrepreneur">Entrepreneur</option><option value="fiduciaire">Comptable</option></select></label>
         <label className="text-[11px] font-semibold">Plan<select name="plan" className="input mt-1"><option>starter</option><option>business</option><option>business_pro</option><option>comptable_s</option><option>comptable_pro</option><option>comptable_inf</option></select></label>
         <label className="text-[11px] font-semibold">Durée essai<input name="trial_days" type="number" defaultValue="7" className="input mt-1" /></label>

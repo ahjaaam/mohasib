@@ -72,7 +72,7 @@ export default async function WaitlistPage({
                   ) : (
                     <CreateAccountButton
                       waitlistId={item.id}
-                      prefill={{ email: item.email, name: item.nom, company: item.entreprise }}
+                      prefill={{ email: item.email, name: item.nom, company: item.entreprise, phone: item.telephone }}
                     />
                   )}
                 </td>

@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mohasib AI — Carte d’automatisation comptable</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #667085;
+      --line: #e5e7eb;
+      --soft: #f8fafc;
+      --gold: #c8924a;
+      --green: #15803d;
+      --red: #dc2626;
+      --blue: #2563eb;
+    }
+    body {
+      margin: 0;
+      background: #f6f4ef;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 42px 22px 72px;
+    }
+    header {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 34px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+    h2 {
+      margin: 34px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+    h2::before {
+      content: "";
+      width: 5px;
+      height: 28px;
+      border-radius: 999px;
+      background: var(--gold);
+      display: inline-block;
+    }
+    p { margin: 0 0 12px; }
+    .muted { color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 24px;
+    }
+    .stat, .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    }
+    .stat strong {
+      display: block;
+      font-size: 24px;
+      margin-top: 4px;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #fbf0dc;
+      color: #8a5a1f;
+      margin-right: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+    th {
+      background: #fafafa;
+      color: #667085;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    tr:last-child td { border-bottom: 0; }
+    code {
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .debit { color: var(--green); font-weight: 750; }
+    .credit { color: var(--red); font-weight: 750; }
+    .warn {
+      border-left: 5px solid #f59e0b;
+      background: #fffbeb;
+    }
+    .ok {
+      border-left: 5px solid #16a34a;
+      background: #f0fdf4;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    ul { margin: 8px 0 0 18px; padding: 0; }
+    li { margin: 5px 0; }
+    @media (max-width: 900px) {
+      .grid, .flow { grid-template-columns: 1fr; }
+      main { padding: 24px 14px 48px; }
+      header { padding: 24px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="tag">Audit comptable</span>
+    <span class="tag">Automatisations Mohasib</span>
+    <h1>Carte des écritures automatiques</h1>
+    <p class="muted">Ce document explique où chaque action produit envoie ses écritures dans le plan comptable. Il est basé sur le code actuel du moteur comptable Mohasib.</p>
+    <div class="grid">
+      <div class="stat"><span class="muted">Table cible</span><strong>ecritures_comptables</strong></div>
+      <div class="stat"><span class="muted">Écriture auto</span><strong>source_type ≠ manual</strong></div>
+      <div class="stat"><span class="muted">Contrôle</span><strong>Débit = Crédit</strong></div>
+      <div class="stat"><span class="muted">Anti-doublon</span><strong>source_id unique logique</strong></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Résumé rapide</h2>
+    <div class="card ok">
+      <p><strong>Une écriture automatique est créée quand une action métier appelle <code>/api/accounting/book</code>.</strong></p>
+      <p class="muted">Exemples : créer une facture, confirmer une facture fournisseur OCR, importer des transactions bancaires, créer un avoir client. Supprimer une facture ne crée pas une écriture inverse.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Carte principale : action → journal → comptes</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Action produit</th>
+          <th>Déclencheur</th>
+          <th>Journal</th>
+          <th>Débit</th>
+          <th>Crédit</th>
+          <th>Source</th>
+          <th>Comment auditer</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Facture client créée / émise</strong></td>
+          <td>Création facture ou conversion devis → facture</td>
+          <td><code>VT</code></td>
+          <td class="debit"><code>3421</code> Clients — TTC</td>
+          <td class="credit"><code>7131</code> Ventes de services — HT<br><code>4455</code> État TVA facturée — TVA</td>
+          <td><code>source_type = invoice</code><br><code>source_id = invoice.id</code></td>
+          <td>Filtrer par <code>source_type = invoice</code> ou par numéro de facture dans <code>numero_piece</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Avoir client créé</strong></td>
+          <td>Création d’un avoir client</td>
+          <td><code>VT</code></td>
+          <td class="debit"><code>7131</code> Ventes de services — HT annulé<br><code>4455</code> TVA facturée annulée — TVA</td>
+          <td class="credit"><code>3421</code> Clients — TTC annulé</td>
+          <td><code>source_type = avoir_client</code><br><code>source_id = avoir.id</code></td>
+          <td>Filtrer par <code>source_type = avoir_client</code>. C’est le vrai mécanisme d’annulation comptable côté client.</td>
+        </tr>
+        <tr>
+          <td><strong>Facture fournisseur confirmée depuis Boîte de réception / OCR</strong></td>
+          <td>Bouton Confirmer sur un reçu/facture fournisseur</td>
+          <td><code>AC</code></td>
+          <td class="debit">Compte de charge selon catégorie — HT<br><code>3455</code> État TVA récupérable — TVA</td>
+          <td class="credit"><code>4411</code> Fournisseurs — TTC</td>
+          <td><code>source_type = purchase</code><br><code>source_id = receipt.id</code></td>
+          <td>Filtrer par <code>source_type = purchase</code>. Le compte de charge dépend de la catégorie OCR/utilisateur.</td>
+        </tr>
+        <tr>
+          <td><strong>Transaction bancaire entrante liée à une facture client</strong></td>
+          <td>Import transaction bancaire avec <code>invoice_id</code></td>
+          <td><code>BQ</code></td>
+          <td class="debit"><code>5141</code> Banques — montant encaissé</td>
+          <td class="credit"><code>3421</code> Clients — montant encaissé</td>
+          <td><code>source_type = bank</code><br><code>source_id = transaction.id</code></td>
+          <td>Filtrer par <code>source_type = bank</code>. Si la ligne est liée à une facture, elle solde le compte client.</td>
+        </tr>
+        <tr>
+          <td><strong>Transaction bancaire entrante non liée à une facture</strong></td>
+          <td>Import transaction bancaire positive sans <code>invoice_id</code></td>
+          <td><code>BQ</code></td>
+          <td class="debit"><code>5141</code> Banques — montant reçu</td>
+          <td class="credit">Compte de produit selon catégorie, par défaut <code>7131</code></td>
+          <td><code>source_type = bank</code><br><code>source_id = transaction.id</code></td>
+          <td>Vérifier la catégorie de transaction. Sans catégorie reconnue, Mohasib utilise <code>7131</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Transaction bancaire sortante</strong></td>
+          <td>Import transaction bancaire négative / dépense</td>
+          <td><code>BQ</code></td>
+          <td class="debit">Compte de charge selon catégorie, par défaut <code>6182</code></td>
+          <td class="credit"><code>5141</code> Banques — montant payé</td>
+          <td><code>source_type = bank</code><br><code>source_id = transaction.id</code></td>
+          <td>Vérifier la catégorie. C’est elle qui décide si la dépense va en transport, loyer, publicité, etc.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Mapping des catégories vers comptes CGNC</h2>
+    <div class="flow">
+      <div class="card">
+        <h3>Produits / Revenus</h3>
+        <table>
+          <thead><tr><th>Catégorie</th><th>Compte</th></tr></thead>
+          <tbody>
+            <tr><td>Ventes / Marchandises</td><td><code>7111</code> Ventes de marchandises</td></tr>
+            <tr><td>Services / Autre revenu</td><td><code>7131</code> Ventes de services</td></tr>
+            <tr><td>Honoraires</td><td><code>7121</code> Ventes de biens produits</td></tr>
+            <tr><td>Travaux</td><td><code>7141</code> Travaux facturés</td></tr>
+            <tr><td>Loyer reçu</td><td><code>7382</code> Produits des immeubles</td></tr>
+            <tr><td>Remboursement</td><td><code>7311</code> Produits financiers</td></tr>
+            <tr><td>Catégorie inconnue</td><td><code>7131</code> par défaut</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Charges / Achats</h3>
+        <table>
+          <thead><tr><th>Catégorie</th><th>Compte</th></tr></thead>
+          <tbody>
+            <tr><td>Achats / Autre dépense</td><td><code>6111</code> Achats de marchandises</td></tr>
+            <tr><td>Matières premières</td><td><code>6121</code> Achats de matières premières</td></tr>
+            <tr><td>Fournitures</td><td><code>6123</code> Fournitures de bureau</td></tr>
+            <tr><td>Eau/Électricité</td><td><code>6125</code> Eau et électricité</td></tr>
+            <tr><td>Loyer</td><td><code>6132</code> Locations et charges locatives</td></tr>
+            <tr><td>Entretien / Maintenance</td><td><code>6133</code> Entretien et réparations</td></tr>
+            <tr><td>Consulting</td><td><code>6141</code> Études et recherches</td></tr>
+            <tr><td>Transport</td><td><code>6142</code> Transports</td></tr>
+            <tr><td>Déplacements</td><td><code>6143</code> Déplacements et missions</td></tr>
+            <tr><td>Marketing / Publicité</td><td><code>6144</code> Publicité et relations publiques</td></tr>
+            <tr><td>Assurance</td><td><code>6146</code> Assurances</td></tr>
+            <tr><td>Communication / Télécom</td><td><code>6147</code> Télécommunications</td></tr>
+            <tr><td>Fiscalité</td><td><code>6161</code> Impôts et taxes</td></tr>
+            <tr><td>Salaires</td><td><code>6171</code> Rémunérations du personnel</td></tr>
+            <tr><td>CNSS patronal</td><td><code>6174</code> Charges sociales</td></tr>
+            <tr><td>Formation</td><td><code>6153</code> Formation du personnel</td></tr>
+            <tr><td>Charges bancaires / Banque</td><td><code>6311</code> Intérêts et charges financières</td></tr>
+            <tr><td>Équipement</td><td><code>2340</code> Matériel de bureau</td></tr>
+            <tr><td>Informatique</td><td><code>2350</code> Matériel informatique</td></tr>
+            <tr><td>Charges diverses / catégorie inconnue</td><td><code>6182</code> Charges diverses</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce qui ne crée pas d’écriture automatique</h2>
+    <div class="card warn">
+      <ul>
+        <li><strong>Supprimer une facture</strong> supprime la facture, mais ne crée pas automatiquement une écriture inverse.</li>
+        <li><strong>Marquer une facture comme payée</strong> met à jour le statut/montant payé de la facture, mais ne crée pas forcément une écriture bancaire. La vraie écriture bancaire vient de l’import/booking transaction.</li>
+        <li><strong>Ignorer un document dans la boîte de réception</strong> ne crée pas d’écriture.</li>
+        <li><strong>Créer une ligne dans Saisie comptable manuellement</strong> crée une écriture avec <code>source_type = manual</code>, donc elle n’est pas considérée comme automatique.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Contrôles techniques utilisés</h2>
+    <table>
+      <thead>
+        <tr><th>Contrôle</th><th>Comportement actuel</th><th>Pourquoi c’est important</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Équilibre débit/crédit</td>
+          <td>Le moteur bloque si la différence dépasse 0,01 MAD.</td>
+          <td>Évite les écritures déséquilibrées.</td>
+        </tr>
+        <tr>
+          <td>Anti-doublon</td>
+          <td>Avant insertion, Mohasib vérifie si <code>source_id</code> existe déjà dans <code>ecritures_comptables</code>.</td>
+          <td>Évite de comptabiliser deux fois la même facture/transaction/reçu.</td>
+        </tr>
+        <tr>
+          <td>Traçabilité source</td>
+          <td>Chaque ligne automatique porte <code>source_type</code> et <code>source_id</code>.</td>
+          <td>Permet d’auditer : “cette écriture vient de quelle facture/transaction ?”.</td>
+        </tr>
+        <tr>
+          <td>Lettrage automatique</td>
+          <td>Après booking, Mohasib lance <code>autoLettrage</code>.</td>
+          <td>Essaie de rapprocher automatiquement certaines lignes clients/banque.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Points d’audit à surveiller</h2>
+    <div class="card warn">
+      <ul>
+        <li>Les factures clients utilisent aujourd’hui principalement <code>7131</code> pour les ventes, même si le libellé produit pourrait parfois correspondre à marchandises ou honoraires.</li>
+        <li>La TVA collectée utilise <code>4455</code> quel que soit le taux de TVA.</li>
+        <li>La qualité des écritures fournisseurs dépend fortement de la catégorie OCR choisie ou corrigée par l’utilisateur.</li>
+        <li>Une suppression n’est pas une annulation comptable : pour une facture client, il faut privilégier un avoir.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+</body>
+</html>
