@@ -17,6 +17,9 @@ import { type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 
+const SIDEBAR_BACKGROUND =
+  "radial-gradient(circle at 16% 20%, rgba(53, 58, 70, 0.68) 0%, rgba(39, 42, 51, 0.30) 38%, transparent 68%), linear-gradient(160deg, #282B34 0%, #222329 48%, #1A1717 100%)";
+
 const NAV_ITEMS = [
   { href: "/comptable-pro", icon: LayoutDashboard, label: "Vue d'ensemble", exact: true, permission: "dossier:read" },
   { href: "/comptable-pro/calendrier", icon: Calendar, label: "Calendrier comptable", exact: false, permission: "dossier:read" },
@@ -154,7 +157,10 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
       <div className="flex h-screen overflow-hidden bg-[#FAFAF6]">
 
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex fixed top-0 left-0 h-full w-[210px] flex-col z-20 bg-[#0D1526]">
+        <aside
+          className="hidden md:flex fixed top-0 left-0 h-full w-[210px] flex-col z-20"
+          style={{ background: SIDEBAR_BACKGROUND }}
+        >
           <SidebarContent />
         </aside>
 
@@ -168,7 +174,10 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
         </div>
 
         {/* Mobile top bar */}
-        <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-[52px] bg-[#0D1526] border-b border-white/10">
+        <div
+          className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-[52px] border-b border-white/10"
+          style={{ background: SIDEBAR_BACKGROUND }}
+        >
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-[#C8924A] flex items-center justify-center">
               <Building2 size={13} className="text-white" />
@@ -188,7 +197,10 @@ export default function FiduciaireShell({ children, userName, userEmail, cabinet
               style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
               onClick={() => setDrawerOpen(false)}
             />
-            <div className="md:hidden fixed top-0 left-0 h-full w-[260px] z-[70] flex flex-col bg-[#0D1526]">
+            <div
+              className="md:hidden fixed top-0 left-0 h-full w-[260px] z-[70] flex flex-col"
+              style={{ background: SIDEBAR_BACKGROUND }}
+            >
               <div className="flex items-center justify-between px-4 h-[52px] border-b border-white/10 flex-shrink-0">
                 <span className="text-[13px] font-semibold text-white">Navigation</span>
                 <button onClick={() => setDrawerOpen(false)} className="text-white/40 hover:text-white p-1">

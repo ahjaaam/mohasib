@@ -21,6 +21,9 @@ import TrialLimitModal from "@/components/TrialLimitModal";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 
+const SIDEBAR_BACKGROUND =
+  "radial-gradient(circle at 16% 20%, rgba(53, 58, 70, 0.68) 0%, rgba(39, 42, 51, 0.30) 38%, transparent 68%), linear-gradient(160deg, #282B34 0%, #222329 48%, #1A1717 100%)";
+
 const NAV_MAIN = [
   { href: "/dashboard",    icon: LayoutDashboard, label: "Tableau de bord",    key: "dashboard", permission: "report:read" },
   { href: "/inbox",        icon: Inbox,           label: "Boîte de réception", key: "inbox", permission: "document:read" },
@@ -246,8 +249,8 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
 
         {/* Desktop sidebar */}
         <aside
-          className="hidden md:flex fixed top-0 left-0 h-full flex-col z-20 bg-[#0D1526] transition-[width] duration-200 overflow-visible"
-          style={{ width: sidebarCollapsed ? 56 : 210 }}
+          className="hidden md:flex fixed top-0 left-0 h-full flex-col z-20 transition-[width] duration-200 overflow-visible"
+          style={{ width: sidebarCollapsed ? 56 : 210, background: SIDEBAR_BACKGROUND }}
         >
           <SidebarContent />
 
@@ -298,7 +301,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
           className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
           style={{
             height: 56,
-            backgroundColor: "#0D1526",
+            background: SIDEBAR_BACKGROUND,
             borderTop: "1px solid rgba(255,255,255,0.1)",
           }}
         >
@@ -351,7 +354,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
             <div
               className="md:hidden fixed bottom-0 left-0 right-0 z-[70] flex flex-col"
               style={{
-                backgroundColor: "#0D1526",
+                background: SIDEBAR_BACKGROUND,
                 borderRadius: "16px 16px 0 0",
                 padding: "16px 0 24px",
                 maxHeight: "80vh",

@@ -9,19 +9,23 @@ export default async function AdminDashboard() {
   const inSevenDays = new Date(Date.now() + 7 * 86400000);
   const [companies, subscriptions, upgrades, custom, audits, responsables] = await Promise.all([
     admin.from("companies").select("id, raison_sociale, plan, subscription_status, subscription_ends_at, is_suspended, ocr_used_this_month, created_at"),
-    admin.from("subscriptions").select("amount_mad, billing_period, starts_at, ends_at, status"),
+    admin.from("subscriptions").select("company_id, amount_mad, billing_period, payment_method, starts_at, ends_at, status"),
     admin.from("upgrade_requests").select("id", { count: "exact", head: true }).eq("status", "nouveau"),
     admin.from("custom_requests").select("id", { count: "exact", head: true }).eq("status", "nouveau"),
     admin.from("audit_logs").select("id, action, entity_label, user_email, created_at").or("action.like.ADMIN_%,action.ilike.%signup%").order("created_at", { ascending: false }).limit(20),
     admin.from("user_memberships").select("id", { count: "exact", head: true }).eq("role_name", "manager").neq("status", "revoked"),
   ]);
   const rows = companies.data ?? [];
-  const revenue = (subscriptions.data ?? []).filter(item => item.status === "active").reduce((sum, item) => sum + Number(item.amount_mad ?? 0) / (item.billing_period === "annual" ? 12 : 1), 0);
+  const activeSubscriptions = (subscriptions.data ?? []).filter(item => item.status === "active");
+  const paidCompanyIds = new Set(activeSubscriptions
+    .filter(item => Number(item.amount_mad ?? 0) > 0 && item.payment_method !== "gratuit")
+    .map(item => item.company_id));
+  const revenue = activeSubscriptions.reduce((sum, item) => sum + Number(item.amount_mad ?? 0) / (item.billing_period === "annual" ? 12 : 1), 0);
   const expiring = rows.filter(item => item.subscription_ends_at && new Date(item.subscription_ends_at) >= new Date() && new Date(item.subscription_ends_at) <= inSevenDays).length;
   const cards = [
     { label: "Comptes", value: rows.length, icon: Building2 },
     { label: "Collaborateurs", value: responsables.count ?? 0, icon: Users },
-    { label: "Abonnés payants", value: rows.filter(item => item.subscription_status === "active").length, icon: CreditCard },
+    { label: "Abonnés payants", value: paidCompanyIds.size, icon: CreditCard },
     { label: "Essais en cours", value: rows.filter(item => item.subscription_status === "trial").length, icon: Users },
     { label: "Comptes suspendus", value: rows.filter(item => item.is_suspended).length, icon: Users },
     { label: "Expirent sous 7 jours", value: expiring, icon: CreditCard },

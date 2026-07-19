@@ -17,6 +17,9 @@ import { type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 
+const SIDEBAR_BACKGROUND =
+  "radial-gradient(circle at 16% 20%, rgba(53, 58, 70, 0.68) 0%, rgba(39, 42, 51, 0.30) 38%, transparent 68%), linear-gradient(160deg, #282B34 0%, #222329 48%, #1A1717 100%)";
+
 const NAV_GROUPS = [
   {
     group: "COMPTABILITÉ",
@@ -239,8 +242,8 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
 
         {/* Desktop sidebar (below banner) */}
         <aside
-          className="hidden md:flex fixed top-[48px] left-0 bottom-0 flex-col z-50 bg-[#0D1526] transition-[width] duration-200 overflow-visible"
-          style={{ width: sidebarCollapsed ? 56 : 210 }}
+          className="hidden md:flex fixed top-[48px] left-0 bottom-0 flex-col z-50 transition-[width] duration-200 overflow-visible"
+          style={{ width: sidebarCollapsed ? 56 : 210, background: SIDEBAR_BACKGROUND }}
         >
           <SidebarContent compact={sidebarCollapsed} />
           <button
@@ -278,7 +281,10 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
               onClick={() => setDrawerOpen(false)}
             />
-            <div className="md:hidden fixed top-0 left-0 h-full w-[260px] z-[70] flex flex-col bg-[#0D1526]">
+            <div
+              className="md:hidden fixed top-0 left-0 h-full w-[260px] z-[70] flex flex-col"
+              style={{ background: SIDEBAR_BACKGROUND }}
+            >
               <div className="flex items-center justify-between px-4 h-[52px] border-b border-white/10 flex-shrink-0"
                 style={{ backgroundColor: "rgb(138, 149, 160)" }}>
                 <DossierSwitcher compact />

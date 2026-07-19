@@ -112,7 +112,7 @@ export function AccountActions({ id, name, currentPlan }: { id: string; name?: s
           <label className="text-[11px] font-semibold">Mode de paiement<select name="payment_method" className="input mt-1"><option value="virement">Virement</option><option value="cmi">CMI</option><option value="especes">Espèces</option><option value="gratuit">Gratuit</option></select></label>
           <label className="text-[11px] font-semibold sm:col-span-2">Référence paiement<input name="payment_reference" className="input mt-1" /></label>
           <p className="sm:col-span-2 text-[10px] text-gray-500">Les upgrades sont appliqués immédiatement. Un downgrade est programmé à la fin de la période actuelle.</p>
-          <button disabled={busy || plan === currentPlan} className="sm:col-span-2 rounded bg-[#C8924A] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{busy ? "Application..." : "Confirmer le changement"}</button>
+          <button disabled={busy} className="sm:col-span-2 rounded bg-[#C8924A] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{busy ? "Application..." : plan === currentPlan ? "Renouveler le plan" : "Confirmer le changement"}</button>
         </form>
         {message && <p className={`mt-3 rounded p-3 text-xs font-semibold ${message.includes("succès") || message.includes("programmé") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{message}</p>}
       </div>
