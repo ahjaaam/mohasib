@@ -2,8 +2,17 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 
 const config = [
+  {
+    ignores: ["dist/**"],
+  },
   ...nextVitals,
   ...nextTypescript,
+  {
+    files: ["next.config.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
   {
     rules: {
       // The existing app predates these stricter React Compiler rules. Keep

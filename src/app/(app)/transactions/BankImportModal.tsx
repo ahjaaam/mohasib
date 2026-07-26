@@ -45,7 +45,7 @@ const PROCESSING_STEPS = [
   "📄 Lecture du document...",
   "🔍 Extraction des transactions...",
   "🤖 Catégorisation par IA...",
-  "✓ Analyse terminée !",
+  "Analyse terminée !",
 ];
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -547,14 +547,16 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               ) : fileValidation?.valid ? (
                 /* VALID */
                 <div className="border border-[#A7F3D0] bg-[#F0FDF4] rounded-xl p-5 flex flex-col gap-2">
-                  <p className="text-[13px] font-semibold text-[#065F46]">✅ Fichier valide</p>
+                  <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[#065F46]">
+                    <Check size={14} aria-hidden="true" /> Fichier valide
+                  </p>
                   <p className="text-[12.5px] font-medium text-[#374151]">{file.name}</p>
                   <p className="text-[12px] text-[#6B7280]">
                     {fileValidation.type === "pdf"
-                      ? `Pages : ${fileValidation.count} / ${fileValidation.limit} ✓`
+                      ? `Pages : ${fileValidation.count} / ${fileValidation.limit}`
                       : fileValidation.type === "image"
-                      ? "Image — 1 page ✓"
-                      : `Lignes : ${fileValidation.count.toLocaleString("fr-MA")} / ${fileValidation.limit} ✓`}
+                      ? "Image — 1 page"
+                      : `Lignes : ${fileValidation.count.toLocaleString("fr-MA")} / ${fileValidation.limit}`}
                     {" · "}{fileValidation.sizeMB} MB
                   </p>
                   <button
@@ -848,8 +850,8 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
           {/* ── STEP 4: Success ───────────────────────────────────────────── */}
           {step === 4 && importedStats && (
             <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
-              <div className="w-16 h-16 rounded-full bg-[#D1FAE5] flex items-center justify-center text-2xl">
-                ✓
+              <div className="w-16 h-16 rounded-full bg-[#D1FAE5] flex items-center justify-center text-[#059669]">
+                <Check size={28} strokeWidth={2.4} aria-hidden="true" />
               </div>
 
               <div className="text-center">

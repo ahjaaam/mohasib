@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { translateError } from "@/lib/errors";
+import { marketingUrl } from "@/lib/public-urls";
 import { Turnstile } from "@marsidev/react-turnstile";
 
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
@@ -50,17 +51,17 @@ export default function LoginPage() {
       setError(data.code === "account_pending" ? data.message : translateError(data));
     } else {
       setCaptchaRequired(false);
-      router.push("/tableau-de-bord");
+      router.push(data.redirectTo || "/tableau-de-bord");
       router.refresh();
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#FAFAF6" }}>
-      <div className="w-full max-w-sm">
-          <div className="mb-8">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 sm:p-8" style={{ backgroundColor: "#FAFAF6" }}>
+      <div className="w-full max-w-sm sm:rounded-2xl sm:border sm:border-black/10 sm:bg-white sm:p-10 sm:shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <a href={marketingUrl("/")} className="mb-8 inline-block">
             <Image src="/logo2.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain", height: "auto" }} />
-          </div>
+          </a>
 
           <h1 className="text-2xl font-bold text-navy mb-1">Connexion</h1>
           <p className="text-sm text-gray-500 mb-7">
@@ -138,11 +139,24 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !!captchaBlocking}
-              className="w-full py-2.5 rounded-lg font-medium text-sm text-white transition-colors disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium text-sm text-white transition-colors disabled:opacity-60"
               style={{ backgroundColor: "#C8924A" }}>
-              {loading ? "Connexion en cours..." : "Se connecter"}
+              {loading ? "Connexion en cours..." : (
+                <>
+                  <Lock size={15} />
+                  Se connecter
+                </>
+              )}
             </button>
           </form>
+        </div>
+
+        <div className="mt-6 w-full max-w-sm text-center">
+          <div className="flex justify-center gap-4 text-xs text-gray-400">
+            <Link href="/cgu" className="hover:underline">CGU</Link>
+            <Link href="/confidentialite" className="hover:underline">Confidentialité</Link>
+          </div>
+          <p className="mt-2 text-[11px] text-gray-300">© 2026 Mohasib AI</p>
         </div>
     </div>
   );

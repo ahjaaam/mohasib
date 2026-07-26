@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { encodeTokenPayload, getCurrentCompanyId, getOAuthConfig, oauthRedirect, oauthStateCookieName, verifyOAuthState } from "@/lib/email-oauth";
+import { createClient } from "@/lib/supabase/server";
+import {
+  dossierSettingsPath, encodeTokenPayload, getCurrentCompanyId, getCurrentUserForDossier,
+  getOAuthConfig, oauthRedirect, oauthStateCookieName, peekOAuthStateDossierId, verifyOAuthState,
+} from "@/lib/email-oauth";
 
-function redirectAndClearState(request: Request, params: Record<string, string>) {
-  const response = NextResponse.redirect(oauthRedirect(request, params));
+function redirectAndClearState(request: Request, params: Record<string, string>, path?: string) {
+  const response = NextResponse.redirect(oauthRedirect(request, params, path));
   response.cookies.set(oauthStateCookieName("outlook"), "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -17,21 +21,37 @@ function redirectAndClearState(request: Request, params: Record<string, string>)
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  if (!code) return redirectAndClearState(request, { error: "outlook_failed" });
+  const stateToken = url.searchParams.get("state");
+  const peekedDossierId = peekOAuthStateDossierId(stateToken);
+  const redirectPath = peekedDossierId ? dossierSettingsPath(peekedDossierId) : undefined;
+  if (!code) return redirectAndClearState(request, { error: "outlook_failed" }, redirectPath);
 
-  const { user, companyId } = await getCurrentCompanyId();
-  if (!user || !companyId) return redirectAndClearState(request, { error: "outlook_failed" });
-  const stateValid = verifyOAuthState(
-    url.searchParams.get("state"),
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return redirectAndClearState(request, { error: "outlook_failed" }, redirectPath);
+
+  const statePayload = verifyOAuthState(
+    stateToken,
     request.headers.get("cookie")?.match(/(?:^|;\s*)mohasib_oauth_state_outlook=([^;]+)/)?.[1],
     "outlook",
     user.id,
   );
-  if (!stateValid) return redirectAndClearState(request, { error: "outlook_invalid_state" });
+  if (!statePayload) return redirectAndClearState(request, { error: "outlook_invalid_state" }, redirectPath);
+
+  const dossierId = statePayload.dossierId;
+  let companyId: string | null = null;
+  if (dossierId) {
+    const authorizedUser = await getCurrentUserForDossier(dossierId);
+    if (!authorizedUser) return redirectAndClearState(request, { error: "outlook_failed" }, redirectPath);
+  } else {
+    const result = await getCurrentCompanyId();
+    if (!result.companyId) return redirectAndClearState(request, { error: "outlook_failed" }, redirectPath);
+    companyId = result.companyId;
+  }
 
   const config = getOAuthConfig("outlook", request);
   if (!config.clientId || !config.clientSecret) {
-    return redirectAndClearState(request, { error: "outlook_not_configured" });
+    return redirectAndClearState(request, { error: "outlook_not_configured" }, redirectPath);
   }
 
   const tokenRes = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
@@ -45,7 +65,7 @@ export async function GET(request: Request) {
       grant_type: "authorization_code",
     }),
   });
-  if (!tokenRes.ok) return redirectAndClearState(request, { error: "outlook_failed" });
+  if (!tokenRes.ok) return redirectAndClearState(request, { error: "outlook_failed" }, redirectPath);
 
   const tokenPayload = await tokenRes.json();
   tokenPayload.stored_at = Date.now();
@@ -57,12 +77,15 @@ export async function GET(request: Request) {
   const email = profile?.mail || profile?.userPrincipalName || user.email || null;
 
   const admin = createAdminClient();
-  const { error } = await admin.from("companies").update({
+  const update = {
     outlook_token_encrypted: encodeTokenPayload(tokenPayload),
     outlook_email: email,
     outlook_connected_at: new Date().toISOString(),
-  }).eq("id", companyId);
+  };
+  const { error } = dossierId
+    ? await admin.from("dossiers").update(update).eq("id", dossierId)
+    : await admin.from("companies").update(update).eq("id", companyId);
 
-  if (error) return redirectAndClearState(request, { error: "outlook_failed" });
-  return redirectAndClearState(request, { success: "outlook" });
+  if (error) return redirectAndClearState(request, { error: "outlook_failed" }, redirectPath);
+  return redirectAndClearState(request, { success: "outlook" }, redirectPath);
 }

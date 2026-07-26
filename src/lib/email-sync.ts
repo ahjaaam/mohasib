@@ -349,3 +349,135 @@ export async function syncCompanyEmail(provider: EmailProvider, companyId: strin
     errors: [...new Set(errors)].slice(0, 3),
   };
 }
+
+export async function syncDossierEmail(provider: EmailProvider, dossierId: string): Promise<EmailSyncResult> {
+  const admin = createAdminClient();
+  const tokenColumn = provider === "gmail" ? "gmail_token_encrypted" : "outlook_token_encrypted";
+  const lastSyncColumn = provider === "gmail" ? "gmail_last_sync" : "outlook_last_sync";
+  const importCountColumn = provider === "gmail" ? "gmail_import_count" : "outlook_import_count";
+  const { data: dossier, error: dossierError } = await admin
+    .from("dossiers")
+    .select(`id, fiduciaire_user_id, ${tokenColumn}, ${importCountColumn}`)
+    .eq("id", dossierId)
+    .maybeSingle();
+  if (dossierError || !dossier) throw new Error("Dossier introuvable.");
+
+  const encoded = dossier[tokenColumn] as string | null;
+  if (!encoded) throw new Error(`${provider === "gmail" ? "Gmail" : "Outlook"} n'est pas connecté.`);
+  const token = await usableToken(provider, encoded);
+  const fetched = provider === "gmail"
+    ? await fetchGmailAttachments(token.access_token!)
+    : await fetchOutlookAttachments(token.access_token!);
+
+  const { data: company } = await admin
+    .from("companies")
+    .select("id")
+    .eq("user_id", dossier.fiduciaire_user_id)
+    .maybeSingle();
+  const usage = company
+    ? await getMonthlyUsage(company.id)
+    : { allowed: true, used: 0, limit: MAX_IMPORTS, remaining: MAX_IMPORTS, resetDate: "", isTrial: false };
+  if (!usage.allowed) {
+    throw new Error(
+      usage.isTrial
+        ? "La limite de documents de votre essai est atteinte."
+        : "La limite mensuelle d'import de documents est atteinte.",
+    );
+  }
+  const importLimit = usage.remaining < 0 ? MAX_IMPORTS : Math.min(MAX_IMPORTS, usage.remaining);
+
+  let imported = 0;
+  let skipped = 0;
+  let failed = 0;
+  const errors: string[] = [];
+  for (const attachment of fetched.attachments) {
+    if (imported >= importLimit) break;
+    const dedupeId = `${dossierId}:${provider}:${attachment.messageId}:${attachment.attachmentId}`;
+    const { data: existing, error: dedupeError } = await admin
+      .from("receipts")
+      .select("id")
+      .contains("ocr_data", { email_import_id: dedupeId })
+      .maybeSingle();
+    if (dedupeError) {
+      errors.push(`Vérification doublon: ${dedupeError.message}`);
+    }
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    let ocrData: Record<string, unknown> = {};
+    try {
+      ocrData = await extractWithFallback(attachment.content, attachment.mimeType);
+      if (typeof ocrData.amount === "number") ocrData.type = ocrData.amount >= 0 ? "income" : "expense";
+    } catch {
+      // Filename/subject classification below can still identify an invoice.
+    }
+    if (!looksLikeInvoice(ocrData)) {
+      skipped++;
+      continue;
+    }
+
+    const extension = attachment.fileName.split(".").pop()?.toLowerCase() || (attachment.mimeType === "application/pdf" ? "pdf" : "jpg");
+    const storagePath = `${dossier.fiduciaire_user_id}/email/${provider}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await admin.storage
+      .from("receipts")
+      .upload(storagePath, attachment.content, { contentType: attachment.mimeType, upsert: false });
+    if (uploadError) {
+      failed++;
+      errors.push(`Stockage ${attachment.fileName}: ${uploadError.message}`);
+      continue;
+    }
+
+    Object.assign(ocrData, {
+      email_import_id: dedupeId,
+      email_provider: provider,
+      email_from: attachment.sender,
+      email_subject: attachment.subject,
+      email_received_at: attachment.receivedAt,
+    });
+
+    const { error: insertError } = await admin.from("receipts").insert({
+      user_id: dossier.fiduciaire_user_id,
+      dossier_id: dossierId,
+      storage_path: storagePath,
+      file_name: attachment.fileName,
+      mime_type: attachment.mimeType,
+      status: "pending",
+      ocr_data: ocrData,
+    });
+    if (insertError) {
+      await admin.storage.from("receipts").remove([storagePath]);
+      if (insertError.code === "23505") skipped++;
+      else {
+        failed++;
+        errors.push(`Enregistrement ${attachment.fileName}: ${insertError.message}`);
+      }
+      continue;
+    }
+    imported++;
+    if (company) {
+      await incrementUploadCount(company.id, dossier.fiduciaire_user_id, {
+        fileName: attachment.fileName,
+        fileType: attachment.mimeType,
+        source: `email_${provider}`,
+      });
+    }
+  }
+
+  await admin.from("dossiers").update({
+    [tokenColumn]: encodeTokenPayload(token),
+    [lastSyncColumn]: new Date().toISOString(),
+    [importCountColumn]: Number(dossier[importCountColumn] ?? 0) + imported,
+  }).eq("id", dossierId);
+
+  return {
+    messagesScanned: fetched.messagesScanned,
+    messagesFound: fetched.messagesFound,
+    attachmentsFound: fetched.attachments.length,
+    imported,
+    skipped,
+    failed,
+    errors: [...new Set(errors)].slice(0, 3),
+  };
+}

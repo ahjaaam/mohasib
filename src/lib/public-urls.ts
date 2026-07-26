@@ -23,3 +23,10 @@ export function marketingUrl(path = "/") {
 export function appUrl(path = "/") {
   return `${APP_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
+
+export const WHATSAPP_NUMBER = "212777884056";
+
+export function whatsappUrl(message?: string) {
+  const base = `https://wa.me/${WHATSAPP_NUMBER}`;
+  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
+}

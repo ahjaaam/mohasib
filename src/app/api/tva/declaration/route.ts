@@ -4,6 +4,7 @@ import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
 import { authorizePermission } from "@/lib/api-permissions";
 import { logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 function safeFilenamePart(value: string) {
   return value
@@ -66,6 +67,8 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const plan = await requirePlanFeature("tva_edi");
+    if (plan.response) return plan.response;
     const permission = await authorizePermission("tva_declaration", "read");
     if (permission.response) return permission.response;
     const limit = await checkRateLimit(getClientIp(req), `tva-pdf:${user.id}`, {

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
-import { Trash2, Plus, Loader2, Send, Mail, Download, Save } from "lucide-react";
+import { Check, Trash2, Plus, Loader2, Send, Mail, Download, Save, LayoutTemplate } from "lucide-react";
 import type { Client } from "@/types";
 
 interface LineItem {
@@ -23,6 +23,13 @@ interface CatalogItem {
   unit_price: number | string;
   tva_rate: number | string;
   is_active: boolean;
+}
+
+interface InvoiceTemplate {
+  id: string;
+  name: string;
+  client_id: string | null;
+  items: LineItem[];
 }
 
 interface Props {
@@ -52,6 +59,9 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   const [pdfState, setPdfState] = useState<"idle" | "loading" | "error">("idle");
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [selectedCatalogItem, setSelectedCatalogItem] = useState("");
+  const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
+  const [templateName, setTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -78,27 +88,41 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   });
 
   useEffect(() => {
-    supabase
-      .from("companies")
-      .select("invoice_payment_delay")
-      .eq("user_id", userId)
-      .single()
-      .then(({ data }) => {
-        if (data?.invoice_payment_delay) {
-          setForm(f => ({ ...f, due: calcDueDate(data.invoice_payment_delay) }));
-        }
-      });
-  }, [userId]);
+    const query = dossierId
+      ? supabase.from("dossiers").select("invoice_payment_delay").eq("id", dossierId).single()
+      : supabase.from("companies").select("invoice_payment_delay").eq("user_id", userId).single();
+    query.then(({ data }) => {
+      if (data?.invoice_payment_delay) {
+        setForm(f => ({ ...f, due: calcDueDate(data.invoice_payment_delay) }));
+      }
+    });
+  }, [userId, dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    supabase
+  function catalogQuery() {
+    const query = supabase
       .from("invoice_items_catalog")
       .select("id, name, description, unit_price, tva_rate, is_active")
       .eq("user_id", userId)
       .eq("is_active", true)
-      .order("name")
-      .then(({ data }) => setCatalogItems((data ?? []) as CatalogItem[]));
-  }, [userId]);
+      .order("name");
+    return dossierId ? query.or(`dossier_id.is.null,dossier_id.eq.${dossierId}`) : query.is("dossier_id", null);
+  }
+
+  useEffect(() => {
+    catalogQuery().then(({ data }) => setCatalogItems((data ?? []) as CatalogItem[]));
+  }, [userId, dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function loadTemplates() {
+    let query = supabase
+      .from("invoice_templates")
+      .select("id, name, client_id, items")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    query = dossierId ? query.eq("dossier_id", dossierId) : query.is("dossier_id", null);
+    query.then(({ data }) => setTemplates((data ?? []) as InvoiceTemplate[]));
+  }
+
+  useEffect(() => { loadTemplates(); }, [userId, dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
 
@@ -138,6 +162,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
     }
     const { error } = await supabase.from("invoice_items_catalog").insert({
       user_id: userId,
+      ...(dossierId ? { dossier_id: dossierId } : {}),
       name: line.desc.trim().slice(0, 90),
       description: line.desc.trim(),
       unit_price: Number(line.pu || 0),
@@ -148,13 +173,52 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
     if (error) toast.error(translateError(error));
     else {
       toast.success("Ligne enregistrée dans vos articles");
-      const { data } = await supabase
-        .from("invoice_items_catalog")
-        .select("id, name, description, unit_price, tva_rate, is_active")
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .order("name");
+      const { data } = await catalogQuery();
       setCatalogItems((data ?? []) as CatalogItem[]);
+    }
+  }
+
+  function applyTemplate(template: InvoiceTemplate) {
+    setForm((f) => ({ ...f, client_id: template.client_id ?? "" }));
+    setLines(template.items.length > 0 ? template.items : [emptyLine()]);
+    toast.success(`Modèle "${template.name}" appliqué`);
+  }
+
+  async function saveAsTemplate() {
+    const name = templateName.trim();
+    if (!name) {
+      toast.error("Donnez un nom au modèle");
+      return;
+    }
+    const hasContent = lines.some((line) => line.desc.trim() || Number(line.pu || 0) > 0);
+    if (!hasContent) {
+      toast.error("Ajoutez au moins une ligne avant d’enregistrer un modèle");
+      return;
+    }
+    setSavingTemplate(true);
+    const { error } = await supabase.from("invoice_templates").insert({
+      user_id: userId,
+      ...(dossierId ? { dossier_id: dossierId } : {}),
+      name,
+      client_id: form.client_id || null,
+      items: lines,
+    });
+    setSavingTemplate(false);
+    if (error) {
+      toast.error(translateError(error));
+    } else {
+      toast.success("Modèle enregistré");
+      setTemplateName("");
+      loadTemplates();
+    }
+  }
+
+  async function deleteTemplate(id: string) {
+    const { error } = await supabase.from("invoice_templates").delete().eq("id", id);
+    if (error) toast.error(translateError(error));
+    else {
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      toast.success("Modèle supprimé");
     }
   }
 
@@ -338,7 +402,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
             }`}
           >
             {waState === "loading" && <><Loader2 size={13} className="animate-spin" /> Préparation...</>}
-            {waState === "success" && <>✓ WhatsApp ouvert</>}
+            {waState === "success" && <><Check size={13} /> WhatsApp ouvert</>}
             {waState === "error" && <>❌ Réessayer</>}
             {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
           </button>
@@ -354,7 +418,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
             }`}
           >
             {emailState === "loading" && <><Loader2 size={13} className="animate-spin" /> Envoi...</>}
-            {emailState === "success" && <>✓ Email envoyé</>}
+            {emailState === "success" && <><Check size={13} /> Email envoyé</>}
             {emailState === "error" && <>Réessayer email</>}
             {emailState === "idle" && <><Mail size={13} /> Envoyer par email</>}
           </button>
@@ -391,6 +455,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   }
 
   return (
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
     <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px]">
       <div className="alert-blue">
         💡 ICE, IF, RC, CNSS et mentions légales marocaines inclus automatiquement dans le PDF généré.
@@ -428,7 +493,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
           <div className="mb-3 rounded-lg border border-[rgba(200,146,74,0.18)] bg-[#FFF7ED] p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <label className="flex flex-1 flex-col gap-1.5">
-                <span className="text-[11px] font-semibold text-[#9A672E]">Ajouter un article enregistré</span>
+                <span className="text-[11px] font-semibold text-[#C8924A]">Ajouter un article enregistré</span>
                 <select
                   className="input bg-white"
                   value={selectedCatalogItem}
@@ -446,7 +511,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
                   ))}
                 </select>
               </label>
-              <p className="pb-2 text-[11px] font-medium text-[#9A672E]">Ajout automatique après sélection.</p>
+              <p className="pb-2 text-[11px] font-medium text-[#C8924A]">Ajout automatique après sélection.</p>
             </div>
           </div>
         )}
@@ -479,7 +544,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
               <button
                 type="button"
                 onClick={() => saveLineAsCatalogItem(line)}
-                className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#9A672E] hover:text-[#C8924A]"
+                className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#C8924A] hover:text-[#C8924A]"
               >
                 <Save size={11} /> Enregistrer cette ligne comme article
               </button>
@@ -511,6 +576,69 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
           {saving ? "..." : "Créer et envoyer"}
         </button>
       </div>
+    </div>
+
+    <aside className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4">
+      <div className="flex items-center gap-1.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.6px] pb-2 mb-3 border-b border-[rgba(0,0,0,0.08)]">
+        <LayoutTemplate size={13} /> Modèles de facture
+      </div>
+
+      {templates.length === 0 ? (
+        <p className="text-[11.5px] text-[#6B7280] mb-4">
+          Aucun modèle enregistré. Créez une facture puis enregistrez-la comme modèle pour la réutiliser rapidement.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2 mb-4">
+          {templates.map((template) => {
+            const clientName = clients.find((c) => c.id === template.client_id)?.name;
+            return (
+              <div
+                key={template.id}
+                className="group flex items-start gap-2 rounded-lg border border-[rgba(0,0,0,0.08)] p-2.5 hover:border-[rgba(200,146,74,0.42)] hover:bg-[#FFF7ED] transition-colors cursor-pointer"
+                onClick={() => applyTemplate(template)}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] font-semibold text-[#1A1A2E] truncate">{template.name}</p>
+                  <p className="text-[11px] text-[#6B7280] truncate">
+                    {clientName ?? "Sans client"} · {template.items.length} ligne{template.items.length > 1 ? "s" : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); deleteTemplate(template.id); }}
+                  className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded text-[#9CA3AF] opacity-0 group-hover:opacity-100 hover:bg-[#FEE2E2] hover:text-[#DC2626] transition-colors"
+                  aria-label="Supprimer le modèle"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="pt-3 border-t border-[rgba(0,0,0,0.08)]">
+        <label className="text-[11px] font-medium text-[#6B7280] block mb-1.5">Enregistrer la facture actuelle comme modèle</label>
+        <div className="flex gap-1.5">
+          <input
+            className="input"
+            placeholder="Nom du modèle..."
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={saveAsTemplate}
+            disabled={savingTemplate}
+            style={{ minHeight: "var(--control-height)" }}
+            className="flex-shrink-0 flex items-center justify-center w-10 rounded-lg bg-[#0D1526] text-white hover:bg-[#1A2540] disabled:opacity-60 transition-colors"
+            aria-label="Enregistrer comme modèle"
+          >
+            {savingTemplate ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          </button>
+        </div>
+      </div>
+    </aside>
     </div>
   );
 }

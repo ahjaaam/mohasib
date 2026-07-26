@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const admin = createAdminClient();
-  const { data: current } = await admin.from("user_memberships").select("*").eq("id", id).eq("company_id", context.companyId).maybeSingle();
+  const { data: current } = await admin.from("user_memberships").select("*").eq("id", id).eq("company_id", context.companyId).neq("role_name", "client_portal").maybeSingle();
   if (!current) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (current.user_id === context.ownerId) return NextResponse.json({ error: "owner_immutable" }, { status: 400 });
 

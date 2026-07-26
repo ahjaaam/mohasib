@@ -54,6 +54,7 @@ export async function GET() {
       .select("id,user_id,user_email,first_name,last_name,role_name,dossier_scope,access_scope,status,invitation_token,invited_at,accepted_at,created_at")
       .eq("company_id", context.companyId)
       .neq("status", "revoked")
+      .neq("role_name", "client_portal")
       .order("created_at"),
     admin.from("users").select("full_name,email").eq("id", context.ownerId).maybeSingle(),
     checkPlanLimit(context.companyId, "multi_users"),

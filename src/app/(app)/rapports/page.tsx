@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Loader2, BookOpen, Scale } from "lucide-react";
+import { BarChart2, ChevronLeft, ChevronRight, Loader2, BookOpen, Scale } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { FEATURES } from "@/lib/features";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -114,18 +116,25 @@ export default function RapportsPage() {
 
   return (
     <div className="max-w-3xl">
+      <PageHeader
+        title="Rapports"
+        subtitle="Analysez votre activité et consultez vos états comptables"
+        icon={<BarChart2 size={18} />}
+      />
 
       {/* ── Accounting reports ───────────────────────────────────────────── */}
       <div className="space-y-2 mb-6">
-        <Link href="/rapports/grand-livre"
-          className="flex items-center gap-3 bg-white border border-[rgba(200,146,74,0.3)] rounded-xl px-4 py-3 hover:border-[#C8924A] transition-colors"
-          style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-          <BookOpen size={14} className="text-[#C8924A] flex-shrink-0" />
-          <div>
-            <p className="text-[13px] font-medium text-[#1A1A2E]">Grand Livre</p>
-            <p className="text-[11.5px] text-[#6B7280]">Journal des écritures par compte CGNC</p>
-          </div>
-        </Link>
+        {FEATURES.GRAND_LIVRE_ENABLED && (
+          <Link href="/rapports/grand-livre"
+            className="flex items-center gap-3 bg-white border border-[rgba(200,146,74,0.3)] rounded-xl px-4 py-3 hover:border-[#C8924A] transition-colors"
+            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+            <BookOpen size={14} className="text-[#C8924A] flex-shrink-0" />
+            <div>
+              <p className="text-[13px] font-medium text-[#1A1A2E]">Grand Livre</p>
+              <p className="text-[11.5px] text-[#6B7280]">Journal des écritures par compte CGNC</p>
+            </div>
+          </Link>
+        )}
         <Link href="/rapports/balance"
           className="flex items-center gap-3 bg-white border border-[rgba(200,146,74,0.3)] rounded-xl px-4 py-3 hover:border-[#C8924A] transition-colors"
           style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>

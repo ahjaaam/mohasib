@@ -3,6 +3,8 @@ import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { notFound, redirect } from "next/navigation";
 import EditInvoiceForm from "./EditInvoiceForm";
 import type { Client } from "@/types";
+import PageHeader from "@/components/PageHeader";
+import BackIconLink from "@/components/BackIconLink";
 
 export default async function EditInvoicePage({
   params,
@@ -34,5 +36,15 @@ export default async function EditInvoicePage({
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];
 
-  return <EditInvoiceForm invoice={inv} clients={clients} />;
+  return (
+    <>
+      <PageHeader
+        title={`Modifier ${inv.invoice_number}`}
+        subtitle="Mettez à jour les informations et les lignes de la facture"
+        icon={<BackIconLink href={`/invoices/${id}`} label="Retour à la facture" />}
+        iconBare
+      />
+      <EditInvoiceForm invoice={inv} clients={clients} />
+    </>
+  );
 }

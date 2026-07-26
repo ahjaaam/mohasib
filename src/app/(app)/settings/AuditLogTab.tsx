@@ -76,7 +76,7 @@ export default function AuditLogTab({ logs }: { logs: AuditLogRow[] }) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Rechercher"
-              className="h-9 w-[180px] rounded-lg border border-[rgba(0,0,0,0.08)] pl-8 pr-3 text-[12px] outline-none focus:border-[#C8924A]"
+              className="h-9 w-[180px] rounded-lg border border-[rgba(0,0,0,0.08)] pl-8 pr-3 text-[12px] outline-none focus:border-[#9CA3AF]"
             />
           </div>
           <button
@@ -122,8 +122,8 @@ export default function AuditLogTab({ logs }: { logs: AuditLogRow[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-[#9CA3AF]">
-                  Aucun événement d&apos;audit trouvé.
+                <td colSpan={5} className="empty-cell">
+                  Aucun événement d&apos;audit trouvé. Modifiez les filtres pour élargir la recherche.
                 </td>
               </tr>
             )}

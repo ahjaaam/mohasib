@@ -49,13 +49,13 @@ export default function ExportsClient({ dossiers }: Props) {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-7">
-        <div className="w-11 h-11 rounded-xl bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
-          <Package size={20} className="text-[#C8924A]" />
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-9 h-9 rounded-xl bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
+          <Package size={18} className="text-[#C8924A]" />
         </div>
         <div>
-          <h1 className="text-[20px] font-bold text-[#1A1A2E] leading-tight">Exports CGNC</h1>
-          <p className="text-[12.5px] text-[#6B7280]">Générez les exports pour votre fiduciaire ou la DGI</p>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Exports CGNC</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Générez les exports pour votre fiduciaire ou la DGI</p>
         </div>
       </div>
 

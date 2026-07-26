@@ -41,8 +41,8 @@ export default function WaitlistClient() {
   }
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border border-[rgba(0,0,0,0.08)] bg-white p-6">
-      <div className="mb-5 grid grid-cols-2 gap-2 rounded-full bg-[#F3F4F6] p-1">
+    <form onSubmit={submit} className="public-surface public-accent-surface p-6">
+      <div className="mb-5 grid grid-cols-2 gap-2 border border-[#E2E1DB] bg-[#F3F4F6] p-1">
         {(["entrepreneur", "comptable"] as const).map((item) => (
           <button
             key={item}
@@ -62,7 +62,7 @@ export default function WaitlistClient() {
           <input className="input w-full rounded-l-none" placeholder="Téléphone" value={telephone} onChange={(e) => setTelephone(e.target.value)} />
         </div>
       </div>
-      <button disabled={saving} className="mt-5 w-full rounded-full bg-[#C8924A] px-4 py-2.5 text-[13px] font-bold text-[#0D1526] disabled:opacity-60">
+      <button disabled={saving} className="public-primary-action mt-5 w-full disabled:opacity-60">
         {saving ? "Inscription..." : "Rejoindre la liste"}
       </button>
       {position !== null && (

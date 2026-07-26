@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   TrendingUp, TrendingDown, AlertCircle, X, Loader2,
   Send, Mail, ChevronDown, ChevronUp, CheckCircle,
-  MoreHorizontal, Eye, Download,
+  MoreHorizontal, Eye, Download, Search,
 } from "lucide-react";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 
@@ -159,30 +159,107 @@ function KPICard({
 
 function SubTabBar({
   tabs, active, onSelect, countFn,
+  search, onSearchChange, dateFrom, onDateFromChange, dateTo, onDateToChange,
+  searchPlaceholder,
 }: {
   tabs: [SubTab, string][];
   active: SubTab;
   onSelect: (t: SubTab) => void;
   countFn: (t: SubTab) => number;
+  search: string;
+  onSearchChange: (value: string) => void;
+  dateFrom: string;
+  onDateFromChange: (value: string) => void;
+  dateTo: string;
+  onDateToChange: (value: string) => void;
+  searchPlaceholder: string;
 }) {
+  const hasFilters = Boolean(search || dateFrom || dateTo);
+
   return (
-    <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-4 w-fit flex-wrap">
-      {tabs.map(([key, label]) => {
-        const count = countFn(key);
-        return (
-          <button key={key} onClick={() => onSelect(key)}
-            className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all select-none ${
-              active === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
-            }`}>
-            {label}
-            {count > 0 && (
-              <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                active === key ? "bg-[#F3F4F6] text-[#6B7280]" : "bg-white/60 text-[#9CA3AF]"
-              }`}>{count}</span>
-            )}
+    <div className="mb-4 flex flex-col gap-2 border border-[#E6E5DF] bg-[#FAFAF7] px-3 py-2.5 xl:flex-row xl:items-center xl:justify-between">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={searchPlaceholder}
+            className="h-8 w-[210px] border border-[rgba(0,0,0,0.10)] bg-white pl-8 pr-8 text-[11.5px] focus:border-[#9CA3AF] focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => onSearchChange("")}
+              aria-label="Effacer la recherche"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(event) => onDateFromChange(event.target.value)}
+          title="Échéance à partir du"
+          aria-label="Échéance à partir du"
+          className="h-8 w-[142px] border border-[rgba(0,0,0,0.10)] bg-white px-2.5 text-[11.5px] focus:border-[#9CA3AF] focus:outline-none"
+        />
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(event) => onDateToChange(event.target.value)}
+          title="Échéance jusqu'au"
+          aria-label="Échéance jusqu'au"
+          className="h-8 w-[142px] border border-[rgba(0,0,0,0.10)] bg-white px-2.5 text-[11.5px] focus:border-[#9CA3AF] focus:outline-none"
+        />
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={() => {
+              onSearchChange("");
+              onDateFromChange("");
+              onDateToChange("");
+            }}
+            className="flex h-8 items-center gap-1.5 border border-[rgba(0,0,0,0.18)] bg-white px-2.5 text-[11px] text-[#6B7280] transition-colors hover:bg-[#F0EDE5] hover:text-[#1A1A2E]"
+          >
+            <X size={12} /> Effacer
           </button>
-        );
-      })}
+        )}
+      </div>
+
+      <div className="overflow-x-auto">
+        <div className="flex min-w-max items-center gap-1.5">
+          {tabs.map(([key, label]) => {
+            const count = countFn(key);
+            const isActive = active === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onSelect(key)}
+                aria-pressed={isActive}
+                className={`flex h-8 flex-shrink-0 items-center whitespace-nowrap border px-3 text-[11.5px] font-medium transition-colors ${
+                  isActive
+                    ? "border-[#C9CACD] bg-[#F0F1F3] text-[#4B5563]"
+                    : "border-transparent text-[#374151] hover:border-[#DAD9D3] hover:bg-white hover:text-[#1A1A2E]"
+                }`}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={`ml-2 flex h-[18px] min-w-[18px] items-center justify-center px-1 text-[9px] font-bold ${
+                    isActive ? "bg-[#737B88] text-white" : "bg-[#ECEEF1] text-[#858C98]"
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -592,6 +669,7 @@ function ClientsSection({
   invoices, filtered, subTab, setSubTab, countFn,
   onMarkPaid, onRelance, companyName,
   agingOpen, setAgingOpen,
+  search, setSearch, dateFrom, setDateFrom, dateTo, setDateTo,
 }: {
   invoices: ClientInvoice[];
   filtered: ClientInvoice[];
@@ -603,6 +681,12 @@ function ClientsSection({
   companyName: string | null;
   agingOpen: boolean;
   setAgingOpen: (v: boolean) => void;
+  search: string;
+  setSearch: (value: string) => void;
+  dateFrom: string;
+  setDateFrom: (value: string) => void;
+  dateTo: string;
+  setDateTo: (value: string) => void;
 }) {
   const [sortKey, setSortKey] = useState<ClientPaymentSortKey>("due");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -635,7 +719,19 @@ function ClientsSection({
 
   return (
     <div>
-      <SubTabBar tabs={CLIENT_SUBTABS} active={subTab} onSelect={setSubTab} countFn={countFn} />
+      <SubTabBar
+        tabs={CLIENT_SUBTABS}
+        active={subTab}
+        onSelect={setSubTab}
+        countFn={countFn}
+        search={search}
+        onSearchChange={setSearch}
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
+        searchPlaceholder="Client ou N° facture..."
+      />
 
       {filtered.length === 0 ? (
         <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-10 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
@@ -732,6 +828,7 @@ const SUPPLIER_SUBTABS: [SubTab, string][] = [
 function SuppliersSection({
   items, filtered, subTab, setSubTab, countFn,
   onMarkPaid, agingOpen, setAgingOpen,
+  search, setSearch, dateFrom, setDateFrom, dateTo, setDateTo,
 }: {
   items: SupplierItem[];
   filtered: SupplierItem[];
@@ -741,6 +838,12 @@ function SuppliersSection({
   onMarkPaid: (item: SupplierItem) => void;
   agingOpen: boolean;
   setAgingOpen: (v: boolean) => void;
+  search: string;
+  setSearch: (value: string) => void;
+  dateFrom: string;
+  setDateFrom: (value: string) => void;
+  dateTo: string;
+  setDateTo: (value: string) => void;
 }) {
   const [sortKey, setSortKey] = useState<SupplierPaymentSortKey>("due");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -775,7 +878,19 @@ function SuppliersSection({
 
   return (
     <div>
-      <SubTabBar tabs={SUPPLIER_SUBTABS} active={subTab} onSelect={setSubTab} countFn={countFn} />
+      <SubTabBar
+        tabs={SUPPLIER_SUBTABS}
+        active={subTab}
+        onSelect={setSubTab}
+        countFn={countFn}
+        search={search}
+        onSearchChange={setSearch}
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
+        searchPlaceholder="Fournisseur ou référence..."
+      />
 
       {filtered.length === 0 ? (
         <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-10 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
@@ -885,6 +1000,9 @@ export default function SuiviClient({
   const [paidModal, setPaidModal] = useState<{ item: ClientInvoice | SupplierItem; type: "client" | "supplier" } | null>(null);
   const [relanceModal, setRelanceModal] = useState<ClientInvoice | null>(null);
   const [agingOpen, setAgingOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const weekStr = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
@@ -925,24 +1043,60 @@ export default function SuiviClient({
   // ── Filtering ─────────────────────────────────────────────────────────────
 
   const filteredClients = useMemo(() => {
+    let result: ClientInvoice[];
     switch (clientSubTab) {
-      case "overdue": return clientInvoices.filter(i => i.status !== "paid" && i.due_date && i.due_date < todayStr);
-      case "week": return clientInvoices.filter(i => i.status !== "paid" && i.due_date && i.due_date >= todayStr && i.due_date <= weekStr);
-      case "upcoming": return clientInvoices.filter(i => i.status !== "paid" && (!i.due_date || i.due_date > weekStr));
-      case "paid": return clientInvoices.filter(i => i.status === "paid");
-      default: return clientInvoices;
+      case "overdue": result = clientInvoices.filter(i => i.status !== "paid" && i.due_date && i.due_date < todayStr); break;
+      case "week": result = clientInvoices.filter(i => i.status !== "paid" && i.due_date && i.due_date >= todayStr && i.due_date <= weekStr); break;
+      case "upcoming": result = clientInvoices.filter(i => i.status !== "paid" && (!i.due_date || i.due_date > weekStr)); break;
+      case "paid": result = clientInvoices.filter(i => i.status === "paid"); break;
+      default: result = clientInvoices;
     }
-  }, [clientInvoices, clientSubTab, todayStr, weekStr]);
+
+    const query = search.trim().toLocaleLowerCase("fr");
+    return result
+      .filter((invoice) => {
+        if (!query) return true;
+        return [
+          invoice.invoice_number,
+          invoice.clients?.name,
+          invoice.clients?.email,
+          invoice.clients?.phone,
+        ].some((value) => value?.toLocaleLowerCase("fr").includes(query));
+      })
+      .filter((invoice) => {
+        if (dateFrom && (!invoice.due_date || invoice.due_date < dateFrom)) return false;
+        if (dateTo && (!invoice.due_date || invoice.due_date > dateTo)) return false;
+        return true;
+      });
+  }, [clientInvoices, clientSubTab, todayStr, weekStr, search, dateFrom, dateTo]);
 
   const filteredSuppliers = useMemo(() => {
+    let result: SupplierItem[];
     switch (supplierSubTab) {
-      case "overdue": return supplierItems.filter(i => !isSupplierPaid(i) && i.ocr_data?.due_date && i.ocr_data.due_date < todayStr);
-      case "week": return supplierItems.filter(i => !isSupplierPaid(i) && i.ocr_data?.due_date && i.ocr_data.due_date >= todayStr && i.ocr_data.due_date <= weekStr);
-      case "upcoming": return supplierItems.filter(i => !isSupplierPaid(i) && (!i.ocr_data?.due_date || i.ocr_data.due_date > weekStr));
-      case "paid": return supplierItems.filter(i => isSupplierPaid(i));
-      default: return supplierItems;
+      case "overdue": result = supplierItems.filter(i => !isSupplierPaid(i) && i.ocr_data?.due_date && i.ocr_data.due_date < todayStr); break;
+      case "week": result = supplierItems.filter(i => !isSupplierPaid(i) && i.ocr_data?.due_date && i.ocr_data.due_date >= todayStr && i.ocr_data.due_date <= weekStr); break;
+      case "upcoming": result = supplierItems.filter(i => !isSupplierPaid(i) && (!i.ocr_data?.due_date || i.ocr_data.due_date > weekStr)); break;
+      case "paid": result = supplierItems.filter(i => isSupplierPaid(i)); break;
+      default: result = supplierItems;
     }
-  }, [supplierItems, supplierSubTab, todayStr, weekStr]);
+
+    const query = search.trim().toLocaleLowerCase("fr");
+    return result
+      .filter((item) => {
+        if (!query) return true;
+        return [
+          supplierName(item),
+          item.ocr_data?.receipt_number,
+          item.file_name,
+        ].some((value) => value?.toLocaleLowerCase("fr").includes(query));
+      })
+      .filter((item) => {
+        const dueDate = item.ocr_data?.due_date ?? null;
+        if (dateFrom && (!dueDate || dueDate < dateFrom)) return false;
+        if (dateTo && (!dueDate || dueDate > dateTo)) return false;
+        return true;
+      });
+  }, [supplierItems, supplierSubTab, todayStr, weekStr, search, dateFrom, dateTo]);
 
   function clientCount(tab: SubTab) {
     switch (tab) {
@@ -1005,22 +1159,21 @@ export default function SuiviClient({
       </div>
 
       {/* ── Main Tabs ──────────────────────────────────────────────────────── */}
-      <div className="flex gap-2 mb-5 flex-wrap">
+      <div className="tabs mb-5 overflow-x-auto">
         {([
           ["clients", "Clients — À encaisser", overdueClients.length] as const,
           ["suppliers", "Fournisseurs — À payer", overdueSuppliers.length] as const,
         ] as const).map(([key, label, badge]) => (
-          <button key={key} onClick={() => setMainTab(key)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${
-              mainTab === key
-                ? "bg-[#1A1A2E] text-white shadow-sm"
-                : "bg-white text-[#6B7280] border border-[rgba(0,0,0,0.1)] hover:border-[#1A1A2E]"
-            }`}>
+          <button key={key} onClick={() => {
+            setMainTab(key);
+            setSearch("");
+            setDateFrom("");
+            setDateTo("");
+          }}
+            className={`tab flex flex-shrink-0 items-center gap-2 whitespace-nowrap ${mainTab === key ? "active" : ""}`}>
             {label}
             {badge > 0 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                mainTab === key ? "bg-[#DC2626] text-white" : "bg-[#FEE2E2] text-[#DC2626]"
-              }`}>{badge}</span>
+              <span className="flex h-5 min-w-5 items-center justify-center bg-[#FEE2E2] px-1 text-[9.5px] font-bold text-[#DC2626]">{badge}</span>
             )}
           </button>
         ))}
@@ -1039,6 +1192,12 @@ export default function SuiviClient({
           companyName={companyName}
           agingOpen={agingOpen}
           setAgingOpen={setAgingOpen}
+          search={search}
+          setSearch={setSearch}
+          dateFrom={dateFrom}
+          setDateFrom={setDateFrom}
+          dateTo={dateTo}
+          setDateTo={setDateTo}
         />
       )}
       {mainTab === "suppliers" && (
@@ -1051,6 +1210,12 @@ export default function SuiviClient({
           onMarkPaid={item => setPaidModal({ item, type: "supplier" })}
           agingOpen={agingOpen}
           setAgingOpen={setAgingOpen}
+          search={search}
+          setSearch={setSearch}
+          dateFrom={dateFrom}
+          setDateFrom={setDateFrom}
+          dateTo={dateTo}
+          setDateTo={setDateTo}
         />
       )}
 

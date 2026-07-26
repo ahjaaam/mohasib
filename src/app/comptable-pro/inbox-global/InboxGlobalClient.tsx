@@ -110,9 +110,7 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
   const TabBtn = ({ value, label, count }: { value: typeof tab; label: string; count?: number }) => (
     <button
       onClick={() => setTab(value)}
-      className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all flex items-center gap-1.5 ${
-        tab === value ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
-      }`}
+      className={`tab flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap ${tab === value ? "active" : ""}`}
     >
       {label}
       {count != null && count > 0 && (
@@ -124,13 +122,13 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-11 h-11 rounded-xl bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
-          <Inbox size={20} className="text-[#C8924A]" />
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-9 h-9 bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
+          <Inbox size={18} className="text-[#C8924A]" />
         </div>
         <div>
-          <h1 className="text-[20px] font-bold text-[#1A1A2E] leading-tight">Boîte de réception globale</h1>
-          <p className="text-[12.5px] text-[#6B7280]">Emails reçus non assignés automatiquement</p>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Boîte de réception globale</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Emails reçus non assignés automatiquement</p>
         </div>
         {unassignedCount > 0 && (
           <div className="ml-auto bg-[#FEF3C7] border border-[#FCD34D] rounded-xl px-3 py-2 text-[12.5px] font-semibold text-[#D97706]">
@@ -140,7 +138,7 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-5 w-fit">
+      <div className="tabs mb-5 overflow-x-auto">
         <TabBtn value="unassigned" label="À assigner" count={unassignedCount} />
         <TabBtn value="assigned"   label="Assignés" />
         <TabBtn value="ignored"    label="Ignorés" />
@@ -259,7 +257,7 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
                       className="btn btn-gold btn-sm disabled:opacity-40"
                     >
                       {saving === item.id ? "…" : selected === item.ai_suggested_dossier?.id
-                        ? `✓ Confirmer ${selectedName}`
+                        ? <><CheckCircle2 size={13} /> Confirmer {selectedName}</>
                         : "Assigner"}
                     </button>
 

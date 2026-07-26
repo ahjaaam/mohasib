@@ -4,9 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import SaisieClient from "./SaisieClient";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { FEATURES } from "@/lib/features";
 
 export default async function SaisiePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!FEATURES.SAISIE_ENABLED) redirect(`/comptable-pro/dossiers/${id}/ecritures`);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/connexion");

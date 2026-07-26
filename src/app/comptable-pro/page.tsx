@@ -1,10 +1,13 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftRight, FileText, FolderOpen, PenLine, TrendingUp } from "lucide-react";
 import type { Dossier } from "@/types/fiduciaire";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { FEATURES } from "@/lib/features";
+import { resolveClientPortalRedirect } from "@/lib/team";
 
 function daysSince(dateStr: string | null): number {
   if (!dateStr) return 999;
@@ -25,7 +28,10 @@ function fmtActivityDate(dateStr: string) {
 export default async function FiduciaireOverviewPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const ownerId = await resolveAccountOwnerId(user!.id);
+  if (!user) redirect("/connexion");
+  const clientRedirect = await resolveClientPortalRedirect(user.id);
+  if (clientRedirect) redirect(clientRedirect);
+  const ownerId = await resolveAccountOwnerId(user.id);
 
   const { data: dossiersData } = await supabase
     .from("dossiers").select("*").eq("fiduciaire_user_id", ownerId).order("raison_sociale");
@@ -117,7 +123,7 @@ export default async function FiduciaireOverviewPage() {
         label: ecr.libelle || "Écriture comptable",
         sublabel: [ecr.journal, ecr.compte_cgnc].filter(Boolean).join(" · "),
         amount: Number(ecr.debit || ecr.credit || 0),
-        href: `/comptable-pro/dossiers/${ecr.dossier_id}/saisie`,
+        href: `/comptable-pro/dossiers/${ecr.dossier_id}/${FEATURES.SAISIE_ENABLED ? "saisie" : "ecritures"}`,
         source: "ecriture" as const,
       };
     }),
@@ -144,19 +150,19 @@ export default async function FiduciaireOverviewPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-7">
-        <div className="w-11 h-11 rounded-xl bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
-          <TrendingUp size={20} className="text-[#C8924A]" />
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,146,74,0.12)" }}>
+            <TrendingUp size={18} className="text-[#C8924A]" />
+          </div>
+          <div>
+            <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Vue d'ensemble</h1>
+            <p className="text-[11px] text-[#9CA3AF] mt-0.5">Tous vos dossiers clients — {periodeLabel}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-[20px] font-bold text-[#1A1A2E] leading-tight">Vue d'ensemble</h1>
-          <p className="text-[12.5px] text-[#6B7280]">Tous vos dossiers clients — {periodeLabel}</p>
-        </div>
-        <div className="ml-auto">
-          <Link href="/comptable-pro/dossiers/new" className="btn btn-gold">
-            + Nouveau dossier
-          </Link>
-        </div>
+        <Link href="/comptable-pro/dossiers/new" className="btn btn-gold">
+          + Nouveau dossier
+        </Link>
       </div>
 
       {/* KPI cards */}
@@ -249,21 +255,24 @@ export default async function FiduciaireOverviewPage() {
                         {!tvaActive
                           ? <span className="text-[12px] text-[#9CA3AF]">Exonéré</span>
                           : tvaDeposee
-                            ? <span className="tag" style={{ background: "#D1FAE5", color: "#065F46" }}>Déposée</span>
-                            : <span className="tag tag-warn">À déposer</span>}
+                            ? <span className="tag !rounded-none" style={{ background: "#D1FAE5", color: "#065F46" }}>Déposée</span>
+                            : <span className="tag tag-warn !rounded-none">À déposer</span>}
                       </td>
                       <td>
                         <DossierStatus lastActivity={activity} />
                       </td>
                       <td>
                         <div className="flex items-center gap-1.5">
-                          <Link href={`/comptable-pro/dossiers/${d.id}`} className="btn btn-outline btn-sm">
+                          <Link href={`/comptable-pro/dossiers/${d.id}`}
+                            className="text-[11px] font-medium text-[#6B7280] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-2 py-1 rounded-lg shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                             Ouvrir
                           </Link>
-                          <Link href={`/comptable-pro/dossiers/${d.id}/edit`} className="btn btn-outline btn-sm">
+                          <Link href={`/comptable-pro/dossiers/${d.id}/edit`}
+                            className="text-[11px] font-medium text-[#6B7280] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-2 py-1 rounded-lg shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                             Modifier
                           </Link>
-                          <Link href={`/comptable-pro/dossiers/${d.id}/tva`} className="btn btn-outline btn-sm">
+                          <Link href={`/comptable-pro/dossiers/${d.id}/tva`}
+                            className="text-[11px] font-medium text-[#6B7280] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-2 py-1 rounded-lg shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
                             TVA
                           </Link>
                         </div>

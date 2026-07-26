@@ -40,7 +40,7 @@ export default async function NewAvoirClientPage() {
 
   return (
     <>
-      <PageHeader title="Nouvel avoir client" subtitle="Émettre un avoir sur facture client" icon={<BackIconLink href="/invoices?mode=avoirs" label="Retour aux avoirs" />} />
+      <PageHeader title="Nouvel avoir client" subtitle="Émettre un avoir sur facture client" icon={<BackIconLink href="/invoices?mode=avoirs" label="Retour aux avoirs" />} iconBare />
       <NewAvoirForm
         clients={clients}
         nextNumber={nextNumber}

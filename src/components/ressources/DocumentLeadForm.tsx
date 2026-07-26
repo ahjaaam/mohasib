@@ -77,8 +77,8 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-[rgba(13,21,38,0.08)] bg-white p-6 shadow-[0_18px_45px_rgba(13,21,38,0.08)]">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#C8924A]/10 text-[#C8924A]">
+    <div className="public-surface public-accent-surface p-6">
+      <div className="public-icon-tile h-12 w-12">
         <Download size={24} />
       </div>
       <h2 className="mt-5 text-[22px] font-bold text-[#0D1526]">Télécharger gratuitement</h2>
@@ -110,19 +110,19 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="votre@email.com"
-            className="w-full rounded-lg border border-[rgba(13,21,38,0.12)] px-3 py-3 text-[14px] outline-none focus:border-[#C8924A]"
+            className="w-full rounded-lg border border-[rgba(13,21,38,0.12)] px-3 py-3 text-[14px] outline-none focus:border-[#A89596]"
           />
           <input
             type="tel"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
             placeholder="Téléphone (optionnel)"
-            className="w-full rounded-lg border border-[rgba(13,21,38,0.12)] px-3 py-3 text-[14px] outline-none focus:border-[#C8924A]"
+            className="w-full rounded-lg border border-[rgba(13,21,38,0.12)] px-3 py-3 text-[14px] outline-none focus:border-[#A89596]"
           />
           {error && <p className="text-[12px] leading-5 text-red-600">{error}</p>}
           <button
             disabled={saving || !resource.fileUrl}
-            className="w-full rounded-lg bg-[#C8924A] px-4 py-3 text-[13px] font-bold text-white transition hover:bg-[#B7833F] disabled:cursor-not-allowed disabled:opacity-60"
+            className="public-primary-action w-full disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? "Ouverture..." : "Accéder au document ->"}
           </button>

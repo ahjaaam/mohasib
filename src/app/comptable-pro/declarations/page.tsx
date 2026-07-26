@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { DossierTva } from "@/types/fiduciaire";
 import DeclarationsClient from "./DeclarationsClient";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { requirePlanFeature } from "@/lib/api-plan";
+import { redirect } from "next/navigation";
 
 export default async function DeclarationsPage({
   searchParams,
@@ -17,6 +19,9 @@ export default async function DeclarationsPage({
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/connexion");
+  const plan = await requirePlanFeature("mass_declarations");
+  if (plan.response) redirect("/tarifs?feature=mass_declarations");
   const ownerId = await resolveAccountOwnerId(user!.id);
 
   const periode = `${year}-${String(month).padStart(2, "0")}`;

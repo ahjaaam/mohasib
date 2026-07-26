@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
   const admin = createAdminClient();
   const { data: membership, error: membershipError } = await admin.from("user_memberships")
-    .select("id,user_email,company_id,status,invitation_expires_at,companies(raison_sociale,user_type)")
+    .select("id,user_email,company_id,role_name,dossier_id,dossier_scope,status,invitation_expires_at,companies(raison_sociale,user_type)")
     .eq("invitation_token", token)
     .eq("status", "invited")
     .maybeSingle();
@@ -40,10 +40,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   }
 
   const authUser = created.data.user;
+  const roleName = membership.role_name ?? "manager";
   const activated = await admin.from("user_memberships").update({
     user_id: authUser.id,
-    role_name: "manager",
-    dossier_scope: null,
     status: "active",
     accepted_at: new Date().toISOString(),
     invitation_token: null,
@@ -62,12 +61,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     entityId: membership.id,
     entityLabel: email,
     companyId: membership.company_id,
-    newValues: { user_id: authUser.id, role_name: "manager", status: "active" },
+    newValues: { user_id: authUser.id, role_name: roleName, status: "active" },
   });
 
-  return NextResponse.json({
-    success: true,
-    email,
-    redirect: company?.user_type === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord",
-  });
+  const redirect = roleName === "client_portal" && membership.dossier_id
+    ? `/comptable-pro/dossiers/${membership.dossier_id}/dashboard`
+    : company?.user_type === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
+
+  return NextResponse.json({ success: true, email, redirect });
 }

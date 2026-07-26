@@ -14,6 +14,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ sessio
     if (permission.response) return permission.response;
     const plan = await requirePlanFeature("bank_import");
     if (plan.response) return plan.response;
+    const { data: session } = await supabase
+      .from("rapprochement_sessions")
+      .select("id")
+      .eq("id", sessionId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
     const result = await recomputeRapprochementSession(supabase, sessionId);
     if (!result) return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -24,7 +31,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ sessio
     await supabase
       .from("rapprochement_sessions")
       .update({ statut: "validé", validated_at: new Date().toISOString() })
-      .eq("id", sessionId);
+      .eq("id", sessionId)
+      .eq("user_id", user.id);
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {

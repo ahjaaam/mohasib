@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, INVOICE_STATUS_LABELS } from "@/lib/utils";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import InvoiceActions from "@/app/(app)/invoices/[id]/InvoiceActions";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import PageHeader from "@/components/PageHeader";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD";
@@ -61,16 +62,22 @@ export default async function DossierInvoiceDetailPage({
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
-        <Link href={backHref} className="btn btn-outline flex items-center gap-1.5">
-          <ArrowLeft size={13} /> Retour
-        </Link>
-        <span className="text-[13px] font-semibold text-[#1A1A2E]">{inv.invoice_number}</span>
-        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold"
-          style={{ backgroundColor: bgStatus, color: colorStatus }}>
-          {labelStatus}
-        </span>
-      </div>
+      <PageHeader
+        title={inv.invoice_number}
+        subtitle={client?.name ? `Facture client · ${client.name}` : "Facture client"}
+        icon={<FileText size={18} />}
+        action={
+          <>
+            <span className="inline-block px-2 py-0.5 text-[11px] font-semibold"
+              style={{ backgroundColor: bgStatus, color: colorStatus }}>
+              {labelStatus}
+            </span>
+            <Link href={backHref} className="btn btn-outline flex items-center gap-1.5">
+              <ArrowLeft size={13} /> Retour
+            </Link>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
         <div className="flex flex-col gap-3">
@@ -178,8 +185,8 @@ export default async function DossierInvoiceDetailPage({
             {montantPaye > 0 && montantPaye < totalTtc && (
               <>
                 <div className="h-px bg-[rgba(0,0,0,0.06)] my-2" />
-                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#F3F4F6" }}>
-                  <div className="h-full rounded-full" style={{
+                <div className="h-2 overflow-hidden" style={{ backgroundColor: "#F3F4F6" }}>
+                  <div className="h-full" style={{
                     backgroundColor: "#C8924A",
                     width: `${Math.min(100, (montantPaye / totalTtc) * 100)}%`,
                   }} />

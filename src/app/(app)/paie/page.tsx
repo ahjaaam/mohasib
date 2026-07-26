@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { calculateSalary, formatMAD } from "@/lib/payroll";
 import {
@@ -8,6 +9,7 @@ import {
   FileText, CheckCircle, DollarSign, Download, ExternalLink,
   Loader2, X, ChevronDown, ChevronUp, Banknote,
   CalendarDays, Clock, Briefcase, FolderOpen, Eye, EyeOff,
+  Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
@@ -157,6 +159,10 @@ function initials(prenom: string, nom: string) {
 
 type Tab = "employes" | "conges" | "heures" | "bulletins" | "cnss";
 
+function isTab(value: string | null): value is Tab {
+  return value === "employes" || value === "conges" || value === "heures" || value === "bulletins" || value === "cnss";
+}
+
 const STATUT_COLORS: Record<string, string> = {
   brouillon: "bg-[#F3F4F6] text-[#6B7280]",
   validé: "bg-[#DBEAFE] text-[#1D4ED8]",
@@ -212,15 +218,32 @@ function countWorkingDays(start: string, end: string, holidays: Set<string>) {
 
 export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const ownerId = useAccountOwnerId();
+  const searchParams = useSearchParams();
+  const requestedTabParam = searchParams.get("tab");
+  const requestedTab: Tab = isTab(requestedTabParam) ? requestedTabParam : "employes";
+  const requestedEmployeeSearch = searchParams.get("search") ?? "";
   const supabase = createClient();
   const [userId, setUserId] = useState("");
-  const [tab, setTab] = useState<Tab>("employes");
+  const [tabState, setTabState] = useState({ source: requestedTab, value: requestedTab });
+  const tab = tabState.source === requestedTab ? tabState.value : requestedTab;
+  const setTab = (value: Tab) => setTabState({ source: requestedTab, value });
   const [now] = useState(() => new Date());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
 
   // Employees
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeeSearchState, setEmployeeSearchState] = useState({
+    source: requestedEmployeeSearch,
+    value: requestedEmployeeSearch,
+  });
+  const employeeSearch = employeeSearchState.source === requestedEmployeeSearch
+    ? employeeSearchState.value
+    : requestedEmployeeSearch;
+  const setEmployeeSearch = (value: string) => setEmployeeSearchState({
+    source: requestedEmployeeSearch,
+    value,
+  });
   const [empLoading, setEmpLoading] = useState(true);
   const [empModal, setEmpModal] = useState<"add" | "edit" | null>(null);
   const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
@@ -650,7 +673,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     if (statut === "deposee") patch.deposee_at = new Date().toISOString();
     if (statut === "payee") patch.payee_at = new Date().toISOString();
     await supabase.from("cnss_declarations").update(patch).eq("id", cnssDecl.id);
-    toast.success(statut === "deposee" ? "Marqué comme déposée" : "Marqué comme payée ✓");
+    toast.success(statut === "deposee" ? "Marqué comme déposée" : "Marqué comme payée");
     loadCnss();
   }
 
@@ -702,6 +725,19 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const chargesPatronales = bulletins.reduce((s, b) => s + Number(b.cnss_patronal) + Number(b.amo_patronal) + Number(b.taxe_formation_pro), 0);
   const irTotal = bulletins.reduce((s, b) => s + Number(b.ir_net), 0);
   const cnssTotal = bulletins.reduce((s, b) => s + Number(b.cnss_salarie) + Number(b.cnss_patronal), 0);
+  const filteredEmployees = useMemo(() => {
+    const query = employeeSearch.trim().toLowerCase();
+    if (!query) return employees;
+    return employees.filter((employee) => [
+      employee.prenom,
+      employee.nom,
+      employee.matricule,
+      employee.cin,
+      employee.poste,
+      employee.departement,
+      employee.numero_cnss,
+    ].some((value) => value?.toLowerCase().includes(query)));
+  }, [employeeSearch, employees]);
 
   const dueDay15 = new Date(selectedYear, selectedMonth - 1, 15);
   const dueDay28 = new Date(selectedYear, selectedMonth - 1, 28);
@@ -754,8 +790,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
         )}
       </div>
 
-      {/* Pill tabs */}
-      <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-5 w-fit">
+      {/* Section tabs */}
+      <div className="tabs mb-5 overflow-x-auto">
         {([
           ["employes","Employés", Users],
           ["conges","Congés & Absences", CalendarDays],
@@ -764,7 +800,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           ["cnss","CNSS", FileText],
         ] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 ${tab === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"}`}>
+            className={`tab flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap ${tab === key ? "active" : ""}`}>
             <Icon size={13} /> {label}
           </button>
         ))}
@@ -772,15 +808,28 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
 
       {/* ── TAB 1: EMPLOYÉS ── */}
       {tab === "employes" && (
-        <EmployesTab
-          employees={employees}
-          loading={empLoading}
-          deletingId={deletingId}
-          onAdd={openAddModal}
-          onEdit={openEditModal}
-          onDelete={deleteEmployee}
-          onViewBulletin={(emp) => { setTab("bulletins"); }}
-        />
+        <>
+          <div className="relative mb-3 max-w-[390px]">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A909B]" />
+            <input
+              className="input w-full pl-9"
+              value={employeeSearch}
+              onChange={(event) => setEmployeeSearch(event.target.value)}
+              placeholder="Rechercher un employé, matricule, poste…"
+            />
+          </div>
+          <EmployesTab
+            employees={filteredEmployees}
+            hasEmployees={employees.length > 0}
+            search={employeeSearch}
+            loading={empLoading}
+            deletingId={deletingId}
+            onAdd={openAddModal}
+            onEdit={openEditModal}
+            onDelete={deleteEmployee}
+            onViewBulletin={(emp) => { setTab("bulletins"); }}
+          />
+        </>
       )}
 
       {/* ── TAB 2: CONGÉS ── */}
@@ -892,7 +941,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
 
 // ─── Employés Tab ─────────────────────────────────────────────────────────────
 
-function EmployesTab({ employees, loading, deletingId, onAdd, onEdit, onDelete, onViewBulletin }: any) {
+function EmployesTab({ employees, hasEmployees, search, loading, deletingId, onAdd, onEdit, onDelete, onViewBulletin }: any) {
   const [visibleSalaries, setVisibleSalaries] = useState<Set<string>>(new Set());
 
   function toggleSalary(employeeId: string) {
@@ -911,8 +960,16 @@ function EmployesTab({ employees, loading, deletingId, onAdd, onEdit, onDelete, 
     </div>
   );
 
+  if (!employees.length && hasEmployees) return (
+    <div className="border border-[rgba(0,0,0,0.08)] bg-white px-5 py-12 text-center">
+      <Users size={28} className="mx-auto mb-3 text-[#9CA3AF]" />
+      <p className="text-[13px] font-semibold text-[#1A1A2E]">Aucun employé trouvé</p>
+      <p className="mt-1 text-[11.5px] text-[#6B7280]">Aucun résultat ne correspond à « {search.trim()} ».</p>
+    </div>
+  );
+
   if (!employees.length) return (
-    <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-16 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+    <div className="empty-state">
       <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#F3F4F6] mb-4">
         <Users size={24} className="text-[#9CA3AF]" />
       </div>
@@ -1279,7 +1336,7 @@ function HeuresTab({ employees, hoursRows, loading, savingId, periodLabel, selec
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} className="px-4 py-10 text-center text-[#6B7280]">Chargement...</td></tr>
+                <tr><td colSpan={10} className="loading-cell">Chargement...</td></tr>
               ) : employees.map((emp: Employee) => {
                 const theoretical = Number(valueFor(emp, "heures_theoriques", 191.33));
                 const normal = Number(valueFor(emp, "heures_normales", theoretical));

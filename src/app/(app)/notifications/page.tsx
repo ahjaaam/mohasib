@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { CheckCheck, Trash2, X } from "lucide-react";
+import { Bell, CheckCheck, CheckCircle2, Trash2, X } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import {
   markRead,
@@ -89,6 +90,12 @@ export default function NotificationsPage() {
 
   return (
     <div className="max-w-2xl">
+      <PageHeader
+        title="Notifications"
+        subtitle="Suivez les alertes et les activités importantes"
+        icon={<Bell size={18} />}
+      />
+
       {/* Bulk actions */}
       <div className="flex items-center justify-between mb-3">
         <div className="tabs">
@@ -111,7 +118,7 @@ export default function NotificationsPage() {
           {unreadCount > 0 && (
             <button
               onClick={handleMarkAllRead}
-              className="flex items-center gap-1 text-[11.5px] text-[#C8924A] hover:text-[#A87240] transition-colors"
+              className="flex items-center gap-1 text-[11.5px] text-[#C8924A] hover:text-[#C8924A] transition-colors"
             >
               <CheckCheck size={13} />
               Tout marquer comme lu
@@ -129,13 +136,13 @@ export default function NotificationsPage() {
 
       {/* Loading */}
       {loading && (
-        <div className="text-center py-12 text-[12.5px] text-[#9CA3AF]">Chargement...</div>
+        <div className="loading-state">Chargement des notifications…</div>
       )}
 
       {/* Empty state */}
       {!loading && filtered.length === 0 && (
         <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl px-5 py-12 text-center">
-          <div className="text-3xl mb-2">✓</div>
+          <CheckCircle2 size={30} className="mx-auto mb-2 text-[#059669]" aria-hidden="true" />
           <p className="text-[13px] font-medium text-[#6B7280]">Aucune notification</p>
           <p className="text-[11.5px] text-[#9CA3AF] mt-1">
             {filter === "unread" ? "Tout est lu !" : filter === "high" ? "Aucune alerte haute priorité" : "Rien ici pour l'instant"}

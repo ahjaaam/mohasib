@@ -4,12 +4,17 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import BilanClient from "./BilanClient";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { requirePlanFeature } from "@/lib/api-plan";
+import { FEATURES } from "@/lib/features";
 
 export default async function BilanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!FEATURES.BILAN_ENABLED) redirect(`/comptable-pro/dossiers/${id}/export`);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/connexion");
+  const plan = await requirePlanFeature("bilan");
+  if (plan.response) redirect("/tarifs?feature=bilan");
   const ownerId = await resolveAccountOwnerId(user.id);
 
   const [dossierRes, ecrRes, invRes, txRes, cabinetRes] = await Promise.all([

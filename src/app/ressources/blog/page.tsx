@@ -26,12 +26,12 @@ const categoryLabels: Record<string, string> = {
 };
 
 const categoryStyles: Record<string, string> = {
-  tva: "bg-[#EFF6FF] text-[#1D4ED8]",
-  is: "bg-[#F0FDF4] text-[#15803D]",
-  paie: "bg-[#FFF7ED] text-[#C8924A]",
-  tresorerie: "bg-[#FDF2F8] text-[#BE185D]",
-  creation: "bg-[#F5F3FF] text-[#6D28D9]",
-  comptabilite: "bg-[#EEF2FF] text-[#4338CA]",
+  tva: "border border-[rgba(181,138,82,0.28)] bg-[rgba(181,138,82,0.10)] text-[#B58A52]",
+  is: "border border-[rgba(181,138,82,0.28)] bg-[rgba(181,138,82,0.10)] text-[#B58A52]",
+  paie: "border border-[rgba(181,138,82,0.28)] bg-[rgba(181,138,82,0.10)] text-[#B58A52]",
+  tresorerie: "border border-[rgba(181,138,82,0.28)] bg-[rgba(181,138,82,0.10)] text-[#B58A52]",
+  creation: "border border-[rgba(181,138,82,0.28)] bg-[rgba(181,138,82,0.10)] text-[#B58A52]",
+  comptabilite: "border border-[rgba(181,138,82,0.28)] bg-[rgba(181,138,82,0.10)] text-[#B58A52]",
 };
 
 function formatReadTime(readTime?: number | string) {
@@ -59,12 +59,12 @@ export default async function BlogPage() {
   const posts = await getAllPosts();
 
   return (
-    <main className="min-h-screen bg-[#FAFAF6]">
+    <main className="public-site ressources-page">
       <PublicNavbar />
-      <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[60px]">
+      <section className="public-page-hero">
         <div className="mx-auto max-w-4xl text-center">
-          <Link href="/ressources" className="text-[12px] font-semibold text-[#C8924A]">← Ressources</Link>
-          <p className="mt-6 text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Blog Mohasib</p>
+          <Link href="/ressources" className="text-[12px] font-semibold text-[#B58A52]">← Ressources</Link>
+          <p className="public-eyebrow mt-6">Blog Mohasib</p>
           <h1 className="mt-4 text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">
             Comptabilite & Entrepreneuriat
           </h1>
@@ -81,7 +81,7 @@ export default async function BlogPage() {
               <button
                 key={filter}
                 className={`whitespace-nowrap px-3 pb-3 text-[13px] font-semibold ${
-                  index === 0 ? "border-b-2 border-[#C8924A] text-[#C8924A]" : "text-[#6B7280]"
+                  index === 0 ? "border-b-2 border-[#B58A52] text-[#B58A52]" : "text-[#6B7280]"
                 }`}
               >
                 {filter}
@@ -99,7 +99,7 @@ export default async function BlogPage() {
                 <Link
                   key={post._id}
                   href={`/ressources/blog/${slug}`}
-                  className="overflow-hidden rounded-2xl border border-[rgba(0,0,0,0.08)] bg-white transition hover:border-[#C8924A] hover:shadow-[0_14px_35px_rgba(13,21,38,0.08)]"
+                  className="public-surface public-interactive-surface overflow-hidden"
                 >
                   {imageUrl && <img src={imageUrl} alt="" className="h-40 w-full object-cover" />}
                   <div className="p-5">
@@ -112,7 +112,7 @@ export default async function BlogPage() {
                       <span>{formatReadTime(post.readTime)}</span>
                       <span>{formatDate(post.publishedAt)}</span>
                     </div>
-                    <span className="mt-5 inline-flex text-[13px] font-semibold text-[#C8924A]">Lire l'article -&gt;</span>
+                    <span className="mt-5 inline-flex text-[13px] font-semibold text-[#B58A52]">Lire l'article -&gt;</span>
                   </div>
                 </Link>
               );

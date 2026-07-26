@@ -15,8 +15,6 @@ interface EcritureRow {
   libelle: string | null;
   debit: number;
   credit: number;
-  lettre: string | null;
-  is_lettered: boolean;
   compte: string;
 }
 
@@ -58,7 +56,6 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
   const [dateFrom, setDateFrom]           = useState("");
   const [dateTo, setDateTo]               = useState("");
   const [journal, setJournal]             = useState("Tous");
-  const [unletteredOnly, setUnlettered]   = useState(false);
 
   // ── Fetch distinct accounts ─────────────────────────────────────────────────
 
@@ -116,27 +113,24 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
         libelle:       r.libelle ?? null,
         debit:         Number(r.debit),
         credit:        Number(r.credit),
-        lettre:        null,
-        is_lettered:   false,
         compte:        r.compte_cgnc,
       }));
     } else if (companyId) {
       let q = (supabase.from("ecritures_comptables") as any)
-        .select("id, date_ecriture, numero_piece, journal, libelle, debit, credit, lettre, is_lettered, compte")
+        .select("id, date_ecriture, numero_piece, journal, libelle, debit, credit, compte")
         .eq("company_id", companyId)
         .eq("compte", account)
         .order("date_ecriture", { ascending: true });
       if (dateFrom) q = q.gte("date_ecriture", dateFrom);
       if (dateTo)   q = q.lte("date_ecriture", dateTo);
       if (journal !== "Tous") q = q.eq("journal", journal);
-      if (unletteredOnly) q = q.eq("is_lettered", false);
       const { data } = await q;
       rows = (data ?? []) as EcritureRow[];
     }
 
     setEntries(rows);
     setLoading(false);
-  }, [account, companyId, dossierId, dateFrom, dateTo, journal, unletteredOnly]);
+  }, [account, companyId, dossierId, dateFrom, dateTo, journal]);
 
   useEffect(() => { loadEntries(); }, [loadEntries]);
 
@@ -154,7 +148,7 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
   // ── Export CSV ───────────────────────────────────────────────────────────────
 
   function exportCSV() {
-    const header = "Date;Pièce;Journal;Libellé;Débit;Crédit;Solde;Lettre\n";
+    const header = "Date;Pièce;Journal;Libellé;Débit;Crédit;Solde\n";
     const rows = enriched.map((e) =>
       [
         fmtDate(e.date_ecriture),
@@ -164,7 +158,6 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
         e.debit || "",
         e.credit || "",
         e.solde.toFixed(2),
-        e.lettre ?? "",
       ].join(";")
     ).join("\n");
     const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
@@ -181,16 +174,18 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+        <div className="w-9 h-9 bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
           <BookOpen size={18} className="text-[#C8924A]" />
         </div>
         <div>
-          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-tight">{title ?? "Grand Livre"}</h1>
-          <p className="text-[12px] text-[#6B7280]">Journal des écritures comptables par compte</p>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">{title ?? "Grand Livre"}</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Journal des écritures comptables par compte</p>
+        </div>
         </div>
         {entries.length > 0 && (
-          <button onClick={exportCSV} className="ml-auto btn btn-outline flex items-center gap-1.5">
+          <button onClick={exportCSV} className="btn btn-outline flex items-center gap-1.5">
             <Download size={13} /> Exporter CSV
           </button>
         )}
@@ -240,16 +235,6 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
             </select>
           </div>
 
-          {/* Unlettered toggle — only relevant for ecritures_comptables */}
-          {!dossierId && (
-            <label className="flex items-center gap-2 cursor-pointer pb-2">
-              <input type="checkbox" className="w-4 h-4 accent-[#C8924A]"
-                checked={unletteredOnly}
-                onChange={(e) => setUnlettered(e.target.checked)} />
-              <span className="text-[12px] text-[#374151]">Non lettrés seulement</span>
-            </label>
-          )}
-
           <button onClick={loadEntries}
             className="btn btn-outline flex items-center gap-1.5 pb-2">
             <Filter size={13} /> Filtrer
@@ -272,9 +257,9 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
       {/* Table */}
       <div className="tbl">
         {loading ? (
-          <div className="py-12 text-center text-[13px] text-[#6B7280]">Chargement...</div>
+          <div className="loading-state">Chargement du grand livre…</div>
         ) : entries.length === 0 ? (
-          <div className="py-14 text-center">
+          <div className="empty-state">
             <BookOpen size={32} className="text-[#D1D5DB] mx-auto mb-3" />
             <p className="text-[13px] text-[#6B7280]">
               {accounts.length === 0
@@ -293,7 +278,6 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
                 <th className="text-right w-28">Débit</th>
                 <th className="text-right w-28">Crédit</th>
                 <th className="text-right w-28">Solde</th>
-                <th className="w-20 text-center">Lettrage</th>
               </tr>
             </thead>
             <tbody>
@@ -316,15 +300,6 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
                   <td className={`text-right font-semibold ${e.solde >= 0 ? "text-[#1A1A2E]" : "text-[#DC2626]"}`}>
                     {e.solde.toLocaleString("fr-MA", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="text-center">
-                    {e.is_lettered && e.lettre ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#065F46] bg-[#D1FAE5] px-2 py-0.5 rounded-full">
-                        {e.lettre} ✓
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-[#D97706]">—</span>
-                    )}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -343,7 +318,6 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
                 <td className={`px-3 py-2.5 text-right text-[12px] font-bold ${(totalDebit - totalCredit) >= 0 ? "text-[#1A1A2E]" : "text-[#DC2626]"}`}>
                   {(totalDebit - totalCredit).toLocaleString("fr-MA", { minimumFractionDigits: 2 })}
                 </td>
-                <td />
               </tr>
             </tfoot>
           </table>

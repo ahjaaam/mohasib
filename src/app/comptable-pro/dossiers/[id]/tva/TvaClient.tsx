@@ -343,7 +343,7 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
     if (error) { toast.error(translateError(error)); return; }
     setStatut(newStatut);
     await loadHistory();
-    toast.success(newStatut === "déposé" ? "Déclaration marquée comme déposée ✓" : "Déclaration validée ✓");
+    toast.success(newStatut === "déposé" ? "Déclaration marquée comme déposée" : "Déclaration validée");
   }
 
   // ── EDI ────────────────────────────────────────────────────────────────────
@@ -434,7 +434,7 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
   const statutBadge = isFiled ? "bg-[#D1FAE5] text-[#065F46]"
     : statut === "validé" ? "bg-[#FEF3C7] text-[#92400E]"
     : "bg-[#F3F4F6] text-[#6B7280]";
-  const statutLabel = isFiled ? "✅ Déposée"
+  const statutLabel = isFiled ? "Déposée"
     : statut === "validé" ? "🔒 Validée" : "📝 Brouillon";
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -458,7 +458,10 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-[10.5px] font-semibold px-2.5 py-1 rounded-lg ${statutBadge}`}>{statutLabel}</span>
+          <span className={`inline-flex items-center gap-1 text-[10.5px] font-semibold px-2.5 py-1 rounded-lg ${statutBadge}`}>
+            {isFiled && <CheckCircle size={11} aria-hidden="true" />}
+            {statutLabel}
+          </span>
           <button onClick={prevPeriod}
             className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
             <ChevronLeft size={15} />
@@ -852,10 +855,10 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         {h.statut === "deposee"
-                          ? <span className="text-[10px] font-semibold text-[#065F46] bg-[#D1FAE5] px-1.5 py-0.5 rounded-full whitespace-nowrap">✅ Déposée</span>
+                          ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#065F46] bg-[#D1FAE5] px-1.5 py-0.5 whitespace-nowrap"><CheckCircle size={10} aria-hidden="true" /> Déposée</span>
                           : h.statut === "validé"
-                            ? <span className="text-[10px] font-semibold text-[#92400E] bg-[#FEF3C7] px-1.5 py-0.5 rounded-full whitespace-nowrap">🔒 Validée</span>
-                            : <span className="text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 rounded-full whitespace-nowrap">📝 Brouillon</span>}
+                            ? <span className="text-[10px] font-semibold text-[#92400E] bg-[#FEF3C7] px-1.5 py-0.5 whitespace-nowrap">🔒 Validée</span>
+                            : <span className="text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 whitespace-nowrap">📝 Brouillon</span>}
                       </td>
                     </tr>
                   ))}

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { markRead, dismissNotification } from "@/lib/notifications/actions";
+import { markRead } from "@/lib/notifications/actions";
 import toast from "react-hot-toast";
 
 interface NotifRow {
@@ -29,27 +29,32 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit" });
 }
 
-export default function NotificationBell({ userId }: { userId: string }) {
+export default function NotificationBell({ userId, onOpen }: { userId: string; onOpen?: () => void }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotifRow[]>([]);
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
-  const load = useCallback(async () => {
-    const { data } = await supabase
+  useEffect(() => {
+    let active = true;
+    void supabase
       .from("notifications")
       .select("id, title, message, link, is_read, priority, created_at")
       .eq("user_id", userId)
       .eq("is_dismissed", false)
       .order("created_at", { ascending: false })
-      .limit(5);
-    setItems((data ?? []) as NotifRow[]);
-    setLoading(false);
-  }, [userId]);
-
-  useEffect(() => { load(); }, [load]);
+      .limit(5)
+      .then(({ data }) => {
+        if (!active) return;
+        setItems((data ?? []) as NotifRow[]);
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [supabase, userId]);
 
   // Close on outside click
   useEffect(() => {
@@ -79,7 +84,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [userId]);
+  }, [supabase, userId]);
 
   const unreadHigh = items.filter((n) => !n.is_read && n.priority === "high").length;
   const unreadAll = items.filter((n) => !n.is_read).length;
@@ -94,9 +99,14 @@ export default function NotificationBell({ userId }: { userId: string }) {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setOpen((o) => !o)}
-        className="relative w-8 h-8 flex items-center justify-center rounded-lg text-[#6B7280] hover:text-[#1A1A2E] hover:bg-[#F3F4F6] transition-all"
+        onClick={() => {
+          onOpen?.();
+          setOpen((value) => !value);
+        }}
+        className="relative flex h-10 w-10 items-center justify-center border border-transparent text-[#777E8B] transition-colors hover:border-[#E1E0DA] hover:bg-[#F5F4EF] hover:text-[#1A1A2E]"
         title="Notifications"
+        aria-label="Ouvrir les notifications"
+        aria-expanded={open}
       >
         <Bell size={16} />
         {unreadHigh > 0 && (
@@ -110,7 +120,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-[340px] bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[rgba(0,0,0,0.08)] z-50 overflow-hidden">
+        <div className="absolute right-0 top-full z-50 mt-2.5 w-[340px] overflow-hidden border border-[#DADAD5] border-t-2 border-t-[#C8924A] bg-white shadow-[0_18px_42px_rgba(13,21,38,0.15)]">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(0,0,0,0.06)]">
             <span className="text-[12.5px] font-semibold text-[#1A1A2E]">
@@ -133,11 +143,11 @@ export default function NotificationBell({ userId }: { userId: string }) {
           {/* List */}
           <div className="max-h-[360px] overflow-y-auto">
             {loading && (
-              <div className="text-center py-6 text-[12px] text-[#9CA3AF]">Chargement...</div>
+              <div className="loading-state min-h-20 py-5">Chargement des notifications…</div>
             )}
             {!loading && items.length === 0 && (
               <div className="text-center py-8 text-[12px] text-[#9CA3AF]">
-                <div className="text-xl mb-1">✓</div>
+                <CheckCircle2 size={22} className="mx-auto mb-1 text-[#059669]" aria-hidden="true" />
                 Tout est à jour
               </div>
             )}

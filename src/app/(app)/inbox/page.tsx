@@ -9,7 +9,6 @@ import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
 import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
-import { translateError } from "@/lib/errors";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -145,8 +144,6 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
-  const [batchModal, setBatchModal] = useState(false);
-  const [batchSaving, setBatchSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [previewReceipt, setPreviewReceipt] = useState<ReceiptWithUrl | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -344,7 +341,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     if (previewReceipt?.id === id) setPreviewReceipt(null);
     dismissCard(id, "right");
     if (confirmedOcr.is_supplier_invoice !== false) {
-      toast.success("✅ Ajoutée au suivi des paiements fournisseurs !");
+      toast.success("Ajoutée au suivi des paiements fournisseurs !");
     } else {
       toast.success("Facture confirmée !");
     }
@@ -368,26 +365,6 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       setDismissing((s) => { s.delete(id); return new Set(s); });
       await load();
     }, 320);
-  }
-
-  // ── Batch confirm ─────────────────────────────────────────────────────────
-
-  async function confirmAll() {
-    setBatchSaving(true);
-    const pend = receipts.filter((r) => r.status === "pending");
-    const matchQuery = supabase.from("receipts").update({ status: "matched" }).eq("status", "pending");
-    const { error: batchErr } = await (dossierId
-      ? matchQuery.eq("dossier_id", dossierId)
-      : matchQuery.eq("user_id", userId));
-    if (batchErr) { toast.error(translateError(batchErr)); setBatchSaving(false); return; }
-    if (dossierId) {
-      await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
-    }
-    setBatchSaving(false);
-    setBatchModal(false);
-    setPreviewReceipt(null);
-    toast.success(`${pend.length} facture${pend.length > 1 ? "s" : ""} confirmée${pend.length > 1 ? "s" : ""} !`);
-    await load();
   }
 
   function updateForm(id: string, field: keyof CardForm, val: string) {
@@ -421,21 +398,19 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         </div>
       </div>
 
-      {/* ─── Pill tabs ───────────────────────────────────────────────────── */}
-      <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-5 w-fit">
+      {/* ─── Section tabs ────────────────────────────────────────────────── */}
+      <div className="tabs mb-5 overflow-x-auto">
         {([
           ["pending", "À traiter", pending.length],
           ["matched", "Traités", matched.length],
           ["ignored", "Ignorés", ignored.length],
         ] as const).map(([key, label, count]) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-1.5 rounded-lg text-[12.5px] font-medium transition-all select-none ${
-              tab === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
-            }`}>
+            className={`tab flex flex-shrink-0 items-center whitespace-nowrap ${tab === key ? "active" : ""}`}>
             {label}
             {count > 0 && (
-              <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                tab === key ? "bg-[#F3F4F6] text-[#6B7280]" : "bg-white/60 text-[#9CA3AF]"
+              <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                tab === key ? "bg-[rgba(13,21,38,0.08)] text-[#0D1526]" : "bg-[#F3F4F6] text-[#9CA3AF]"
               }`}>{count}</span>
             )}
           </button>
@@ -446,7 +421,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       {tab === "pending" && (
         <>
           <div
-            className={`bg-white border-2 rounded-xl p-5 mb-4 transition-all ${dragOver ? "border-[#C8924A] bg-[rgba(200,146,74,0.04)]" : "border-dashed border-[rgba(200,146,74,0.35)]"}`}
+            className={`mb-4 border-2 bg-white px-4 py-3.5 transition-all ${dragOver ? "border-[#C8924A] bg-[rgba(200,146,74,0.04)]" : "border-dashed border-[#D1D5DB]"}`}
             style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -457,32 +432,31 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
               onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }} />
 
-            <div className="text-center mb-4">
-              <div className="text-[13.5px] font-semibold text-[#1A1A2E] mb-0.5">Importez vos factures fournisseurs</div>
-              <div className="text-[11.5px] text-[#9CA3AF]">L&apos;IA extrait fournisseur, montant, TVA et date automatiquement</div>
-            </div>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 text-left">
+                <div className="mb-0.5 text-[13.5px] font-semibold text-[#1A1A2E]">Importez vos factures fournisseurs</div>
+                <div className="text-[11.5px] text-[#8A909B]">L&apos;IA extrait automatiquement le fournisseur, le montant, la TVA et la date.</div>
+                <div className="mt-1 text-[10px] text-[#A1A6B0]">JPG · PNG · PDF · WebP · 10 Mo max · Import multiple</div>
+              </div>
 
-            <div className="flex gap-2 justify-center flex-wrap">
-              {!dossierId && (
-                <button data-permission="document:create" onClick={handleEmailSync} disabled={syncing}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: "#C8924A", color: "#fff", border: "none" }}>
-                  <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
-                  {syncing ? "Synchronisation…" : "Sync mes emails"}
+              <div className="flex flex-wrap gap-2 lg:flex-shrink-0 lg:justify-end">
+                {!dossierId && (
+                  <button data-permission="document:create" onClick={handleEmailSync} disabled={syncing}
+                    className="flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2 text-[12px] font-medium transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: "#0D1526", color: "#fff", border: "none" }}>
+                    <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
+                    {syncing ? "Synchronisation…" : "Sync mes emails"}
+                  </button>
+                )}
+                <button data-permission="document:create" onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 whitespace-nowrap border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-medium text-[#374151] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition-colors hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]">
+                  <Upload size={13} /> Importer des documents
                 </button>
-              )}
-              <button data-permission="document:create" onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.18)] text-[12px] font-medium text-[#374151] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
-                <Upload size={13} /> Importer des documents
-              </button>
-              <button data-permission="document:create" onClick={() => cameraInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[rgba(0,0,0,0.18)] text-[12px] font-medium text-[#374151] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
-                <Camera size={13} /> Prendre une photo
-              </button>
-            </div>
-
-            <div className="text-center mt-3 text-[10.5px] text-[#9CA3AF]">
-              JPG · PNG · PDF · WebP — max 10 MB · Plusieurs fichiers à la fois
+                <button data-permission="document:create" onClick={() => cameraInputRef.current?.click()}
+                  className="flex items-center gap-1.5 whitespace-nowrap border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-medium text-[#374151] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition-colors hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]">
+                  <Camera size={13} /> Prendre une photo
+                </button>
+              </div>
             </div>
           </div>
 
@@ -501,7 +475,11 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                     <div className={`text-[11px] mt-0.5 ${f.state === "error" ? "text-[#DC2626]" : f.state === "done" ? "text-[#059669]" : "text-[#C8924A]"}`}>
                       {f.state === "uploading" && "📤 Envoi en cours..."}
                       {f.state === "processing" && "🔍 Extraction IA..."}
-                      {f.state === "done" && "✓ Extrait !"}
+                      {f.state === "done" && (
+                        <span className="inline-flex items-center gap-1">
+                          <CheckCircle size={11} aria-hidden="true" /> Extrait !
+                        </span>
+                      )}
                       {f.state === "error" && `❌ ${f.error ?? "Erreur"}`}
                     </div>
                   </div>
@@ -515,15 +493,6 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
             </div>
           )}
 
-          {/* Batch confirm bar */}
-          {pending.length >= 3 && (
-            <div className="flex items-center justify-between bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3 mb-4">
-              <span className="text-[12.5px] font-semibold text-[#1E40AF]">{pending.length} facture{pending.length > 1 ? "s" : ""} en attente</span>
-              <button data-permission="accounting:create" onClick={() => setBatchModal(true)} className="btn btn-sm" style={{ backgroundColor: "#1D4ED8", color: "#fff", border: "none" }}>
-                ✓ Tout confirmer
-              </button>
-            </div>
-          )}
         </>
       )}
 
@@ -541,7 +510,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
       {/* ─── Pending / Ignored: empty state ─────────────────────────────── */}
       {!loading && tab !== "matched" && tabItems.length === 0 && (
-        <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-10 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <div className="empty-state">
           <div className="text-4xl mb-3">{tab === "pending" ? (dossierId && inboxEmail ? "📧" : "📥") : "🗂️"}</div>
           <p className="text-[13px] font-medium text-[#6B7280]">
             {tab === "pending" ? "Aucune facture reçue" : "Aucune facture ignorée"}
@@ -608,51 +577,6 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
               />
             )
           )}
-        </div>
-      )}
-
-      {/* ─── Batch confirm modal ─────────────────────────────────────────── */}
-      {batchModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
-            <h3 className="text-[14px] font-bold text-[#1A1A2E] mb-4">
-              Confirmer {pending.length} facture{pending.length > 1 ? "s" : ""} ?
-            </h3>
-            <div className="flex flex-col gap-1.5 mb-4 max-h-48 overflow-y-auto">
-              {pending.map((r) => {
-                const form = forms[r.id] ?? initForm(r.ocr_data);
-                const amt = parseFloat(form.amount);
-                return (
-                  <div key={r.id} className="flex items-center justify-between text-[12px] py-1 border-b border-[rgba(0,0,0,0.05)] last:border-0">
-                    <span className="text-[#374151] truncate flex-1 mr-2">
-                      {form.description || (r.ocr_data.vendor_name ?? r.ocr_data.vendor) || "Facture fournisseur"}
-                    </span>
-                    <span className={`font-semibold flex-shrink-0 ${isNaN(amt) || amt >= 0 ? "text-[#059669]" : "text-[#DC2626]"}`}>
-                      {isNaN(amt) ? "—" : `${amt >= 0 ? "+" : ""}${fmt(amt)} MAD`}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center justify-between py-2 border-t border-[rgba(0,0,0,0.08)] mb-4">
-              <span className="text-[12.5px] font-semibold text-[#1A1A2E]">Total dépenses</span>
-              <span className="text-[13px] font-bold text-[#DC2626]">
-                −{pending.reduce((s, r) => {
-                  const f = forms[r.id] ?? initForm(r.ocr_data);
-                  const a = parseFloat(f.amount);
-                  return s + (isNaN(a) || a >= 0 ? 0 : Math.abs(a));
-                }, 0).toLocaleString("fr-MA", { minimumFractionDigits: 2 })} MAD
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setBatchModal(false)} className="btn btn-outline flex-1">Annuler</button>
-              <button data-permission="accounting:create" onClick={confirmAll} disabled={batchSaving} className="btn btn-gold flex-1">
-                {batchSaving
-                  ? <Loader2 size={13} className="animate-spin" />
-                  : <><CheckCircle size={13} /> Tout confirmer</>}
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -742,7 +666,7 @@ function LedgerView({ receipts }: { receipts: ReceiptWithUrl[] }) {
   if (receipts.length === 0) {
     return (
       <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-12 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <div className="text-4xl mb-3">✅</div>
+        <CheckCircle size={32} className="mx-auto mb-3 text-[#059669]" aria-hidden="true" />
         <p className="text-[13px] font-medium text-[#6B7280]">Aucune facture traitée</p>
         <p className="text-[11.5px] text-[#9CA3AF] mt-1">Importez vos factures fournisseurs pour les traiter.</p>
       </div>
@@ -998,7 +922,7 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
       className="bg-white overflow-hidden transition-all duration-300"
       style={{
         boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        border: isAvoir ? "1px solid rgba(124,58,237,0.3)" : "1px solid rgba(0,0,0,0.08)",
+        border: isAvoir ? "1px solid rgba(124,58,237,0.3)" : "1px solid rgba(0,0,0,0.20)",
         borderRadius: "12px",
         transform: dismissing ? `translateX(${isExpense ? "-100%" : "100%"})` : "translateX(0)",
         opacity: dismissing ? 0 : 1,

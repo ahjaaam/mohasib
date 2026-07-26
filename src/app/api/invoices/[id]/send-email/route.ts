@@ -8,6 +8,7 @@ import { authorizePermission } from "@/lib/api-permissions";
 import { createVersion, getDiff, logAccountingEvent, logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 const EMAIL_LIMIT = 10;
 const EMAIL_OPTS = { maxAttempts: EMAIL_LIMIT, windowMs: 60 * 60_000, blockMs: 60 * 60_000 };
@@ -61,6 +62,10 @@ export async function POST(
       .single();
 
     if (invErr || !inv) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    if (inv.invoice_type === "avoir") {
+      const plan = await requirePlanFeature("avoirs");
+      if (plan.response) return plan.response;
+    }
 
     const permission = await authorizePermission("invoice", "send", {
       dossierId: inv.dossier_id ?? null,

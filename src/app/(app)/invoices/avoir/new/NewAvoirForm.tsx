@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
-import { Trash2, Plus, Loader2, Mail, Download, Send, Save } from "lucide-react";
+import { Check, Trash2, Plus, Loader2, Mail, Download, Send, Save } from "lucide-react";
 import type { Client } from "@/types";
 
 interface LineItem {
@@ -352,7 +352,7 @@ export default function NewAvoirForm({
             }`}
           >
             {waState === "loading" && <><Loader2 size={13} className="animate-spin" /> Préparation...</>}
-            {waState === "success" && <>✓ WhatsApp ouvert</>}
+            {waState === "success" && <><Check size={13} /> WhatsApp ouvert</>}
             {waState === "error" && <>Réessayer WhatsApp</>}
             {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
           </button>
@@ -368,7 +368,7 @@ export default function NewAvoirForm({
             }`}
           >
             {emailState === "loading" && <><Loader2 size={13} className="animate-spin" /> Envoi...</>}
-            {emailState === "success" && <>✓ Email envoyé</>}
+            {emailState === "success" && <><Check size={13} /> Email envoyé</>}
             {emailState === "error" && <>Réessayer email</>}
             {emailState === "idle" && <><Mail size={13} /> Envoyer par email</>}
           </button>
@@ -496,7 +496,7 @@ export default function NewAvoirForm({
           <div className="mb-3 rounded-lg border border-[rgba(200,146,74,0.18)] bg-[#FFF7ED] p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <label className="flex flex-1 flex-col gap-1.5">
-                <span className="text-[11px] font-semibold text-[#9A672E]">Ajouter un article enregistré</span>
+                <span className="text-[11px] font-semibold text-[#C8924A]">Ajouter un article enregistré</span>
                 <select
                   className="input bg-white"
                   value={selectedCatalogItem}
@@ -514,7 +514,7 @@ export default function NewAvoirForm({
                   ))}
                 </select>
               </label>
-              <p className="pb-2 text-[11px] font-medium text-[#9A672E]">Ajout automatique après sélection.</p>
+              <p className="pb-2 text-[11px] font-medium text-[#C8924A]">Ajout automatique après sélection.</p>
             </div>
           </div>
         )}
@@ -560,7 +560,7 @@ export default function NewAvoirForm({
               </button>
             </div>
             {(line.desc.trim() || Number(line.pu || 0) > 0) && (
-              <button type="button" onClick={() => saveLineAsCatalogItem(line)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#9A672E] hover:text-[#C8924A]">
+              <button type="button" onClick={() => saveLineAsCatalogItem(line)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#C8924A] hover:text-[#C8924A]">
                 <Save size={11} /> Enregistrer cette ligne comme article
               </button>
             )}
@@ -601,7 +601,7 @@ export default function NewAvoirForm({
           disabled={saving}
           className="btn btn-gold flex items-center gap-1.5 disabled:opacity-60"
         >
-          {saving ? <><Loader2 size={13} className="animate-spin" /> Enregistrement...</> : "✓ Émettre l'avoir"}
+          {saving ? <><Loader2 size={13} className="animate-spin" /> Enregistrement...</> : <><Check size={13} /> Émettre l&apos;avoir</>}
         </button>
       </div>
     </div>

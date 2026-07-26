@@ -154,7 +154,7 @@ function PartialPaymentModal({ invoice, onClose, onSaved }: {
       toast.error(error.message || translateError(error), { duration: 8000 });
       return;
     }
-    toast.success("Paiement enregistré ✓");
+    toast.success("Paiement enregistré");
     onSaved();
     onClose();
   }
@@ -655,12 +655,15 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
   const entitlements = usePlanEntitlements();
   const ownerId = useAccountOwnerId();
   const searchParams = useSearchParams();
+  const requestedSearch = searchParams.get("q") ?? "";
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
   const basePath = dossierId ? `/comptable-pro/dossiers/${dossierId}/invoices` : "/invoices";
   const [invoices, setInvoices] = useState<InvoiceExt[]>([]);
   const [mode, setMode] = useState<PageMode>((searchParams.get("mode") as PageMode) ?? "factures");
   const [tab, setTab] = useState<TabKey>("all");
-  const [search, setSearch] = useState(searchParams.get("q") ?? "");
+  const [searchState, setSearchState] = useState({ source: requestedSearch, value: requestedSearch });
+  const search = searchState.source === requestedSearch ? searchState.value : requestedSearch;
+  const setSearch = (value: string) => setSearchState({ source: requestedSearch, value });
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(true);
@@ -686,7 +689,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
     }).eq("id", id);
     if (error) { toast.error("Erreur lors de la mise à jour"); return; }
     setInvoices(prev => prev.map(i => i.id === id ? { ...i, devis_status: "accepté" } as any : i));
-    toast.success("Devis marqué comme accepté ✓");
+    toast.success("Devis marqué comme accepté");
   }
 
   async function refuseDevis(id: string) {
@@ -707,7 +710,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
       const res = await fetch(`/api/devis/${id}/convert`, { method: "POST" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { toast.error(json.error || "Erreur lors de la conversion"); return; }
-      toast.success(`Facture ${json.invoice_number} créée ✓`);
+      toast.success(`Facture ${json.invoice_number} créée`);
       load();
     } catch { toast.error("Erreur lors de la conversion"); }
   }
@@ -816,11 +819,11 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
       <div className="flex items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: mode === "avoirs" ? "rgba(220,38,38,0.10)" : mode === "devis" ? "rgba(37,99,235,0.10)" : "rgba(200,146,74,0.12)" }}>
+            style={{ background: "rgba(200,146,74,0.12)" }}>
             {mode === "avoirs"
-              ? <ReceiptText size={18} className="text-[#DC2626]" />
+              ? <ReceiptText size={18} className="text-[#C8924A]" />
               : mode === "devis"
-              ? <ClipboardList size={18} className="text-[#2563EB]" />
+              ? <ClipboardList size={18} className="text-[#C8924A]" />
               : <FileText size={18} className="text-[#C8924A]" />
             }
           </div>
@@ -835,14 +838,12 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
         </div>
         {mode === "avoirs" ? (
           <Link data-permission="invoice:create" href={`${basePath}/avoir/new`}
-            className="btn flex items-center gap-1.5"
-            style={{ background: "#DC2626", color: "white", borderColor: "#DC2626" }}>
+            className="btn btn-gold flex items-center gap-1.5">
             <Plus size={13} /> Nouvel Avoir
           </Link>
         ) : mode === "devis" ? (
           <Link data-permission="invoice:create" href="/invoices/devis/new"
-            className="btn flex items-center gap-1.5"
-            style={{ background: "#2563EB", color: "white", borderColor: "#2563EB" }}>
+            className="btn btn-gold flex items-center gap-1.5">
             <Plus size={13} /> Nouveau Devis
           </Link>
         ) : (
@@ -852,8 +853,8 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
         )}
       </div>
 
-      {/* ─── Mode switcher ────────────────────────────────────────────────── */}
-      <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-4 w-fit">
+      {/* ─── Mode tabs ────────────────────────────────────────────────────── */}
+      <div className="tabs mb-5 overflow-x-auto">
         {([
           { key: "factures", label: "Factures",       count: factures.length },
           { key: "devis",    label: "Devis",           count: devis.length },
@@ -862,77 +863,92 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
           <button
             key={key}
             onClick={() => { setMode(key); setTab("all"); setSearch(""); setDateFrom(""); setDateTo(""); }}
-            className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all select-none flex items-center gap-1.5 ${
-              mode === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
-            }`}
+            className={`tab flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap ${mode === key ? "active" : ""}`}
           >
             {label}
             {count > 0 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                mode === key ? "bg-[#F3F4F6] text-[#6B7280]" : "bg-white/60 text-[#9CA3AF]"
+              <span className={`flex h-5 min-w-5 items-center justify-center px-1 text-[9.5px] font-bold ${
+                mode === key ? "bg-[rgba(13,21,38,0.08)] text-[#0D1526]" : "bg-[#F1F2F4] text-[#9298A3]"
               }`}>{count}</span>
             )}
           </button>
         ))}
       </div>
 
-      {/* ─── Pill tabs ────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl mb-4 w-fit flex-wrap">
-        {activeTabs.map(({ key, label }) => (
-          <button key={key} onClick={() => setTab(key)}
-            className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all select-none ${
-              tab === key ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
-            }`}>
-            {label}
-            {key !== "all" && tabCounts[key] > 0 && (
-              <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                tab === key ? "bg-[#F3F4F6] text-[#6B7280]" : "bg-white/60 text-[#9CA3AF]"
-              }`}>{tabCounts[key]}</span>
+      {/* ─── Search, dates and status filters ─────────────────────────────── */}
+      <div className="mb-4 flex flex-col gap-2 border border-[#E6E5DF] bg-[#FAFAF7] px-3 py-2.5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Client ou N° facture..."
+              className="h-8 w-[210px] border border-[rgba(0,0,0,0.10)] bg-white pl-8 pr-8 text-[11.5px] focus:border-[#9CA3AF] focus:outline-none"
+            />
+            {search && (
+              <button onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]">
+                <X size={12} />
+              </button>
             )}
-          </button>
-        ))}
-      </div>
-
-      {/* ─── Filters ──────────────────────────────────────────────────────── */}
-      <div className="flex gap-2 mb-4 flex-wrap items-center">
-        <div className="relative">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] pointer-events-none" />
+          </div>
           <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Client ou N° facture..."
-            className="pl-8 pr-8 py-2 border border-[rgba(0,0,0,0.10)] rounded-lg text-[12.5px] bg-white focus:outline-none focus:border-[#C8924A] w-[220px]"
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            title="À partir du"
+            className="h-8 w-[142px] border border-[rgba(0,0,0,0.10)] bg-white px-2.5 text-[11.5px] focus:border-[#9CA3AF] focus:outline-none"
           />
-          {search && (
-            <button onClick={() => setSearch("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]">
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            title="Jusqu'au"
+            className="h-8 w-[142px] border border-[rgba(0,0,0,0.10)] bg-white px-2.5 text-[11.5px] focus:border-[#9CA3AF] focus:outline-none"
+          />
+          {hasFilters && (
+            <button
+              onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }}
+              aria-label="Effacer les filtres"
+              title="Effacer les filtres"
+              className="flex h-8 w-8 items-center justify-center border border-[rgba(0,0,0,0.18)] bg-white text-[#6B7280] transition-colors hover:bg-[#F0EDE5] hover:text-[#1A1A2E]"
+            >
               <X size={12} />
             </button>
           )}
         </div>
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          title="À partir du"
-          className="px-3 py-2 border border-[rgba(0,0,0,0.10)] rounded-lg text-[12.5px] bg-white focus:outline-none focus:border-[#C8924A]"
-        />
-        <input
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          title="Jusqu'au"
-          className="px-3 py-2 border border-[rgba(0,0,0,0.10)] rounded-lg text-[12.5px] bg-white focus:outline-none focus:border-[#C8924A]"
-        />
-        {hasFilters && (
-          <button
-            onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }}
-            className="px-3 py-2 rounded-lg text-[12px] text-[#6B7280] hover:text-[#1A1A2E] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] flex items-center gap-1.5"
-          >
-            <X size={12} /> Effacer
-          </button>
-        )}
+
+        <div className="overflow-x-auto">
+          <div className="flex min-w-max items-center gap-1.5">
+            {activeTabs.map(({ key, label }) => {
+              const isActive = tab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTab(key)}
+                  aria-pressed={isActive}
+                  className={`flex h-8 flex-shrink-0 items-center whitespace-nowrap border px-3 text-[11.5px] font-medium transition-colors ${
+                    isActive
+                      ? "border-[#C9CACD] bg-[#F0F1F3] text-[#4B5563]"
+                      : "border-transparent text-[#374151] hover:border-[#DAD9D3] hover:bg-white hover:text-[#1A1A2E]"
+                  }`}
+                >
+                  {label}
+                  {key !== "all" && tabCounts[key] > 0 && (
+                    <span className={`ml-2 flex h-[18px] min-w-[18px] items-center justify-center px-1 text-[9px] font-bold ${
+                      isActive ? "bg-[#737B88] text-white" : "bg-[#ECEEF1] text-[#858C98]"
+                    }`}>
+                      {tabCounts[key]}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* ─── Table ────────────────────────────────────────────────────────── */}
@@ -945,11 +961,11 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
               {mode === "devis"
                 ? <SortableTh sortKey="object" label="Objet" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
                 : <>
-                  <SortableTh sortKey="subtotal" label="HT" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
-                  <SortableTh sortKey="tva" label="TVA" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+                  <SortableTh sortKey="subtotal" label="HT" align="left" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+                  <SortableTh sortKey="tva" label="TVA" align="left" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
                 </>}
-              <SortableTh sortKey={mode === "devis" ? "subtotal" : "total"} label={mode === "avoirs" ? "Montant crédité" : mode === "devis" ? "Total HT" : "TTC / Paiement"} activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
-              {mode === "devis" && <SortableTh sortKey="total" label="TTC" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />}
+              <SortableTh sortKey={mode === "devis" ? "subtotal" : "total"} label={mode === "avoirs" ? "Montant crédité" : mode === "devis" ? "Total HT" : "TTC / Paiement"} align="left" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              {mode === "devis" && <SortableTh sortKey="total" label="TTC" align="left" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />}
               <SortableTh sortKey="date" label="Date" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
               {mode === "avoirs"
                 ? <SortableTh sortKey="object" label="Motif" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
@@ -961,23 +977,23 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={9} className="text-center py-8 text-[#6B7280] text-[12px]">
+                <td colSpan={9} className="loading-cell">
                   Chargement...
                 </td>
               </tr>
             )}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center py-10">
+                <td colSpan={9} className="empty-cell">
                   <p className="text-[#6B7280] text-[12.5px] mb-3">
                     {mode === "avoirs" ? "Aucun avoir client" : mode === "devis" ? "Aucun devis" : "Aucune facture"}
                   </p>
                   {mode === "avoirs" ? (
-                    <Link data-permission="invoice:create" href={`${basePath}/avoir/new`} className="btn" style={{ background: "#DC2626", color: "white", borderColor: "#DC2626" }}>
+                    <Link data-permission="invoice:create" href={`${basePath}/avoir/new`} className="btn btn-gold">
                       + Nouvel Avoir
                     </Link>
                   ) : mode === "devis" ? (
-                    <Link data-permission="invoice:create" href="/invoices/devis/new" className="btn" style={{ background: "#2563EB", color: "white", borderColor: "#2563EB" }}>
+                    <Link data-permission="invoice:create" href="/invoices/devis/new" className="btn btn-gold">
                       + Nouveau Devis
                     </Link>
                   ) : (
@@ -1004,14 +1020,14 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
                     <td className="text-[#6B7280] text-[11.5px] max-w-[120px] truncate">
                       {(inv as any).devis_objet ?? "—"}
                     </td>
-                    <td className="text-[#6B7280]">{fmt(Number(inv.subtotal))}</td>
-                    <td className="font-semibold">{fmt(totalTtc)}</td>
+                    <td className="whitespace-nowrap text-left text-[#6B7280]">{fmt(Number(inv.subtotal))}</td>
+                    <td className="whitespace-nowrap text-left font-semibold">{fmt(totalTtc)}</td>
                     <td className="text-[#6B7280]">{fmtDate(inv.issue_date)}</td>
                     <td className={isExpired ? "text-[#DC2626]" : "text-[#6B7280]"}>
                       {expiryDate ? fmtDate(expiryDate) : "—"}
                     </td>
                     <td>
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                      <span className="inline-block px-2 py-0.5 text-[11px] font-semibold"
                         style={{ backgroundColor: bg, color }}>
                         {label}
                       </span>
@@ -1040,20 +1056,20 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
                 <tr key={inv.id}>
                   <td>
                     <Link href={`${basePath}/${inv.id}`}
-                      className={`font-medium text-[#6B7280] transition-colors ${mode === "avoirs" ? "hover:text-[#DC2626]" : "hover:text-[#C8924A]"}`}>
+                      className="font-medium text-[#6B7280] transition-colors hover:text-[#C8924A]">
                       {inv.invoice_number}
                     </Link>
                   </td>
                   <td>{(inv as any).clients?.name ?? "—"}</td>
-                  <td className={mode === "avoirs" ? "text-[#DC2626]" : "text-[#6B7280]"}>
+                  <td className="whitespace-nowrap text-left text-[#6B7280]">
                     {mode === "avoirs" ? "- " : ""}{fmt(Number(inv.subtotal))}
                   </td>
-                  <td className={mode === "avoirs" ? "text-[#DC2626]" : "text-[#6B7280]"}>
+                  <td className="whitespace-nowrap text-left text-[#6B7280]">
                     {mode === "avoirs" ? "- " : ""}{fmt(Number(inv.tax_amount))}
                   </td>
-                  <td>
+                  <td className="text-left">
                     {mode === "avoirs" ? (
-                      <span className="font-semibold text-[#DC2626]">- {fmt(totalTtc)}</span>
+                      <span className="font-semibold text-[#1A1A2E]">- {fmt(totalTtc)}</span>
                     ) : isPartial ? (
                       <div>
                         <div className="text-[12.5px] font-semibold text-[#1A1A2E] whitespace-nowrap">
@@ -1061,9 +1077,9 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
                           <span className="text-[#9CA3AF] font-normal mx-1">/</span>
                           {fmt(totalTtc)}
                         </div>
-                        <div className="h-1.5 rounded-full overflow-hidden mt-1"
+                        <div className="h-1.5 overflow-hidden mt-1"
                           style={{ backgroundColor: "#F3F4F6", maxWidth: "110px" }}>
-                          <div className="h-full rounded-full"
+                          <div className="h-full"
                             style={{ backgroundColor: "#C8924A", width: `${pct}%` }} />
                         </div>
                       </div>
@@ -1082,7 +1098,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
                     </td>
                   )}
                   <td>
-                    <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                    <span className="inline-block px-2 py-0.5 text-[11px] font-semibold"
                       style={{ backgroundColor: bg, color }}>
                       {label}
                     </span>

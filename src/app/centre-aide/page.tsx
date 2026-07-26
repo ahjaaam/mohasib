@@ -4,6 +4,7 @@ import { Linkedin, Mail, MessageCircle } from "lucide-react";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import { seoMetadata } from "@/lib/seo";
+import { whatsappUrl } from "@/lib/public-urls";
 
 export const metadata: Metadata = seoMetadata({
   title: "Centre d'aide | Mohasib AI",
@@ -30,19 +31,19 @@ const cards = [
     title: "Live chat on WhatsApp",
     description: "Échangez rapidement avec l'équipe Mohasib pour une question, une démo ou un besoin d'aide.",
     cta: "Ouvrir WhatsApp",
-    href: "https://wa.me/212777884056",
+    href: whatsappUrl(),
     icon: MessageCircle,
   },
 ];
 
 export default function CentreAidePage() {
   return (
-    <main className="min-h-screen bg-white">
+    <main className="public-site">
       <PublicNavbar />
 
-      <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[64px]">
+      <section className="public-page-hero">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Centre d&apos;aide</p>
+          <p className="public-eyebrow">Centre d&apos;aide</p>
           <h1 className="mx-auto mt-4 max-w-3xl text-[38px] font-bold leading-tight text-[#0D1526] md:text-[54px]">
             Comment pouvons-nous vous aider ?
           </h1>
@@ -56,13 +57,13 @@ export default function CentreAidePage() {
         <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
           {cards.map(({ title, description, cta, href, icon: Icon }) => {
             const content = (
-              <div className="h-full rounded-2xl border border-black/[0.08] bg-white p-7 shadow-[0_12px_32px_rgba(13,21,38,0.05)] transition hover:border-[#C8924A] hover:shadow-[0_16px_42px_rgba(13,21,38,0.09)]">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C8924A]/10 text-[#C8924A]">
+              <div className="public-surface public-interactive-surface h-full p-7">
+                <div className="public-icon-tile h-12 w-12">
                   <Icon size={23} />
                 </div>
                 <h2 className="mt-6 text-[19px] font-bold text-[#0D1526]">{title}</h2>
                 <p className="mt-3 text-[13.5px] leading-6 text-[#6B7280]">{description}</p>
-                <div className="mt-6 inline-flex rounded-full bg-[#F8F8F5] px-4 py-2 text-[12px] font-bold text-[#9A672E]">
+                <div className="mt-6 inline-flex border border-[#DADAD5] bg-[#F5F4EF] px-4 py-2 text-[12px] font-bold text-[#C8924A]">
                   {cta}
                 </div>
               </div>

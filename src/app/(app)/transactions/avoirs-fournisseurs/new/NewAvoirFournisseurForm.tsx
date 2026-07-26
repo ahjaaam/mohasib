@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 const TVA_RATES = [0, 7, 10, 14, 20];
 
@@ -236,7 +236,7 @@ export default function NewAvoirFournisseurForm({ nextNumber, userId, dossierId,
         >
           {saving
             ? <><Loader2 size={13} className="animate-spin" /> Enregistrement...</>
-            : "✓ Enregistrer l'avoir"}
+            : <><Check size={13} /> Enregistrer l&apos;avoir</>}
         </button>
       </div>
     </div>

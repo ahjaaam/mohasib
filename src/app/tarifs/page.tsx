@@ -32,6 +32,9 @@ type ComparisonSection = {
   rows: [string, string, string, string][];
 };
 
+const INCLUDED = "included";
+const EXCLUDED = "excluded";
+
 const businessPlans: Plan[] = [
   {
     name: "Starter",
@@ -51,7 +54,7 @@ const businessPlans: Plan[] = [
       "Avoirs clients",
       "Import relevés bancaires",
       "Export EDI XML TVA",
-      "Saisie comptable",
+      "Écritures automatiques",
       "La paie",
       "Export CGNC",
     ],
@@ -66,7 +69,7 @@ const businessPlans: Plan[] = [
       "Avoirs clients",
       "Import relevés bancaires",
       "Déclaration TVA + EDI XML",
-      "Saisie comptable",
+      "Écritures automatiques",
       "La paie (10 employés)",
       "Export CGNC complet",
       "Boîte de réception (250 docs OCR/mois)",
@@ -106,7 +109,7 @@ const comptablePlans: Plan[] = [
       "Interface cabinet dédiée",
       "Adresse email dédiée par dossier",
       "Facturation complète par dossier",
-      "Saisie comptable par dossier",
+      "Écritures automatiques par dossier",
       "Déclaration TVA + EDI XML",
       "La paie (5 employés par dossier)",
       "Export CGNC par dossier",
@@ -169,33 +172,33 @@ const businessComparison: ComparisonSection[] = [
     rows: [
       ["Factures", "Illimitées", "Illimitées", "Illimitées"],
       ["Devis", "Illimités", "Illimités", "Illimités"],
-      ["Avoirs", "✗", "Illimités", "Illimités"],
-      ["Envoi WhatsApp", "✓", "✓", "✓"],
+      ["Avoirs", EXCLUDED, "Illimités", "Illimités"],
+      ["Envoi WhatsApp", INCLUDED, INCLUDED, INCLUDED],
     ],
   },
   {
     title: "Comptabilité",
     rows: [
-      ["Import relevé bancaire", "✗", "✓", "✓"],
-      ["Saisie comptable", "✗", "✓", "✓"],
-      ["Déclaration TVA", "✓", "✓", "✓"],
-      ["Export EDI XML TVA", "✗", "✓", "✓"],
-      ["Export CGNC", "✗", "✓", "✓"],
-      ["Bilan & CPC", "✗", "✗", "✓"],
+      ["Import relevé bancaire", EXCLUDED, INCLUDED, INCLUDED],
+      ["Écritures automatiques", EXCLUDED, INCLUDED, INCLUDED],
+      ["Déclaration TVA", INCLUDED, INCLUDED, INCLUDED],
+      ["Export EDI XML TVA", EXCLUDED, INCLUDED, INCLUDED],
+      ["Export CGNC", EXCLUDED, INCLUDED, INCLUDED],
+      ["Bilan & CPC", EXCLUDED, EXCLUDED, INCLUDED],
     ],
   },
   {
     title: "IA & OCR",
     rows: [
       ["Scans OCR", "50/mois", "250/mois", "Illimités"],
-      ["Boîte de réception", "✓", "✓", "✓"],
+      ["Boîte de réception", INCLUDED, INCLUDED, INCLUDED],
     ],
   },
   {
     title: "Paie & RH",
     rows: [
-      ["Gestion employés", "✗", "10 max", "Illimités"],
-      ["Bulletins de paie", "✗", "✓", "✓"],
+      ["Gestion employés", EXCLUDED, "10 max", "Illimités"],
+      ["Bulletins de paie", EXCLUDED, INCLUDED, INCLUDED],
     ],
   },
   {
@@ -203,7 +206,7 @@ const businessComparison: ComparisonSection[] = [
     rows: [
       ["Archive", "5 GB", "25 GB", "Illimitée"],
       ["Utilisateurs", "1", "1", "3"],
-      ["Support 7j/7", "✓", "✓", "✓"],
+      ["Support 7j/7", INCLUDED, INCLUDED, INCLUDED],
     ],
   },
   { title: "Prix", rows: [["Prix mensuel", "99 MAD", "229 MAD", "À partir de 449 MAD"]] },
@@ -214,26 +217,26 @@ const comptableComparison: ComparisonSection[] = [
     title: "Dossiers",
     rows: [
       ["Nombre dossiers", "5", "20", "Illimités"],
-      ["Email dédié/dossier", "✓", "✓", "✓"],
-      ["Inbox global", "✗", "✓", "✓"],
+      ["Email dédié/dossier", INCLUDED, INCLUDED, INCLUDED],
+      ["Inbox global", EXCLUDED, INCLUDED, INCLUDED],
     ],
   },
   {
     title: "Par dossier",
     rows: [
       ["Facturation", "Illimitée", "Illimitée", "Illimitée"],
-      ["Saisie comptable", "✓", "✓", "✓"],
-      ["Déclaration TVA + EDI", "✓", "✓", "✓"],
-      ["Export CGNC", "✓", "✓", "✓"],
+      ["Écritures automatiques", INCLUDED, INCLUDED, INCLUDED],
+      ["Déclaration TVA + EDI", INCLUDED, INCLUDED, INCLUDED],
+      ["Export CGNC", INCLUDED, INCLUDED, INCLUDED],
       ["Employés paie", "5", "10", "Illimités"],
-      ["Bilan & CPC", "✓", "✓", "✓"],
+      ["Bilan & CPC", INCLUDED, INCLUDED, INCLUDED],
     ],
   },
   {
     title: "Masse",
     rows: [
-      ["TVA en masse", "✗", "✓", "✓"],
-      ["Export ZIP", "✗", "✓", "✓"],
+      ["TVA en masse", EXCLUDED, INCLUDED, INCLUDED],
+      ["Export ZIP", EXCLUDED, INCLUDED, INCLUDED],
     ],
   },
   {
@@ -242,17 +245,17 @@ const comptableComparison: ComparisonSection[] = [
       ["Scans OCR", "100/mois", "500/mois", "Illimités"],
       ["Archive", "25 GB", "100 GB", "Illimitée"],
       ["Collaborateurs", "1", "2", "5"],
-      ["Support 7j/7", "✓", "✓", "✓"],
+      ["Support 7j/7", INCLUDED, INCLUDED, INCLUDED],
     ],
   },
   { title: "Prix", rows: [["Prix mensuel", "299 MAD", "599 MAD", "À partir de 999 MAD"]] },
 ];
 
-function Feature({ children, missing = false, dark = false }: { children: React.ReactNode; missing?: boolean; dark?: boolean }) {
+function Feature({ children, missing = false }: { children: React.ReactNode; missing?: boolean; dark?: boolean }) {
   const Icon = missing ? X : Check;
   return (
-    <li className={`flex items-start gap-2.5 text-[13px] leading-5 ${missing ? "text-[#9CA3AF]" : dark ? "text-white/85" : "text-[#374151]"}`}>
-      <Icon className={`mt-0.5 shrink-0 ${missing ? "text-[#9CA3AF]" : "text-[#C8924A]"}`} size={15} strokeWidth={2.5} />
+    <li className={`flex items-start gap-2.5 text-[13px] leading-5 ${missing ? "text-[#9CA3AF]" : "text-[#374151]"}`}>
+      <Icon className={`mt-0.5 shrink-0 ${missing ? "text-[#9CA3AF]" : "text-[#7A6668]"}`} size={15} strokeWidth={2.5} />
       <span>{children}</span>
     </li>
   );
@@ -260,25 +263,25 @@ function Feature({ children, missing = false, dark = false }: { children: React.
 
 function PlanCard({ plan }: { plan: Plan }) {
   return (
-    <article className={`relative flex h-full flex-col rounded-2xl border p-7 ${plan.popular ? "border-2 border-[#C8924A] bg-white shadow-[0_18px_50px_rgba(13,21,38,0.10)]" : plan.dark ? "border-[#0D1526] bg-[#0D1526]" : "border-black/[0.08] bg-white"}`}>
-      <h2 className={`text-[17px] font-bold uppercase ${plan.dark ? "text-white" : "text-[#0D1526]"}`}>{plan.name}</h2>
-      <p className={`mt-3 flex items-end gap-1 font-extrabold leading-none ${plan.popular ? "text-[#C8924A]" : plan.dark ? "text-white" : "text-[#0D1526]"}`}>
+    <article className={`public-surface relative flex h-full flex-col p-7 ${plan.popular || plan.dark ? "public-accent-surface" : ""}`}>
+      <h2 className="text-[17px] font-bold uppercase text-[#0D1526]">{plan.name}</h2>
+      <p className={`mt-3 flex items-end gap-1 font-extrabold leading-none ${plan.popular || plan.dark ? "text-[#7A6668]" : "text-[#0D1526]"}`}>
         <span className={plan.priceLabel ? "text-[28px]" : "text-[45px]"}>{plan.priceLabel ?? plan.price}</span>
-        <span className={`pb-1 text-[12px] font-semibold ${plan.dark ? "text-white/55" : "text-[#6B7280]"}`}>MAD/mois</span>
+        <span className="pb-1 text-[12px] font-semibold text-[#6B7280]">MAD/mois</span>
       </p>
-      <p className={`mt-3 text-[13px] ${plan.dark ? "text-white/55" : "text-[#6B7280]"}`}>{plan.tagline}</p>
+      <p className="mt-3 text-[13px] text-[#6B7280]">{plan.tagline}</p>
 
       <Link
         href={appUrl("/inscription")}
-        className={`mt-3 inline-flex w-fit text-[12px] font-bold underline underline-offset-4 transition hover:text-[#B6813F] ${plan.dark ? "text-[#D9AE73]" : "text-[#C8924A]"}`}
+        className="mt-3 inline-flex w-fit text-[12px] font-bold text-[#7A6668] underline underline-offset-4 transition hover:text-[#A18E8F]"
       >
         Créer un compte gratuitement
       </Link>
 
-      <div className={`my-6 h-px ${plan.dark ? "bg-white/10" : "bg-black/[0.07]"}`} />
+      <div className="my-6 h-px bg-black/[0.07]" />
       <ul className="space-y-2.5">
-        {plan.features.map((feature) => <Feature key={feature} dark={plan.dark}>{feature}</Feature>)}
-        {plan.missing?.map((feature) => <Feature key={feature} missing dark={plan.dark}>{feature}</Feature>)}
+        {plan.features.map((feature) => <Feature key={feature}>{feature}</Feature>)}
+        {plan.missing?.map((feature) => <Feature key={feature} missing>{feature}</Feature>)}
       </ul>
       {plan.note && <p className="mt-4 pl-6 text-[11px] italic text-[#D9AE73]">{plan.note}</p>}
     </article>
@@ -291,13 +294,13 @@ function ComparisonTable({ track }: { track: Track }) {
     ? ["Fonctionnalité", "Starter", "Business", "Business Pro"]
     : ["Fonctionnalité", "Starter", "Essentiel", "Illimité"];
   const renderValue = (value: string) => {
-    if (value === "✓") return <Check aria-label="Inclus" className="text-[#C8924A]" size={17} strokeWidth={2.8} />;
-    if (value === "✗") return <X aria-label="Non inclus" className="text-[#B8BEC7]" size={16} strokeWidth={2.4} />;
+    if (value === INCLUDED) return <Check aria-label="Inclus" className="text-[#7A6668]" size={17} strokeWidth={2.8} />;
+    if (value === EXCLUDED) return <X aria-label="Non inclus" className="text-[#B8BEC7]" size={16} strokeWidth={2.4} />;
     return value;
   };
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-black/[0.08] bg-white">
+    <div className="public-surface overflow-x-auto">
       <table className="w-full min-w-[720px] border-collapse text-left text-[12px]">
         <thead className="bg-[#0D1526] text-white">
           <tr>{headings.map((heading) => <th key={heading} className="px-5 py-4 font-semibold">{heading}</th>)}</tr>
@@ -309,10 +312,10 @@ function ComparisonTable({ track }: { track: Track }) {
                 <th colSpan={4} className="px-5 py-3 text-[11px] font-bold uppercase tracking-[1.5px] text-[#6B7280]">{section.title}</th>
               </tr>
               {section.rows.map((row, rowIndex) => (
-                <tr key={`${section.title}-${row[0]}`} className={rowIndex % 2 === 0 ? "bg-white" : "bg-[#FAFAF6]"}>
+                <tr key={`${section.title}-${row[0]}`} className={rowIndex % 2 === 0 ? "bg-white" : "bg-[#F8F7F7]"}>
                   {row.map((value, index) => (
-                    <td key={`${row[0]}-${index}`} className={`border-t border-black/[0.06] px-5 py-3.5 ${index === 0 ? "font-semibold text-[#374151]" : value === "✓" || value === "✗" ? "text-left" : "text-[#6B7280]"}`}>
-                      <span className={value === "✓" || value === "✗" ? "inline-flex items-center justify-start" : undefined}>
+                    <td key={`${row[0]}-${index}`} className={`border-t border-black/[0.06] px-5 py-3.5 ${index === 0 ? "font-semibold text-[#374151]" : value === INCLUDED || value === EXCLUDED ? "text-left" : "text-[#6B7280]"}`}>
+                      <span className={value === INCLUDED || value === EXCLUDED ? "inline-flex items-center justify-start" : undefined}>
                         {renderValue(value)}
                       </span>
                     </td>
@@ -339,16 +342,16 @@ function PricingContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FAFAF6] text-[#0D1526]">
+    <main className="public-site">
       <PublicNavbar />
 
       <div className="mx-auto max-w-[1200px] px-5 pb-20 pt-16 sm:px-10 sm:pb-24 sm:pt-24">
         <header className="text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[2px] text-[#C8924A]">Tarification</p>
+          <p className="public-eyebrow">Tarification</p>
           <h1 className="mt-3 text-[38px] font-bold leading-tight md:text-[52px]">Choisissez votre plan</h1>
           <p className="mt-3 text-[15px] text-[#6B7280]">Des plans adaptés à votre activité et à la taille de votre équipe.</p>
 
-          <div className="mt-9 inline-flex rounded-full border border-black/[0.08] bg-white p-1 shadow-sm" role="tablist" aria-label="Type de plan">
+          <div className="mt-9 inline-flex border border-[#DADAD5] bg-white p-1" role="tablist" aria-label="Type de plan">
             <button onClick={() => selectTrack("business")} role="tab" aria-selected={track === "business"} className={`inline-flex min-h-10 items-center gap-2 rounded-full px-5 text-[13px] font-semibold transition-colors ${track === "business" ? "bg-[#0D1526] text-white" : "text-[#6B7280] hover:text-[#0D1526]"}`}>
               <Building2 size={16} /> Business
             </button>
@@ -368,12 +371,12 @@ function PricingContent() {
 
         <section className="mx-auto mt-16 max-w-[1040px] text-center">
           <p className="text-[15px] font-semibold">Vous avez des besoins spécifiques ?</p>
-          <a href="mailto:contact@mohasibai.com" className="mt-2 inline-block text-[13px] font-bold text-[#C8924A] hover:underline">Contactez-nous pour un devis sur mesure →</a>
+          <a href="mailto:contact@mohasibai.com" className="mt-2 inline-block text-[13px] font-bold text-[#7A6668] hover:underline">Contactez-nous pour un devis sur mesure →</a>
           <p className="mt-5 text-[12px] text-[#6B7280]">
             En souscrivant à Mohasib AI, vous acceptez nos{" "}
-            <Link href="/cgu" className="font-semibold text-[#C8924A] hover:underline">CGU</Link>
+            <Link href="/cgu" className="font-semibold text-[#7A6668] hover:underline">CGU</Link>
             {" "}et notre{" "}
-            <Link href="/confidentialite" className="font-semibold text-[#C8924A] hover:underline">Politique de Confidentialité</Link>.
+            <Link href="/confidentialite" className="font-semibold text-[#7A6668] hover:underline">Politique de Confidentialité</Link>.
           </p>
         </section>
       </div>
@@ -385,7 +388,7 @@ function PricingContent() {
 
 export default function TarifsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#FAFAF6]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[#F8F7F7]" />}>
       <PricingContent />
     </Suspense>
   );

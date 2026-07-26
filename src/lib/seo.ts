@@ -54,7 +54,7 @@ export const organizationJsonLd = {
   "@type": "Organization",
   name: "Mohasib AI",
   url: marketingUrl("/"),
-  logo: marketingUrl("/logo.png"),
+  logo: marketingUrl("/logo2.png"),
   sameAs: ["https://www.linkedin.com/company/mohasibai/"],
   contactPoint: [
     {

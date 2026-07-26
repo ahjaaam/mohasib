@@ -1,10 +1,12 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FolderOpen, Plus, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import type { Dossier } from "@/types/fiduciaire";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { resolveClientPortalRedirect } from "@/lib/team";
 
 function daysSince(dateStr: string | null): number {
   if (!dateStr) return 999;
@@ -26,7 +28,10 @@ export default async function DossiersPage({
   const { q, statut } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const ownerId = await resolveAccountOwnerId(user!.id);
+  if (!user) redirect("/connexion");
+  const clientRedirect = await resolveClientPortalRedirect(user.id);
+  if (clientRedirect) redirect(clientRedirect);
+  const ownerId = await resolveAccountOwnerId(user.id);
 
   let query = supabase.from("dossiers").select("*").eq("fiduciaire_user_id", ownerId).order("raison_sociale");
   if (statut === "actif" || statut === "inactif") query = query.eq("statut", statut);
@@ -45,13 +50,13 @@ export default async function DossiersPage({
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-7">
-        <div className="w-11 h-11 rounded-xl bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
-          <FolderOpen size={20} className="text-[#C8924A]" />
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-9 h-9 bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
+          <FolderOpen size={18} className="text-[#C8924A]" />
         </div>
         <div>
-          <h1 className="text-[20px] font-bold text-[#1A1A2E] leading-tight">Dossiers clients</h1>
-          <p className="text-[12.5px] text-[#6B7280]">
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Dossiers clients</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">
             {dossiers.length} dossier{dossiers.length !== 1 ? "s" : ""}
             {q ? ` · Résultats pour "${q}"` : ""}
           </p>

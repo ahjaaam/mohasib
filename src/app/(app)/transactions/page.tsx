@@ -22,6 +22,8 @@ type TransactionSortKey = "date" | "description" | "category" | "amount";
 export default function TransactionsPage({ dossierId: propDossierId }: { dossierId?: string } = {}) {
   const ownerId = useAccountOwnerId();
   const entitlements = usePlanEntitlements();
+  const searchParams = useSearchParams();
+  const requestedSearch = searchParams.get("search") ?? "";
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
@@ -30,7 +32,9 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [bankImportOpen, setBankImportOpen] = useState(false);
 
   // Filters
-  const [filterDesc, setFilterDesc] = useState("");
+  const [filterDescState, setFilterDescState] = useState({ source: requestedSearch, value: requestedSearch });
+  const filterDesc = filterDescState.source === requestedSearch ? filterDescState.value : requestedSearch;
+  const setFilterDesc = (value: string) => setFilterDescState({ source: requestedSearch, value });
   const [filterCat, setFilterCat] = useState("Toutes");
   const [filterAmount, setFilterAmount] = useState("");
   const [filterFrom, setFilterFrom] = useState("");
@@ -38,7 +42,6 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [sortKey, setSortKey] = useState<TransactionSortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
-  const searchParams = useSearchParams();
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
   const supabase = createClient();
 
@@ -47,6 +50,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     desc: "",
     cat: "Revenu",
     amount: "",
+    piece: "",
   });
 
   async function load() {
@@ -94,13 +98,14 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       amount: Math.abs(amt),
       date: form.date,
       category: form.cat || null,
+      reference: form.piece || null,
       currency: "MAD",
       ...(dossierId ? { dossier_id: dossierId } : {}),
     });
     setSaving(false);
     if (err) { setError(err.message); }
     else {
-      setForm({ date: today, desc: "", cat: "Revenu", amount: "" });
+      setForm({ date: today, desc: "", cat: "Revenu", amount: "", piece: "" });
       load();
     }
   }
@@ -115,7 +120,19 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {
-      if (filterDesc && !tx.description?.toLowerCase().includes(filterDesc.toLowerCase())) return false;
+      if (filterDesc) {
+        const query = filterDesc.toLowerCase();
+        const searchable = [
+          tx.description,
+          tx.category,
+          tx.reference,
+          tx.notes,
+          tx.fournisseur,
+          tx.if_fournisseur,
+          tx.ice_fournisseur,
+        ];
+        if (!searchable.some((value) => value?.toLowerCase().includes(query))) return false;
+      }
       if (filterCat !== "Toutes" && (tx.category ?? tx.type) !== filterCat) return false;
       if (filterAmount && !String(tx.amount).includes(filterAmount)) return false;
       if (filterFrom && tx.date < filterFrom) return false;
@@ -199,8 +216,8 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
         <div className="flex flex-wrap items-end gap-3">
           {/* Description */}
           <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
-            <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px]">Description</label>
-            <input className="input" placeholder="Rechercher…" value={filterDesc}
+            <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px]">Recherche</label>
+            <input className="input" placeholder="Description, fournisseur, référence…" value={filterDesc}
               onChange={(e) => setFilterDesc(e.target.value)} />
           </div>
 
@@ -256,11 +273,17 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
         Nouvelle transaction
       </p>
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-3.5 mb-4">
-        <div className="grid gap-2 items-end" style={{ gridTemplateColumns: "120px 1fr 140px 130px auto" }}>
+        <div className="grid gap-2 items-end" style={{ gridTemplateColumns: "120px 120px 1fr 140px 130px auto" }}>
           <div className="flex flex-col gap-1">
             <label className="text-[10.5px] font-medium text-[#6B7280]">Date</label>
             <input type="date" className="input" value={form.date}
               onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10.5px] font-medium text-[#6B7280]">N° de pièce</label>
+            <input className="input" placeholder="Virement, chèque..." value={form.piece}
+              onChange={(e) => setForm((f) => ({ ...f, piece: e.target.value }))}
+              onKeyDown={(e) => e.key === "Enter" && addTransaction()} />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-[10.5px] font-medium text-[#6B7280]">Description</label>
@@ -312,7 +335,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={4} className="text-center py-8 text-[#6B7280] text-[12px]">Chargement...</td></tr>
+              <tr><td colSpan={4} className="loading-cell">Chargement...</td></tr>
             )}
             {!loading && filtered.length === 0 && (
               <tr><td colSpan={4} className="text-center py-10 text-[#6B7280] text-[12px]">

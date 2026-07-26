@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ session
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const [{ data: session }, { data: lignes }, { data: profile }] = await Promise.all([
-      supabase.from("rapprochement_sessions").select("*").eq("id", sessionId).single(),
+      supabase.from("rapprochement_sessions").select("*").eq("id", sessionId).eq("user_id", user.id).single(),
       supabase.from("rapprochement_lignes").select("*").eq("session_id", sessionId).order("bank_date"),
       supabase.from("users").select("full_name, company").eq("id", user.id).single(),
     ]);

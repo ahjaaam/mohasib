@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { BarChart2, Download } from "lucide-react";
+import { AlertTriangle, BarChart2, Check, CheckCircle2, Download } from "lucide-react";
 import { getAccountLabel, getAccountClass, getAccountClassName } from "@/lib/cgnc-mapping";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
@@ -141,13 +141,13 @@ export default function BalancePage() {
   return (
     <div className="max-w-4xl">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-9 h-9 bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
           <BarChart2 size={18} className="text-[#C8924A]" />
         </div>
         <div>
-          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-tight">Balance comptable</h1>
-          <p className="text-[12px] text-[#6B7280]">Totaux débit/crédit par compte — doit être équilibrée</p>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Balance comptable</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Totaux débit/crédit par compte — doit être équilibrée</p>
         </div>
         {groups.length > 0 && (
           <button onClick={exportCSV} className="ml-auto btn btn-outline flex items-center gap-1.5">
@@ -174,14 +174,16 @@ export default function BalancePage() {
         <div className={`rounded-lg px-4 py-2.5 mb-4 text-[12.5px] font-medium flex items-center gap-2 ${
           balanced ? "bg-[#D1FAE5] text-[#065F46]" : "bg-[#FEE2E2] text-[#991B1B]"
         }`}>
-          {balanced ? "✅ Balance équilibrée — Total Débit = Total Crédit" : "⚠️ Balance déséquilibrée — vérifiez vos écritures"}
+          {balanced
+            ? <><CheckCircle2 size={15} aria-hidden="true" /> Balance équilibrée — Total Débit = Total Crédit</>
+            : <><AlertTriangle size={15} aria-hidden="true" /> Balance déséquilibrée — vérifiez vos écritures</>}
         </div>
       )}
 
       {loading ? (
-        <div className="py-12 text-center text-[13px] text-[#6B7280]">Chargement...</div>
+        <div className="loading-state">Chargement de la balance…</div>
       ) : groups.length === 0 ? (
-        <div className="py-16 text-center bg-white rounded-xl border border-[rgba(0,0,0,0.08)]">
+        <div className="empty-state">
           <BarChart2 size={36} className="text-[#D1D5DB] mx-auto mb-3" />
           <p className="text-[13px] text-[#6B7280] mb-1">Aucune écriture comptable</p>
           <p className="text-[12px] text-[#9CA3AF]">Créez des factures ou importez un relevé bancaire pour alimenter la balance.</p>
@@ -247,7 +249,9 @@ export default function BalancePage() {
                   {grandCredit.toLocaleString("fr-MA", { minimumFractionDigits: 2 })}
                 </td>
                 <td className={`px-3 py-3 text-right text-[13px] font-bold ${balanced ? "text-[#C8924A]" : "text-[#EF4444]"}`}>
-                  {balanced ? "✓ 0,00" : (grandDebit - grandCredit).toLocaleString("fr-MA", { minimumFractionDigits: 2 })}
+                  {balanced
+                    ? <span className="inline-flex items-center justify-end gap-1"><Check size={12} aria-hidden="true" /> 0,00</span>
+                    : (grandDebit - grandCredit).toLocaleString("fr-MA", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
             </tfoot>

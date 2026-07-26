@@ -17,7 +17,7 @@ export default async function DocumentsPage() {
   const guides = await getAllGuides();
 
   return (
-    <main className="min-h-screen bg-[#FAFAF6]">
+    <main className="public-site ressources-page">
       <PublicNavbar />
       <GuidesClient guides={guides} />
       <PublicFooter />

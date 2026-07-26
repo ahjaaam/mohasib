@@ -17,10 +17,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     if (plan.response) return plan.response;
     if (!bankLineId || !ecritureId) return NextResponse.json({ error: "bankLineId and ecritureId required" }, { status: 400 });
 
-    const { data: session } = await supabase.from("rapprochement_sessions").select("dossier_id").eq("id", sessionId).single();
+    const { data: session } = await supabase
+      .from("rapprochement_sessions")
+      .select("company_id, dossier_id")
+      .eq("id", sessionId)
+      .eq("user_id", user.id)
+      .single();
+    if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
     const { data: ecritureResult } = session?.dossier_id
       ? await supabase.from("dossier_ecritures").select("id").eq("id", ecritureId).eq("dossier_id", session.dossier_id).single()
-      : await supabase.from("ecritures_comptables").select("id, source_id, source_type").eq("id", ecritureId).single();
+      : await supabase.from("ecritures_comptables").select("id, source_id, source_type").eq("id", ecritureId).eq("company_id", session.company_id).single();
     const ecriture: any = ecritureResult;
     if (!ecriture) return NextResponse.json({ error: "Écriture introuvable" }, { status: 404 });
 

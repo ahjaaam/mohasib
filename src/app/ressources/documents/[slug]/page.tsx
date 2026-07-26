@@ -78,19 +78,19 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   };
 
   return (
-    <main className="min-h-screen bg-[#FAFAF6]">
+    <main className="public-site ressources-page">
       <PublicNavbar />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(documentJsonLd) }}
       />
 
-      <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[56px]">
+      <section className="public-page-hero">
         <div className="mx-auto max-w-5xl">
-          <Link href="/ressources/documents" className="text-[12px] font-semibold text-[#C8924A]">← Documents téléchargeables</Link>
+          <Link href="/ressources/documents" className="text-[12px] font-semibold text-[#B58A52]">← Documents téléchargeables</Link>
           <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
             <div>
-              <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Modèle gratuit</p>
+              <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#B58A52]">Modèle gratuit</p>
               <h1 className="mt-4 text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">{document.title}</h1>
               {isPortableText(document.descriptionRich) ? (
                 <div className="mt-5 max-w-2xl space-y-4 text-[15px] leading-7 text-[#6B7280]">
@@ -102,7 +102,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
                         h2: ({ children }) => <h2 className="pt-3 text-[24px] font-bold leading-tight text-[#0D1526]">{children}</h2>,
                         h3: ({ children }) => <h3 className="pt-2 text-[19px] font-bold leading-tight text-[#0D1526]">{children}</h3>,
                         blockquote: ({ children }) => (
-                          <blockquote className="border-l-4 border-[#C8924A] bg-white/70 py-2 pl-4 italic text-[#4B5563]">{children}</blockquote>
+                          <blockquote className="border-l-4 border-[#B58A52] bg-white/70 py-2 pl-4 italic text-[#4B5563]">{children}</blockquote>
                         ),
                       },
                       list: {
@@ -111,7 +111,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
                       },
                       marks: {
                         link: ({ children, value }) => (
-                          <a href={value?.href} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#C8924A] underline underline-offset-4">
+                          <a href={value?.href} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#B58A52] underline underline-offset-4">
                             {children}
                           </a>
                         ),
@@ -129,7 +129,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
               )}
               <div className="mt-6 flex flex-wrap gap-2">
                 {document.tags.map((tag) => (
-                  <span key={tag} className="rounded-full bg-[#C8924A]/10 px-3 py-1.5 text-[11px] font-semibold text-[#C8924A]">{tag}</span>
+                  <span key={tag} className="rounded-full bg-[#B58A52]/10 px-3 py-1.5 text-[11px] font-semibold text-[#B58A52]">{tag}</span>
                 ))}
                 {Boolean(document.pages) && (
                   <span className="rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-[#6B7280]">{document.pages} {typeof document.pages === "number" ? "pages" : ""}</span>
@@ -157,8 +157,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
             ["Pensé pour le Maroc", "Conçu pour les besoins fréquents des entrepreneurs, financiers et professionnels marocains."],
             ["Accès immédiat", "Recevez le lien après avoir saisi votre email."],
           ].map(([title, description]) => (
-            <div key={title} className="rounded-2xl border border-[rgba(13,21,38,0.08)] bg-white p-6">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#C8924A]/10 text-[#C8924A]">
+            <div key={title} className="public-surface p-6">
+              <div className="public-icon-tile h-11 w-11">
                 <FileText size={22} />
               </div>
               <h2 className="mt-5 text-[16px] font-bold text-[#0D1526]">{title}</h2>

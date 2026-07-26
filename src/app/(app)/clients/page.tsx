@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Users, Plus, FileText, Upload, Download, X, Loader2, CheckCircle, AlertCircle, Info, ArrowDown, ArrowUp } from "lucide-react";
+import { Users, Plus, FileText, Upload, Download, X, Loader2, CheckCircle, AlertCircle, Info, ArrowDown, ArrowUp, Search } from "lucide-react";
 import type { Client } from "@/types";
 import ClientModal from "./ClientModal";
 import * as XLSX from "xlsx";
@@ -149,6 +149,10 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
 
   const searchParams = useSearchParams();
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
+  const requestedSearch = searchParams.get("search") ?? "";
+  const [searchState, setSearchState] = useState({ source: requestedSearch, value: requestedSearch });
+  const search = searchState.source === requestedSearch ? searchState.value : requestedSearch;
+  const setSearch = (value: string) => setSearchState({ source: requestedSearch, value });
   const supabase = createClient();
 
   async function handleImportFile(file: File) {
@@ -268,8 +272,22 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
         default: return "";
       }
     };
-    return [...clients].sort((a, b) => compareValues(valueFor(a, sortKey), valueFor(b, sortKey), sortDirection));
-  }, [clients, sortKey, sortDirection]);
+    const normalizedSearch = search.trim().toLowerCase();
+    return clients
+      .filter((client) => {
+        if (!normalizedSearch) return true;
+        return [
+          client.name,
+          client.email,
+          client.phone,
+          client.city,
+          client.ice,
+          client.rc,
+          client.address,
+        ].some((value) => value?.toLowerCase().includes(normalizedSearch));
+      })
+      .sort((a, b) => compareValues(valueFor(a, sortKey), valueFor(b, sortKey), sortDirection));
+  }, [clients, search, sortKey, sortDirection]);
 
   const header = (
     <div className="flex items-center justify-between gap-3 mb-5">
@@ -321,7 +339,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
     return (
       <div>
         {header}
-        <div className="text-[12.5px] text-[#6B7280] py-8 text-center">Chargement...</div>
+        <div className="loading-state">Chargement des clients…</div>
       </div>
     );
 
@@ -448,6 +466,16 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
 
       {header}
 
+      <div className="relative mb-3 max-w-[380px]">
+        <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A909B]" />
+        <input
+          className="input w-full pl-9"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Rechercher par nom, ICE, ville, email…"
+        />
+      </div>
+
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.5px] text-[#6B7280]">Trier par</span>
         {([
@@ -467,7 +495,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
               onClick={() => handleSort(key)}
               className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-semibold transition ${
                 active
-                  ? "border-[#C8924A]/40 bg-[#FFF7ED] text-[#9A672E]"
+                  ? "border-[#C8924A]/40 bg-[#FFF7ED] text-[#C8924A]"
                   : "border-[rgba(0,0,0,0.16)] bg-[#FAFAF6] text-[#6B7280] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:border-[#C8924A]/30 hover:bg-[#F0EDE5] hover:text-[#C8924A]"
               }`}
             >
@@ -478,8 +506,13 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
         })}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-        {sortedClients.map((c) => (
+      {sortedClients.length === 0 ? (
+        <div className="border border-[rgba(0,0,0,0.08)] bg-white px-5 py-12 text-center text-[12.5px] text-[#6B7280]">
+          Aucun client ne correspond à « {search.trim()} ».
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {sortedClients.map((c) => (
           <div
             key={c.id}
             onClick={() => openEdit(c)}
@@ -544,8 +577,9 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
               </span>
             </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

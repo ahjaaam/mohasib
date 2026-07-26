@@ -2,10 +2,9 @@
 
 function getGreeting(firstName: string): string {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12)  return `Bonjour, ${firstName}`;
-  if (hour >= 12 && hour < 18) return `Bon après-midi, ${firstName}`;
-  if (hour >= 18 && hour < 22) return `Bonsoir, ${firstName}`;
-  return `Bonne nuit, ${firstName}`;
+  return hour >= 18 || hour < 5
+    ? `Bonsoir, ${firstName}`
+    : `Bonjour, ${firstName}`;
 }
 
 export default function DashboardGreeting({ firstName }: { firstName: string }) {

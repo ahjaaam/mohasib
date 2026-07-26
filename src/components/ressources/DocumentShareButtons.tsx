@@ -57,13 +57,13 @@ export default function DocumentShareButtons({ title, url, description = "docume
   ];
 
   return (
-    <div className="mt-7 rounded-2xl border border-[rgba(13,21,38,0.08)] bg-white/75 p-4">
+    <div className="public-surface mt-7 p-4">
       <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#9CA3AF]">Partager cette page</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={nativeShare}
-          className="inline-flex items-center gap-2 rounded-full border border-[rgba(13,21,38,0.16)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-bold text-[#0D1526] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]"
+          className="inline-flex items-center gap-2 border border-[#D5D4CE] bg-[#F8F7F7] px-3.5 py-2 text-[12px] font-bold text-[#0D1526] transition hover:border-[#A89596] hover:bg-[#F1EDEE] hover:text-[#7A6668]"
         >
           <Share2 size={14} />
           Partager
@@ -74,7 +74,7 @@ export default function DocumentShareButtons({ title, url, description = "docume
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-[rgba(13,21,38,0.16)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-bold text-[#0D1526] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]"
+            className="inline-flex items-center gap-2 border border-[#D5D4CE] bg-[#F8F7F7] px-3.5 py-2 text-[12px] font-bold text-[#0D1526] transition hover:border-[#A89596] hover:bg-[#F1EDEE] hover:text-[#7A6668]"
           >
             <Icon size={14} />
             {label}
@@ -83,7 +83,7 @@ export default function DocumentShareButtons({ title, url, description = "docume
         <button
           type="button"
           onClick={copyLink}
-          className="inline-flex items-center gap-2 rounded-full border border-[rgba(13,21,38,0.16)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-bold text-[#0D1526] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]"
+          className="inline-flex items-center gap-2 border border-[#D5D4CE] bg-[#F8F7F7] px-3.5 py-2 text-[12px] font-bold text-[#0D1526] transition hover:border-[#A89596] hover:bg-[#F1EDEE] hover:text-[#7A6668]"
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
           {copied ? "Copié" : "Copier le lien"}

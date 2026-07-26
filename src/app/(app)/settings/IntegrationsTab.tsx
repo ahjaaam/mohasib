@@ -16,6 +16,7 @@ interface Props {
     outlook_last_sync?: string | null;
     outlook_import_count?: number | null;
   };
+  dossierId?: string;
 }
 
 function fmtRelative(iso: string | null | undefined): string {
@@ -63,7 +64,7 @@ function OAuthFeedback() {
   return null;
 }
 
-export default function IntegrationsTab({ company }: Props) {
+export default function IntegrationsTab({ company, dossierId }: Props) {
   const [gmailLoading, setGmailLoading] = useState(false);
   const [outlookLoading, setOutlookLoading] = useState(false);
   const [gmailSyncing, setGmailSyncing] = useState(false);
@@ -71,12 +72,19 @@ export default function IntegrationsTab({ company }: Props) {
 
   const gmailConnected = !!company.gmail_token_encrypted;
   const outlookConnected = !!company.outlook_token_encrypted;
+  const scopeBody = dossierId ? { dossierId } : {};
+  const gmailConnectHref = dossierId ? `/api/oauth/gmail/connect?dossierId=${dossierId}` : "/api/oauth/gmail/connect";
+  const outlookConnectHref = dossierId ? `/api/oauth/outlook/connect?dossierId=${dossierId}` : "/api/oauth/outlook/connect";
 
   async function disconnectGmail() {
     if (!confirm("Déconnecter Gmail ? La synchronisation automatique sera désactivée.")) return;
     setGmailLoading(true);
     try {
-      const res = await fetch("/api/oauth/gmail/disconnect", { method: "POST" });
+      const res = await fetch("/api/oauth/gmail/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scopeBody),
+      });
       if (!res.ok) throw new Error();
       toast.success("Gmail déconnecté");
       window.location.reload();
@@ -91,7 +99,11 @@ export default function IntegrationsTab({ company }: Props) {
     if (!confirm("Déconnecter Outlook ? La synchronisation automatique sera désactivée.")) return;
     setOutlookLoading(true);
     try {
-      const res = await fetch("/api/oauth/outlook/disconnect", { method: "POST" });
+      const res = await fetch("/api/oauth/outlook/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scopeBody),
+      });
       if (!res.ok) throw new Error();
       toast.success("Outlook déconnecté");
       window.location.reload();
@@ -105,7 +117,11 @@ export default function IntegrationsTab({ company }: Props) {
   async function syncGmail() {
     setGmailSyncing(true);
     try {
-      const res = await fetch("/api/oauth/gmail/sync", { method: "POST" });
+      const res = await fetch("/api/oauth/gmail/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scopeBody),
+      });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Erreur de synchronisation");
       const found = json.messagesFound ?? 0;
@@ -126,7 +142,11 @@ export default function IntegrationsTab({ company }: Props) {
   async function syncOutlook() {
     setOutlookSyncing(true);
     try {
-      const res = await fetch("/api/oauth/outlook/sync", { method: "POST" });
+      const res = await fetch("/api/oauth/outlook/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scopeBody),
+      });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Erreur de synchronisation");
       toast.success(
@@ -161,7 +181,7 @@ export default function IntegrationsTab({ company }: Props) {
         email={company.gmail_email}
         lastSync={company.gmail_last_sync}
         importCount={company.gmail_import_count}
-        connectHref="/api/oauth/gmail/connect"
+        connectHref={gmailConnectHref}
         onDisconnect={disconnectGmail}
         onSync={syncGmail}
         disconnectLoading={gmailLoading}
@@ -176,7 +196,7 @@ export default function IntegrationsTab({ company }: Props) {
         email={company.outlook_email}
         lastSync={company.outlook_last_sync}
         importCount={company.outlook_import_count}
-        connectHref="/api/oauth/outlook/connect"
+        connectHref={outlookConnectHref}
         onDisconnect={disconnectOutlook}
         onSync={syncOutlook}
         disconnectLoading={outlookLoading}

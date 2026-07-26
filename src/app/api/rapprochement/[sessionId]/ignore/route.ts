@@ -16,6 +16,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     const plan = await requirePlanFeature("bank_import");
     if (plan.response) return plan.response;
     if (!bankLineId) return NextResponse.json({ error: "bankLineId required" }, { status: 400 });
+    const { data: session } = await supabase
+      .from("rapprochement_sessions")
+      .select("id")
+      .eq("id", sessionId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
     const { error } = await supabase
       .from("rapprochement_lignes")

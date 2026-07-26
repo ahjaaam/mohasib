@@ -52,7 +52,7 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 
 const FEATURE_LABELS = [
   ["bank_import", "Import bancaire"],
-  ["saisie", "Saisie comptable"],
+  ["saisie", "Écritures automatiques"],
   ["paie", "La Paie"],
   ["export_fiduciaire", "Export CGNC"],
   ["avoirs", "Avoirs"],

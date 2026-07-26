@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
 import { getAccountApprovalStatus } from "@/lib/account-approval";
+import { resolveClientPortalRedirect } from "@/lib/team";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
       if (user && invitationToken && user.email) {
         const admin = createAdminClient();
         const { data: membership } = await admin.from("user_memberships")
-          .select("id,user_email,access_scope,companies(user_type)")
+          .select("id,user_email,role_name,dossier_id,dossier_scope,access_scope,companies(user_type)")
           .eq("invitation_token", invitationToken)
           .eq("status", "invited")
           .maybeSingle();
@@ -51,15 +52,21 @@ export async function GET(request: Request) {
             invitation_expires_at: null,
           }).eq("id", membership.id);
           const company = Array.isArray(membership.companies) ? membership.companies[0] : membership.companies;
-          const memberDest = membership.access_scope === "comptable_pro_only"
-            ? "/comptable-pro"
-            : membership.access_scope === "business_only"
-              ? "/tableau-de-bord"
-              : company?.user_type === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
+          const dossierId = membership.dossier_id ?? membership.dossier_scope?.[0];
+          const memberDest = membership.role_name === "client_portal" && dossierId
+            ? `/comptable-pro/dossiers/${dossierId}/dashboard`
+            : membership.access_scope === "comptable_pro_only"
+              ? "/comptable-pro"
+              : membership.access_scope === "business_only"
+                ? "/tableau-de-bord"
+                : company?.user_type === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
           return NextResponse.redirect(`${origin}${memberDest}`);
         }
       }
       if (user) {
+        const clientRedirect = await resolveClientPortalRedirect(user.id);
+        if (clientRedirect) return NextResponse.redirect(`${origin}${clientRedirect}`);
+
         const admin = createAdminClient();
         const { data: memberships } = await admin.from("user_memberships")
           .select("access_scope,role_name")

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Printer, Mail, Info, CheckCircle2, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import type { DossierEcriture } from "@/types/fiduciaire";
+import { FEATURES } from "@/lib/features";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -166,7 +167,6 @@ export default function BilanClient({ dossier, ecritures, invoices, transactions
 
   const hasEcr  = useMemo(() => ecritures.some(e => e.date >= s0 && e.date <= e0), [ecritures, s0, e0]);
   const hasPrev = useMemo(() => ecritures.some(e => e.date >= s1 && e.date <= e1), [ecritures, s1, e1]);
-  const mode: "ecritures" | "fallback" = hasEcr ? "ecritures" : "fallback";
 
   const cur = useMemo(
     () => hasEcr
@@ -273,15 +273,21 @@ export default function BilanClient({ dossier, ecritures, invoices, transactions
           </p>
           <ul className="text-left text-[12.5px] text-[#374151] space-y-1.5 mb-6">
             <li>→ Importez un relevé bancaire</li>
-            <li>→ Saisissez des écritures comptables</li>
             <li>→ Confirmez des factures clients</li>
           </ul>
           <div className="flex gap-2 justify-center">
             <Link href={`/comptable-pro/dossiers/${dossier.id}/transactions`} className="btn btn-gold btn-sm">
               Importer un relevé
             </Link>
-            <Link href={`/comptable-pro/dossiers/${dossier.id}/saisie`} className="btn btn-outline btn-sm">
-              Saisie comptable
+            <Link
+              href={
+                FEATURES.SAISIE_ENABLED
+                  ? `/comptable-pro/dossiers/${dossier.id}/saisie`
+                  : `/comptable-pro/dossiers/${dossier.id}/ecritures`
+              }
+              className="btn btn-outline btn-sm"
+            >
+              {FEATURES.SAISIE_ENABLED ? "Saisie comptable" : "Voir les écritures"}
             </Link>
           </div>
         </div>
@@ -390,19 +396,14 @@ export default function BilanClient({ dossier, ecritures, invoices, transactions
         </div>
       </div>
 
-      {/* Fallback notice */}
-      {mode === "fallback" && (
-        <div className="flex items-start gap-2.5 mb-5 p-3.5 rounded-xl bg-[#FFFBEB] border border-[#FCD34D]">
-          <Info size={15} className="text-[#D97706] flex-shrink-0 mt-0.5" />
-          <p className="text-[12px] text-[#92400E] leading-relaxed">
-            <strong>Données calculées depuis vos transactions et factures.</strong>{" "}
-            Pour un bilan certifié conforme CGNC, effectuez la{" "}
-            <Link href={`/comptable-pro/dossiers/${dossier.id}/saisie`} className="underline font-medium hover:text-[#78350F]">
-              saisie comptable
-            </Link>.
-          </p>
-        </div>
-      )}
+      {/* Accuracy notice — always shown: automatic entries only, no manual OD adjustments */}
+      <div className="flex items-start gap-2.5 mb-5 p-3.5 rounded-xl bg-[#FFFBEB] border border-[#FCD34D]">
+        <Info size={15} className="text-[#D97706] flex-shrink-0 mt-0.5" />
+        <p className="text-[12px] text-[#92400E] leading-relaxed">
+          Ces états sont générés à partir des écritures automatiques (ventes, achats, banque).
+          Les opérations diverses (amortissements, provisions) sont finalisées par votre comptable dans son logiciel.
+        </p>
+      </div>
 
       {/* ── CPC ──────────────────────────────────────────────────────────────── */}
       {tab === "cpc" && (
@@ -508,13 +509,13 @@ export default function BilanClient({ dossier, ecritures, invoices, transactions
         </div>
 
         {/* Balance check — below the two-column grid */}
-        <div className={`mt-3 px-4 py-2.5 rounded-xl text-[12.5px] font-semibold text-center border ${
+        <div className={`mt-3 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-[12.5px] font-semibold text-center border ${
           Math.abs(cur.tot_actif - cur.tot_passif) < 1
             ? "bg-[#F0FDF4] border-[#BBF7D0] text-[#16A34A]"
             : "bg-[#FFF7ED] border-[#FED7AA] text-[#EA580C]"
         }`}>
           {Math.abs(cur.tot_actif - cur.tot_passif) < 1
-            ? "✓ Bilan équilibré — Actif = Passif"
+            ? <><CheckCircle2 size={15} aria-hidden="true" /> Bilan équilibré — Actif = Passif</>
             : `⚠ Écart de ${fmtA(Math.abs(cur.tot_actif - cur.tot_passif))} — Actif ≠ Passif`}
         </div>
         </>

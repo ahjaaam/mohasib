@@ -143,7 +143,8 @@ export async function getActiveUserCount(companyId?: string, dossierId?: string)
   let query = admin
     .from("user_memberships")
     .select("id", { count: "exact", head: true })
-    .in("status", ["invited", "active", "suspended"]);
+    .in("status", ["invited", "active", "suspended"])
+    .neq("role_name", "client_portal"); // client-portal invites don't consume staff seats
 
   if (companyId) query = query.eq("company_id", companyId);
   else if (dossierId) query = query.eq("dossier_id", dossierId);

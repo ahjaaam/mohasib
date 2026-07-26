@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Eye, EyeOff, CheckCircle, Building2, Briefcase } from "lucide-react";
 import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS, validatePassword } from "@/lib/password-policy";
+import { marketingUrl } from "@/lib/public-urls";
 
 type UserType = "entrepreneur" | "fiduciaire";
 
@@ -16,7 +17,7 @@ const NEED_OPTIONS = [
   "TVA et déclarations",
   "Suivi des paiements",
   "Transactions et rapprochement",
-  "Saisie comptable",
+  "Écritures automatiques",
   "Paie",
   "Archivage et exports",
 ];
@@ -36,7 +37,9 @@ export default function SignupPage() {
     needs: [] as string[],
     other_need: "",
   });
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -65,6 +68,11 @@ export default function SignupPage() {
     if (passwordError) {
       setLoading(false);
       setError(passwordError);
+      return;
+    }
+    if (form.password !== confirmPassword) {
+      setLoading(false);
+      setError("Les mots de passe ne correspondent pas.");
       return;
     }
     if (!form.phone.trim()) {
@@ -141,8 +149,8 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#FAFAF6" }}>
-        <div className="text-center max-w-sm">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 sm:p-8" style={{ backgroundColor: "#FAFAF6" }}>
+        <div className="w-full max-w-sm text-center sm:rounded-2xl sm:border sm:border-black/10 sm:bg-white sm:p-10 sm:shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={32} className="text-green-500" />
           </div>
@@ -156,17 +164,25 @@ export default function SignupPage() {
             Aller à la connexion
           </Link>
         </div>
+
+        <div className="mt-6 w-full max-w-sm text-center">
+          <div className="flex justify-center gap-4 text-xs text-gray-400">
+            <Link href="/cgu" className="hover:underline">CGU</Link>
+            <Link href="/confidentialite" className="hover:underline">Confidentialité</Link>
+          </div>
+          <p className="mt-2 text-[11px] text-gray-300">© 2026 Mohasib AI</p>
+        </div>
       </div>
     );
   }
 
   if (step === 1) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#FAFAF6" }}>
-          <div className="w-full max-w-sm">
-            <div className="mb-8">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 sm:p-8" style={{ backgroundColor: "#FAFAF6" }}>
+          <div className="w-full max-w-sm sm:rounded-2xl sm:border sm:border-black/10 sm:bg-white sm:p-10 sm:shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <a href={marketingUrl("/")} className="mb-8 inline-block">
               <Image src="/logo2.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain", height: "auto" }} />
-            </div>
+            </a>
 
             <h1 className="text-2xl font-bold text-navy mb-1">Je suis...</h1>
             <p className="text-sm text-gray-500 mb-7">
@@ -228,16 +244,24 @@ export default function SignupPage() {
               </button>
             </div>
           </div>
+
+          <div className="mt-6 w-full max-w-sm text-center">
+            <div className="flex justify-center gap-4 text-xs text-gray-400">
+              <Link href="/cgu" className="hover:underline">CGU</Link>
+              <Link href="/confidentialite" className="hover:underline">Confidentialité</Link>
+            </div>
+            <p className="mt-2 text-[11px] text-gray-300">© 2026 Mohasib AI</p>
+          </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#FAFAF6" }}>
-        <div className="w-full max-w-lg">
-          <div className="mb-8">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 sm:p-8" style={{ backgroundColor: "#FAFAF6" }}>
+        <div className="w-full max-w-lg sm:rounded-2xl sm:border sm:border-black/10 sm:bg-white sm:p-10 sm:shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <a href={marketingUrl("/")} className="mb-8 inline-block">
             <Image src="/logo2.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain", height: "auto" }} />
-          </div>
+          </a>
 
           {!invitationToken && <button
             onClick={() => setStep(1)}
@@ -378,6 +402,24 @@ export default function SignupPage() {
                   {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
+            </div>
+            <div>
+              <label htmlFor="signup-confirm-password" className="label">Confirmer le mot de passe</label>
+              <div className="relative">
+                <input id="signup-confirm-password" type={showConfirmPwd ? "text" : "password"} className="input pr-10"
+                  placeholder="••••••••" required minLength={PASSWORD_MIN_LENGTH}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)} />
+                <button type="button"
+                  aria-label={showConfirmPwd ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showConfirmPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              {confirmPassword.length > 0 && confirmPassword !== form.password && (
+                <p className="text-xs text-red-500 mt-1">Les mots de passe ne correspondent pas.</p>
+              )}
             </div>
 
             {error && (

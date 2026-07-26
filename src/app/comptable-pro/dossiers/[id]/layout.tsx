@@ -42,7 +42,7 @@ export default async function DossierLayout({
       .eq("fiduciaire_user_id", ownerId)
       .single(),
     dossiersQuery.order("raison_sociale"),
-    supabase.from("users").select("full_name").eq("id", user.id).single(),
+    supabase.from("users").select("full_name, avatar_url").eq("id", user.id).single(),
     getPlanEntitlements(user.id),
   ]);
 
@@ -52,10 +52,13 @@ export default async function DossierLayout({
     <DossierShell
       dossier={dossierRes.data}
       dossiers={dossiersRes.data ?? [dossierRes.data]}
+      userId={user.id}
       userName={profileRes.data?.full_name}
       userEmail={user.email}
+      userAvatar={profileRes.data?.avatar_url}
       permissions={access.permissions}
       roleLabel={access.roleLabel}
+      isClientPortal={access.roleName === "client_portal"}
       entitlements={entitlements}
       ownerId={ownerId}
     >

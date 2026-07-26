@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { bookSalesInvoice, bookPurchaseInvoice, bookBankTransaction, bookAvoirClient } from "@/lib/accounting-engine";
-import { autoLettrage } from "@/lib/lettrage";
 import { authorizePermission } from "@/lib/api-permissions";
 import { logAccountingEvent, logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
+import { requirePlanFeature } from "@/lib/api-plan";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +17,10 @@ export async function POST(req: NextRequest) {
       type: "invoice" | "bank" | "purchase" | "avoir";
       dossierId?: string;
     };
+    if (type === "avoir") {
+      const plan = await requirePlanFeature("avoirs");
+      if (plan.response) return plan.response;
+    }
     const permission = await authorizePermission("accounting", "create", { dossierId });
     if (permission.response) return permission.response;
 
@@ -67,7 +71,6 @@ export async function POST(req: NextRequest) {
         clients: (inv as any).clients,
       }, companyId, dossierId ?? null);
 
-      await autoLettrage(supabase, companyId, dossierId ?? null);
       await logAudit({
         userId: user.id,
         userEmail: user.email ?? null,
@@ -122,7 +125,6 @@ export async function POST(req: NextRequest) {
         }, companyId, dossierId ?? null);
       }
 
-      await autoLettrage(supabase, companyId, dossierId ?? null);
       await logAudit({
         userId: user.id,
         userEmail: user.email ?? null,
@@ -177,7 +179,6 @@ export async function POST(req: NextRequest) {
         reference: ocr.receipt_number ?? null,
       }, companyId, dossierId ?? null);
 
-      await autoLettrage(supabase, companyId, dossierId ?? null);
       await logAudit({
         userId: user.id,
         userEmail: user.email ?? null,
@@ -229,7 +230,6 @@ export async function POST(req: NextRequest) {
         clients: (inv as any).clients,
       }, companyId, dossierId ?? null);
 
-      await autoLettrage(supabase, companyId, dossierId ?? null);
       await logAudit({
         userId: user.id,
         userEmail: user.email ?? null,

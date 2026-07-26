@@ -21,19 +21,23 @@ export default function SortableTh<T extends string>({
   direction,
   onSort,
   className = "",
-  align = "left",
+  align,
 }: Props<T>) {
   const active = activeKey === sortKey;
   const Icon = active ? (direction === "asc" ? ArrowUp : ArrowDown) : ChevronsUpDown;
-  const justify = align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start";
+  const numericColumn = /(?:montant|total|prix|solde|débit|crédit|ht|ttc|tva|ca\b)/i.test(label);
+  const resolvedAlign = align ?? (numericColumn ? "right" : "left");
+  const justify = resolvedAlign === "right" ? "justify-end" : resolvedAlign === "center" ? "justify-center" : "justify-start";
 
   return (
-    <th className={className}>
+    <th
+      className={`${resolvedAlign === "right" ? "text-right" : resolvedAlign === "center" ? "text-center" : ""} ${className}`}
+      aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}
+    >
       <button
         type="button"
         onClick={() => onSort(sortKey)}
         className={`inline-flex items-center gap-1.5 ${justify} text-inherit transition hover:text-[#C8924A]`}
-        aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}
       >
         <span>{label}</span>
         <Icon size={12} className={active ? "text-[#C8924A]" : "text-[#9CA3AF]"} />

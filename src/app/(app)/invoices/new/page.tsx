@@ -27,7 +27,7 @@ export default async function NewInvoicePage() {
 
   return (
     <>
-      <PageHeader title="Nouvelle facture" subtitle="Créer et envoyer une facture" icon={<BackIconLink href="/invoices" label="Retour aux factures" />} />
+      <PageHeader title="Nouvelle facture" subtitle="Créer et envoyer une facture" icon={<BackIconLink href="/invoices" label="Retour aux factures" />} iconBare />
       <NewInvoiceForm clients={clients} nextNumber={nextNumber} userId={ownerId} />
     </>
   );

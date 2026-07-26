@@ -165,9 +165,10 @@ export default function AddTransactionModal({ userId, clients }: Props) {
               </div>
 
               <div>
-                <label className="label">Référence</label>
-                <input className="input" placeholder="N° de virement, chèque..." value={form.reference}
+                <label className="label">N° de pièce</label>
+                <input className="input" placeholder="N° de virement, chèque, facture..." value={form.reference}
                   onChange={(e) => set("reference", e.target.value)} />
+                <p className="text-[11px] text-[#9CA3AF] mt-1">Apparaît comme « Pièce » dans le Journal des écritures.</p>
               </div>
 
               {/* ── Supplier fiscal fields (expenses only) ─────────────── */}

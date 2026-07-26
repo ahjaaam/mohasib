@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ROLE_LABELS } from "@/lib/team";
+import { ROLE_LABELS, resolveClientPortalRedirect } from "@/lib/team";
 import { logAudit } from "@/lib/audit";
 
 async function invitation(token: string) {
@@ -62,5 +62,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ token
     userId: user.id,
   });
   const company = Array.isArray(membership.companies) ? membership.companies[0] : membership.companies;
-  return NextResponse.json({ success: true, redirect: company?.user_type === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord" });
+  const clientRedirect = await resolveClientPortalRedirect(user.id);
+  const redirect = clientRedirect ?? (company?.user_type === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord");
+  return NextResponse.json({ success: true, redirect });
 }

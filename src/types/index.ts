@@ -166,6 +166,9 @@ export interface Transaction {
   payment_method: string | null;
   reference: string | null;
   notes: string | null;
+  fournisseur?: string | null;
+  if_fournisseur?: string | null;
+  ice_fournisseur?: string | null;
   compte_comptable?: string | null;
   created_at: string;
   updated_at: string;

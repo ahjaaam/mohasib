@@ -1,7 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
 import sizeOf from "image-size";
+import { requirePlanFeature } from "@/lib/api-plan";
+
+// Invoices created inside a dossier are owned (invoices.user_id) by the
+// cabinet's own account, never by the dossier's client_portal member — so
+// branding must be resolved from the invoice's actual owner/dossier, not the
+// signed-in session user (who may be a client or staff member, not the owner).
+async function resolveInvoiceBranding(inv: any) {
+  const admin = createAdminClient();
+  if (inv.dossier_id) {
+    const { data: dossier } = await admin.from("dossiers").select("*").eq("id", inv.dossier_id).maybeSingle();
+    if (!dossier) return null;
+    return {
+      raison_sociale: dossier.raison_sociale,
+      logo_url: dossier.logo_url,
+      ice: dossier.ice,
+      if_number: dossier.if_fiscal,
+      rc: dossier.rc,
+      address: dossier.address,
+      city: dossier.city,
+      postal_code: dossier.postal_code,
+      phone: dossier.contact_phone,
+      email: dossier.contact_email,
+      bank_name: dossier.bank_name,
+      rib: dossier.rib,
+      invoice_mentions_legales: dossier.invoice_mentions_legales,
+      invoice_payment_delay: dossier.invoice_payment_delay,
+      invoice_color: dossier.invoice_color,
+      whatsapp_template: null,
+    };
+  }
+  const { data: company } = await admin.from("companies").select("*").eq("user_id", inv.user_id).maybeSingle();
+  return company;
+}
 
 async function buildInput(inv: any, company: any) {
   const client = inv.clients ?? null;
@@ -83,19 +117,15 @@ export async function GET(
       .from("invoices")
       .select("*, clients(*)")
       .eq("id", id)
-      .eq("user_id", user.id)
       .single();
 
     if (invErr || !inv) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    if (inv.invoice_type === "avoir") {
+      const plan = await requirePlanFeature("avoirs");
+      if (plan.response) return plan.response;
+    }
 
-    const { data: company, error: companyErr } = await supabase
-      .from("companies")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    if (companyErr) console.error("[PDF GET] Company fetch error:", companyErr.message);
-    console.log("[PDF GET] Company:", JSON.stringify({ raison_sociale: company?.raison_sociale, invoice_color: company?.invoice_color, logo_url: company?.logo_url }));
+    const company = await resolveInvoiceBranding(inv);
 
     const { input, client } = await buildInput(inv, company);
     const arrayBuffer = generateInvoicePDF(input);
@@ -142,19 +172,15 @@ export async function POST(
       .from("invoices")
       .select("*, clients(*)")
       .eq("id", id)
-      .eq("user_id", user.id)
       .single();
 
     if (invErr || !inv) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    if (inv.invoice_type === "avoir") {
+      const plan = await requirePlanFeature("avoirs");
+      if (plan.response) return plan.response;
+    }
 
-    const { data: company, error: companyErr2 } = await supabase
-      .from("companies")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    if (companyErr2) console.error("[PDF POST] Company fetch error:", companyErr2.message);
-    console.log("[PDF POST] Company:", JSON.stringify({ raison_sociale: company?.raison_sociale, invoice_color: company?.invoice_color, logo_url: company?.logo_url }));
+    const company = await resolveInvoiceBranding(inv);
 
     const { input, client } = await buildInput(inv, company);
     const arrayBuffer = generateInvoicePDF(input);

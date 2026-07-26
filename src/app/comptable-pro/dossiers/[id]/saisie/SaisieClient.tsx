@@ -276,7 +276,7 @@ export default function SaisieClient({ dossier }: Props) {
     if (locked) return;
     const row = rows[idx];
     if (row.id) {
-      supabase.from("dossier_ecritures").delete().eq("id", row.id).then(() => {});
+      fetch(`/api/dossier-ecritures/${row.id}`, { method: "DELETE" }).catch(() => {});
     }
     setRows(prev => {
       const next = prev.filter((_, i) => i !== idx);
@@ -310,34 +310,49 @@ export default function SaisieClient({ dossier }: Props) {
     const toInsert = dirty.filter(r => !r.id);
     const toUpdate = dirty.filter(r => !!r.id);
 
-    if (toInsert.length > 0) {
-      const { error } = await supabase.from("dossier_ecritures").insert(
-        toInsert.map(r => ({
-          dossier_id:         dossier.id,
-          fiduciaire_user_id: ownerId,
-          periode:            period,
+    for (const r of toInsert) {
+      const res = await fetch("/api/dossier-ecritures", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dossierId: dossier.id,
+          periode: period,
           journal,
-          date:               r.date,
-          numero_piece:       r.numero_piece || null,
-          compte_cgnc:        r.compte_cgnc  || null,
-          libelle:            r.libelle.trim(),
-          debit:              parseFloat(r.debit)  || 0,
-          credit:             parseFloat(r.credit) || 0,
-        }))
-      );
-      if (error) { setSaving(false); toast.error("Erreur: " + error.message); return; }
+          date: r.date,
+          numero_piece: r.numero_piece,
+          compte_cgnc: r.compte_cgnc,
+          libelle: r.libelle.trim(),
+          debit: parseFloat(r.debit) || 0,
+          credit: parseFloat(r.credit) || 0,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSaving(false);
+        toast.error("Erreur: " + (body.message || body.error || res.statusText));
+        return;
+      }
     }
 
     for (const r of toUpdate) {
-      const { error } = await supabase.from("dossier_ecritures").update({
-        date:         r.date,
-        numero_piece: r.numero_piece || null,
-        compte_cgnc:  r.compte_cgnc  || null,
-        libelle:      r.libelle.trim(),
-        debit:        parseFloat(r.debit)  || 0,
-        credit:       parseFloat(r.credit) || 0,
-      }).eq("id", r.id!);
-      if (error) { setSaving(false); toast.error("Erreur: " + error.message); return; }
+      const res = await fetch(`/api/dossier-ecritures/${r.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: r.date,
+          numero_piece: r.numero_piece,
+          compte_cgnc: r.compte_cgnc,
+          libelle: r.libelle.trim(),
+          debit: parseFloat(r.debit) || 0,
+          credit: parseFloat(r.credit) || 0,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSaving(false);
+        toast.error("Erreur: " + (body.message || body.error || res.statusText));
+        return;
+      }
     }
 
     setSaving(false);
@@ -365,7 +380,7 @@ export default function SaisieClient({ dossier }: Props) {
     const [y, m] = period.split("-");
     const label = new Date(parseInt(y), parseInt(m) - 1, 1)
       .toLocaleDateString("fr-MA", { month: "long", year: "numeric" });
-    toast.success(`Période ${label} clôturée ✓`);
+    toast.success(`Période ${label} clôturée`);
   }
 
   // ─── Derived ──────────────────────────────────────────────────────────────

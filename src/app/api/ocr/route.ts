@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 import { extractWithFallback } from "@/lib/ocr-engine";
 import { authorizePermission } from "@/lib/api-permissions";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -32,6 +33,18 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
   const dossierId = formData.get("dossier_id") as string | null;
+  const ownerId = await resolveAccountOwnerId(user.id);
+  if (dossierId) {
+    const { data: ownedDossier } = await supabase
+      .from("dossiers")
+      .select("id")
+      .eq("id", dossierId)
+      .eq("fiduciaire_user_id", ownerId)
+      .maybeSingle();
+    if (!ownedDossier) {
+      return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
+    }
+  }
 
   const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
   if (!allowedTypes.includes(file.type)) {
@@ -71,7 +84,7 @@ export async function POST(req: NextRequest) {
   const { data: receipt, error: dbErr } = await supabase
     .from("receipts")
     .insert({
-      user_id: user.id,
+      user_id: ownerId,
       ...(dossierId ? { dossier_id: dossierId } : {}),
       storage_path: finalStoragePath,
       file_name: file.name,

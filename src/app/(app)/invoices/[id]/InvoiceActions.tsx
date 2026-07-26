@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
-import { Download, Loader2, Send, X } from "lucide-react";
+import { Check, CheckCircle2, Download, Loader2, Send, X } from "lucide-react";
 import type { PartialPayment } from "@/types";
 
 type WaState = "idle" | "loading" | "success" | "error";
@@ -84,7 +84,7 @@ function PartialPaymentModal({ invoiceId, invoiceNumber, totalTtc, montantPaye, 
       toast.error(error.message || translateError(error), { duration: 8000 });
       return;
     }
-    toast.success("Paiement enregistré ✓");
+    toast.success("Paiement enregistré");
     onSaved();
     onClose();
   }
@@ -358,7 +358,7 @@ export default function InvoiceActions({
               disabled={!!loadingAction}
               className="btn btn-gold justify-center w-full disabled:opacity-60"
             >
-              {loadingAction === "paid" ? "..." : "✓ Marquer comme payée"}
+              {loadingAction === "paid" ? "..." : <><Check size={13} /> Marquer comme payée</>}
             </button>
           </>
         )}
@@ -369,7 +369,7 @@ export default function InvoiceActions({
             disabled={!!loadingAction}
             className="btn btn-gold justify-center w-full disabled:opacity-60"
           >
-            {loadingAction === "paid" ? "..." : "✓ Marquer comme payée"}
+            {loadingAction === "paid" ? "..." : <><Check size={13} /> Marquer comme payée</>}
           </button>
         )}
 
@@ -379,7 +379,7 @@ export default function InvoiceActions({
             disabled={!!loadingAction}
             className="btn btn-gold justify-center w-full disabled:opacity-60"
           >
-            {loadingAction === "paid" ? "..." : "✓ Solder la facture"}
+            {loadingAction === "paid" ? "..." : <><Check size={13} /> Solder la facture</>}
           </button>
         )}
 
@@ -393,7 +393,9 @@ export default function InvoiceActions({
         )}
 
         {status === "paid" && (
-          <div className="text-[12px] text-[#059669] text-center py-1 font-medium">✓ Facture payée</div>
+          <div className="flex items-center justify-center gap-1.5 py-1 text-center text-[12px] font-medium text-[#059669]">
+            <CheckCircle2 size={14} aria-hidden="true" /> Facture payée
+          </div>
         )}
 
         {/* Download PDF */}
@@ -418,7 +420,7 @@ export default function InvoiceActions({
           }`}
         >
           {waState === "loading" && <><Loader2 size={13} className="animate-spin" /> Préparation...</>}
-          {waState === "success" && <>✓ WhatsApp ouvert</>}
+          {waState === "success" && <><Check size={13} /> WhatsApp ouvert</>}
           {waState === "error" && <>❌ Erreur — réessayer</>}
           {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
         </button>
@@ -434,7 +436,7 @@ export default function InvoiceActions({
           }`}
         >
           {emailState === "loading" && <><Loader2 size={13} className="animate-spin" /> Envoi en cours...</>}
-          {emailState === "success" && <>✓ Email envoyé</>}
+          {emailState === "success" && <><Check size={13} /> Email envoyé</>}
           {emailState === "error" && <>❌ Erreur — réessayer</>}
           {emailState === "idle" && <>📧 Envoyer par email</>}
         </button>

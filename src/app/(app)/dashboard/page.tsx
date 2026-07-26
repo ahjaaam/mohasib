@@ -3,11 +3,12 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/server";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { Invoice, Transaction } from "@/types";
 import DashboardNews from "./DashboardNews";
 import DashboardGreeting from "./DashboardGreeting";
 import { getMonthlyUsage } from "@/lib/usage";
+import RevenueExpenseChart, { type FinanceChartPoint } from "./RevenueExpenseChart";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -55,12 +56,18 @@ export default async function DashboardPage() {
     .single();
   const companyId = companyRes.data?.id ?? null;
   const company = companyRes.data;
+  const now = new Date();
+  const chartStartDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  const chartStart = `${chartStartDate.getFullYear()}-${String(chartStartDate.getMonth() + 1).padStart(2, "0")}-01`;
 
-  const [invoicesRes, transactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes, prefsRes] = await Promise.all([
+  const [invoicesRes, transactionsRes, chartTransactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes, prefsRes] = await Promise.all([
     supabase.from("invoices").select("*, clients(id,name)").eq("user_id", ownerId).is("dossier_id", null)
+      .or("invoice_type.is.null,invoice_type.eq.facture")
       .order("created_at", { ascending: false }).limit(5),
     supabase.from("transactions").select("*").eq("user_id", ownerId).is("dossier_id", null)
       .order("date", { ascending: false }).limit(6),
+    supabase.from("transactions").select("date, type, amount").eq("user_id", ownerId).is("dossier_id", null)
+      .gte("date", chartStart).order("date", { ascending: true }),
     supabase.from("clients").select("id", { count: "exact" }).eq("user_id", ownerId).is("dossier_id", null),
     supabase.from("users").select("full_name").eq("id", user!.id).single(),
     supabase.from("invoices").select("total, status, due_date, montant_recu").eq("user_id", ownerId).is("dossier_id", null).in("status", ["sent", "overdue"]),
@@ -77,7 +84,6 @@ export default async function DashboardPage() {
   const clientCount = clientCountRes.count ?? 0;
   const firstName = profileRes.data?.full_name?.split(" ")[0] ?? "vous";
 
-  const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
   const revenue = transactions.filter((t) => t.type === "income" && t.date >= monthStart)
@@ -106,6 +112,45 @@ export default async function DashboardPage() {
     return dueDate && dueDate < todayStr;
   });
 
+  const chartData: FinanceChartPoint[] = Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - 11 + index, 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const monthTransactions = (chartTransactionsRes.data ?? []).filter((transaction) => transaction.date.slice(0, 7) === key);
+    const monthRevenue = monthTransactions
+      .filter((transaction) => transaction.type === "income")
+      .reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount)), 0);
+    const monthExpenses = monthTransactions
+      .filter((transaction) => transaction.type === "expense")
+      .reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount)), 0);
+    return {
+      key,
+      label: date.toLocaleDateString("fr-MA", { month: "short" }).replace(".", ""),
+      revenue: monthRevenue,
+      expenses: monthExpenses,
+      net: monthRevenue - monthExpenses,
+    };
+  });
+  const dailyChartData: FinanceChartPoint[] = Array.from({ length: now.getDate() }, (_, index) => {
+    const day = index + 1;
+    const key = `${monthStart.slice(0, 8)}${String(day).padStart(2, "0")}`;
+    const dayTransactions = (chartTransactionsRes.data ?? []).filter(
+      (transaction) => transaction.date.slice(0, 10) === key,
+    );
+    const dayRevenue = dayTransactions
+      .filter((transaction) => transaction.type === "income")
+      .reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount)), 0);
+    const dayExpenses = dayTransactions
+      .filter((transaction) => transaction.type === "expense")
+      .reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount)), 0);
+    return {
+      key,
+      label: String(day),
+      revenue: dayRevenue,
+      expenses: dayExpenses,
+      net: dayRevenue - dayExpenses,
+    };
+  });
+
   return (
     <div>
       {/* Greeting */}
@@ -127,47 +172,12 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Actions rapides + Prochaines échéances side by side */}
+      {/* Revenus/dépenses + Prochaines échéances side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">
-        {/* Actions rapides */}
+        {/* Revenus et dépenses */}
         <div>
-          <SectionLabel>Actions rapides</SectionLabel>
-          <div className="grid grid-cols-2 gap-2.5">
-            <Link href="/invoices/new" className="qa-card">
-              <div className="text-2xl flex-shrink-0">🧾</div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Créer une facture</div>
-                <div className="text-[11px] text-[#6B7280] leading-snug">ICE, TVA et WhatsApp intégrés</div>
-              </div>
-              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
-            </Link>
-            <Link href="/transactions" className="qa-card">
-              <div className="text-2xl flex-shrink-0">💸</div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Enregistrer une dépense</div>
-                <div className="text-[11px] text-[#6B7280] leading-snug">Ajout rapide au journal</div>
-              </div>
-              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
-            </Link>
-            <Link href="/invoices" className="qa-card">
-              <div className="text-2xl flex-shrink-0">📋</div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Voir les factures</div>
-                <div className="text-[11px] text-[#6B7280] leading-snug">
-                  {pendingInvs.length > 0 ? `${pendingInvs.length} en attente de paiement` : "Toutes à jour"}
-                </div>
-              </div>
-              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
-            </Link>
-            <Link href="/archive" className="qa-card">
-              <div className="text-2xl flex-shrink-0">🗂️</div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-[#1A1A2E] leading-tight">Gérer l&apos;archive</div>
-                <div className="text-[11px] text-[#6B7280] leading-snug">Consulter et classer les documents</div>
-              </div>
-              <ArrowUpRight size={13} className="text-[#0C1526] flex-shrink-0" />
-            </Link>
-          </div>
+          <SectionLabel>Revenus et dépenses</SectionLabel>
+          <RevenueExpenseChart monthlyData={chartData} dailyData={dailyChartData} />
         </div>
 
         {/* Prochaines échéances */}
@@ -289,7 +299,7 @@ export default async function DashboardPage() {
                       {(() => {
                         const [bg, color, label] = STATUS_BADGE[inv.status] ?? ["#F3F4F6", "#6B7280", inv.status];
                         return (
-                          <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                          <span className="inline-block px-2 py-0.5 text-[11px] font-semibold"
                             style={{ backgroundColor: bg, color }}>
                             {label}
                           </span>

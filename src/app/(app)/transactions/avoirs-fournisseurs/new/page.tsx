@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/PageHeader";
 import NewAvoirFournisseurForm from "./NewAvoirFournisseurForm";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { ReceiptText } from "lucide-react";
 
 export default async function NewAvoirFournisseurPage() {
   const supabase = await createClient();
@@ -25,7 +26,11 @@ export default async function NewAvoirFournisseurPage() {
 
   return (
     <>
-      <PageHeader title="Nouvel avoir fournisseur" subtitle="Enregistrer un avoir reçu d'un fournisseur" />
+      <PageHeader
+        title="Nouvel avoir fournisseur"
+        subtitle="Enregistrer un avoir reçu d'un fournisseur"
+        icon={<ReceiptText size={18} />}
+      />
       <NewAvoirFournisseurForm nextNumber={nextNumber} userId={ownerId} />
     </>
   );

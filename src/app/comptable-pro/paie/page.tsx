@@ -100,14 +100,14 @@ export default function FiduciairePaiePage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 mb-7 flex-wrap">
-        <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
-            <Banknote size={20} className="text-[#C8924A]" />
+      <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
+            <Banknote size={18} className="text-[#C8924A]" />
           </div>
           <div>
-            <h1 className="text-[20px] font-bold text-[#1A1A2E] leading-tight">Bulletins de paie</h1>
-            <p className="text-[12.5px] text-[#6B7280]">Masse salariale consolidée par dossier</p>
+            <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Bulletins de paie</h1>
+            <p className="text-[11px] text-[#9CA3AF] mt-0.5">Masse salariale consolidée par dossier</p>
           </div>
         </div>
 

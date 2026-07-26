@@ -274,7 +274,7 @@ export default async function AdminKpisPage({ searchParams }: { searchParams: Pr
           <h1 className="text-xl font-bold">KPIs</h1>
           <p className="mt-1 text-xs text-gray-500">Cockpit fondateur — données live depuis Supabase · {formatDate(now.toISOString())}</p>
         </div>
-        <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9A672E]">Retour dashboard <ArrowUpRight size={13} /></Link>
+        <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#C8924A]">Retour dashboard <ArrowUpRight size={13} /></Link>
       </div>
 
       <form className="mb-5 flex flex-col gap-2 rounded-md border border-black/10 bg-white p-3 lg:flex-row lg:items-center">
@@ -320,7 +320,7 @@ export default async function AdminKpisPage({ searchParams }: { searchParams: Pr
         <Section title="À traiter" subtitle="Ce qui demande une action fondateur/support.">
           <div className="divide-y divide-black/5">
             {needsAttention.map(item => (
-              <Link key={item.label} href={item.href} className="flex items-center justify-between py-3 text-[12px] hover:text-[#9A672E]">
+              <Link key={item.label} href={item.href} className="flex items-center justify-between py-3 text-[12px] hover:text-[#C8924A]">
                 <span className="flex items-center gap-2">{item.tone === "good" ? <CheckCircle2 size={14} className="text-emerald-600" /> : <AlertTriangle size={14} className={item.tone === "bad" ? "text-red-600" : "text-amber-600"} />}{item.label}</span>
                 <span className="font-bold">{item.value}</span>
               </Link>

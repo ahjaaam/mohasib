@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import {
@@ -370,12 +371,16 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) {
   const ownerId = useAccountOwnerId();
+  const searchParams = useSearchParams();
+  const requestedSearch = searchParams.get("search") ?? "";
   const [docs, setDocs] = useState<ArchiveDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ArchiveDoc | null>(null);
   const [resolving, setResolving] = useState(false);
   const [tab, setTab] = useState<TabKey>("all");
-  const [search, setSearch] = useState("");
+  const [searchState, setSearchState] = useState({ source: requestedSearch, value: requestedSearch });
+  const search = searchState.source === requestedSearch ? searchState.value : requestedSearch;
+  const setSearch = (value: string) => setSearchState({ source: requestedSearch, value });
   const [showUpload, setShowUpload] = useState(false);
   const supabase = createClient();
 
@@ -525,15 +530,15 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         <div className="w-[38%] min-w-[280px] flex-shrink-0 flex flex-col bg-white border-r border-[rgba(0,0,0,0.08)] overflow-hidden">
 
           {/* Page header */}
-          <div className="px-3.5 pt-3.5 pb-2.5 border-b border-[rgba(0,0,0,0.06)] flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          <div className="px-3.5 pt-3.5 pb-3 border-b border-[rgba(0,0,0,0.06)] flex-shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 flex items-center justify-center flex-shrink-0"
                 style={{ background: "rgba(200,146,74,0.12)" }}>
-                <FolderOpen size={14} className="text-[#C8924A]" />
+                <FolderOpen size={18} className="text-[#C8924A]" />
               </div>
               <div>
-                <div className="text-[14px] font-bold text-[#1A1A2E] leading-none">Archive</div>
-                <div className="text-[10px] text-[#9CA3AF] mt-0.5">Documents et pièces justificatives</div>
+                <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Archive</h1>
+                <p className="text-[11px] text-[#9CA3AF] mt-0.5">Documents et pièces justificatives</p>
               </div>
             </div>
           </div>
@@ -560,13 +565,10 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-[rgba(0,0,0,0.08)] flex-shrink-0 overflow-x-auto">
+          <div className="tabs mb-0 flex-shrink-0 overflow-x-auto">
             {TABS.map((t) => (
               <button key={t.key} onClick={() => setTab(t.key)}
-                className={`tab flex-shrink-0 flex items-center gap-1`}
-                style={{ borderBottomColor: tab === t.key ? "#C8924A" : "transparent",
-                  color: tab === t.key ? "#C8924A" : "#6B7280",
-                  fontWeight: tab === t.key ? 500 : 400 }}>
+                className={`tab flex flex-shrink-0 items-center gap-1 whitespace-nowrap ${tab === t.key ? "active" : ""}`}>
                 {t.label}
                 <span className="text-[9.5px] bg-[rgba(0,0,0,0.06)] px-1.5 py-0.5 rounded-full">
                   {countFor(t.key)}
@@ -578,13 +580,13 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
           {/* List */}
           <div className="flex-1 overflow-y-auto">
             {loading && (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 size={20} className="animate-spin text-[#C8924A]" />
+              <div className="loading-state">
+                Chargement des documents…
               </div>
             )}
 
             {!loading && filtered.length === 0 && (
-              <div className="text-center py-12 px-4">
+              <div className="empty-state">
                 <FolderOpen size={32} className="text-[#6B7280]/30 mx-auto mb-2" />
                 <p className="text-[12.5px] text-[#6B7280]">
                   {search ? "Aucun résultat" : "Aucun document"}

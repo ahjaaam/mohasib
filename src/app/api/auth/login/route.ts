@@ -5,6 +5,7 @@ import { applyRateLimitHeaders, clearRateLimit, getClientIp, getRateLimitStatus,
 import { logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
 import { getAccountApprovalStatus } from "@/lib/account-approval";
+import { resolveClientPortalRedirect } from "@/lib/team";
 
 const LIMIT = 5;
 const CAPTCHA_THRESHOLD = 3;
@@ -127,7 +128,8 @@ export async function POST(req: NextRequest) {
     entityLabel: data.user?.email ?? email,
     ...getRequestMeta(req),
   }).catch(() => {});
-  const res = NextResponse.json({ userId: data.user?.id });
+  const redirectTo = data.user ? await resolveClientPortalRedirect(data.user.id) : null;
+  const res = NextResponse.json({ userId: data.user?.id, redirectTo });
   applyRateLimitHeaders(res, LIMIT, { allowed: true, remaining: LIMIT, resetTime: Math.ceil(Date.now() / 1000), attempts: 0 });
   return res;
 }

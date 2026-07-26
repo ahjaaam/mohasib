@@ -43,7 +43,7 @@ export default function ApparenceTab({ userId, company }: Props) {
     setSaving(false);
     if (error) toast.error(translateError(error));
     else if (!data) toast.error("Entreprise introuvable. Rechargez la page avant de réessayer.");
-    else toast.success("✓ Apparence enregistrée");
+    else toast.success("Apparence enregistrée");
   }
 
   const Toggle = ({ k, label }: { k: keyof typeof shows; label: string }) => (

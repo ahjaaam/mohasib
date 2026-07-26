@@ -97,13 +97,13 @@ export default function DeclarationsClient({ dossiers, tvaDecls, year, month }: 
   return (
     <div>
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4 mb-7">
-        <div className="w-11 h-11 rounded-xl bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
-          <Receipt size={20} className="text-[#C8924A]" />
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="w-9 h-9 bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
+          <Receipt size={18} className="text-[#C8924A]" />
         </div>
         <div>
-          <h1 className="text-[20px] font-bold text-[#1A1A2E] leading-tight">Déclarations TVA</h1>
-          <p className="text-[12.5px] text-[#6B7280]">Toutes les déclarations · {MONTHS_FR[month - 1]} {year}</p>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Déclarations TVA</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Toutes les déclarations · {MONTHS_FR[month - 1]} {year}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="btn btn-outline btn-sm p-1.5"><ChevronLeft size={15} /></button>
@@ -199,11 +199,11 @@ export default function DeclarationsClient({ dossiers, tvaDecls, year, month }: 
 
                     <td>
                       {exonere ? (
-                        <span className="tag tag-gray">Exonéré</span>
+                        <span className="tag tag-gray !rounded-none">Exonéré</span>
                       ) : decl ? (
                         decl.statut === "deposee"
-                          ? <span className="tag" style={{ backgroundColor: "#D1FAE5", color: "#065F46" }}><Check size={10} className="inline mr-0.5" />Déposée</span>
-                          : <span className="tag tag-warn"><AlertCircle size={10} className="inline mr-0.5" />À déposer</span>
+                          ? <span className="tag !rounded-none" style={{ backgroundColor: "#D1FAE5", color: "#065F46" }}><Check size={10} className="inline mr-0.5" />Déposée</span>
+                          : <span className="tag tag-warn !rounded-none"><AlertCircle size={10} className="inline mr-0.5" />À déposer</span>
                       ) : (
                         <span className="text-[11.5px] text-[#9CA3AF]">Non saisie</span>
                       )}

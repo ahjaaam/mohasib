@@ -20,7 +20,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   const admin = createAdminClient();
   const { data: membership } = await admin.from("user_memberships")
     .select("id,user_email,role_name,status")
-    .eq("id", id).eq("company_id", context.companyId).maybeSingle();
+    .eq("id", id).eq("company_id", context.companyId).neq("role_name", "client_portal").maybeSingle();
   if (!membership || membership.status !== "invited") return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const token = randomBytes(32).toString("hex");

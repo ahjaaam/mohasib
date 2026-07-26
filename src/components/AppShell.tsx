@@ -9,20 +9,21 @@ import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
   LogOut, Menu, Inbox, Download,
-  Settings, Calculator, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine,
-  ChevronLeft, ChevronRight, GitMerge, Lock,
+  Settings, Calculator, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine, LayoutTemplate,
+  GitMerge, Lock, Calendar, ChevronDown,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
 import PermissionBoundary from "@/components/PermissionBoundary";
 import { featureForPath, type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
+import { FEATURES } from "@/lib/features";
 import { TRIAL_LIMITS } from "@/lib/trial-limits";
 import TrialLimitModal from "@/components/TrialLimitModal";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
+import AppTopBar from "@/components/AppTopBar";
 
-const SIDEBAR_BACKGROUND =
-  "radial-gradient(circle at 16% 20%, rgba(53, 58, 70, 0.68) 0%, rgba(39, 42, 51, 0.30) 38%, transparent 68%), linear-gradient(160deg, #282B34 0%, #222329 48%, #1A1717 100%)";
+const SIDEBAR_BACKGROUND = "linear-gradient(160deg, #1e2536 0%, #000000 100%)";
 
 const NAV_MAIN = [
   { href: "/dashboard",    icon: LayoutDashboard, label: "Tableau de bord",    key: "dashboard", permission: "report:read" },
@@ -32,11 +33,20 @@ const NAV_MAIN = [
   { href: "/clients",           icon: Users,      label: "Clients",             key: "clients", permission: "invoice:read" },
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions", permission: "accounting:read" },
   { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
-  { href: "/saisie",       icon: PenLine,         label: "Saisie comptable",   key: "saisie", permission: "accounting:read", feature: "saisie" as PlanFeature },
+  FEATURES.SAISIE_ENABLED
+    ? { href: "/saisie", icon: PenLine, label: "Saisie comptable", key: "saisie", permission: "accounting:read", feature: "saisie" as PlanFeature }
+    : { href: "/ecritures", icon: LayoutTemplate, label: "Écritures", key: "ecritures", permission: "accounting:read" },
   { href: "/tva",          icon: Calculator,      label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
   { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
   { href: "/export",       icon: Download,        label: "Exports",            key: "export", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
   { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive", permission: "document:read" },
+];
+
+const CABINET_NAV = [
+  { href: "/comptable-pro", icon: LayoutDashboard, label: "Vue d'ensemble", exact: true, permission: "dossier:read" },
+  { href: "/comptable-pro/calendrier", icon: Calendar, label: "Calendrier", exact: false, permission: "dossier:read" },
+  { href: "/comptable-pro/exports", icon: Download, label: "Exports CGNC", exact: false, permission: "report:export", feature: "mass_declarations" as PlanFeature },
+  { href: "/comptable-pro/settings", icon: Settings, label: "Mon cabinet", exact: false, permission: "settings:update" },
 ];
 
 const NAV_SOON: typeof NAV_MAIN = [];
@@ -55,6 +65,7 @@ interface Props {
   userEmail?: string | null;
   userName?: string | null;
   userCompany?: string | null;
+  userAvatar?: string | null;
   isFiduciaire?: boolean;
   permissions?: string[] | null;
   roleLabel?: string | null;
@@ -81,10 +92,15 @@ interface Props {
   entitlements: PlanEntitlements;
 }
 
-export default function AppShell({ children, ownerId, userEmail, userName, userCompany, isFiduciaire, permissions = null, roleLabel, accessScope, accountState, entitlements }: Props) {
+export default function AppShell({ children, userId, ownerId, userEmail, userName, userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [referenceTime] = useState(() => Date.now());
   const pathname = usePathname();
+  const [cabinetOpen, setCabinetOpen] = useState(pathname.startsWith("/comptable-pro"));
+  useEffect(() => {
+    if (pathname.startsWith("/comptable-pro")) setCabinetOpen(true);
+  }, [pathname]);
   const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
@@ -108,6 +124,9 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
     : allowed(routePermission);
   const featureAllowed = entitled(currentFeature);
   const pageAllowed = permissionAllowed && featureAllowed;
+  const topBarItems = ALL_NAV
+    .filter((item: any) => !item.soon && allowed(item.permission) && entitled(item.feature))
+    .map(({ href, label, icon }: any) => ({ href, label, icon, keywords: `${label} navigation page` }));
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
   useEffect(() => {
@@ -115,6 +134,18 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
       document.cookie = "active_dossier_id=; path=/; max-age=0";
     }
   }, [pathname, searchParams]);
+
+  // Dossier sub-routes have their own DossierShell — don't double-wrap.
+  // All hooks must run before this early return (Rules of Hooks).
+  const isDossierWorkspace = /^\/comptable-pro\/dossiers\/[0-9a-f-]{36}/.test(pathname);
+  if (isDossierWorkspace) {
+    return (
+      <>
+        <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
+        {children}
+      </>
+    );
+  }
 
   const isActive = (href: string) => {
     const frenchToEnglish: Record<string, string> = {
@@ -135,7 +166,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
     return currentPath === href;
   };
 
-  const trialDays = accountState?.trial_ends_at ? Math.ceil((new Date(accountState.trial_ends_at).getTime() - Date.now()) / 86400000) : null;
+  const trialDays = accountState?.trial_ends_at ? Math.ceil((new Date(accountState.trial_ends_at).getTime() - referenceTime) / 86400000) : null;
   const isTrial = accountState?.subscription_status === "trial";
   const trialSummary = accountState ? {
     invoices: Number(accountState.trial_invoices_used ?? 0),
@@ -146,10 +177,6 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
     entries: Number(accountState.trial_accounting_entries_used ?? 0),
     rapprochement: Number(accountState.trial_rapprochement_sessions_used ?? 0),
   } : null;
-
-  const initials = userName
-    ? userName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
-    : userEmail?.slice(0, 2).toUpperCase() ?? "U";
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -193,49 +220,57 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
           </Link>
           );
         })}
+
+        {isFiduciaire && accessScope !== "business_only" && (
+          sidebarCollapsed ? (
+            <Link href="/comptable-pro" title="Mon Cabinet"
+              className={`flex items-center justify-center py-[12px] text-[13px] transition-all border-r-2 ${
+                pathname.startsWith("/comptable-pro")
+                  ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
+                  : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+              }`}>
+              <Briefcase size={18} />
+            </Link>
+          ) : (
+            <div>
+              <button type="button" onClick={() => setCabinetOpen(v => !v)}
+                className={`w-full flex items-center gap-2.5 px-[18px] py-[12px] text-[13px] transition-all border-r-2 ${
+                  pathname.startsWith("/comptable-pro")
+                    ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
+                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                }`}>
+                <Briefcase size={15} />
+                <span className="flex-1 text-left">Mon Cabinet</span>
+                <ChevronDown size={13} className={`transition-transform ${cabinetOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {cabinetOpen && (
+                <div className="pb-1">
+                  {CABINET_NAV.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, permission, exact }) => {
+                    const locked = !allowed(permission);
+                    const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+                    return (
+                      <Link key={href} href={href}
+                        className={`flex items-center gap-2 pl-[38px] pr-[18px] py-[9px] text-[12.5px] transition-all border-r-2 ${
+                          active
+                            ? "text-[#C8924A] bg-[rgba(200,146,74,0.08)] border-[#C8924A]"
+                            : locked
+                              ? "text-white/20 hover:text-white/40 hover:bg-white/5 border-transparent"
+                              : "text-white/40 hover:text-white/75 hover:bg-white/5 border-transparent"
+                        }`}>
+                        <Icon size={13} />
+                        {label}
+                        {locked && <Lock size={10} className="ml-auto opacity-70" />}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        )}
       </nav>
 
-      {isFiduciaire && accessScope !== "business_only" && (
-        <div className="border-t border-white/[0.07] py-[7px]">
-          <Link href="/comptable-pro" title={sidebarCollapsed ? "Comptable Pro" : undefined}
-            className={`flex items-center py-[7px] text-[13px] transition-all ${
-              sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
-            } ${pathname.startsWith("/comptable-pro") ? "text-[#C8924A]" : "text-white/40 hover:text-white/75"}`}>
-            <Briefcase size={sidebarCollapsed ? 18 : 15} />
-            {!sidebarCollapsed && "Comptable Pro"}
-          </Link>
-        </div>
-      )}
-
-      <div className="border-t border-white/[0.07] py-[7px]">
-        <Link href="/settings" title={sidebarCollapsed ? "Paramètres" : undefined}
-          className={`flex items-center py-[7px] text-[13px] transition-all ${
-            sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
-          } ${pathname === "/settings" ? "text-[#C8924A]" : allowed("settings:update") || allowed("settings:manage_team") ? "text-white/40 hover:text-white/75" : "text-white/25 hover:text-white/45"}`}>
-          <Settings size={sidebarCollapsed ? 18 : 15} />
-          {!sidebarCollapsed && "Paramètres"}
-          {!sidebarCollapsed && !allowed("settings:update") && !allowed("settings:manage_team") && <Lock size={11} className="ml-auto opacity-70" />}
-        </Link>
-      </div>
-
-      <div className={`py-3 border-t border-white/[0.07] flex items-center ${sidebarCollapsed ? "justify-center px-0" : "px-[18px] gap-2.5"}`}>
-        <div className="w-[30px] h-[30px] rounded-full bg-[#C8924A] flex items-center justify-center text-[11px] font-bold text-[#0D1526] flex-shrink-0"
-          title={sidebarCollapsed ? (userName || userEmail || undefined) : undefined}>
-          {initials}
-        </div>
-        {!sidebarCollapsed && (
-          <>
-            <div className="min-w-0 flex-1">
-              <div className="text-[12px] text-white/70 font-medium truncate">{userName || userEmail}</div>
-              {userCompany && <div className="text-[10px] text-white/30 truncate">{userCompany}</div>}
-              {roleLabel && <div className="mt-1 text-[9px] font-semibold text-[#C8924A]">{roleLabel}</div>}
-            </div>
-            <button onClick={signOut} className="text-white/30 hover:text-red-400 transition-colors ml-1">
-              <LogOut size={14} />
-            </button>
-          </>
-        )}
-      </div>
     </>
   );
 
@@ -245,7 +280,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
       <TrialLimitModal />
       <PermissionBoundary permissions={permissions}>
-      <div className="flex h-screen overflow-hidden bg-[#FAFAF6]">
+      <div className="mohasib-app flex h-screen overflow-hidden bg-[#FAFAF6]">
 
         {/* Desktop sidebar */}
         <aside
@@ -253,22 +288,6 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
           style={{ width: sidebarCollapsed ? 56 : 210, background: SIDEBAR_BACKGROUND }}
         >
           <SidebarContent />
-
-          {/* Circle toggle on the sidebar right edge */}
-          <button
-            onClick={() => setSidebarCollapsed(v => !v)}
-            title={sidebarCollapsed ? "Développer" : "Réduire"}
-            className="absolute top-[54px] -right-[11px] w-[22px] h-[22px] rounded-full flex items-center justify-center transition-colors z-30"
-            style={{
-              background: "#1a2540",
-              border: "1px solid rgba(255,255,255,0.14)",
-              color: "rgba(255,255,255,0.45)",
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.9)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.3)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.45)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.14)"; }}
-          >
-            {sidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
-          </button>
         </aside>
 
         {/* Main */}
@@ -277,6 +296,17 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
             sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[210px]"
           }`}
         >
+          <AppTopBar
+            key={pathname}
+            items={topBarItems}
+            userName={userName}
+            userEmail={userEmail}
+            userId={userId}
+            avatarUrl={userAvatar}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            onSignOut={signOut}
+          />
 
           {/* Page content */}
           <main className="flex-1 overflow-hidden flex flex-col">
@@ -292,15 +322,16 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
                 <Link href="/tarifs" className="underline">Passer à un plan payant</Link>
               </div>
             )}
-            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[72px] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted reason="suspended" /> : pageAllowed ? children : <AccessRestricted reason={featureAllowed ? "permission" : "plan"} />}</div>
+            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted reason="suspended" /> : pageAllowed ? children : <AccessRestricted reason={featureAllowed ? "permission" : "plan"} />}</div>
           </main>
         </div>
 
         {/* ── MOBILE BOTTOM NAV ──────────────────────────────────────────────── */}
         <nav
-          className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
+          className="pwa-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
           style={{
-            height: 56,
+            height: "calc(56px + env(safe-area-inset-bottom))",
+            paddingBottom: "env(safe-area-inset-bottom)",
             background: SIDEBAR_BACKGROUND,
             borderTop: "1px solid rgba(255,255,255,0.1)",
           }}
@@ -356,7 +387,7 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
               style={{
                 background: SIDEBAR_BACKGROUND,
                 borderRadius: "16px 16px 0 0",
-                padding: "16px 0 24px",
+                padding: "16px 0 calc(24px + env(safe-area-inset-bottom))",
                 maxHeight: "80vh",
               }}
             >
@@ -367,7 +398,44 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
 
               {/* Nav items */}
               <div className="overflow-y-auto">
-                {ALL_NAV.filter(item => entitled("feature" in item ? item.feature : undefined)).map(({ href, icon: Icon, label, soon, permission }: any) => (
+                {NAV_MAIN.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setDrawerOpen(false)}
+                    className="flex items-center gap-3 px-[20px] py-[12px] transition-colors"
+                    style={{ color: isActive(href) ? "#C8924A" : allowed(permission) ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.28)" }}
+                  >
+                    <Icon size={16} />
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
+                    {!allowed(permission) && <Lock size={11} className="ml-auto" />}
+                  </Link>
+                ))}
+
+                {/* Cabinet */}
+                {isFiduciaire && accessScope !== "business_only" && (
+                  <>
+                    <div className="flex items-center gap-3 px-[20px] py-[12px]"
+                      style={{ color: pathname.startsWith("/comptable-pro") ? "#C8924A" : "rgba(255,255,255,0.7)" }}>
+                      <Briefcase size={16} />
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>Mon Cabinet</span>
+                    </div>
+                    {CABINET_NAV.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, permission, exact }) => {
+                      const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+                      return (
+                        <Link key={href} href={href} onClick={() => setDrawerOpen(false)}
+                          className="flex items-center gap-3 pl-[44px] pr-[20px] py-[10px] transition-colors"
+                          style={{ color: active ? "#C8924A" : allowed(permission) ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.25)" }}>
+                          <Icon size={14} />
+                          <span style={{ fontSize: 13 }}>{label}</span>
+                          {!allowed(permission) && <Lock size={10} className="ml-auto" />}
+                        </Link>
+                      );
+                    })}
+                  </>
+                )}
+
+                {ALL_NAV.filter(item => item.href === "/rapports").map(({ href, icon: Icon, label, soon, permission }: any) => (
                   <Link
                     key={href}
                     href={href}
@@ -378,26 +446,13 @@ export default function AppShell({ children, ownerId, userEmail, userName, userC
                     <Icon size={16} />
                     <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
                     {soon && (
-                      <span style={{ background: "rgba(200,146,74,0.15)", color: "#C8924A", fontSize: "9px", padding: "1px 6px", borderRadius: "20px", marginLeft: 4 }}>
+                      <span className="badge" style={{ background: "rgba(200,146,74,0.15)", color: "#C8924A", fontSize: "9px", padding: "1px 6px", borderRadius: "20px", marginLeft: 4 }}>
                         Bientôt
                       </span>
                     )}
                     {!allowed(permission) && <Lock size={11} className="ml-auto" />}
                   </Link>
                 ))}
-
-                {/* Fiduciaire */}
-                {isFiduciaire && accessScope !== "business_only" && (
-                  <>
-                    <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)", margin: "8px 20px" }} />
-                    <Link href="/comptable-pro" onClick={() => setDrawerOpen(false)}
-                      className="flex items-center gap-3 px-[20px] py-[12px] transition-colors"
-                      style={{ color: pathname.startsWith("/comptable-pro") ? "#C8924A" : "rgba(255,255,255,0.7)" }}>
-                      <Briefcase size={16} />
-                      <span style={{ fontSize: 14, fontWeight: 500 }}>Comptable Pro</span>
-                    </Link>
-                  </>
-                )}
 
                 {/* Sign out */}
                 <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)", margin: "8px 20px" }} />

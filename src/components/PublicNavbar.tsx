@@ -1,115 +1,301 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, ChevronDown, Download, Menu, X } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { appUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
 const NAVY = "#0D1526";
-const GOLD = "#C8924A";
+
+const PRODUCT_NAV = [
+  {
+    href: "/logiciels/business",
+    title: "Business Pro",
+    subtitle: "La gestion financière des entrepreneurs et PME",
+  },
+  {
+    href: "/logiciels/comptable-pro",
+    title: "Comptable Pro",
+    subtitle: "Un espace de pilotage conçu pour les cabinets",
+  },
+];
 
 const RESOURCE_NAV = [
   {
     href: "/ressources/blog",
     title: "Blog",
-    subtitle: "Tout savoir sur la comptabilité et l'entrepreneuriat",
-    icon: BookOpen,
+    subtitle: "Comptabilité, fiscalité et entrepreneuriat",
   },
   {
     href: "/ressources/documents",
-    title: "Documents téléchargeables",
-    subtitle: "Modèles, templates et documents prêts à l’emploi",
-    icon: Download,
+    title: "Documents",
+    subtitle: "Modèles et documents prêts à télécharger",
   },
 ];
 
-type PublicNavbarProps = {
-  showBorder?: boolean;
-};
-
-export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
+export default function PublicNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <>
       <style>{`
-        .public-navbar { position: relative; z-index: 50; }
-        .public-nav-inner { max-width: 1230px; margin: 0 auto; padding: 0 32px; height: 100%; display: flex; align-items: center; justify-content: space-between; }
-        .public-nav-left { display: flex; align-items: center; gap: 28px; }
-        .public-nav-links { display: flex; align-items: center; gap: 28px; }
-        .public-resources-menu { position: relative; height: 74px; display: flex; align-items: center; }
-        .public-resources-panel { position: absolute; top: 58px; left: 0; width: 390px; background: #FFFFFF; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; box-shadow: 0 18px 45px rgba(13,21,38,0.14); padding: 8px; opacity: 0; visibility: hidden; transform: translateY(6px); transition: all 0.16s ease; z-index: 40; }
-        .public-resources-menu:hover .public-resources-panel, .public-resources-menu:focus-within .public-resources-panel { opacity: 1; visibility: visible; transform: translateY(0); }
-        .public-resources-item { display: flex; gap: 12px; padding: 12px; border-radius: 8px; text-decoration: none; transition: background 0.15s ease; }
-        .public-resources-item:hover { background: #FAFAF6; }
-        .public-nav-actions { display: flex; align-items: center; gap: 10px; }
-        .public-mobile-toggle, .public-mobile-panel { display: none; }
-        @keyframes nav-trial-pop {
-          0%, 100% { transform: translateY(0) scale(1); box-shadow: 0 6px 16px rgba(200,146,74,0.20); }
-          50% { transform: translateY(-1px) scale(1.045); box-shadow: 0 10px 24px rgba(200,146,74,0.30); }
+        .public-navbar {
+          position: relative;
+          z-index: 50;
         }
-        .public-trial-pop { animation: nav-trial-pop 2.5s ease-in-out infinite; will-change: transform; }
-        .public-trial-pop:hover { animation-play-state: paused; transform: translateY(-1px) scale(1.045); }
-        @media (max-width: 900px) {
-          .public-nav-inner { padding: 0 24px; }
-          .public-nav-links, .public-nav-actions { display: none !important; }
-          .public-mobile-toggle { display: inline-flex; width: 42px; height: 42px; align-items: center; justify-content: center; border: 1px solid rgba(13,21,38,0.10); border-radius: 6px; background: #FFFFFF; color: #0D1526; cursor: pointer; }
-          .public-mobile-panel { display: block; position: absolute; top: 74px; left: 0; right: 0; padding: 8px 24px 22px; background: #FFFFFF; border-top: 1px solid rgba(0,0,0,0.06); box-shadow: 0 18px 35px rgba(13,21,38,0.10); }
-          .public-mobile-main-link { display: flex; align-items: center; justify-content: space-between; min-height: 48px; border-bottom: 1px solid rgba(0,0,0,0.06); color: #0D1526; font-size: 14px; font-weight: 700; text-decoration: none; font-family: ${FONT}; }
-          .public-mobile-resource { display: flex; align-items: center; gap: 12px; padding: 10px 0; color: #374151; font-size: 13px; font-weight: 600; text-decoration: none; font-family: ${FONT}; }
-          .public-mobile-login { display: flex; min-height: 44px; margin-top: 10px; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid ${GOLD}; background: #FFFFFF; color: ${GOLD}; font-size: 13px; font-weight: 700; text-decoration: none; font-family: ${FONT}; }
-          .public-mobile-trial { display: flex; min-height: 44px; margin-top: 16px; align-items: center; justify-content: center; border-radius: 6px; background: ${GOLD}; color: #FFFFFF; font-size: 13px; font-weight: 700; text-decoration: none; font-family: ${FONT}; }
+        .public-nav-inner {
+          display: flex;
+          width: 100%;
+          height: 100%;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 34px;
+        }
+        .public-brand-link {
+          display: inline-flex;
+          align-items: center;
+          text-decoration: none;
+        }
+        .public-nav-right,
+        .public-nav-links {
+          display: flex;
+          align-items: center;
+        }
+        .public-nav-right {
+          gap: 26px;
+        }
+        .public-nav-links {
+          gap: 34px;
+        }
+        .public-nav-link {
+          display: inline-flex;
+          min-height: 76px;
+          align-items: center;
+          gap: 6px;
+          color: #5E6065;
+          font-family: ${FONT};
+          font-size: 14px;
+          font-weight: 500;
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+        .public-nav-link:hover,
+        .public-nav-link:focus-visible {
+          color: ${NAVY};
+        }
+        .public-nav-menu {
+          position: relative;
+          display: flex;
+          height: 76px;
+          align-items: center;
+        }
+        .public-nav-panel {
+          position: absolute;
+          top: 66px;
+          left: 0;
+          width: 330px;
+          padding: 8px;
+          border: 1px solid #E4E3DF;
+          background: #FFFFFF;
+          box-shadow: 0 18px 45px rgba(13, 21, 38, 0.12);
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(6px);
+          transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+        }
+        .public-nav-panel--resources {
+          right: 0;
+          left: auto;
+        }
+        .public-nav-menu:hover .public-nav-panel,
+        .public-nav-menu:focus-within .public-nav-panel {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
+        .public-nav-panel-link {
+          display: block;
+          padding: 12px;
+          color: ${NAVY};
+          text-decoration: none;
+          transition: background-color 0.15s ease;
+        }
+        .public-nav-panel-link:hover,
+        .public-nav-panel-link:focus-visible {
+          background: #F5F5F2;
+        }
+        .public-nav-panel-title {
+          display: block;
+          font-family: ${FONT};
+          font-size: 13px;
+          font-weight: 700;
+        }
+        .public-nav-panel-subtitle {
+          display: block;
+          margin-top: 4px;
+          color: #777B83;
+          font-family: ${FONT};
+          font-size: 11px;
+          line-height: 1.45;
+        }
+        .public-login-link {
+          display: inline-flex;
+          min-height: 36px;
+          align-items: center;
+          padding-left: 26px;
+          border-left: 1px solid #E1E0DC;
+          color: ${NAVY};
+          font-family: ${FONT};
+          font-size: 14px;
+          font-weight: 600;
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+        .public-login-link:hover,
+        .public-login-link:focus-visible {
+          color: #7A6668;
+        }
+        .public-mobile-toggle,
+        .public-mobile-panel {
+          display: none;
+        }
+        @media (max-width: 1050px) {
+          .public-nav-inner {
+            padding: 0 24px;
+          }
+          .public-nav-right {
+            display: none;
+          }
+          .public-mobile-toggle {
+            display: inline-flex;
+            width: 42px;
+            height: 42px;
+            align-items: center;
+            justify-content: center;
+            border: 0;
+            background: transparent;
+            color: ${NAVY};
+            cursor: pointer;
+          }
+          .public-mobile-panel {
+            position: absolute;
+            top: 76px;
+            right: 0;
+            left: 0;
+            display: block;
+            padding: 8px 24px 22px;
+            border-top: 1px solid #E8E7E3;
+            background: #FFFFFF;
+            box-shadow: 0 18px 35px rgba(13, 21, 38, 0.10);
+          }
+          .public-mobile-main-link {
+            display: flex;
+            min-height: 48px;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            color: ${NAVY};
+            font-family: ${FONT};
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+          }
+          .public-mobile-sub-link {
+            display: block;
+            padding: 10px 12px;
+            color: #5E6065;
+            font-family: ${FONT};
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+          }
+          .public-mobile-login {
+            display: flex;
+            min-height: 46px;
+            margin-top: 16px;
+            align-items: center;
+            justify-content: center;
+            background: ${NAVY};
+            color: #FFFFFF;
+            font-family: ${FONT};
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+          }
         }
         @media (max-width: 480px) {
-          .public-nav-inner { padding: 0 18px; }
-          .public-brand-image { width: 138px !important; }
-          .public-mobile-panel { padding-left: 18px; padding-right: 18px; }
+          .public-nav-inner {
+            padding: 0 18px;
+          }
+          .public-brand-mark {
+            width: 34px;
+            height: 34px;
+          }
+          .public-mobile-panel {
+            padding-right: 18px;
+            padding-left: 18px;
+          }
         }
       `}</style>
-      <nav className="public-navbar" style={{ backgroundColor: "#FFFFFF", height: 74, borderBottom: showBorder ? "1px solid rgba(0,0,0,0.06)" : "none" }}>
+
+      <nav
+        className="public-navbar"
+        style={{
+          height: 76,
+          backgroundColor: "#FFFFFF",
+        }}
+      >
         <div className="public-nav-inner">
-          <div className="public-nav-left">
-            <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-              <Image className="public-brand-image" src="/logo2.png" alt="Mohasib" width={168} height={50} style={{ width: 168, height: "auto", objectFit: "contain" }} />
-            </Link>
+          <Link href="/" className="public-brand-link" aria-label="Mohasib — Accueil">
+            <Image src="/logo2.png" alt="Mohasib AI" width={154} height={31} style={{ height: "auto", objectFit: "contain" }} priority />
+          </Link>
+
+          <div className="public-nav-right">
             <div className="public-nav-links">
-              <div className="public-resources-menu">
-                <Link href="/ressources" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600, color: "#374151", textDecoration: "none", fontFamily: FONT }}>
-                  Ressources <ChevronDown size={14} />
+              <div className="public-nav-menu">
+                <Link href="/logiciels" className="public-nav-link">
+                  Logiciels <ChevronDown size={14} strokeWidth={1.7} />
                 </Link>
-                <div className="public-resources-panel">
-                  {RESOURCE_NAV.map(({ href, title, subtitle, icon: Icon }) => (
-                    <Link key={href} href={href} className="public-resources-item">
-                      <span style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(200,146,74,0.10)", color: GOLD, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Icon size={18} />
-                      </span>
-                      <span>
-                        <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: NAVY, fontFamily: FONT }}>{title}</span>
-                        <span style={{ display: "block", marginTop: 3, fontSize: 12, lineHeight: 1.45, color: "#6B7280", fontFamily: FONT }}>{subtitle}</span>
-                      </span>
+                <div className="public-nav-panel">
+                  {PRODUCT_NAV.map(({ href, title, subtitle }) => (
+                    <Link href={href} className="public-nav-panel-link" key={href}>
+                      <span className="public-nav-panel-title">{title}</span>
+                      <span className="public-nav-panel-subtitle">{subtitle}</span>
                     </Link>
                   ))}
                 </div>
               </div>
-              <Link href="/tarifs" style={{ fontSize: 13, fontWeight: 600, color: "#374151", textDecoration: "none", fontFamily: FONT }}>
+
+              <Link href="/tarifs" className="public-nav-link">
                 Tarification
               </Link>
-              <Link href="/centre-aide" style={{ fontSize: 13, fontWeight: 600, color: "#374151", textDecoration: "none", fontFamily: FONT }}>
+
+              <Link href="/centre-aide" className="public-nav-link">
                 Centre d&apos;aide
               </Link>
+
+              <div className="public-nav-menu">
+                <Link href="/ressources" className="public-nav-link">
+                  Ressources <ChevronDown size={14} strokeWidth={1.7} />
+                </Link>
+                <div className="public-nav-panel public-nav-panel--resources">
+                  {RESOURCE_NAV.map(({ href, title, subtitle }) => (
+                    <Link href={href} className="public-nav-panel-link" key={href}>
+                      <span className="public-nav-panel-title">{title}</span>
+                      <span className="public-nav-panel-subtitle">{subtitle}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
             </div>
+
+            <Link href={appUrl("/connexion")} className="public-login-link">
+              Se connecter
+            </Link>
           </div>
 
-          <div className="public-nav-actions">
-            <Link href={appUrl("/inscription")} className="public-trial-pop" style={{ fontSize: 13, fontWeight: 700, color: "#FFFFFF", backgroundColor: GOLD, padding: "10px 18px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
-              Essai Gratuit
-            </Link>
-            <Link href={appUrl("/connexion")} style={{ fontSize: 13, fontWeight: 600, color: GOLD, backgroundColor: "#FFFFFF", border: `2px solid ${GOLD}`, padding: "8px 19px", borderRadius: 5, textDecoration: "none", fontFamily: FONT }}>
-              Se Connecter
-            </Link>
-          </div>
           <button
             type="button"
             className="public-mobile-toggle"
@@ -117,28 +303,44 @@ export default function PublicNavbar({ showBorder = true }: PublicNavbarProps) {
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((open) => !open)}
           >
-            {mobileOpen ? <X size={21} /> : <Menu size={21} />}
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
+
         {mobileOpen && (
           <div className="public-mobile-panel">
-            <Link href="/ressources" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
-              Ressources <ChevronDown size={15} />
+            <Link href="/logiciels" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
+              Logiciels <ChevronDown size={15} />
             </Link>
             <div>
-              {RESOURCE_NAV.map(({ href, title, icon: Icon }) => (
-                <Link key={href} href={href} className="public-mobile-resource" onClick={() => setMobileOpen(false)}>
-                  <span style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(200,146,74,0.10)", color: GOLD, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon size={15} />
-                  </span>
+              {PRODUCT_NAV.map(({ href, title }) => (
+                <Link href={href} className="public-mobile-sub-link" key={href} onClick={() => setMobileOpen(false)}>
                   {title}
                 </Link>
               ))}
             </div>
-            <Link href="/tarifs" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>Tarification</Link>
-            <Link href="/centre-aide" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>Centre d&apos;aide</Link>
-            <Link href={appUrl("/inscription")} className="public-mobile-trial public-trial-pop" onClick={() => setMobileOpen(false)}>Essayez</Link>
-            <Link href={appUrl("/connexion")} className="public-mobile-login" onClick={() => setMobileOpen(false)}>Se connecter</Link>
+
+            <Link href="/tarifs" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
+              Tarification
+            </Link>
+            <Link href="/centre-aide" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
+              Centre d&apos;aide
+            </Link>
+
+            <Link href="/ressources" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
+              Ressources <ChevronDown size={15} />
+            </Link>
+            <div>
+              {RESOURCE_NAV.map(({ href, title }) => (
+                <Link href={href} className="public-mobile-sub-link" key={href} onClick={() => setMobileOpen(false)}>
+                  {title}
+                </Link>
+              ))}
+            </div>
+
+            <Link href={appUrl("/connexion")} className="public-mobile-login" onClick={() => setMobileOpen(false)}>
+              Se connecter
+            </Link>
           </div>
         )}
       </nav>

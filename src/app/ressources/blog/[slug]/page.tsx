@@ -26,7 +26,7 @@ const portableTextComponents: PortableTextComponents = {
     h2: ({ children }) => <h2 className="mt-10 text-[26px] font-bold leading-tight text-[#0D1526]">{children}</h2>,
     h3: ({ children }) => <h3 className="mt-8 text-[20px] font-bold leading-tight text-[#0D1526]">{children}</h3>,
     normal: ({ children }) => <p className="text-[16px] leading-8 text-[#374151]">{children}</p>,
-    blockquote: ({ children }) => <blockquote className="border-l-4 border-[#C8924A] pl-5 text-[16px] italic leading-8 text-[#374151]">{children}</blockquote>,
+    blockquote: ({ children }) => <blockquote className="border-l-4 border-[#B58A52] pl-5 text-[16px] italic leading-8 text-[#374151]">{children}</blockquote>,
   },
   list: {
     bullet: ({ children }) => <ul className="ml-5 list-disc space-y-2 text-[16px] leading-8 text-[#374151]">{children}</ul>,
@@ -56,7 +56,7 @@ const portableTextComponents: PortableTextComponents = {
   marks: {
     link: ({ children, value }) => {
       const href = value?.href || "#";
-      return <a href={href} className="font-semibold text-[#C8924A] underline">{children}</a>;
+      return <a href={href} className="font-semibold text-[#B58A52] underline">{children}</a>;
     },
   },
 };
@@ -130,7 +130,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
       name: "Mohasib AI",
       logo: {
         "@type": "ImageObject",
-        url: marketingUrl("/logo.png"),
+        url: marketingUrl("/logo2.png"),
       },
     },
     mainEntityOfPage: articleUrl,
@@ -138,16 +138,16 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   };
 
   return (
-    <main className="min-h-screen bg-[#FAFAF6]">
+    <main className="public-site ressources-page">
       <PublicNavbar />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
       />
       <article className="mx-auto max-w-3xl px-6 py-10">
-        <Link href="/ressources/blog" className="text-[13px] font-semibold text-[#C8924A]">← Retour au blog</Link>
+        <Link href="/ressources/blog" className="text-[13px] font-semibold text-[#B58A52]">← Retour au blog</Link>
         <div className="mt-8">
-          <span className="inline-flex rounded-full bg-[#C8924A]/10 px-3 py-1 text-[12px] font-semibold text-[#C8924A]">
+          <span className="inline-flex rounded-full bg-[#B58A52]/10 px-3 py-1 text-[12px] font-semibold text-[#B58A52]">
             {categoryLabels[category] || category}
           </span>
           <h1 className="mt-5 font-serif text-[38px] leading-tight text-[#0D1526] md:text-[52px]">{post.title}</h1>
@@ -174,7 +174,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           </p>
           <Link
             href={appUrl("/inscription")}
-            className="mt-6 inline-flex rounded-lg bg-[#C8924A] px-5 py-3 text-[13px] font-bold text-white transition hover:bg-[#B7833F]"
+            className="mt-6 inline-flex rounded-lg bg-[#0D1526] px-5 py-3 text-[13px] font-bold text-white transition hover:bg-[#253047]"
           >
             Créer un compte -&gt;
           </Link>

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
 import toast from "react-hot-toast";
 import { Plus, Save, Trash2 } from "lucide-react";
+import InvoiceItemsImport from "./InvoiceItemsImport";
 
 type CatalogItem = {
   id: string;
@@ -19,6 +20,7 @@ type CatalogItem = {
 
 interface Props {
   userId: string;
+  dossierId?: string;
 }
 
 const TVA_RATES = [0, 7, 10, 14, 20];
@@ -39,7 +41,7 @@ function money(value: number | string) {
   return Number(value || 0).toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD";
 }
 
-export default function InvoiceItemsTab({ userId }: Props) {
+export default function InvoiceItemsTab({ userId, dossierId }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [form, setForm] = useState(emptyForm());
@@ -48,11 +50,12 @@ export default function InvoiceItemsTab({ userId }: Props) {
 
   async function loadItems() {
     setLoading(true);
-    const { data, error } = await supabase
+    const query = supabase
       .from("invoice_items_catalog")
       .select("id, name, description, category, unit, unit_price, tva_rate, is_active")
       .eq("user_id", userId)
       .order("name");
+    const { data, error } = await (dossierId ? query.eq("dossier_id", dossierId) : query.is("dossier_id", null));
     setLoading(false);
     if (error) toast.error(translateError(error));
     else setItems((data ?? []) as CatalogItem[]);
@@ -60,7 +63,8 @@ export default function InvoiceItemsTab({ userId }: Props) {
 
   useEffect(() => {
     loadItems();
-  }, [userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, dossierId]);
 
   function set(key: keyof ReturnType<typeof emptyForm>, value: string | number) {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -74,6 +78,7 @@ export default function InvoiceItemsTab({ userId }: Props) {
     setSaving(true);
     const { error } = await supabase.from("invoice_items_catalog").insert({
       user_id: userId,
+      ...(dossierId ? { dossier_id: dossierId } : {}),
       name: form.name.trim(),
       description: form.description.trim() || null,
       category: form.category.trim() || null,
@@ -164,11 +169,26 @@ export default function InvoiceItemsTab({ userId }: Props) {
       </div>
 
       <div className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
+        <div className="mb-4">
+          <h3 className="text-[13px] font-semibold text-[#1A1A2E]">Ajout en masse</h3>
+          <p className="mt-1 text-[12px] leading-5 text-[#6B7280]">
+            Téléchargez le modèle, complétez vos articles dans Excel, puis vérifiez l’aperçu avant de les importer.
+          </p>
+        </div>
+        <InvoiceItemsImport
+          userId={userId}
+          dossierId={dossierId}
+          existingNames={items.map((item) => item.name)}
+          onImported={loadItems}
+        />
+      </div>
+
+      <div className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
         <h3 className="mb-3 text-[13px] font-semibold text-[#1A1A2E]">Catalogue enregistré</h3>
-        {loading && <p className="text-[12px] text-[#6B7280]">Chargement...</p>}
+        {loading && <p className="loading-state">Chargement du catalogue…</p>}
         {!loading && items.length === 0 && (
-          <p className="rounded-lg bg-[#FAFAF6] px-4 py-3 text-[12px] text-[#6B7280]">
-            Aucun article enregistré pour le moment.
+          <p className="empty-state">
+            Aucun article enregistré. Ajoutez votre premier article ou importez un fichier Excel.
           </p>
         )}
         {!loading && items.length > 0 && (

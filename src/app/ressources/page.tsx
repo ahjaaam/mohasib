@@ -34,11 +34,11 @@ const cards = [
 
 export default function RessourcesPage() {
   return (
-    <main className="min-h-screen bg-white">
+    <main className="public-site ressources-page">
       <PublicNavbar />
-      <section className="border-b border-[rgba(13,21,38,0.08)] bg-[#FAFAF6] px-6 py-[60px]">
+      <section className="public-page-hero">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8924A]">Ressources</p>
+          <p className="public-eyebrow">Ressources</p>
           <h1 className="mx-auto mt-4 max-w-3xl text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">
             Tout ce qu'il vous faut pour gerer votre comptabilite
           </h1>
@@ -48,21 +48,21 @@ export default function RessourcesPage() {
         </div>
       </section>
 
-      <section className="bg-white px-6 py-16 md:px-10 md:py-20">
+      <section className="px-6 py-16 md:px-10 md:py-20">
         <div className="mx-auto grid max-w-4xl gap-5 md:grid-cols-2">
           {cards.map(({ title, subtitle, description, cta, href, icon: Icon }) => (
             <Link
               key={title}
               href={href}
-              className="group rounded-2xl border border-[rgba(0,0,0,0.08)] bg-white p-7 transition hover:border-[#C8924A] hover:shadow-[0_14px_35px_rgba(13,21,38,0.08)]"
+              className="public-surface public-interactive-surface group p-7"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C8924A]/10 text-[#C8924A]">
+              <div className="public-icon-tile h-12 w-12">
                 <Icon size={24} />
               </div>
               <h2 className="mt-6 text-[20px] font-bold text-[#0D1526]">{title}</h2>
-              <p className="mt-2 text-[13px] font-semibold text-[#C8924A]">{subtitle}</p>
+              <p className="mt-2 text-[13px] font-semibold text-[#B58A52]">{subtitle}</p>
               <p className="mt-4 text-[13.5px] leading-6 text-[#6B7280]">{description}</p>
-              <span className="mt-6 inline-flex text-[13px] font-semibold text-[#C8924A]">{cta}</span>
+              <span className="mt-6 inline-flex text-[13px] font-semibold text-[#B58A52]">{cta}</span>
             </Link>
           ))}
         </div>

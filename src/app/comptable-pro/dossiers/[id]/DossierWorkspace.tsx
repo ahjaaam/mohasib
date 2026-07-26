@@ -649,7 +649,9 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
             <div className={`mx-4 my-3 p-2.5 rounded-lg text-[11.5px] font-medium text-center ${
               Math.abs(totalActif - totalPassif) < 1 ? "bg-[#D1FAE5] text-[#059669]" : "bg-[#FEE2E2] text-[#DC2626]"
             }`}>
-              {Math.abs(totalActif - totalPassif) < 1 ? "Bilan équilibré ✓" : `Écart: ${fmtMAD(Math.abs(totalActif - totalPassif))}`}
+              {Math.abs(totalActif - totalPassif) < 1
+                ? <span className="inline-flex items-center gap-1"><CheckCircle size={12} aria-hidden="true" /> Bilan équilibré</span>
+                : `Écart: ${fmtMAD(Math.abs(totalActif - totalPassif))}`}
             </div>
           </div>
         </div>

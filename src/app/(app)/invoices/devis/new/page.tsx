@@ -27,7 +27,7 @@ export default async function NewDevisPage() {
 
   return (
     <>
-      <PageHeader title="Nouveau devis" subtitle="Créez un devis commercial pour votre client" icon={<BackIconLink href="/invoices?mode=devis" label="Retour aux devis" />} />
+      <PageHeader title="Nouveau devis" subtitle="Créez un devis commercial pour votre client" icon={<BackIconLink href="/invoices?mode=devis" label="Retour aux devis" />} iconBare />
       <NewDevisForm clients={clients} nextNumber={nextNumber} userId={ownerId} />
     </>
   );

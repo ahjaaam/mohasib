@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { PASSWORD_REQUIREMENTS, validatePassword } from "@/lib/password-policy";
@@ -18,6 +19,7 @@ const LANGUAGES = [{ value: "fr", label: "Français" }, { value: "ar", label: "�
 const DATE_FORMATS = ["DD/MM/YYYY", "MM/DD/YYYY"];
 
 export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) {
+  const router = useRouter();
   const supabase = createClient();
   const avatarRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
@@ -58,33 +60,66 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
 
   async function uploadAvatar(file: File) {
     if (file.size > 1024 * 1024) { toast.error("Image trop lourde (max 1MB)"); return; }
+    const extensions: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+    };
+    const ext = extensions[file.type];
+    if (!ext) { toast.error("Format non pris en charge (JPG ou PNG)"); return; }
+
     setUploading(true);
-    const ext = file.name.split(".").pop();
     const path = `${userId}/avatar.${ext}`;
-    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (error) { toast.error("Erreur upload avatar"); setUploading(false); return; }
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    set("avatar_url", data.publicUrl);
-    await supabase.from("users").update({ avatar_url: data.publicUrl }).eq("id", userId);
-    setUploading(false);
-    toast.success("Avatar mis à jour");
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
+      const { error: profileError } = await supabase
+        .from("users")
+        .update({ avatar_url: publicUrl })
+        .eq("id", userId);
+      if (profileError) throw profileError;
+
+      set("avatar_url", publicUrl);
+      router.refresh();
+      toast.success("Avatar mis à jour");
+    } catch (error) {
+      console.error("Avatar upload failed:", error);
+      toast.error(translateError(error));
+    } finally {
+      setUploading(false);
+      if (avatarRef.current) avatarRef.current.value = "";
+    }
   }
 
   async function saveProfil() {
     setSaving(true);
-    const full_name = `${form.prenom} ${form.nom}`.trim();
-    const { error } = await supabase.from("users").update({ full_name, phone: form.phone, role: form.role }).eq("id", userId);
-    if (!error) {
-      // Save prefs
-      await supabase.from("user_preferences").upsert({
+    try {
+      const full_name = `${form.prenom} ${form.nom}`.trim();
+      const { error: profileError } = await supabase
+        .from("users")
+        .update({ full_name, phone: form.phone, role: form.role })
+        .eq("id", userId);
+      if (profileError) throw profileError;
+
+      const { error: preferencesError } = await supabase.from("user_preferences").upsert({
         user_id: userId,
         ...notifs,
         ...locale,
       }, { onConflict: "user_id" });
+      if (preferencesError) throw preferencesError;
+
+      router.refresh();
+      toast.success("Profil enregistré");
+    } catch (error) {
+      console.error("Profile save failed:", error);
+      toast.error(translateError(error));
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    if (error) toast.error(translateError(error));
-    else toast.success("✓ Profil enregistré");
   }
 
   async function changePassword() {
@@ -95,7 +130,7 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
     const { error } = await supabase.auth.updateUser({ password: pwd.next });
     setSavingPwd(false);
     if (error) toast.error(translateError(error));
-    else { toast.success("✓ Mot de passe modifié"); setPwd({ current: "", next: "", confirm: "" }); }
+    else { toast.success("Mot de passe modifié"); setPwd({ current: "", next: "", confirm: "" }); }
   }
 
   const Toggle = ({ value, onChange, label, sub }: { value: boolean; onChange: () => void; label: string; sub?: string }) => (
@@ -146,7 +181,7 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
             </button>
           </div>
         </div>
-        <input ref={avatarRef} type="file" accept="image/*" className="hidden"
+        <input ref={avatarRef} type="file" accept="image/jpeg,image/png" className="hidden"
           onChange={e => e.target.files?.[0] && uploadAvatar(e.target.files[0])} />
       </div>
 

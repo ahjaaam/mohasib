@@ -86,7 +86,7 @@ export default function EntrepriseTab({ userId, company }: Props) {
     setSaving(false);
     if (error) toast.error(translateError(error));
     else if (!data) toast.error("Entreprise introuvable. Rechargez la page avant de réessayer.");
-    else toast.success("✓ Informations enregistrées");
+    else toast.success("Informations enregistrées");
   }
 
   const previewPrefix = form.invoice_prefix || "F-";

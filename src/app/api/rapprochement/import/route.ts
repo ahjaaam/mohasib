@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { authorizePermission } from "@/lib/api-permissions";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 interface ImportLine {
   date: string;
@@ -38,13 +39,27 @@ export async function POST(req: NextRequest) {
     if (!body.lines?.length) {
       return NextResponse.json({ error: "Aucune ligne à importer" }, { status: 400 });
     }
+    const ownerId = await resolveAccountOwnerId(user.id);
+    let companyId: string | null = null;
+    if (body.company_id) {
+      const { data: ownedCompany } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("id", body.company_id)
+        .eq("user_id", ownerId)
+        .maybeSingle();
+      if (!ownedCompany) {
+        return NextResponse.json({ error: "Société introuvable" }, { status: 404 });
+      }
+      companyId = ownedCompany.id;
+    }
 
     // Create statement record
     const { data: stmt, error: stmtErr } = await supabase
       .from("bank_statements")
       .insert({
-        user_id: user.id,
-        company_id: body.company_id ?? null,
+        user_id: ownerId,
+        company_id: companyId,
         bank_name: body.bank_name || null,
         account_number: body.account_number || null,
         period_start: body.period_start || null,
@@ -66,7 +81,7 @@ export async function POST(req: NextRequest) {
       .filter(l => l.date && l.amount !== 0)
       .map(l => ({
         statement_id: stmt.id,
-        company_id: body.company_id ?? null,
+        company_id: companyId,
         date: l.date,
         description: l.description || "Transaction",
         reference: l.reference ?? null,
@@ -76,13 +91,13 @@ export async function POST(req: NextRequest) {
       }));
 
     if (!lineRecords.length) {
-      await supabase.from("bank_statements").delete().eq("id", stmt.id);
+      await supabase.from("bank_statements").delete().eq("id", stmt.id).eq("user_id", ownerId);
       return NextResponse.json({ error: "Aucune ligne valide à importer" }, { status: 400 });
     }
 
     const { error: linesErr } = await supabase.from("bank_statement_lines").insert(lineRecords);
     if (linesErr) {
-      await supabase.from("bank_statements").delete().eq("id", stmt.id);
+      await supabase.from("bank_statements").delete().eq("id", stmt.id).eq("user_id", ownerId);
       return NextResponse.json({ error: linesErr.message }, { status: 500 });
     }
 

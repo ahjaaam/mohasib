@@ -28,6 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
       .from("rapprochement_sessions")
       .select("id, company_id, dossier_id")
       .eq("id", sessionId)
+      .eq("user_id", user.id)
       .single();
 
     if (!line || !session) return NextResponse.json({ error: "Line not found" }, { status: 404 });

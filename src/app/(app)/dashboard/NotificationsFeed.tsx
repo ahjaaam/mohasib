@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { CheckCheck, X } from "lucide-react";
+import { CheckCheck, CheckCircle2, X } from "lucide-react";
 import {
   markRead,
   markAllRead,
@@ -59,7 +59,7 @@ export default function NotificationsFeed({ initial, totalCount }: Props) {
         {unread.length > 0 && (
           <button
             onClick={handleMarkAllRead}
-            className="flex items-center gap-1 text-[11px] text-[#C8924A] hover:text-[#A87240] transition-colors"
+            className="flex items-center gap-1 text-[11px] text-[#C8924A] hover:text-[#C8924A] transition-colors"
           >
             <CheckCheck size={12} />
             Tout marquer comme lu
@@ -69,8 +69,8 @@ export default function NotificationsFeed({ initial, totalCount }: Props) {
 
       {/* Empty state */}
       {visible.length === 0 && (
-        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl px-5 py-8 text-center">
-          <div className="text-[22px] mb-1.5">✓</div>
+        <div className="empty-state">
+          <CheckCircle2 size={22} className="mx-auto mb-1.5 text-[#059669]" aria-hidden="true" />
           <p className="text-[12.5px] text-[#6B7280] font-medium">Tout est à jour</p>
           <p className="text-[11.5px] text-[#9CA3AF] mt-0.5">Aucune notification pour le moment</p>
         </div>

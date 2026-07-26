@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { findMatches } from "@/lib/reconciliation";
 import { authorizePermission } from "@/lib/api-permissions";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,13 +16,14 @@ export async function POST(req: NextRequest) {
     if (plan.response) return plan.response;
 
     const { statement_id } = await req.json();
+    const ownerId = await resolveAccountOwnerId(user.id);
 
     // Fetch statement + company
     const { data: stmt } = await supabase
       .from("bank_statements")
       .select("*")
       .eq("id", statement_id)
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .single();
     if (!stmt) return NextResponse.json({ error: "Statement not found" }, { status: 404 });
 
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
     const { data: txs } = await supabase
       .from("transactions")
       .select("id, date, description, amount, category")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .eq("reconciliation_status", "unreconciled")
       .gte("date", start.toISOString().split("T")[0])
       .lte("date", end.toISOString().split("T")[0]);
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest) {
     const { data: clients } = await supabase
       .from("clients")
       .select("name")
-      .eq("user_id", user.id);
+      .eq("user_id", ownerId);
     const clientNames = (clients ?? []).map((c: any) => c.name);
 
     let autoMatched = 0;
@@ -81,14 +83,14 @@ export async function POST(req: NextRequest) {
           match_reason: best.reason,
           matched_at: new Date().toISOString(),
           matched_by: "auto",
-        }).eq("id", line.id);
+        }).eq("id", line.id).eq("statement_id", statement_id);
 
         await supabase.from("transactions").update({
           reconciled: true,
           reconciled_at: new Date().toISOString(),
           bank_line_id: line.id,
           reconciliation_status: "reconciled",
-        }).eq("id", best.transaction_id);
+        }).eq("id", best.transaction_id).eq("user_id", ownerId);
 
         autoMatched++;
       } else {
@@ -98,7 +100,7 @@ export async function POST(req: NextRequest) {
           transaction_id: best.transaction_id,
           match_confidence: best.confidence,
           match_reason: best.reason,
-        }).eq("id", line.id);
+        }).eq("id", line.id).eq("statement_id", statement_id);
 
         suggested++;
       }
@@ -107,7 +109,7 @@ export async function POST(req: NextRequest) {
     // Update statement status
     await supabase.from("bank_statements").update({
       status: autoMatched + suggested > 0 ? "reconciling" : "pending",
-    }).eq("id", statement_id);
+    }).eq("id", statement_id).eq("user_id", ownerId);
 
     return NextResponse.json({ matched: autoMatched, suggested });
   } catch (err: any) {

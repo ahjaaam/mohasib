@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
 
   const [profileRes, dossierRes, companyRes, access, entitlements] = await Promise.all([
-    supabase.from("users").select("full_name, company").eq("id", user.id).single(),
+    supabase.from("users").select("full_name, company, avatar_url").eq("id", user.id).single(),
     activeDossierId
       ? supabase.from("dossiers").select("id, raison_sociale, ice, regime_tva")
           .eq("id", activeDossierId).eq("fiduciaire_user_id", teamContext?.ownerId ?? user.id).single()
@@ -39,8 +39,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       userId={user.id}
       ownerId={teamContext?.ownerId ?? user.id}
       userEmail={user.email}
-      userName={profileRes.data?.full_name}
+      userName={profileRes.data?.full_name ?? user.user_metadata?.full_name ?? user.email}
       userCompany={profileRes.data?.company}
+      userAvatar={profileRes.data?.avatar_url}
       isFiduciaire={isFiduciaire}
       permissions={access.permissions}
       roleLabel={access.roleLabel}

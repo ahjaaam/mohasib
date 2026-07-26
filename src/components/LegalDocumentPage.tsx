@@ -22,16 +22,16 @@ type LegalDocumentPageProps = {
 
 export default function LegalDocumentPage({ title, updatedAt, intro, sections, seeAlso }: LegalDocumentPageProps) {
   return (
-    <main className="min-h-screen bg-white text-[#374151]">
-      <PublicNavbar showBorder={false} />
+    <main className="public-site text-[#374151]">
+      <PublicNavbar />
       <div className="mx-auto grid max-w-[1040px] gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[220px_minmax(0,720px)] lg:py-20">
         <aside className="lg:sticky lg:top-8 lg:self-start">
-          <nav className="rounded-lg border border-black/[0.08] bg-[#FAFAF6] p-4">
+          <nav className="public-surface bg-[#F5F4EF] p-4">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.4px] text-[#6B7280]">Sommaire</p>
             <ol className="space-y-2">
               {sections.map((section, index) => (
                 <li key={section.id}>
-                  <a href={`#${section.id}`} className="block text-[12px] leading-5 text-[#374151] hover:text-[#C8924A]">
+                  <a href={`#${section.id}`} className="block text-[12px] leading-5 text-[#374151] hover:text-[#7A6668]">
                     {index + 1}. {section.title}
                   </a>
                 </li>
@@ -60,9 +60,9 @@ export default function LegalDocumentPage({ title, updatedAt, intro, sections, s
             ))}
           </div>
 
-          <div className="mt-12 rounded-lg border border-black/[0.08] bg-[#FAFAF6] p-5 text-[14px]">
+          <div className="public-surface mt-12 bg-[#F5F4EF] p-5 text-[14px]">
             Voir aussi :{" "}
-            <Link href={seeAlso.href} className="font-semibold text-[#C8924A] hover:underline">
+            <Link href={seeAlso.href} className="font-semibold text-[#7A6668] hover:underline">
               {seeAlso.label}
             </Link>
           </div>

@@ -4,8 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import GrandLivreView from "@/components/GrandLivreView";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { FEATURES } from "@/lib/features";
 
 export default async function GrandLivrePage() {
+  if (!FEATURES.GRAND_LIVRE_ENABLED) redirect("/export");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/connexion");

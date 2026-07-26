@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import NewAvoirForm from "@/app/(app)/invoices/avoir/new/NewAvoirForm";
 import BackIconLink from "@/components/BackIconLink";
+import PageHeader from "@/components/PageHeader";
 import type { Client } from "@/types";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
@@ -44,13 +45,12 @@ export default async function DossierNewAvoirPage({
 
   return (
     <>
-      <div className="mb-5 flex items-start gap-3">
-        <BackIconLink href={backHref} label="Retour aux avoirs" />
-        <div>
-          <h1 className="text-[18px] font-semibold leading-tight text-[#1A1A2E]">Nouvel avoir client</h1>
-          <p className="mt-0.5 text-[13px] text-[#6B7280]">Émettre un avoir sur facture client</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Nouvel avoir client"
+        subtitle="Émettre un avoir sur facture client"
+        icon={<BackIconLink href={backHref} label="Retour aux avoirs" />}
+        iconBare
+      />
       <NewAvoirForm
         clients={(clientsRes.data ?? []) as Pick<Client, "id" | "name" | "email">[]}
         nextNumber={nextNumber}

@@ -1,328 +1,345 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import Image from "next/image";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
-import { appUrl } from "@/lib/public-urls";
+import { appUrl, whatsappUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
-const NAVY: React.CSSProperties["color"] = "#0D1526";
-const GOLD: React.CSSProperties["color"] = "#C8924A";
 
-// ── Demo Form ─────────────────────────────────────────────────────────────────
+const FLOATING_ITEMS = [
+  { position: "one", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "two", src: "/images/excel-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
+  { position: "three", src: "/images/gmail-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
+  { position: "four", src: "/images/word-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
+  { position: "five", src: "/images/sage-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
+  { position: "six", src: "/images/outlook-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
+  { position: "seven", src: "/images/google-drive-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
+];
 
-function DemoForm({ onSuccess }: { onSuccess?: () => void }) {
-  const supabase = createClient();
-  const [form, setForm] = useState({ nom: "", email: "", telephone: "", entreprise: "" });
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.email) return;
-    setLoading(true);
-    setError("");
-    const { error: requestError } = await supabase.from("demo_requests").insert(form);
-    setLoading(false);
-    if (requestError) {
-      setError("Impossible d'envoyer la demande. Veuillez réessayer.");
-      return;
-    }
-    void fetch("/api/notify/demo-request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      keepalive: true,
-      body: JSON.stringify(form),
-    }).catch(() => {});
-    setDone(true);
-    onSuccess?.();
-  }
-
-  if (done) return (
-    <div style={{ textAlign: "center", padding: "32px 0" }}>
-      <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
-      <p style={{ fontSize: 16, fontWeight: 600, color: "#FFFFFF", fontFamily: FONT, margin: "0 0 8px" }}>Demande reçue !</p>
-      <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", fontFamily: FONT, margin: 0 }}>Votre demande a été ajoutée à notre liste de validation. On vous rappelle sous 24h.</p>
-    </div>
-  );
-
+function WhatsAppIcon() {
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {[
-        { key: "nom", placeholder: "Votre nom", type: "text" },
-        { key: "email", placeholder: "Email professionnel", type: "email" },
-        { key: "telephone", placeholder: "Téléphone (optionnel)", type: "tel" },
-        { key: "entreprise", placeholder: "Nom de l'entreprise (optionnel)", type: "text" },
-      ].map(({ key, placeholder, type }) => (
-        <input
-          key={key}
-          type={type}
-          placeholder={placeholder}
-          value={(form as any)[key]}
-          onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-          style={{
-            padding: "12px 16px", borderRadius: 5, fontFamily: FONT,
-            border: "1px solid rgba(0,0,0,0.12)", backgroundColor: "#FFFFFF",
-            color: "#0A0A0A", fontSize: 14, outline: "none",
-            width: "100%", boxSizing: "border-box",
-          }}
-        />
-      ))}
-      <button
-        type="submit"
-        disabled={loading}
-        style={{
-          marginTop: 4, padding: "13px", borderRadius: 5,
-          backgroundColor: GOLD, border: "none", cursor: loading ? "wait" : "pointer",
-          color: "#FFFFFF", fontSize: 14, fontWeight: 600, fontFamily: FONT,
-          opacity: loading ? 0.7 : 1, transition: "opacity 0.2s",
-        }}
-      >
-        {loading ? "Envoi…" : "Demander une démo →"}
-      </button>
-      {error && <p style={{ fontSize: 12, color: "#FCA5A5", textAlign: "center", margin: 0, fontFamily: FONT }}>{error}</p>}
-      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", textAlign: "center", margin: 0, fontFamily: FONT }}>
-        Validation manuelle · Rappel sous 24h · Aucun engagement
-      </p>
-    </form>
+    <svg
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      style={{ color: "#085E54", flexShrink: 0 }}
+    >
+      <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93a7.898 7.898 0 0 0-2.327-5.607ZM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.25a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.591-6.592 6.591Zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.514.646-.63.775-.116.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.174-1.101-1.371-.116-.198-.013-.305.086-.404.09-.088.197-.232.295-.348.1-.116.133-.198.198-.33.066-.132.033-.248-.016-.347-.05-.099-.445-1.075-.61-1.47-.16-.389-.323-.335-.445-.34-.116-.006-.248-.006-.38-.006a.729.729 0 0 0-.529.248c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.132 1.394 2.132 3.383 2.992.47.205.84.326 1.129.417.475.152.904.129 1.246.08.38-.057 1.17-.48 1.338-.943.164-.462.164-.86.114-.943-.049-.084-.182-.133-.38-.232Z" />
+    </svg>
   );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
-
 export default function HomePageClient() {
   return (
-    <div style={{ fontFamily: FONT, backgroundColor: "#FFFFFF", color: "#0A0A0A" }}>
-
-      {/* ── NAVBAR ──────────────────────────────────────────────────────────── */}
+    <div className="public-site" style={{ fontFamily: FONT }}>
       <style>{`
-        .page-section { padding: 80px 32px; }
-        @media (max-width: 640px) { .page-section { padding: 56px 20px; } }
+        .home-hero {
+          position: relative;
+          display: flex;
+          min-height: 0;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          padding: 112px 27px 96px;
+          background: #FFFFFF;
+        }
+        .home-hero-content {
+          position: relative;
+          z-index: 3;
+          width: min(100%, 1180px);
+          margin: 0 auto;
+          text-align: center;
+        }
+        .home-hero-title {
+          max-width: 1160px;
+          margin: 0 auto 26px;
+          color: #0A0A0A;
+          font-size: clamp(46px, 4.2vw, 58px);
+          font-weight: 700;
+          letter-spacing: -3px;
+          line-height: 0.98;
+        }
+        .home-hero-description {
+          max-width: 610px;
+          margin: 0 auto 34px;
+          color: #4B5563;
+          font-family: ${FONT};
+          font-size: 16px;
+          line-height: 1.65;
+        }
+        .home-hero-actions {
+          display: flex;
+          justify-content: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .home-whatsapp-action {
+          border-color: #075E54;
+          color: #075E54;
+        }
+        .home-whatsapp-action:hover {
+          border-color: #075E54;
+          background: #F0FFF5;
+          color: #075E54;
+        }
+        .home-hero-note {
+          margin: 13px 0 0;
+          color: #8A8F98;
+          font-family: ${FONT};
+          font-size: 11px;
+          letter-spacing: 0.02em;
+        }
+        .home-receipt-field {
+          position: absolute;
+          top: 0;
+          right: 0;
+          left: 0;
+          height: 560px;
+          z-index: 1;
+          pointer-events: none;
+        }
+        .home-scattered-receipt {
+          position: absolute;
+          width: var(--receipt-width);
+          opacity: var(--receipt-opacity, 0.82);
+          transform: rotate(var(--receipt-rotation));
+          filter:
+            drop-shadow(0 18px 18px rgba(13, 21, 38, 0.15))
+            drop-shadow(0 5px 5px rgba(13, 21, 38, 0.08));
+        }
+        .home-scattered-receipt img {
+          width: 100%;
+          height: auto;
+          animation: receipt-drift var(--receipt-duration, 7s) ease-in-out var(--receipt-delay, 0s) infinite;
+          will-change: transform;
+        }
+        .home-scattered-mark {
+          opacity: 0.92;
+        }
+        .home-scattered-mark img {
+          filter: grayscale(0.55);
+        }
+        .home-receipt-one {
+          --receipt-width: 152px;
+          --receipt-rotation: -18deg;
+          --receipt-opacity: 0.6;
+          --receipt-duration: 7.2s;
+          top: 13%;
+          left: 1.5%;
+        }
+        .home-receipt-two {
+          --receipt-width: 142px;
+          --receipt-rotation: 14deg;
+          --receipt-duration: 8.1s;
+          --receipt-delay: -3s;
+          bottom: 8%;
+          left: 10%;
+        }
+        .home-receipt-three {
+          --receipt-width: 106px;
+          --receipt-rotation: -8deg;
+          --receipt-duration: 6.5s;
+          --receipt-delay: -1.5s;
+          top: -2%;
+          left: 24%;
+        }
+        .home-receipt-four {
+          --receipt-width: 147px;
+          --receipt-rotation: 17deg;
+          --receipt-duration: 7.8s;
+          --receipt-delay: -2.4s;
+          top: 10%;
+          right: 1%;
+        }
+        .home-receipt-five {
+          --receipt-width: 148px;
+          --receipt-rotation: -13deg;
+          --receipt-duration: 8.5s;
+          --receipt-delay: -4s;
+          right: 9%;
+          bottom: 10%;
+        }
+        .home-receipt-six {
+          --receipt-width: 102px;
+          --receipt-rotation: 9deg;
+          --receipt-duration: 6.8s;
+          --receipt-delay: -2s;
+          top: -2%;
+          right: 23%;
+        }
+        .home-receipt-seven {
+          --receipt-width: 46px;
+          --receipt-rotation: 25deg;
+          --receipt-duration: 7.6s;
+          --receipt-delay: -5s;
+          top: 48%;
+          right: 15%;
+        }
+        .home-hero-preview {
+          position: relative;
+          z-index: 1;
+          width: min(100%, 1140px);
+          margin: 54px auto 0;
+          overflow: hidden;
+          background: #FFFFFF;
+          box-shadow: 0 34px 90px rgba(0, 0, 0, 0.38);
+          line-height: 0;
+        }
+        .home-hero-preview-image {
+          display: block;
+          width: 100%;
+          height: auto;
+        }
+        @keyframes receipt-drift {
+          0%, 100% {
+            transform: translate3d(0, 0, 0) rotate(-1deg);
+          }
+          50% {
+            transform: translate3d(0, -11px, 0) rotate(1deg);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .home-scattered-receipt img {
+            animation: none;
+          }
+        }
+        @media (max-width: 1000px) {
+          .home-hero {
+            min-height: 0;
+          }
+          .home-receipt-one,
+          .home-receipt-four {
+            --receipt-width: 120px;
+          }
+          .home-receipt-two,
+          .home-receipt-five {
+            --receipt-width: 118px;
+          }
+          .home-receipt-seven {
+            display: none;
+          }
+        }
+        @media (max-width: 760px) {
+          .home-hero {
+            min-height: 660px;
+            align-items: flex-start;
+            padding: 70px 20px 54px;
+          }
+          .home-hero-title {
+            max-width: 620px;
+            margin-bottom: 22px;
+            font-size: clamp(34px, 6vw, 40px);
+            letter-spacing: -1.6px;
+            line-height: 1;
+          }
+          .home-hero-description {
+            max-width: 340px;
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.6;
+          }
+          .home-hero-actions {
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+          }
+          .home-hero-actions a {
+            width: min(100%, 328px);
+          }
+          .home-receipt-one {
+            --receipt-width: 54px;
+            top: 2%;
+            left: -4%;
+          }
+          .home-receipt-two {
+            --receipt-width: 62px;
+            bottom: 1%;
+            left: -2%;
+          }
+          .home-receipt-three,
+          .home-receipt-six {
+            --receipt-width: 42px;
+          }
+          .home-receipt-four {
+            --receipt-width: 54px;
+            top: 2%;
+            right: -4%;
+          }
+          .home-receipt-five {
+            --receipt-width: 62px;
+            right: -2%;
+            bottom: 12%;
+          }
+          .home-receipt-field {
+            height: 500px;
+          }
+          .home-hero-preview {
+            margin-top: 36px;
+          }
+        }
       `}</style>
-      <PublicNavbar showBorder={false} />
+      <PublicNavbar />
 
-      {/* ── HERO ────────────────────────────────────────────────────────────── */}
-      <section className="page-section" style={{ backgroundColor: "#FFFFFF" }}>
-        <div style={{ maxWidth: 1160, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr", gap: 48 }} className="hero-grid">
-          <style>{`@media (min-width: 900px) { .hero-grid { grid-template-columns: 1fr 420px !important; align-items: start; } }`}</style>
+      <section className="home-hero">
+        <div className="home-receipt-field" aria-hidden="true">
+          {FLOATING_ITEMS.map(({ position, src, alt, width, height, isMark }) => (
+            <div
+              className={`home-scattered-receipt home-receipt-${position}${isMark ? " home-scattered-mark" : ""}`}
+              key={position}
+            >
+              <Image src={src} alt={alt} width={width} height={height} sizes="190px" />
+            </div>
+          ))}
+        </div>
 
-          {/* Left: copy */}
-          <div style={{ paddingTop: 16 }}>
-            <h1 style={{ fontFamily: FONT, fontSize: "clamp(36px, 5.5vw, 64px)", fontWeight: 700, lineHeight: 1.08, letterSpacing: "-1.5px", color: "#0A0A0A", margin: "0 0 24px", maxWidth: 620 }}>
-              La Comptabilité Marocaine,<br />
-              <span style={{ color: GOLD }}>Enfin Intelligente.</span>
+        <div className="home-hero-content">
+            <p className="public-eyebrow mb-4">Comptabilité intelligente · Maroc</p>
+            <h1 className="home-hero-title">
+              Automatisez vos tâches administratives et{" "}comptables
             </h1>
 
-          <p style={{ fontSize: 14, color: "#4B5563", lineHeight: 1.5, margin: "0 0 36px", maxWidth: 500, fontFamily: FONT }}>
-          Gérez votre comptabilité avec Mohasib AI. Créez des factures conformes, suivez vos dépenses et déclarez votre TVA en toute simplicité.
-          </p>
+            <p className="home-hero-description">
+            Connecter votre boite mail, envoyez vos factures, suivez vos paiements, effectuez vos rapprochements bancaires, créez vos bulletins de paie, déclarez votre TVA, obtenez des insights financiers et exportez une comptabilité propre.            </p>
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
+            <div className="home-hero-actions">
               <a
+                className="public-primary-action ui-control"
                 href={appUrl("/inscription")}
-                style={{ fontSize: 15, fontWeight: 600, color: "#FFFFFF", backgroundColor: NAVY, padding: "14px 28px", borderRadius: 5, textDecoration: "none", fontFamily: FONT, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                style={{ minHeight: 50, padding: "0 30px", fontSize: 14, fontFamily: FONT }}
               >
                 Créer un compte gratuit
               </a>
               <a
-                href="https://wa.me/212777884056"
+                className="public-secondary-action home-whatsapp-action ui-control"
+                href={whatsappUrl("Bonjour, je souhaite en savoir plus sur Mohasib.")}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ fontSize: 15, fontWeight: 500, color: "rgb(37, 211, 102)", border: "1px solid #25D366", backgroundColor: "transparent", padding: "14px 28px", borderRadius: 5, textDecoration: "none", fontFamily: FONT, display: "inline-flex", alignItems: "center", gap: 8 }}
+                style={{ minHeight: 50, padding: "0 24px", fontSize: 14, fontFamily: FONT }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="rgb(37, 211, 102)" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                </svg>
-                Nous contacter
+                <WhatsAppIcon />
+                Parler à un conseiller
               </a>
             </div>
+            <p className="home-hero-note">Sans carte bancaire · Conçu pour le Maroc · Support WhatsApp</p>
 
-            {/* Social proof */}
-            <div style={{ marginTop: 48, paddingTop: 40, borderTop: "1px solid rgba(0,0,0,0.08)", display: "flex", flexWrap: "wrap", gap: 40 }}>
-              {[
-               /*  { num: "4–6h de travail", label: "Économisées par semaine" }, */
-               /* { num: "100%", label: "Conforme DGI Maroc" }, */
-              ].map((s, i) => (
-                <div key={i}>
-                  <div style={{ fontFamily: FONT, fontSize: 26, fontWeight: 700, color: "#0A0A0A", lineHeight: 1 }}>{s.num}</div>
-                  <div style={{ fontSize: 13, color: "#6B7280", marginTop: 5, fontFamily: FONT }}>{s.label}</div>
-                </div>
-              ))}
+            <div className="home-hero-preview" aria-label="Aperçu du tableau de bord Mohasib">
+              <Image
+                className="home-hero-preview-image"
+                src="/images/mohasib-dashboard-overview.png"
+                alt="Tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements"
+                width={2828}
+                height={1558}
+                sizes="(max-width: 1180px) calc(100vw - 36px), 1140px"
+                priority
+              />
             </div>
-          </div>
-
-          {/* Right: demo form card */}
-          <div style={{ backgroundColor: NAVY, borderRadius: 0, padding: "30px 22px", boxShadow: "0 24px 64px rgba(13,21,38,0.18)" }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: GOLD, letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: FONT, margin: "0 0 8px" }}>
-              Démo personnalisée
-            </p>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: "#FFFFFF", margin: "0 0 6px", fontFamily: FONT }}>
-              Voyez Mohasib En Action
-            </h2>
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", margin: "0 0 28px", fontFamily: FONT }}>
-              Nous vous montrerons comment Mohasib s&apos;adapte à votre activité.
-            </p>
-            <DemoForm />
-          </div>
         </div>
       </section>
-
-      {false && (
-      <section className="page-section" style={{ backgroundColor: "#FAFAF6" }}>
-        <style>{`
-          .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 900px; margin: 0 auto; }
-          @media (max-width: 720px) { .pricing-grid { grid-template-columns: 1fr; } }
-          .feat-group-label { font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(13,21,38,0.35); margin: 20px 0 8px; font-family: var(--font-jakarta), sans-serif; }
-          .feat-group-label-light { font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(13,21,38,0.35); margin: 20px 0 8px; font-family: var(--font-jakarta), sans-serif; }
-        `}</style>
-
-        {/* Section header */}
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: GOLD, letterSpacing: "1.5px", textTransform: "uppercase", fontFamily: FONT, margin: "0 0 10px" }}>Tarification</p>
-          <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 700, color: "#0A0A0A", margin: "0 0 14px", letterSpacing: "-0.8px", fontFamily: FONT }}>
-            Choisissez le plan adapté<br />à votre activité
-          </h2>
-          <p style={{ fontSize: 15, color: "#6B7280", margin: 0, fontFamily: FONT }}>
-            Entrepreneur solo ou cabinet comptable — Mohasib s&apos;adapte à votre métier.
-          </p>
-        </div>
-
-        <div className="pricing-grid">
-
-          {/* ── Pro plan ── */}
-          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 0, border: "1.5px solid rgba(0,0,0,0.09)", padding: "28px 24px", display: "flex", flexDirection: "column" }}>
-            <div style={{ marginBottom: 20 }}>
-              <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, letterSpacing: "1.4px", textTransform: "uppercase", color: GOLD, fontFamily: FONT, marginBottom: 8 }}>
-                Entrepreneur / PME
-              </span>
-              <h3 style={{ fontSize: 24, fontWeight: 700, color: NAVY, margin: "0 0 6px", fontFamily: FONT }}>Business Pro</h3>
-              <p style={{ fontSize: 13, color: "#6B7280", margin: 0, fontFamily: FONT, lineHeight: 1.5 }}>
-                Tout ce qu&apos;il faut pour gérer votre comptabilité en autonomie.
-              </p>
-            </div>
-
-            <div style={{ height: 1, backgroundColor: "rgba(0, 0, 0, 0.07)", margin: "0 0 18px" }} />
-
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, flex: 1 }}>
-              {[
-                { group: "Documents & facturation", items: [
-                  "Boîte de réception — reçus automatiques Gmail / Outlook",
-                  "Facturation rapide, envoi email & WhatsApp",
-                  "Archivage de documents",
-                ]},
-                { group: "Comptabilité", items: [
-                  "Clients & fournisseurs",
-                  "Transactions bancaires",
-                  "Déclaration TVA — fichier EDI SIMPL",
-                  "La Paie — bulletins & déclaration CNSS",
-                  "Exports comptables",
-                ]},
-              ].map(({ group, items }) => (
-                <li key={group}>
-                  <div className="feat-group-label-light">{group}</div>
-                  {items.map(item => (
-                    <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
-                      <span style={{ width: 16, height: 16, borderRadius: "50%", backgroundColor: "rgba(200,146,74,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                        <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5l2 2 4-4" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </span>
-                      <span style={{ fontSize: 13, color: "#374151", fontFamily: FONT, lineHeight: 1.45 }}>{item}</span>
-                    </div>
-                  ))}
-                </li>
-              ))}
-            </ul>
-
-            <Link
-              href={appUrl("/inscription")}
-              style={{ marginTop: 24, display: "block", textAlign: "center", padding: "13px", borderRadius: 6, border: `1.5px solid ${NAVY}`, color: NAVY, backgroundColor: "transparent", fontSize: 14, fontWeight: 600, textDecoration: "none", fontFamily: FONT, transition: "all 0.15s" }}
-            >
-              Créer un compte Pro →
-            </Link>
-          </div>
-
-          {/* ── Comptable Pro plan ── */}
-          <div style={{ backgroundColor: "#ffffff", borderRadius: 0, border: `1.5px solid ${NAVY}`, padding: "28px 24px", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
-            {/* Gold glow top-right */}
-            <div style={{ position: "absolute", top: -60, right: -60, width: 180, height: 180, borderRadius: "50%", background: "rgba(200,146,74,0.12)", pointerEvents: "none" }} />
-
-            <div style={{ marginBottom: 20 }}>
-              <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, letterSpacing: "1.4px", textTransform: "uppercase", color: GOLD, fontFamily: FONT, marginBottom: 8 }}>
-                Cabinet comptable
-              </span>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <h3 style={{ fontSize: 24, fontWeight: 700, color: NAVY, margin: 0, fontFamily: FONT }}>Comptable Pro</h3>
-              </div>
-              <p style={{ fontSize: 13, color: "#6B7280", margin: 0, fontFamily: FONT, lineHeight: 1.5 }}>
-                Gérez tous vos dossiers clients depuis un seul tableau de bord.
-              </p>
-            </div>
-
-            <div style={{ height: 1, backgroundColor: "rgba(0, 0, 0, 0.07)", margin: "0 0 18px" }} />
-
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, flex: 1 }}>
-              {/* Cabinet-level */}
-              <li>
-                <div className="feat-group-label">Espace cabinet</div>
-                {[
-                  "Boîte de réception globale — routing IA des emails",
-                  "Calendrier comptable & fiscal",
-                  "Gestion des dossiers clients",
-                  "Paramètres du cabinet",
-                ].map(item => (
-                  <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
-                    <span style={{ width: 16, height: 16, borderRadius: "50%", backgroundColor: "rgba(200,146,74,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                      <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5l2 2 4-4" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </span>
-                    <span style={{ fontSize: 13, color: "rgba(10, 8, 8, 0.8)", fontFamily: FONT, lineHeight: 1.45 }}>{item}</span>
-                  </div>
-                ))}
-              </li>
-
-              {/* Per-dossier */}
-              <li>
-                <div className="feat-group-label">Par dossier client</div>
-                {[
-                  "Boîte de réception + reçus automatiques",
-                  "Factures clients",
-                  "Clients & fournisseurs",
-                  "Transactions bancaires",
-                  "Saisie comptable automatique (IA)",
-                  "Déclaration TVA — fichier EDI",
-                  "Grand Livre CGNC",
-                  "Export CGNC",
-                  "Bilan & CPC",
-                  "Paie — bulletins & déclaration CNSS",
-                  "Archive documents",
-                ].map(item => (
-                  <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
-                    <span style={{ width: 16, height: 16, borderRadius: "50%", backgroundColor: "rgba(200,146,74,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                      <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5l2 2 4-4" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </span>
-                    <span style={{ fontSize: 13, color: "rgba(0, 0, 0, 0.8)", fontFamily: FONT, lineHeight: 1.45 }}>{item}</span>
-                  </div>
-                ))}
-              </li>
-            </ul>
-
-            <a
-              href="https://wa.me/212777884056"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ marginTop: 24, display: "block", textAlign: "center", padding: "13px", borderRadius: 6, backgroundColor: GOLD, border: "none", color: "#FFFFFF", fontSize: 14, fontWeight: 600, textDecoration: "none", fontFamily: FONT }}
-            >
-              Demander une démo →
-            </a>
-          </div>
-
-        </div>
-      </section>
-      )}
 
       <PublicFooter />
-
     </div>
   );
 }

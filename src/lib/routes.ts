@@ -26,10 +26,12 @@ export const ROUTES = {
   SUIVI_PAIEMENTS: "/suivi-paiements",
   RAPPROCHEMENT: "/rapprochement",
   SAISIE: "/saisie",
+  ECRITURES: "/ecritures",
   FACTURE_PUBLIQUE: (shortId: string) => `/f/${shortId}`,
   COMPTABLE_PRO: "/comptable-pro",
   COMPTABLE_PRO_DOSSIERS: "/comptable-pro/dossiers",
   COMPTABLE_PRO_DOSSIER: (id: string) => `/comptable-pro/dossiers/${id}`,
+  COMPTABLE_PRO_DOSSIER_ECRITURES: (id: string) => `/comptable-pro/dossiers/${id}/ecritures`,
   COMPTABLE_PRO_PARAMETRES: "/comptable-pro/parametres",
 } as const;
 

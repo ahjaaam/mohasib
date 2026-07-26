@@ -682,7 +682,7 @@ export default function ExportPage() {
               <div className="mt-0.5 text-[10.5px] text-[#9CA3AF]">Sélectionnez uniquement les fichiers dont vous avez besoin</div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setSelectedDocuments(new Set(EXPORT_DOCUMENTS.map((document) => document.id)))} className="btn btn-sm border-[#E7D3B5] bg-[#FAF3E8] text-[#9A6528] hover:border-[#C8924A] hover:bg-[#F5E8D5]">Tout sélectionner</button>
+              <button onClick={() => setSelectedDocuments(new Set(EXPORT_DOCUMENTS.map((document) => document.id)))} className="btn btn-sm border-[#E7D3B5] bg-[#FAF3E8] text-[#C8924A] hover:border-[#C8924A] hover:bg-[#F5E8D5]">Tout sélectionner</button>
               <button onClick={() => setSelectedDocuments(new Set())} className="btn btn-sm border-[#D1D5DB] bg-[#F3F4F6] text-[#4B5563] hover:border-[#9CA3AF] hover:bg-[#E5E7EB]">Effacer</button>
             </div>
           </div>

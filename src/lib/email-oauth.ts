@@ -12,6 +12,7 @@ const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 type OAuthStatePayload = {
   provider: EmailProvider;
   userId: string;
+  dossierId?: string;
   nonce: string;
   issuedAt: number;
 };
@@ -32,10 +33,11 @@ export function oauthStateCookieName(provider: EmailProvider) {
   return `mohasib_oauth_state_${provider}`;
 }
 
-export function createOAuthState(provider: EmailProvider, userId: string) {
+export function createOAuthState(provider: EmailProvider, userId: string, dossierId?: string) {
   const payload: OAuthStatePayload = {
     provider,
     userId,
+    ...(dossierId ? { dossierId } : {}),
     nonce: crypto.randomBytes(32).toString("base64url"),
     issuedAt: Date.now(),
   };
@@ -44,37 +46,58 @@ export function createOAuthState(provider: EmailProvider, userId: string) {
   return `${encoded}.${signature}`;
 }
 
+// Best-effort, unverified peek at the dossierId carried in a state token — used only to
+// pick the right error-redirect target before the token has been fully verified.
+export function peekOAuthStateDossierId(token: string | null): string | undefined {
+  if (!token) return undefined;
+  try {
+    const [encoded] = token.split(".");
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as OAuthStatePayload;
+    return typeof payload.dossierId === "string" ? payload.dossierId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function verifyOAuthState(
   token: string | null,
   cookieToken: string | undefined,
   provider: EmailProvider,
   userId: string,
-) {
-  if (!token || !cookieToken || !safeEqual(token, cookieToken)) return false;
+): OAuthStatePayload | null {
+  if (!token || !cookieToken || !safeEqual(token, cookieToken)) return null;
   const [encoded, signature, ...rest] = token.split(".");
-  if (!encoded || !signature || rest.length) return false;
+  if (!encoded || !signature || rest.length) return null;
   const expected = crypto.createHmac("sha256", oauthStateSecret()).update(encoded).digest("base64url");
-  if (!safeEqual(signature, expected)) return false;
+  if (!safeEqual(signature, expected)) return null;
 
   try {
     const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as OAuthStatePayload;
-    return payload.provider === provider
+    const valid = payload.provider === provider
       && payload.userId === userId
       && typeof payload.nonce === "string"
       && payload.nonce.length >= 32
       && Number.isFinite(payload.issuedAt)
       && payload.issuedAt <= Date.now()
       && Date.now() - payload.issuedAt <= OAUTH_STATE_TTL_MS;
+    return valid ? payload : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
-export function oauthRedirect(request: Request, params: Record<string, string>) {
+export function oauthRedirect(request: Request, params: Record<string, string>, path: string = SETTINGS_PATH) {
   const url = new URL(request.url);
-  url.pathname = SETTINGS_PATH;
-  url.search = new URLSearchParams(params).toString();
+  url.pathname = path.split("?")[0];
+  const search = new URLSearchParams(params);
+  const pathQuery = path.split("?")[1];
+  if (pathQuery) new URLSearchParams(pathQuery).forEach((value, key) => search.set(key, value));
+  url.search = search.toString();
   return url;
+}
+
+export function dossierSettingsPath(dossierId: string) {
+  return `/comptable-pro/dossiers/${dossierId}/settings?tab=integrations`;
 }
 
 export function appOrigin(request: Request) {
@@ -148,4 +171,24 @@ export async function getCurrentCompanyId() {
     .maybeSingle();
 
   return { user, companyId: company?.id ?? null };
+}
+
+// A dossier's mailbox can only be connected by the client_portal member that dossier is scoped to.
+export async function getCurrentUserForDossier(dossierId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const admin = createAdminClient();
+  const { data: membership } = await admin
+    .from("user_memberships")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("dossier_id", dossierId)
+    .eq("role_name", "client_portal")
+    .eq("status", "active")
+    .maybeSingle();
+  if (!membership) return null;
+
+  return user;
 }

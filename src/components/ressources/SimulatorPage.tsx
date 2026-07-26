@@ -21,7 +21,7 @@ function NumberField({ label, value, onChange, max }: { label: string; value: nu
         max={max}
         value={value}
         onChange={(event) => onChange(Number(event.target.value) || 0)}
-        className="mt-1.5 w-full rounded-lg border border-[rgba(13,21,38,0.12)] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#C8924A]"
+        className="mt-1.5 w-full rounded-lg border border-[rgba(13,21,38,0.12)] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#A89596]"
       />
     </label>
   );
@@ -34,7 +34,7 @@ function SelectField({ label, value, onChange, options }: { label: string; value
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1.5 w-full rounded-lg border border-[rgba(13,21,38,0.12)] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#C8924A]"
+        className="mt-1.5 w-full rounded-lg border border-[rgba(13,21,38,0.12)] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#A89596]"
       >
         {options.map((option) => (
           <option key={option} value={option}>{option}</option>
@@ -55,15 +55,15 @@ function ResultRow({ label, value, muted = false }: { label: string; value: stri
 
 function ToolPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mx-auto max-w-3xl rounded-2xl border border-[rgba(0,0,0,0.08)] border-t-4 border-t-[#C8924A] bg-white p-6 shadow-[0_10px_28px_rgba(13,21,38,0.05)]">
+    <section className="public-surface public-accent-surface mx-auto max-w-3xl p-6">
       <div className="mb-5 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#C8924A]/10 text-[#C8924A]">
+        <div className="public-icon-tile h-10 w-10">
           <Calculator size={20} />
         </div>
         <h2 className="text-[18px] font-bold text-[#0D1526]">{title}</h2>
       </div>
       {children}
-      <Link href={appUrl("/inscription")} className="mt-6 flex w-full justify-center rounded-lg border border-[#C8924A] px-4 py-3 text-[13px] font-bold text-[#C8924A] transition hover:bg-[#C8924A] hover:text-white">
+      <Link href={appUrl("/inscription")} className="public-secondary-action mt-6 flex w-full">
         Calculer avec mes vraies donnees -&gt;
       </Link>
     </section>
@@ -117,11 +117,11 @@ function TvaSimulator() {
         <NumberField label="TVA deductible achats (MAD)" value={tvaDeductible} onChange={setTvaDeductible} />
         <SelectField label="Regime" value={tvaRegime} onChange={setTvaRegime} options={["Mensuel", "Trimestriel"]} />
       </div>
-      <div className="mt-5 space-y-3 rounded-xl bg-[#FAFAF6] p-4">
+      <div className="mt-5 space-y-3 rounded-xl bg-[#F8F7F7] p-4">
         <ResultRow label="TVA collectee" value={mad(tva.collected)} />
         <ResultRow label="TVA deductible" value={`-${mad(tvaDeductible)}`} muted />
         <div className="h-px bg-[rgba(13,21,38,0.12)]" />
-        <div className="flex justify-between text-[16px] font-bold text-[#C8924A]"><span>TVA nette due</span><span>{mad(tva.due)}</span></div>
+        <div className="flex justify-between text-[16px] font-bold text-[#7A6668]"><span>TVA nette due</span><span>{mad(tva.due)}</span></div>
         <ResultRow label="Prochaine echeance" value={tvaRegime === "Mensuel" ? nextDeadline() : "20 du mois suivant le trimestre"} />
       </div>
     </ToolPanel>
@@ -146,7 +146,7 @@ function IsSimulator() {
         <NumberField label="CA annuel HT (MAD)" value={isCA} onChange={setIsCA} />
         <NumberField label="Charges deductibles (MAD)" value={isCharges} onChange={setIsCharges} />
       </div>
-      <div className="mt-5 space-y-3 rounded-xl bg-[#FAFAF6] p-4">
+      <div className="mt-5 space-y-3 rounded-xl bg-[#F8F7F7] p-4">
         <ResultRow label="Benefice imposable" value={mad(isResult.profit)} />
         <ResultRow label="IS calcule" value={mad(isResult.calculated)} />
         <ul className="space-y-1 text-[12px] text-[#6B7280]">
@@ -156,7 +156,7 @@ function IsSimulator() {
           <li>34% au-dela de 100 000 000 MAD</li>
         </ul>
         <ResultRow label="Cotisation minimale (0.25%)" value={mad(isResult.minimum)} />
-        <div className="flex justify-between text-[16px] font-bold text-[#C8924A]"><span>IS a payer</span><span>{mad(isResult.payable)}</span></div>
+        <div className="flex justify-between text-[16px] font-bold text-[#7A6668]"><span>IS a payer</span><span>{mad(isResult.payable)}</span></div>
         <ResultRow label="Acompte T1 (25%)" value={mad(isResult.acompte)} />
       </div>
     </ToolPanel>
@@ -186,7 +186,7 @@ function PayrollSimulator() {
         <SelectField label="Situation familiale" value={family} onChange={setFamily} options={["Celibataire", "Marie"]} />
         <NumberField label="Nombre d'enfants" value={children} onChange={setChildren} max={6} />
       </div>
-      <div className="mt-5 space-y-3 rounded-xl bg-[#FAFAF6] p-4">
+      <div className="mt-5 space-y-3 rounded-xl bg-[#F8F7F7] p-4">
         <ResultRow label="Salaire brut" value={mad(salary)} />
         <ResultRow label="CNSS salarie (4.48%, cap 6000)" value={`-${mad(payroll.cnss)}`} muted />
         <ResultRow label="AMO salarie (2.26%)" value={`-${mad(payroll.amo)}`} muted />
@@ -194,7 +194,7 @@ function PayrollSimulator() {
         <ResultRow label="Net imposable" value={mad(payroll.taxable)} />
         <ResultRow label="IR net" value={`-${mad(payroll.ir)}`} muted />
         <div className="h-px bg-[rgba(13,21,38,0.12)]" />
-        <div className="flex justify-between text-[16px] font-bold text-[#C8924A]"><span>Net a payer</span><span>{mad(payroll.net)}</span></div>
+        <div className="flex justify-between text-[16px] font-bold text-[#7A6668]"><span>Net a payer</span><span>{mad(payroll.net)}</span></div>
         <ResultRow label="Cout employeur total" value={mad(payroll.employerCost)} />
       </div>
     </ToolPanel>
@@ -223,12 +223,12 @@ function RentabilitySimulator() {
         <NumberField label="Nombre d'employes" value={employees} onChange={setEmployees} max={10} />
         <NumberField label="Salaire moyen brut (MAD)" value={avgSalary} onChange={setAvgSalary} />
       </div>
-      <div className="mt-5 space-y-3 rounded-xl bg-[#FAFAF6] p-4">
+      <div className="mt-5 space-y-3 rounded-xl bg-[#F8F7F7] p-4">
         <ResultRow label="CA mensuel" value={mad(rentCA)} />
         <ResultRow label="Charges" value={`-${mad(rentCharges)}`} muted />
         <ResultRow label="Masse salariale" value={`-${mad(rentability.payrollMass)}`} muted />
         <ResultRow label="TVA estimee" value={`-${mad(rentability.estimatedTva)}`} muted />
-        <div className={`flex justify-between text-[16px] font-bold ${rentability.result >= 0 ? "text-[#C8924A]" : "text-[#DC2626]"}`}>
+        <div className={`flex justify-between text-[16px] font-bold ${rentability.result >= 0 ? "text-[#7A6668]" : "text-[#DC2626]"}`}>
           <span>Resultat net estime</span><span>{mad(rentability.result)}</span>
         </div>
         <ResultRow label="Marge nette" value={`${rentability.margin.toFixed(1)}%`} />
