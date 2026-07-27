@@ -13,7 +13,7 @@ const PRODUCT_TABS = [
   "Facturation",
   "Boîte de réception",
   "TVA & Déclarations",
-  "Rapprochement bancaire",
+  "Suivi des paiements",
   "La paie",
   "Cabinet comptable",
   "OCR & Documents",
@@ -54,15 +54,29 @@ export default function HomePageClient() {
         ? {
             src: "/images/mohasib-inbox-demo.gif",
             alt: "Démonstration animée de la boîte de réception Mohasib pour importer et traiter les factures fournisseurs",
-            width: 1920,
-            height: 1010,
+            width: 1784,
+            height: 1080,
           }
-        : {
-            src: "/images/mohasib-dashboard-demo-v3.gif",
-            alt: "Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements",
-            width: 1920,
-            height: 990,
-          };
+        : activeProductTab === 2
+          ? {
+              src: "/images/mohasib-vat-demo.gif",
+              alt: "Démonstration animée de la déclaration de TVA Mohasib avec les lignes DGI et l’historique des déclarations",
+              width: 1784,
+              height: 1080,
+            }
+          : activeProductTab === 3
+            ? {
+                src: "/images/mohasib-payment-tracking-demo.gif",
+                alt: "Démonstration animée du suivi des paiements Mohasib avec encaissements clients et paiements fournisseurs",
+                width: 1780,
+                height: 1080,
+              }
+            : {
+                src: "/images/mohasib-dashboard-demo-v3.gif",
+                alt: "Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements",
+                width: 1920,
+                height: 990,
+              };
 
   return (
     <div className="public-site" style={{ fontFamily: FONT }}>
