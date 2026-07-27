@@ -14,6 +14,7 @@ import {
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
+import PageHeader from "@/components/PageHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -761,34 +762,26 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   return (
     <div>
       {/* Page header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(200,146,74,0.12)" }}>
-            <Banknote size={18} className="text-[#C8924A]" />
-          </div>
-          <div>
-            <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">La Paie</h1>
-            <p className="text-[11px] text-[#9CA3AF] mt-0.5">Gestion de la paie marocaine</p>
-          </div>
-        </div>
-        {tab === "employes" && (
-          <button data-permission="bulletin_paie:validate" onClick={openAddModal} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white transition-colors" style={{ backgroundColor: "#C8924A" }}>
-            <Plus size={14} /> Ajouter un employé
-          </button>
-        )}
-        {tab === "conges" && (
-          <button data-permission="bulletin_paie:validate" onClick={openLeaveModal} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white transition-colors" style={{ backgroundColor: "#C8924A" }}>
-            <Plus size={14} /> Nouvelle absence
-          </button>
-        )}
-        {tab === "bulletins" && bulletins.length > 0 && (
-          <div className="flex gap-2">
-            <button data-permission="bulletin_paie:validate" onClick={validateAll} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#1D4ED8] border border-[#BFDBFE] bg-[#EFF6FF] hover:bg-[#DBEAFE] transition-colors">
+      <PageHeader
+        title="La Paie"
+        subtitle="Gestion de la paie marocaine"
+        icon={<Banknote size={18} />}
+        action={
+          tab === "employes" ? (
+            <button data-permission="bulletin_paie:validate" onClick={openAddModal} className="btn btn-gold min-h-10">
+              <Plus size={14} /> Ajouter un employé
+            </button>
+          ) : tab === "conges" ? (
+            <button data-permission="bulletin_paie:validate" onClick={openLeaveModal} className="btn btn-gold min-h-10">
+              <Plus size={14} /> Nouvelle absence
+            </button>
+          ) : tab === "bulletins" && bulletins.length > 0 ? (
+            <button data-permission="bulletin_paie:validate" onClick={validateAll} className="flex min-h-10 items-center gap-1.5 border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] font-medium text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE]">
               <CheckCircle size={13} /> Tout valider
             </button>
-          </div>
-        )}
-      </div>
+          ) : null
+        }
+      />
 
       {/* Section tabs */}
       <div className="tabs mb-5 overflow-x-auto">
@@ -975,7 +968,7 @@ function EmployesTab({ employees, hasEmployees, search, loading, deletingId, onA
       </div>
       <p className="text-[14px] font-semibold text-[#1A1A2E] mb-1">Aucun employé pour le moment</p>
       <p className="text-[12px] text-[#6B7280] mb-5">Ajoutez votre premier employé pour commencer à générer des bulletins de paie</p>
-      <button onClick={onAdd} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12.5px] font-medium text-white" style={{ backgroundColor: "#C8924A" }}>
+      <button onClick={onAdd} className="btn btn-gold min-h-10">
         <Plus size={14} /> Ajouter un employé
       </button>
     </div>
@@ -1404,7 +1397,7 @@ function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, 
             <ChevronRight size={16} />
           </button>
         </div>
-        <button data-permission="bulletin_paie:validate" onClick={onGenerate} disabled={generating || !employees.length} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-white disabled:opacity-50 transition-colors" style={{ backgroundColor: "#C8924A" }}>
+        <button data-permission="bulletin_paie:validate" onClick={onGenerate} disabled={generating || !employees.length} className="btn btn-gold min-h-10 disabled:opacity-50">
           {generating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
           Générer les bulletins de {MONTHS[selectedMonth - 1]}
         </button>
@@ -1680,8 +1673,8 @@ function LeaveModal({ employees, leaveTypes, form, holidays, saving, onChange, o
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[rgba(0,0,0,0.07)]">
-          <button onClick={onClose} className="btn btn-outline">Annuler</button>
-          <button onClick={onSave} disabled={saving || days <= 0} className="btn btn-gold">
+          <button onClick={onClose} className="btn btn-outline min-h-10">Annuler</button>
+          <button onClick={onSave} disabled={saving || days <= 0} className="btn btn-gold min-h-10">
             {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Enregistrer
           </button>
         </div>
@@ -1894,10 +1887,10 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
 
         {/* Modal footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[rgba(0,0,0,0.07)]">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-[12.5px] font-medium text-[#374151] border border-[rgba(0,0,0,0.12)] hover:bg-[#F3F4F6] transition-colors">
+          <button onClick={onClose} className="btn btn-outline min-h-10">
             Annuler
           </button>
-          <button onClick={onSave} disabled={saving} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12.5px] font-medium text-white disabled:opacity-50 transition-colors" style={{ backgroundColor: "#C8924A" }}>
+          <button onClick={onSave} disabled={saving} className="btn btn-gold min-h-10 disabled:opacity-50">
             {saving ? <Loader2 size={13} className="animate-spin" /> : null}
             {mode === "add" ? "Ajouter l'employé" : "Enregistrer"}
           </button>
