@@ -45,6 +45,7 @@ export default function ChatInterface({
   const [historyOpen, setHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -64,6 +65,10 @@ export default function ChatInterface({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: loading ? "auto" : "smooth" });
   }, [loading, messages]);
+
+  useEffect(() => () => {
+    if (typingTimerRef.current !== null) clearTimeout(typingTimerRef.current);
+  }, []);
 
   async function openConversation(id: string) {
     setActiveId(id);
@@ -104,6 +109,41 @@ export default function ChatInterface({
     setInput("");
     setLoading(true);
 
+    let pendingText = "";
+    let streamFinished = false;
+    let resolveTyping: () => void = () => {};
+    const typingFinished = new Promise<void>((resolve) => {
+      resolveTyping = resolve;
+    });
+
+    const revealText = () => {
+      typingTimerRef.current = null;
+
+      if (pendingText.length > 0) {
+        const charactersPerTick = pendingText.length > 240 ? 12 : pendingText.length > 80 ? 6 : 2;
+        const visibleText = pendingText.slice(0, charactersPerTick);
+        pendingText = pendingText.slice(charactersPerTick);
+
+        setMessages((current) => {
+          const updated = [...current];
+          const last = updated.length - 1;
+          updated[last] = { role: "assistant", content: updated[last].content + visibleText };
+          return updated;
+        });
+      }
+
+      if (pendingText.length > 0) {
+        typingTimerRef.current = setTimeout(revealText, 24);
+      } else if (streamFinished) {
+        resolveTyping();
+      }
+    };
+
+    const queueText = (text: string) => {
+      pendingText += text;
+      if (typingTimerRef.current === null) typingTimerRef.current = setTimeout(revealText, 24);
+    };
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -134,14 +174,7 @@ export default function ChatInterface({
             const parsed = JSON.parse(payload);
             if (parsed.conversation_id) setActiveId(parsed.conversation_id);
             if (parsed.error) throw new Error(parsed.error);
-            if (parsed.text) {
-              setMessages((current) => {
-                const updated = [...current];
-                const last = updated.length - 1;
-                updated[last] = { role: "assistant", content: updated[last].content + parsed.text };
-                return updated;
-              });
-            }
+            if (parsed.text) queueText(parsed.text);
           } catch (error) {
             if (error instanceof SyntaxError) continue;
             throw error;
@@ -149,8 +182,20 @@ export default function ChatInterface({
         }
       }
 
+      streamFinished = true;
+      if (typingTimerRef.current === null) {
+        if (pendingText.length > 0) {
+          typingTimerRef.current = setTimeout(revealText, 24);
+        } else {
+          resolveTyping();
+        }
+      }
+      await typingFinished;
       void loadConversations();
     } catch {
+      if (typingTimerRef.current !== null) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+      pendingText = "";
       setMessages((current) => {
         const updated = [...current];
         updated[updated.length - 1] = {
@@ -315,7 +360,15 @@ export default function ChatInterface({
                       <span className="dot" />
                     </span>
                   ) : (
-                    message.content
+                    <>
+                      {message.content}
+                      {loading && message.role === "assistant" && index === messages.length - 1 && (
+                        <span
+                          className="ml-0.5 inline-block h-[1em] w-[2px] animate-pulse bg-[#C8924A] align-[-2px]"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               </div>
