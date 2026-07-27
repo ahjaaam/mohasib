@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
+import SupportTicketButton from "@/components/SupportTicketButton";
 import ChatInterface from "@/app/(app)/chat/ChatInterface";
 import type { GlobalSearchKind, GlobalSearchResult } from "@/lib/global-search";
 
@@ -357,6 +358,8 @@ export default function AppTopBar({
             }}
           />
         )}
+
+        {userId && <SupportTicketButton dossierId={dossierId} />}
 
         <button
           type="button"

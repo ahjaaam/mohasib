@@ -7,7 +7,7 @@ const FONT = "var(--font-jakarta), sans-serif";
 
 export default function PublicFooter() {
   return (
-    <footer className="border-t border-[#E2E1DB] bg-[#F5F4EF] px-8 pb-9 pt-12 max-sm:px-5 max-sm:pb-7 max-sm:pt-10">
+    <footer className="bg-white px-8 pb-9 pt-12 max-sm:px-5 max-sm:pb-7 max-sm:pt-10">
       <div style={{ maxWidth: 1160, margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
           <Image src="/logo2.png" alt="Mohasib" width={112} height={34} style={{ height: "auto", objectFit: "contain", opacity: 0.82 }} />

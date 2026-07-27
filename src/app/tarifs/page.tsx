@@ -2,105 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
-import { appUrl } from "@/lib/public-urls";
-
-type Plan = {
-  name: string;
-  price: number;
-  priceNote: string;
-  tagline: string;
-  features: string[];
-};
-
-const plans: Plan[] = [
-  {
-    name: "TPE/PME ou Auto-entrepreneurs",
-    price: 99,
-    priceNote: "Selon le nombre de documents et d'utilisateurs",
-    tagline: "Toute votre gestion financière quotidienne, réunie dans un seul espace simple et clair.",
-    features: [
-      "Factures et devis illimités",
-      "Déclaration TVA",
-      "Boîte de réception OCR",
-      "Suivi des paiements clients et fournisseurs",
-      "Import des relevés bancaires",
-      "La paie, selon le nombre d'employés",
-      "Archivage des documents",
-      "Support 7j/7",
-    ],
-  },
-  {
-    name: "Comptables",
-    price: 299,
-    priceNote: "Selon le nombre de dossiers et de collaborateurs",
-    tagline: "Un poste de pilotage conçu pour gérer tous vos dossiers clients sans changer d'outil, centraliser les pièces et suivre chaque échéance depuis une seule interface.",
-    features: [
-      "Dossiers clients, à volonté",
-      "Interface cabinet dédiée",
-      "Facturation et écritures par dossier",
-      "Déclaration TVA + export CGNC",
-      "Portail client pour vos propres clients",
-      "Collaborateurs du cabinet",
-      "Bilan & CPC automatique",
-      "Support 7j/7",
-    ],
-  },
-];
-
-function PlanCard({ plan }: { plan: Plan }) {
-  return (
-    <article className="relative flex h-full flex-col border border-[#9CA3AF] bg-white p-6 text-[#0D1526] sm:p-8 lg:p-10">
-      <div>
-        <div>
-          <h1 className="max-w-[400px] text-[26px] font-bold leading-[1.15] sm:text-[30px]">
-            {plan.name}
-          </h1>
-        </div>
-      </div>
-
-      <p className="mt-6 max-w-[470px] text-[13.5px] leading-6 text-[#666B75]">
-        {plan.tagline}
-      </p>
-
-      <div className="mt-8 border-y border-[#D1D5DB] py-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#0D1526]">
-          À partir de
-        </p>
-        <div className="mt-2 flex flex-wrap items-end gap-x-2">
-          <span className="text-[58px] font-extrabold leading-[0.82] tracking-[-0.055em] sm:text-[68px]">
-            {plan.price}
-          </span>
-          <span className="pb-1 text-[12px] font-semibold text-[#6B7280]">
-            DH / mois
-          </span>
-        </div>
-        <p className="mt-4 text-[11px] text-[#8B9099]">{plan.priceNote}</p>
-      </div>
-
-      <div className="mt-7 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#898D95]">
-          Tout ce qu&apos;il vous faut
-        </p>
-        <ul className="mt-4 grid gap-x-5 gap-y-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-          {plan.features.map((feature) => (
-            <li key={feature} className="flex items-baseline gap-2.5 text-[12.5px] leading-5 text-[#374151]">
-              <span className="shrink-0 text-[14px] leading-none text-[#9A7747]">•</span>
-              <span>{feature}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <Link
-        href={appUrl("/inscription")}
-        className="mt-8 inline-flex min-h-12 w-fit items-center gap-8 bg-[#0D1526] px-5 text-[12.5px] font-bold text-white transition-colors hover:bg-[#253047]"
-      >
-        Créer un compte gratuitement
-        <ArrowRight size={15} />
-      </Link>
-    </article>
-  );
-}
+import PricingCalculator from "./PricingCalculator";
 
 export default function TarifsPage() {
   return (
@@ -132,21 +34,8 @@ export default function TarifsPage() {
       </section>
 
       <section className="bg-white px-5 py-16 sm:px-10 sm:py-24">
-        <div className="mx-auto max-w-[1120px]">
-          <div className="mb-9 border-b border-[#D1D5DB] pb-6">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8B765A]">Choisissez votre espace</p>
-              <h2 className="mt-2 text-[28px] font-bold tracking-[-0.025em] text-[#0D1526] sm:text-[36px]">
-                Deux métiers. Une même exigence.
-              </h2>
-            </div>
-          </div>
-
-          <div className="grid items-stretch gap-5 lg:grid-cols-2">
-            {plans.map((plan) => (
-              <PlanCard key={plan.name} plan={plan} />
-            ))}
-          </div>
+        <div className="mx-auto max-w-[1180px]">
+          <PricingCalculator />
         </div>
       </section>
 

@@ -49,7 +49,7 @@ export default async function WaitlistPage({
         <table className="w-full text-left text-[11px]">
           <thead className="bg-[#F8F8F5] text-gray-500">
             <tr>
-              {["Nom / entreprise", "Email", "Téléphone", "Origine", "Statut", "Date", "Action"].map((value) => (
+              {["Nom / entreprise", "Email", "Téléphone", "Profil / besoin", "Statut", "Date", "Action"].map((value) => (
                 <th key={value} className="px-3 py-2.5">{value}</th>
               ))}
             </tr>
@@ -63,7 +63,10 @@ export default async function WaitlistPage({
                 </td>
                 <td className="px-3 py-3">{item.email}</td>
                 <td className="px-3 py-3">{item.telephone || "—"}</td>
-                <td className="px-3 py-3">Démo</td>
+                <td className="px-3 py-3">
+                  <div className="font-semibold">{item.track === "comptable" ? "Comptable / fiduciaire" : "Entrepreneur"}</div>
+                  {item.besoin && <div className="mt-0.5 text-gray-400">{item.besoin}</div>}
+                </td>
                 <td className="px-3 py-3"><StatusBadge status={item.status || "pending"} /></td>
                 <td className="px-3 py-3">{formatDate(item.created_at)}</td>
                 <td className="px-3 py-3">

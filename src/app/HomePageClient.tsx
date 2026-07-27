@@ -1,11 +1,23 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
-import { appUrl, whatsappUrl } from "@/lib/public-urls";
+import DemoRequestModal from "@/components/DemoRequestModal";
+import { appUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
+
+const PRODUCT_TABS = [
+  "Facturation",
+  "Comptabilité",
+  "TVA & Déclarations",
+  "Rapprochement bancaire",
+  "La paie",
+  "Cabinet comptable",
+  "OCR & Documents",
+];
 
 const FLOATING_ITEMS = [
   { position: "one", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
@@ -15,24 +27,21 @@ const FLOATING_ITEMS = [
   { position: "five", src: "/images/sage-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
   { position: "six", src: "/images/outlook-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
   { position: "seven", src: "/images/google-drive-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
+  { position: "eight", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "nine", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "ten", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "eleven", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "twelve", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "thirteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "fourteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "fifteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "sixteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "seventeen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
 ];
 
-function WhatsAppIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="18"
-      height="18"
-      viewBox="0 0 16 16"
-      fill="currentColor"
-      style={{ color: "#085E54", flexShrink: 0 }}
-    >
-      <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93a7.898 7.898 0 0 0-2.327-5.607ZM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.25a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.591-6.592 6.591Zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.514.646-.63.775-.116.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.174-1.101-1.371-.116-.198-.013-.305.086-.404.09-.088.197-.232.295-.348.1-.116.133-.198.198-.33.066-.132.033-.248-.016-.347-.05-.099-.445-1.075-.61-1.47-.16-.389-.323-.335-.445-.34-.116-.006-.248-.006-.38-.006a.729.729 0 0 0-.529.248c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.132 1.394 2.132 3.383 2.992.47.205.84.326 1.129.417.475.152.904.129 1.246.08.38-.057 1.17-.48 1.338-.943.164-.462.164-.86.114-.943-.049-.084-.182-.133-.38-.232Z" />
-    </svg>
-  );
-}
-
 export default function HomePageClient() {
+  const [demoOpen, setDemoOpen] = useState(false);
+
   return (
     <div className="public-site" style={{ fontFamily: FONT }}>
       <style>{`
@@ -58,7 +67,7 @@ export default function HomePageClient() {
           margin: 0 auto 26px;
           color: #0A0A0A;
           font-size: clamp(46px, 4.2vw, 58px);
-          font-weight: 700;
+          font-weight: 600;
           letter-spacing: -3px;
           line-height: 0.98;
         }
@@ -76,21 +85,23 @@ export default function HomePageClient() {
           gap: 12px;
           flex-wrap: wrap;
         }
-        .home-whatsapp-action {
-          border-color: #075E54;
-          color: #075E54;
+        .home-hero-cta {
+          background: linear-gradient(160deg, #1e2536 0%, #000000 100%);
+          border-color: transparent;
         }
-        .home-whatsapp-action:hover {
-          border-color: #075E54;
-          background: #F0FFF5;
-          color: #075E54;
+        .home-hero-cta:hover {
+          background: linear-gradient(160deg, #2a3348 0%, #0a0a0a 100%);
+          border-color: transparent;
         }
-        .home-hero-note {
-          margin: 13px 0 0;
-          color: #8A8F98;
-          font-family: ${FONT};
-          font-size: 11px;
-          letter-spacing: 0.02em;
+        .home-demo-action {
+          border-color: #B9B6AE;
+          color: #0D1526;
+          cursor: pointer;
+        }
+        .home-demo-action:hover {
+          border-color: #7A6668;
+          background: #F8F5F5;
+          color: #0D1526;
         }
         .home-receipt-field {
           position: absolute;
@@ -120,7 +131,7 @@ export default function HomePageClient() {
           opacity: 0.92;
         }
         .home-scattered-mark img {
-          filter: grayscale(0.55);
+          filter: grayscale(0.40);
         }
         .home-receipt-one {
           --receipt-width: 152px;
@@ -178,11 +189,144 @@ export default function HomePageClient() {
           top: 48%;
           right: 15%;
         }
+        .home-receipt-eight {
+          --receipt-width: 108px;
+          --receipt-rotation: 11deg;
+          --receipt-opacity: 0.34;
+          --receipt-duration: 8.7s;
+          --receipt-delay: -1.2s;
+          top: -13%;
+          left: 12%;
+        }
+        .home-receipt-nine {
+          --receipt-width: 98px;
+          --receipt-rotation: -16deg;
+          --receipt-opacity: 0.3;
+          --receipt-duration: 7.9s;
+          --receipt-delay: -4.6s;
+          top: -12%;
+          right: 12%;
+        }
+        .home-receipt-ten {
+          --receipt-width: 86px;
+          --receipt-rotation: -9deg;
+          --receipt-opacity: 0.38;
+          --receipt-duration: 9.2s;
+          --receipt-delay: -3.5s;
+          bottom: -8%;
+          left: 27%;
+        }
+        .home-receipt-eleven {
+          --receipt-width: 92px;
+          --receipt-rotation: 14deg;
+          --receipt-opacity: 0.36;
+          --receipt-duration: 8.3s;
+          --receipt-delay: -5.8s;
+          right: 27%;
+          bottom: -7%;
+        }
+        .home-receipt-twelve {
+          --receipt-width: 76px;
+          --receipt-rotation: 20deg;
+          --receipt-opacity: 0.22;
+          --receipt-duration: 7.4s;
+          --receipt-delay: -2.7s;
+          top: 34%;
+          left: 16%;
+        }
+        .home-receipt-thirteen {
+          --receipt-width: 72px;
+          --receipt-rotation: -23deg;
+          --receipt-opacity: 0.2;
+          --receipt-duration: 8.9s;
+          --receipt-delay: -6.2s;
+          top: 33%;
+          right: 17%;
+        }
+        .home-receipt-fourteen {
+          --receipt-width: 62px;
+          --receipt-rotation: -6deg;
+          --receipt-opacity: 0.18;
+          --receipt-duration: 9.5s;
+          --receipt-delay: -4.1s;
+          top: -3%;
+          left: 42%;
+        }
+        .home-receipt-fifteen {
+          --receipt-width: 58px;
+          --receipt-rotation: 8deg;
+          --receipt-opacity: 0.16;
+          --receipt-duration: 8.1s;
+          --receipt-delay: -1.8s;
+          top: -2%;
+          right: 41%;
+        }
+        .home-receipt-sixteen {
+          --receipt-width: 82px;
+          --receipt-rotation: 24deg;
+          --receipt-opacity: 0.28;
+          --receipt-duration: 9.1s;
+          --receipt-delay: -5.1s;
+          bottom: -4%;
+          left: 3%;
+        }
+        .home-receipt-seventeen {
+          --receipt-width: 78px;
+          --receipt-rotation: -19deg;
+          --receipt-opacity: 0.27;
+          --receipt-duration: 7.7s;
+          --receipt-delay: -3.9s;
+          right: 3%;
+          bottom: -3%;
+        }
+        .home-hero-tabs {
+          position: relative;
+          z-index: 2;
+          display: inline-flex;
+          align-items: stretch;
+          max-width: 100%;
+          margin: 54px auto 0;
+          background: #FFFFFF;
+          border: 1px solid #E5E5E1;
+          border-bottom: none;
+          border-radius: 12px 12px 0 0;
+          box-shadow: 0 8px 24px rgba(13, 21, 38, 0.08);
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+        .home-hero-tabs::-webkit-scrollbar {
+          display: none;
+        }
+        .home-hero-tab {
+          flex-shrink: 0;
+          padding: 12px 20px;
+          font-family: ${FONT};
+          font-size: 13px;
+          font-weight: 400;
+          color: #6B7280;
+          background: transparent;
+          border: none;
+          border-right: 1px solid #E5E5E1;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: color 0.15s ease;
+        }
+        .home-hero-tab:last-child {
+          border-right: none;
+        }
+        .home-hero-tab:hover {
+          color: #0A0A0A;
+        }
+        .home-hero-tab.is-active {
+          color: #0A0A0A;
+          font-weight: 500;
+        }
         .home-hero-preview {
           position: relative;
           z-index: 1;
           width: min(100%, 1140px);
-          margin: 54px auto 0;
+          margin: 0 auto 0;
           overflow: hidden;
           background: #FFFFFF;
           box-shadow: 0 34px 90px rgba(0, 0, 0, 0.38);
@@ -221,6 +365,22 @@ export default function HomePageClient() {
           .home-receipt-seven {
             display: none;
           }
+          .home-receipt-eight,
+          .home-receipt-nine {
+            --receipt-width: 82px;
+          }
+          .home-receipt-ten,
+          .home-receipt-eleven {
+            --receipt-width: 68px;
+          }
+          .home-receipt-twelve,
+          .home-receipt-thirteen {
+            --receipt-width: 58px;
+          }
+          .home-receipt-sixteen,
+          .home-receipt-seventeen {
+            --receipt-width: 64px;
+          }
         }
         @media (max-width: 760px) {
           .home-hero {
@@ -246,7 +406,8 @@ export default function HomePageClient() {
             align-items: center;
             gap: 10px;
           }
-          .home-hero-actions a {
+          .home-hero-actions a,
+          .home-hero-actions button {
             width: min(100%, 328px);
           }
           .home-receipt-one {
@@ -273,11 +434,52 @@ export default function HomePageClient() {
             right: -2%;
             bottom: 12%;
           }
+          .home-receipt-eight {
+            --receipt-width: 48px;
+            top: 24%;
+            left: -7%;
+          }
+          .home-receipt-nine {
+            --receipt-width: 44px;
+            top: 26%;
+            right: -7%;
+          }
+          .home-receipt-ten,
+          .home-receipt-eleven,
+          .home-receipt-fourteen,
+          .home-receipt-fifteen {
+            display: none;
+          }
+          .home-receipt-twelve {
+            --receipt-width: 38px;
+            top: 43%;
+            left: -5%;
+          }
+          .home-receipt-thirteen {
+            --receipt-width: 36px;
+            top: 44%;
+            right: -5%;
+          }
+          .home-receipt-sixteen {
+            --receipt-width: 42px;
+            bottom: -2%;
+            left: 18%;
+          }
+          .home-receipt-seventeen {
+            --receipt-width: 40px;
+            right: 18%;
+            bottom: -1%;
+          }
           .home-receipt-field {
             height: 500px;
           }
-          .home-hero-preview {
-            margin-top: 36px;
+          .home-hero-tabs {
+            margin: 36px auto 0;
+            max-width: calc(100% - 8px);
+          }
+          .home-hero-tab {
+            padding: 10px 14px;
+            font-size: 12px;
           }
         }
       `}</style>
@@ -306,32 +508,43 @@ export default function HomePageClient() {
 
             <div className="home-hero-actions">
               <a
-                className="public-primary-action ui-control"
+                className="public-primary-action home-hero-cta ui-control"
                 href={appUrl("/inscription")}
                 style={{ minHeight: 50, padding: "0 30px", fontSize: 14, fontFamily: FONT }}
               >
                 Créer un compte gratuit
               </a>
-              <a
-                className="public-secondary-action home-whatsapp-action ui-control"
-                href={whatsappUrl("Bonjour, je souhaite en savoir plus sur Mohasib.")}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                className="public-secondary-action home-demo-action ui-control"
+                onClick={() => setDemoOpen(true)}
                 style={{ minHeight: 50, padding: "0 24px", fontSize: 14, fontFamily: FONT }}
               >
-                <WhatsAppIcon />
-                Parler à un conseiller
-              </a>
+                Recevoir la vidéo démo
+              </button>
             </div>
-            <p className="home-hero-note">Sans carte bancaire · Conçu pour le Maroc · Support WhatsApp</p>
+
+            <div className="home-hero-tabs" role="tablist" aria-label="Fonctionnalités Mohasib">
+              {PRODUCT_TABS.map((tab, index) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={index === 0}
+                  className={`home-hero-tab${index === 0 ? " is-active" : ""}`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
 
             <div className="home-hero-preview" aria-label="Aperçu du tableau de bord Mohasib">
               <Image
                 className="home-hero-preview-image"
-                src="/images/mohasib-dashboard-demo-v2.gif"
+                src="/images/mohasib-dashboard-demo-v3.gif"
                 alt="Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements"
-                width={1912}
-                height={1080}
+                width={1920}
+                height={990}
                 sizes="(max-width: 1180px) calc(100vw - 36px), 1140px"
                 priority
                 unoptimized
@@ -341,6 +554,7 @@ export default function HomePageClient() {
       </section>
 
       <PublicFooter />
+      <DemoRequestModal open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
   );
 }

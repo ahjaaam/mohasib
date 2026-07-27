@@ -9,7 +9,7 @@ import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, FileText, Users, ArrowLeftRight, PenLine, LayoutTemplate,
   Calculator, Download, BarChart2, Banknote, Archive,
-  Inbox, ChevronLeft, Building2, LogOut, X, Menu, ChevronDown, GitMerge, Lock,
+  Inbox, ChevronLeft, Building2, X, ChevronDown, GitMerge, Lock,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -118,10 +118,6 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
     router.push(`/comptable-pro/dossiers/${nextId}/${getCurrentSection()}`);
   }
 
-  const userInitials = userName
-    ? userName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
-    : userEmail?.slice(0, 2).toUpperCase() ?? "U";
-
   async function signOut() {
     await supabase.auth.signOut();
     router.push("/connexion");
@@ -129,15 +125,17 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   }
 
   const DossierSwitcher = ({ compact = false }: { compact?: boolean }) => (
-    <div className="relative flex items-center min-w-0 max-w-[360px]">
-      <Building2 size={15} className="absolute left-2.5 text-white/80 pointer-events-none" />
+    <div className={`group relative flex items-center min-w-0 rounded-md bg-white/[0.06] hover:bg-white/10 py-1.5 pl-7 pr-7 transition-colors ${compact ? "max-w-[190px]" : "max-w-full"}`}>
+      <Building2 size={13} className="absolute left-2.5 text-white/50 pointer-events-none flex-shrink-0" />
+      <span className="block min-w-0 flex-1 truncate text-[12px] font-medium text-white/90" title={dossier.raison_sociale}>
+        {dossier.raison_sociale}
+      </span>
+      <ChevronDown size={13} strokeWidth={2.5} className="absolute right-2 text-white/50 pointer-events-none flex-shrink-0" />
       <select
         value={dossier.id}
         onChange={(event) => switchDossier(event.target.value)}
         aria-label="Changer de dossier"
-        className={`appearance-none cursor-pointer bg-white/10 hover:bg-white/20 rounded-md text-white font-semibold outline-none transition-colors pl-8 pr-10 ${
-          compact ? "max-w-[190px] text-[12.5px] py-1" : "max-w-[180px] sm:max-w-[270px] md:max-w-[360px] text-[13px] sm:text-[14px] py-1.5"
-        }`}
+        className="select-arrow-none absolute inset-0 w-full cursor-pointer appearance-none opacity-0"
       >
         {dossiers.map((item) => (
           <option key={item.id} value={item.id} className="text-[#1A1A2E]">
@@ -145,11 +143,10 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
           </option>
         ))}
       </select>
-      <ChevronDown size={18} strokeWidth={2.5} className="absolute right-2.5 text-white pointer-events-none" />
     </div>
   );
 
-  const SidebarContent = ({ compact = false }: { compact?: boolean } = {}) => (
+  const SidebarContent = ({ compact = false, showContextBlock = true }: { compact?: boolean; showContextBlock?: boolean } = {}) => (
     <>
       {/* Mohasib branding */}
       <div className={`pt-4 pb-[15px] border-b border-white/[0.07] flex items-center ${compact ? "justify-center px-0" : "px-[18px]"}`}>
@@ -162,6 +159,16 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
           </div>
         )}
       </div>
+
+      {!isClientPortal && showContextBlock && !compact && (
+        <div className="border-b border-white/[0.07] px-[18px] py-3 flex flex-col gap-2.5">
+          <Link href="/comptable-pro"
+            className="flex items-center gap-1.5 text-white/60 hover:text-white text-[11.5px] font-medium transition-colors">
+            <ChevronLeft size={13} /> Retour
+          </Link>
+          <DossierSwitcher />
+        </div>
+      )}
 
       <nav className="flex-1 py-2 overflow-y-auto">
         {NAV_GROUPS.map(({ group, items }) => (
@@ -193,24 +200,6 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
           </div>
         ))}
       </nav>
-
-      {/* User footer */}
-      <div className={`py-3 border-t border-white/[0.07] flex items-center ${compact ? "justify-center px-0" : "px-[18px] gap-2.5"}`}>
-        <div className="w-[28px] h-[28px] rounded-full bg-[#C8924A] flex items-center justify-center text-[10px] font-bold text-[#0D1526] flex-shrink-0">
-          {userInitials}
-        </div>
-        {!compact && (
-          <>
-            <div className="min-w-0 flex-1">
-              <div className="text-[11.5px] text-white/70 font-medium truncate">{userName || userEmail}</div>
-              <div className="text-[10px] text-white/30">{roleLabel || "Comptable Pro"}</div>
-            </div>
-            <button onClick={signOut} className="text-white/30 hover:text-red-400 transition-colors ml-1">
-              <LogOut size={13} />
-            </button>
-          </>
-        )}
-      </div>
     </>
   );
 
@@ -221,34 +210,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
       <PermissionBoundary permissions={permissions}>
       <div className="flex flex-col h-screen overflow-hidden bg-[#FAFAF6]">
 
-        {/* Dossier context banner — full width, normal flow */}
-        {!isClientPortal && (
-          <div className="flex-shrink-0 flex items-center justify-between px-4 h-[48px] z-30"
-            style={{ background: SIDEBAR_BACKGROUND }}>
-            <Link href="/comptable-pro"
-              className="flex items-center gap-1.5 text-white/90 hover:text-white text-[12.5px] font-medium transition-colors">
-              <ChevronLeft size={15} />
-              <span className="hidden sm:inline">Retour</span>
-            </Link>
-
-            <div className="flex items-center gap-2 min-w-0">
-              <DossierSwitcher />
-              {dossier.ice && (
-                <span className="hidden md:inline text-[11px] text-white/70 bg-white/10 rounded px-1.5 py-0.5">
-                  ICE {dossier.ice}
-                </span>
-              )}
-            </div>
-
-            {/* Mobile menu */}
-            <button onClick={() => setDrawerOpen(true)} className="md:hidden text-white/80 hover:text-white p-1">
-              <Menu size={20} />
-            </button>
-            <div className="hidden md:block w-[120px]" />
-          </div>
-        )}
-
-        {/* Below the banner: sidebar + (search bar / content) column, side by side */}
+        {/* Sidebar + (search bar / content) column, side by side */}
         <div className="flex flex-1 min-h-0">
           {/* Desktop sidebar */}
           <aside
@@ -268,7 +230,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               avatarUrl={userAvatar}
               sidebarCollapsed={sidebarCollapsed}
               onToggleSidebar={() => setSidebarCollapsed((collapsed) => !collapsed)}
-              onOpenMobileMenu={isClientPortal ? () => setDrawerOpen(true) : undefined}
+              onOpenMobileMenu={() => setDrawerOpen(true)}
               onSignOut={signOut}
               settingsHref={`${base}/settings`}
               dossierId={dossier.id}
@@ -303,7 +265,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto flex flex-col">
-                <SidebarContent />
+                <SidebarContent showContextBlock={false} />
               </div>
             </div>
           </>

@@ -235,7 +235,7 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
                       <select
                         value={selected}
                         onChange={e => setSelectedDossier(p => ({ ...p, [item.id]: e.target.value }))}
-                        className="input pr-7 text-[12px] appearance-none"
+                        className="select-arrow-none input pr-7 text-[12px] appearance-none"
                         style={{ minWidth: 200 }}
                       >
                         <option value="">Sélectionner un dossier…</option>

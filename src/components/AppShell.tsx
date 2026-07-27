@@ -251,16 +251,16 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                     const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
                     return (
                       <Link key={href} href={href}
-                        className={`flex items-center gap-2 pl-[38px] pr-[18px] py-[9px] text-[12.5px] transition-all border-r-2 ${
+                        className={`flex items-center gap-2 px-[18px] py-[9px] text-[12.5px] transition-all border-r-2 ${
                           active
                             ? "text-[#C8924A] bg-[rgba(200,146,74,0.08)] border-[#C8924A]"
                             : locked
                               ? "text-white/20 hover:text-white/40 hover:bg-white/5 border-transparent"
                               : "text-white/40 hover:text-white/75 hover:bg-white/5 border-transparent"
                         }`}>
-                        <Icon size={13} />
-                        {label}
-                        {locked && <Lock size={10} className="ml-auto opacity-70" />}
+                        <Icon size={13} className="flex-shrink-0" />
+                        <span className="flex-1 min-w-0 truncate">{label}</span>
+                        {locked && <Lock size={10} className="ml-auto flex-shrink-0 opacity-70" />}
                       </Link>
                     );
                   })}
@@ -424,7 +424,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                       const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
                       return (
                         <Link key={href} href={href} onClick={() => setDrawerOpen(false)}
-                          className="flex items-center gap-3 pl-[44px] pr-[20px] py-[10px] transition-colors"
+                          className="flex items-center gap-3 px-[20px] py-[10px] transition-colors"
                           style={{ color: active ? "#C8924A" : allowed(permission) ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.25)" }}>
                           <Icon size={14} />
                           <span style={{ fontSize: 13 }}>{label}</span>

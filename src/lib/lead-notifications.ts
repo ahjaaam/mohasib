@@ -1,7 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 
-type LeadNotificationKind = "signup" | "demo";
+type LeadNotificationKind = "signup" | "demo" | "ticket";
 
 type LeadNotificationInput = {
   kind: LeadNotificationKind;
@@ -11,6 +11,9 @@ type LeadNotificationInput = {
   company?: string;
   userType?: string;
   source?: string;
+  subject?: string;
+  message?: string;
+  link?: string;
 };
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -39,8 +42,9 @@ export async function sendLeadNotification(input: LeadNotificationInput) {
   if (!resend || !to) return { skipped: true };
 
   const isSignup = input.kind === "signup";
-  const title = isSignup ? "Nouvelle inscription" : "Nouvelle demande de démo";
-  const source = input.source || (isSignup ? "Inscription" : "Homepage");
+  const isTicket = input.kind === "ticket";
+  const title = isTicket ? `Nouveau ticket support : ${input.subject || "Sans sujet"}` : isSignup ? "Nouvelle inscription" : "Nouvelle demande de démo";
+  const source = input.source || (isSignup ? "Inscription" : isTicket ? "Support rapide" : "Homepage");
 
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || "Mohasib <noreply@mohasibai.com>",
@@ -57,6 +61,8 @@ export async function sendLeadNotification(input: LeadNotificationInput) {
             ${row("Téléphone", input.phone)}
             ${row("Entreprise / cabinet", input.company)}
             ${row("Type de compte", input.userType)}
+            ${row("Message", input.message)}
+            ${row("Page", input.link)}
             ${row("Source", source)}
             ${row("Date", new Date().toLocaleString("fr-MA", { timeZone: "Africa/Casablanca" }))}
           </table>

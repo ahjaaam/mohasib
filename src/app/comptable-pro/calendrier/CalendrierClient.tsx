@@ -61,11 +61,21 @@ const CATEGORIES: { value: Category; label: string }[] = [
 
 // ─── Fiscal event generation ────────────────────────────────────────────────────
 
+function slugify(text: string) {
+  return text
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 function fiscalEventsForMonth(year: number, month: number): FiscalEvent[] {
   const daysInMonth = new Date(year, month, 0).getDate();
   const clamp = (d: number) => Math.min(d, daysInMonth);
   const ev = (day: number, title: string, cat: Category): FiscalEvent =>
-    ({ id: `fiscal-${month}-${day}-${cat}`, day: clamp(day), title, category: cat, fiscal: true });
+    // day+cat alone isn't unique (e.g. TVA mensuelle/trimestrielle both fall on day
+    // 20 with category "tva" in the same month) — the slugified title disambiguates.
+    ({ id: `fiscal-${month}-${day}-${cat}-${slugify(title)}`, day: clamp(day), title, category: cat, fiscal: true });
 
   const list: FiscalEvent[] = [
     ev(10, "CNSS & IR salaires (mois précédent)", "cnss"),

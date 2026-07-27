@@ -138,6 +138,12 @@ export function RequestStatus({ id, current }: { id: string; current?: string | 
   </select>;
 }
 
+export function TicketStatus({ id, current }: { id: string; current?: string | null }) {
+  return <select defaultValue={current ?? "nouveau"} className="rounded border border-black/10 bg-white px-2 py-1 text-[11px]" onChange={event => void post(`/api/admin/support-tickets/${id}`, { status: event.target.value }).catch(error => alert(error.message))}>
+    {["nouveau", "contacté", "finalisé", "cancelled"].map(value => <option key={value}>{value}</option>)}
+  </select>;
+}
+
 export function MemberToggle({ id, suspended, authBanned = false }: { id: string; suspended: boolean; authBanned?: boolean }) {
   const blocked = suspended || authBanned;
   return <button className="rounded border border-black/10 px-2 py-1 text-[10px] font-semibold" onClick={() => void post(`/api/admin/members/${id}`, { suspended: !blocked }).catch(error => alert(error.message))}>{blocked ? "Réactiver" : "Suspendre"}</button>;

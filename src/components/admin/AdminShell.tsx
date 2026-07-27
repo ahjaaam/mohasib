@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CreditCard, FileText, Gauge, Inbox, ListChecks, UserCog, Users } from "lucide-react";
+import { BarChart3, CreditCard, FileText, Gauge, Inbox, LifeBuoy, ListChecks, UserCog, Users } from "lucide-react";
 
 const NAV = [
   { href: "/admin", label: "Tableau de bord", icon: BarChart3 },
@@ -11,6 +11,7 @@ const NAV = [
   { href: "/admin/responsables", label: "Collaborateurs", icon: UserCog },
   { href: "/admin/abonnements", label: "Abonnements", icon: CreditCard },
   { href: "/admin/demandes", label: "Demandes", icon: Inbox },
+  { href: "/admin/support", label: "Support rapide", icon: LifeBuoy },
   { href: "/admin/liste-attente", label: "Liste d'attente", icon: ListChecks },
   { href: "/admin/leads", label: "Leads documents", icon: FileText },
 ];
