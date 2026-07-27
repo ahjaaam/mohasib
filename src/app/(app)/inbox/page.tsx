@@ -445,7 +445,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                     className="flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2 text-[12px] font-medium transition-colors disabled:opacity-50"
                     style={{ backgroundColor: "#0D1526", color: "#fff", border: "none" }}>
                     <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
-                    {syncing ? "Synchronisation…" : "Sync mes emails"}
+                    {syncing ? "Importation…" : "Importer depuis mes emails"}
                   </button>
                 )}
                 <button data-permission="document:create" onClick={() => fileInputRef.current?.click()}

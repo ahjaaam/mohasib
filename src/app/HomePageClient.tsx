@@ -11,7 +11,7 @@ const FONT = "var(--font-jakarta), sans-serif";
 
 const PRODUCT_TABS = [
   "Facturation",
-  "Comptabilité",
+  "Boîte de réception",
   "TVA & Déclarations",
   "Rapprochement bancaire",
   "La paie",
@@ -41,6 +41,28 @@ const FLOATING_ITEMS = [
 
 export default function HomePageClient() {
   const [demoOpen, setDemoOpen] = useState(false);
+  const [activeProductTab, setActiveProductTab] = useState(0);
+  const productPreview =
+    activeProductTab === 0
+      ? {
+          src: "/images/mohasib-invoicing-demo.gif",
+          alt: "Démonstration animée de la facturation Mohasib avec le suivi des factures clients",
+          width: 1780,
+          height: 1080,
+        }
+      : activeProductTab === 1
+        ? {
+            src: "/images/mohasib-inbox-demo.gif",
+            alt: "Démonstration animée de la boîte de réception Mohasib pour importer et traiter les factures fournisseurs",
+            width: 1920,
+            height: 1010,
+          }
+        : {
+            src: "/images/mohasib-dashboard-demo-v3.gif",
+            alt: "Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements",
+            width: 1920,
+            height: 990,
+          };
 
   return (
     <div className="public-site" style={{ fontFamily: FONT }}>
@@ -530,8 +552,9 @@ export default function HomePageClient() {
                   key={tab}
                   type="button"
                   role="tab"
-                  aria-selected={index === 0}
-                  className={`home-hero-tab${index === 0 ? " is-active" : ""}`}
+                  aria-selected={index === activeProductTab}
+                  className={`home-hero-tab${index === activeProductTab ? " is-active" : ""}`}
+                  onClick={() => setActiveProductTab(index)}
                 >
                   {tab}
                 </button>
@@ -540,11 +563,12 @@ export default function HomePageClient() {
 
             <div className="home-hero-preview" aria-label="Aperçu du tableau de bord Mohasib">
               <Image
+                key={productPreview.src}
                 className="home-hero-preview-image"
-                src="/images/mohasib-dashboard-demo-v3.gif"
-                alt="Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements"
-                width={1920}
-                height={990}
+                src={productPreview.src}
+                alt={productPreview.alt}
+                width={productPreview.width}
+                height={productPreview.height}
                 sizes="(max-width: 1180px) calc(100vw - 36px), 1140px"
                 priority
                 unoptimized
