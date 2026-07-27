@@ -1650,7 +1650,7 @@ function LeaveModal({ employees, leaveTypes, form, holidays, saving, onChange, o
             </select>
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Date début">
               <input type="date" className="input" value={form.date_debut} onChange={e => onChange("date_debut", e.target.value)} />
             </Field>
@@ -1717,7 +1717,7 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
           {/* Left + Right columns */}
           <div className="md:col-span-2 space-y-4">
             {/* Personal info */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Prénom *">
                 <input className="input" value={form.prenom} onChange={e => onChange("prenom", e.target.value)} />
               </Field>
@@ -1747,7 +1747,7 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
             </div>
 
             {/* Job info */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Poste">
                 <input className="input" value={form.poste} onChange={e => onChange("poste", e.target.value)} />
               </Field>
@@ -1778,7 +1778,7 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
             </div>
 
             {/* Bank info */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Mode de paiement">
                 <select className="input" value={form.mode_paiement} onChange={e => onChange("mode_paiement", e.target.value)}>
                   {["virement","chèque","espèces"].map(m => <option key={m} value={m}>{m}</option>)}
@@ -1792,7 +1792,7 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Heures/semaine">
                 <input type="number" step="0.5" className="input" value={form.heures_travail_semaine} onChange={e => onChange("heures_travail_semaine", e.target.value)} />
               </Field>

@@ -434,11 +434,10 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={{ backgroundColor: "rgba(13,21,38,0.6)", backdropFilter: "blur(4px)" }}
     >
-      <div className="bg-white w-full sm:rounded-xl shadow-2xl flex flex-col"
-        style={{ maxWidth: 920, height: "clamp(500px, 92vh, 920px)" }}>
+      <div className="flex h-[100dvh] w-full flex-col bg-white shadow-2xl sm:h-[min(92vh,920px)] sm:max-w-[920px] sm:rounded-xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(0,0,0,0.08)] flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-[rgba(0,0,0,0.08)] px-4 py-3 sm:px-6 sm:py-4">
           <div>
             <h2 className="text-[14px] font-semibold text-[#1A1A2E]">
               Importer un relevé bancaire
@@ -460,7 +459,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
 
           {/* ── STEP 1: Upload ────────────────────────────────────────────── */}
           {step === 1 && (
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
 
               {/* Hidden file input — single instance */}
               <input

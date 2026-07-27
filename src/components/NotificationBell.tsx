@@ -120,7 +120,7 @@ export default function NotificationBell({ userId, onOpen }: { userId: string; o
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2.5 w-[340px] overflow-hidden border border-[#DADAD5] border-t-2 border-t-[#C8924A] bg-white shadow-[0_18px_42px_rgba(13,21,38,0.15)]">
+        <div className="absolute right-0 top-full z-50 mt-2.5 w-[calc(100vw-24px)] max-w-[340px] overflow-hidden border border-[#DADAD5] border-t-2 border-t-[#C8924A] bg-white shadow-[0_18px_42px_rgba(13,21,38,0.15)]">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(0,0,0,0.06)]">
             <span className="text-[12.5px] font-semibold text-[#1A1A2E]">

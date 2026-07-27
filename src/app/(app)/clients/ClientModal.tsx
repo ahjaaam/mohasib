@@ -186,7 +186,7 @@ export default function ClientModal({ userId, dossierId, client, open, onClose, 
           </div>
 
           {/* ICE + IF */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-medium text-[#6B7280]">ICE</label>
               <input
@@ -228,7 +228,7 @@ export default function ClientModal({ userId, dossierId, client, open, onClose, 
           </div>
 
           {/* City + Postal code */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-medium text-[#6B7280]">Ville *</label>
               <input
@@ -258,7 +258,7 @@ export default function ClientModal({ userId, dossierId, client, open, onClose, 
           </div>
 
           {/* Email + Phone */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-medium text-[#6B7280]">Email</label>
               <input

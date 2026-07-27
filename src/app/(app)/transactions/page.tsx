@@ -173,7 +173,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       />}
 
       {/* ─── Page header ──────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 mb-5">
+      <div className="mb-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "rgba(200,146,74,0.12)" }}>
@@ -195,7 +195,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       </div>
 
       {/* KPIs — current month */}
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
+      <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
         <div className="kpi">
           <div className="kpi-label">Encaissé <span className="text-[10px] font-normal text-[#9CA3AF] ml-1">ce mois</span></div>
           <div className="kpi-value text-[#059669]">{fmt(income)}</div>

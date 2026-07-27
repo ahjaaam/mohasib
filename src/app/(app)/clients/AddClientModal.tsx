@@ -79,7 +79,7 @@ export default function AddClientModal({ userId, className = "", onCreated, butt
                 <input className="input" required value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-medium text-[#6B7280]">Email</label>
                   <input type="email" className="input" value={form.email}
@@ -101,7 +101,7 @@ export default function AddClientModal({ userId, className = "", onCreated, butt
                 <input className="input" value={form.city}
                   onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-medium text-[#6B7280]">ICE</label>
                   <input className="input font-mono" placeholder="000 000 000 00000" value={form.ice}

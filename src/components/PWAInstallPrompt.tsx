@@ -33,6 +33,11 @@ export default function PWAInstallPrompt() {
   useEffect(() => {
     if (isStandalone()) return;
 
+    const appHost = new URL(
+      process.env.NEXT_PUBLIC_APP_URL ?? "https://app.mohasibai.com",
+    ).host;
+    if (window.location.host !== appHost) return;
+
     const dismissedAt = Number(window.localStorage.getItem(DISMISSED_AT_KEY) ?? 0);
     if (dismissedAt && Date.now() - dismissedAt < DISMISS_FOR_MS) return;
 

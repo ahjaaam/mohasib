@@ -94,7 +94,7 @@ export default function NewAvoirFournisseurForm({ nextNumber, userId, dossierId,
         💡 Un avoir fournisseur réduit votre TVA déductible du mois. Il est comptabilisé en crédit du compte fournisseur.
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="col-span-2 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.6px] pb-2 border-b border-[rgba(0,0,0,0.08)]">
           Informations de l&apos;avoir
         </div>

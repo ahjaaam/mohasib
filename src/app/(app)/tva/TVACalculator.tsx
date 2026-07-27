@@ -63,7 +63,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
       <div className="px-4 py-2.5 border-b border-[rgba(0,0,0,0.12)] bg-[#1A1A2E]">
         <span className="text-[12px] font-bold text-white tracking-wide">{title}</span>
       </div>
-      {children}
+      <div className="overflow-x-auto">{children}</div>
     </div>
   );
 }
@@ -414,7 +414,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
   return (
     <div>
       {/* ── Page header: title left, period nav right ───────────────────── */}
-      <div className="flex items-center justify-between gap-3 mb-6">
+      <div className="mb-6 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "rgba(200,146,74,0.12)" }}>
@@ -429,7 +429,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
           </div>
         </div>
         {/* Period navigator */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
           <span className={`inline-flex items-center gap-1 text-[10.5px] font-semibold px-2.5 py-1 rounded-lg ${statutBadge}`}>
             {statut === "déposé" && <CheckCircle size={11} aria-hidden="true" />}
             {statutLabel}
@@ -438,7 +438,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
             className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
             <ChevronLeft size={15} />
           </button>
-          <span className="text-[13.5px] font-semibold text-[#1A1A2E] min-w-[130px] text-center">{periodLabel}</span>
+          <span className="min-w-0 flex-1 text-center text-[12.5px] font-semibold text-[#1A1A2E] sm:min-w-[130px] sm:flex-none sm:text-[13.5px]">{periodLabel}</span>
           <button onClick={nextPeriod}
             className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
             <ChevronRight size={15} />
@@ -500,7 +500,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
         </div>
       )}
 
-      <div className="grid grid-cols-[1fr_300px] gap-5 items-start">
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div>
       {loading ? (
         <div className="animate-pulse space-y-3">
@@ -674,7 +674,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
                   </span>
                 ))}
               </div>
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="bg-[#F3F4F6] rounded-lg p-3 text-center">
                   <div className="text-[10.5px] font-medium text-[#6B7280] uppercase tracking-[0.5px] mb-1">Sur charges</div>
                   <div className="text-[14px] font-bold text-[#1A1A2E]">{fmtMAD(filteredCalc.deductions_charges)}</div>

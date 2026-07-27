@@ -190,9 +190,9 @@ export default function AppTopBar({
     <>
       <header
         ref={rootRef}
-        className="relative z-40 flex h-16 flex-shrink-0 items-center justify-between gap-4 border-b border-[#E5E5E1] bg-[#FCFCFA] px-4 md:px-6"
+        className="relative z-40 flex h-16 flex-shrink-0 items-center justify-between gap-2 border-b border-[#E5E5E1] bg-[#FCFCFA] px-2 sm:gap-4 sm:px-4 md:px-6"
       >
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
         {onOpenMobileMenu && (
           <button
             type="button"
@@ -250,7 +250,7 @@ export default function AppTopBar({
                 openResult(firstHref);
               }
             }}
-            placeholder="Trouver quoi que ce soit..."
+            placeholder="Rechercher…"
             autoComplete="off"
             className="h-10 w-full border border-transparent bg-[#F7F7F3] pl-10 pr-14 text-[13px] text-[#1A1A2E] outline-none transition-colors placeholder:text-[#9CA3AF] hover:bg-[#F7F7F3] focus:border-transparent focus:bg-[#F7F7F3]"
             role="combobox"
@@ -369,7 +369,7 @@ export default function AppTopBar({
           aria-label="Ouvrir Mohasib Chat"
           aria-expanded={chatOpen}
           aria-controls="mohasib-chat-dock"
-          className={`flex h-10 w-10 items-center justify-center border text-[#C8924A] transition-colors ${
+          className={`hidden h-10 w-10 items-center justify-center border text-[#C8924A] transition-colors sm:flex ${
             chatOpen
               ? "border-[#C8924A] bg-[rgba(200,146,74,0.16)]"
               : "border-transparent bg-[rgba(200,146,74,0.08)] hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)]"
@@ -378,7 +378,7 @@ export default function AppTopBar({
           <Sparkles size={16} />
         </button>
 
-        <div className="relative ml-2 flex-shrink-0 border-l border-[#E6E6E1] pl-3">
+        <div className="relative ml-0.5 flex-shrink-0 border-l border-[#E6E6E1] pl-1.5 sm:ml-2 sm:pl-3">
           <button
             type="button"
             onClick={() => {

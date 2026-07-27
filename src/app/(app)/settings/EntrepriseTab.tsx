@@ -223,7 +223,7 @@ export default function EntrepriseTab({ userId, company }: Props) {
             </button>
           </div>
           {form.tva_assujetti && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-medium text-[#6B7280]">Taux TVA par défaut</label>
                 <select className="input" value={form.tva_taux_defaut} onChange={e => set("tva_taux_defaut", e.target.value)}>

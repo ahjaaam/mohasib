@@ -328,12 +328,13 @@ export default function HomePageClient() {
             <div className="home-hero-preview" aria-label="Aperçu du tableau de bord Mohasib">
               <Image
                 className="home-hero-preview-image"
-                src="/images/mohasib-dashboard-overview.png"
-                alt="Tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements"
-                width={2828}
-                height={1558}
+                src="/images/mohasib-dashboard-demo-v2.gif"
+                alt="Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements"
+                width={1912}
+                height={1080}
                 sizes="(max-width: 1180px) calc(100vw - 36px), 1140px"
                 priority
+                unoptimized
               />
             </div>
         </div>

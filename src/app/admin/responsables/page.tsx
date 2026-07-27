@@ -28,7 +28,7 @@ export default async function ResponsablesPage({ searchParams }: { searchParams:
   const usersByEmail = new Map([...users.values()].filter(user => user.email).map(user => [user.email!.toLowerCase(), user]));
 
   return <div>
-    <div className="mb-5 flex items-start justify-between gap-3"><div><h1 className="text-xl font-bold">Collaborateurs</h1><p className="mt-1 text-xs text-gray-500">{rows.length} collaborateur(s), invitations incluses</p></div><ResponsibleInviteButton companies={companies} /></div>
+    <div className="mb-5 flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h1 className="text-xl font-bold">Collaborateurs</h1><p className="mt-1 text-xs text-gray-500">{rows.length} collaborateur(s), invitations incluses</p></div><ResponsibleInviteButton companies={companies} /></div>
     <form className="mb-3 grid gap-2 rounded-md border border-black/10 bg-white p-3 sm:grid-cols-[1fr_100px]">
       <input name="q" defaultValue={filters.q} placeholder="Nom, email ou société" className="input text-xs" />
       <button className="rounded bg-[#0D1526] text-xs font-bold text-white">Filtrer</button>

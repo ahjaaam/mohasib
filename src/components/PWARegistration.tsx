@@ -8,6 +8,11 @@ export default function PWARegistration() {
       return;
     }
 
+    const appHost = new URL(
+      process.env.NEXT_PUBLIC_APP_URL ?? "https://app.mohasibai.com",
+    ).host;
+    if (window.location.host !== appHost) return;
+
     const register = () => {
       navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((error) => {
         console.error("Mohasib service worker registration failed:", error);

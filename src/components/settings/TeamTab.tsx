@@ -208,7 +208,7 @@ function MemberModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0D1526]/45 p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="max-h-[92vh] w-full max-w-[680px] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl">
+      <div className="max-h-[calc(100dvh-24px)] w-full max-w-[680px] overflow-y-auto rounded-xl bg-white p-4 shadow-2xl sm:max-h-[92vh] sm:p-6">
         <div className="flex items-center justify-between"><h3 className="text-[16px] font-bold text-[#0D1526]">{member ? "Modifier le collaborateur" : "Inviter un collaborateur"}</h3><button onClick={onClose}><X size={18} /></button></div>
         <div className="mt-5 rounded-lg border border-[#C8924A]/30 bg-[#C8924A]/5 px-4 py-3">
           <strong className="text-[12px] text-[#0D1526]">Accès Collaborateur</strong>
@@ -248,7 +248,7 @@ function MemberModal({
           <label className="text-[12px] font-semibold text-[#374151]">Nom<input value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} className="input mt-1" /></label>
         </div>
 
-        <div className="mt-7 flex justify-between border-t border-black/[0.07] pt-4">
+        <div className="mt-7 flex flex-col-reverse gap-2 border-t border-black/[0.07] pt-4 sm:flex-row sm:justify-between">
           <button onClick={onClose} className="rounded-lg border border-black/[0.10] px-4 py-2 text-[12px] font-semibold text-[#6B7280]">Annuler</button>
           <button disabled={saving || !form.email} onClick={save} className="rounded-lg bg-[#C8924A] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : member ? "Enregistrer" : "Envoyer l'invitation"}</button>
         </div>

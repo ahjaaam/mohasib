@@ -136,7 +136,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
         onChange={(event) => switchDossier(event.target.value)}
         aria-label="Changer de dossier"
         className={`appearance-none cursor-pointer bg-white/10 hover:bg-white/20 rounded-md text-white font-semibold outline-none transition-colors pl-8 pr-10 ${
-          compact ? "max-w-[190px] text-[12.5px] py-1" : "max-w-[270px] md:max-w-[360px] text-[14px] py-1.5"
+          compact ? "max-w-[190px] text-[12.5px] py-1" : "max-w-[180px] sm:max-w-[270px] md:max-w-[360px] text-[13px] sm:text-[14px] py-1.5"
         }`}
       >
         {dossiers.map((item) => (

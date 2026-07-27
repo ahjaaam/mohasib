@@ -1,395 +1,199 @@
-"use client";
-
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import {
-  Building2,
-  Check,
-  Landmark,
-  X,
-} from "lucide-react";
-import { Fragment, Suspense, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import { appUrl } from "@/lib/public-urls";
 
-type Track = "business" | "comptable";
-
 type Plan = {
   name: string;
   price: number;
-  priceLabel?: string;
+  priceNote: string;
   tagline: string;
   features: string[];
-  missing?: string[];
-  note?: string;
-  popular?: boolean;
-  dark?: boolean;
 };
 
-type ComparisonSection = {
-  title: string;
-  rows: [string, string, string, string][];
-};
-
-const INCLUDED = "included";
-const EXCLUDED = "excluded";
-
-const businessPlans: Plan[] = [
+const plans: Plan[] = [
   {
-    name: "Starter",
+    name: "TPE/PME ou Auto-entrepreneurs",
     price: 99,
-    tagline: "Pour démarrer votre activité",
+    priceNote: "Selon le nombre de documents et d'utilisateurs",
+    tagline: "Toute votre gestion financière quotidienne, réunie dans un seul espace simple et clair.",
     features: [
-      "Factures illimitées",
-      "Devis illimités",
-      "Clients illimités",
+      "Factures et devis illimités",
       "Déclaration TVA",
-      "Boîte de réception (50 docs OCR/mois)",
-      "Archivage documents (5 GB)",
-      "Suivi des paiements",
-      "Support 7j/7",
-    ],
-    missing: [
-      "Avoirs clients",
-      "Import relevés bancaires",
-      "Export EDI XML TVA",
-      "Écritures automatiques",
-      "La paie",
-      "Export CGNC",
-    ],
-  },
-  {
-    name: "Business",
-    price: 229,
-    tagline: "La solution complète pour votre activité",
-    popular: true,
-    features: [
-      "Toutes les fonctionnalités Starter",
-      "Avoirs clients",
-      "Import relevés bancaires",
-      "Déclaration TVA + EDI XML",
-      "Écritures automatiques",
-      "La paie (10 employés)",
-      "Export CGNC complet",
-      "Boîte de réception (250 docs OCR/mois)",
-      "Archivage documents (25 GB)",
-      "Suivi des paiements",
-      "Support 7j/7",
-    ],
-    missing: ["Multi-utilisateurs"],
-  },
-  {
-    name: "Business Pro",
-    price: 449,
-    priceLabel: "À partir de 449",
-    tagline: "Pour piloter sans limites",
-    dark: true,
-    features: [
-      "Toutes les fonctionnalités Business",
-      "Gestion de la paie sans limite d’employés",
-      "Boîte de réception illimitée",
-      "Archivage des documents illimité",
-      "3 utilisateurs inclus",
-      "Bilan comptable automatique",
-      "CPC automatique",
-      "Avoirs, TVA EDI, import bancaire et exports inclus",
+      "Boîte de réception OCR",
+      "Suivi des paiements clients et fournisseurs",
+      "Import des relevés bancaires",
+      "La paie, selon le nombre d'employés",
+      "Archivage des documents",
       "Support 7j/7",
     ],
   },
-];
-
-const comptablePlans: Plan[] = [
   {
-    name: "Starter",
+    name: "Comptables",
     price: 299,
-    tagline: "Pour débuter avec vos premiers clients",
+    priceNote: "Selon le nombre de dossiers et de collaborateurs",
+    tagline: "Un poste de pilotage conçu pour gérer tous vos dossiers clients sans changer d'outil, centraliser les pièces et suivre chaque échéance depuis une seule interface.",
     features: [
-      "5 dossiers clients",
+      "Dossiers clients, à volonté",
       "Interface cabinet dédiée",
-      "Adresse email dédiée par dossier",
-      "Facturation complète par dossier",
-      "Écritures automatiques par dossier",
-      "Déclaration TVA + EDI XML",
-      "La paie (5 employés par dossier)",
-      "Export CGNC par dossier",
-      "Suivi des paiements",
+      "Facturation et écritures par dossier",
+      "Déclaration TVA + export CGNC",
+      "Portail client pour vos propres clients",
+      "Collaborateurs du cabinet",
       "Bilan & CPC automatique",
-      "Calendrier fiscal intégré",
-      "100 scans OCR/mois (tous dossiers)",
-      "Archive (25 GB)",
       "Support 7j/7",
-    ],
-    missing: [
-      "Déclarations TVA en masse",
-      "Export ZIP multi-dossiers",
-      "Multi-utilisateurs cabinet",
-    ],
-  },
-  {
-    name: "Essentiel",
-    price: 599,
-    tagline: "Le cabinet connecté et productif",
-    popular: true,
-    features: [
-      "20 dossiers clients",
-      "Tout Starter +",
-      "Déclarations TVA en masse",
-      "Export ZIP multi-dossiers (1 click)",
-      "Inbox global + routage IA",
-      "2 collaborateurs du cabinet",
-      "La paie (10 employés par dossier)",
-      "500 scans OCR/mois (tous dossiers)",
-      "Archive (100 GB)",
-      "Support 7j/7",
-    ],
-    missing: ["Dossiers illimités"],
-  },
-  {
-    name: "Illimité",
-    price: 999,
-    priceLabel: "À partir de 999",
-    tagline: "Toute la puissance pour votre cabinet",
-    dark: true,
-    features: [
-      "Dossiers illimités",
-      "Tout Essentiel +",
-      "Employés illimités par dossier",
-      "Scans OCR illimités",
-      "Archive illimitée",
-      "5 collaborateurs du cabinet",
-      "Support prioritaire WhatsApp",
-      "Support 7j/7",
-      "Onboarding + formation incluse",
-      "Migration depuis Synergie/Sage assistée",
     ],
   },
 ];
-
-const businessComparison: ComparisonSection[] = [
-  {
-    title: "Facturation",
-    rows: [
-      ["Factures", "Illimitées", "Illimitées", "Illimitées"],
-      ["Devis", "Illimités", "Illimités", "Illimités"],
-      ["Avoirs", EXCLUDED, "Illimités", "Illimités"],
-      ["Envoi WhatsApp", INCLUDED, INCLUDED, INCLUDED],
-    ],
-  },
-  {
-    title: "Comptabilité",
-    rows: [
-      ["Import relevé bancaire", EXCLUDED, INCLUDED, INCLUDED],
-      ["Écritures automatiques", EXCLUDED, INCLUDED, INCLUDED],
-      ["Déclaration TVA", INCLUDED, INCLUDED, INCLUDED],
-      ["Export EDI XML TVA", EXCLUDED, INCLUDED, INCLUDED],
-      ["Export CGNC", EXCLUDED, INCLUDED, INCLUDED],
-      ["Bilan & CPC", EXCLUDED, EXCLUDED, INCLUDED],
-    ],
-  },
-  {
-    title: "IA & OCR",
-    rows: [
-      ["Scans OCR", "50/mois", "250/mois", "Illimités"],
-      ["Boîte de réception", INCLUDED, INCLUDED, INCLUDED],
-    ],
-  },
-  {
-    title: "Paie & RH",
-    rows: [
-      ["Gestion employés", EXCLUDED, "10 max", "Illimités"],
-      ["Bulletins de paie", EXCLUDED, INCLUDED, INCLUDED],
-    ],
-  },
-  {
-    title: "Stockage & accès",
-    rows: [
-      ["Archive", "5 GB", "25 GB", "Illimitée"],
-      ["Utilisateurs", "1", "1", "3"],
-      ["Support 7j/7", INCLUDED, INCLUDED, INCLUDED],
-    ],
-  },
-  { title: "Prix", rows: [["Prix mensuel", "99 MAD", "229 MAD", "À partir de 449 MAD"]] },
-];
-
-const comptableComparison: ComparisonSection[] = [
-  {
-    title: "Dossiers",
-    rows: [
-      ["Nombre dossiers", "5", "20", "Illimités"],
-      ["Email dédié/dossier", INCLUDED, INCLUDED, INCLUDED],
-      ["Inbox global", EXCLUDED, INCLUDED, INCLUDED],
-    ],
-  },
-  {
-    title: "Par dossier",
-    rows: [
-      ["Facturation", "Illimitée", "Illimitée", "Illimitée"],
-      ["Écritures automatiques", INCLUDED, INCLUDED, INCLUDED],
-      ["Déclaration TVA + EDI", INCLUDED, INCLUDED, INCLUDED],
-      ["Export CGNC", INCLUDED, INCLUDED, INCLUDED],
-      ["Employés paie", "5", "10", "Illimités"],
-      ["Bilan & CPC", INCLUDED, INCLUDED, INCLUDED],
-    ],
-  },
-  {
-    title: "Masse",
-    rows: [
-      ["TVA en masse", EXCLUDED, INCLUDED, INCLUDED],
-      ["Export ZIP", EXCLUDED, INCLUDED, INCLUDED],
-    ],
-  },
-  {
-    title: "OCR & stockage",
-    rows: [
-      ["Scans OCR", "100/mois", "500/mois", "Illimités"],
-      ["Archive", "25 GB", "100 GB", "Illimitée"],
-      ["Collaborateurs", "1", "2", "5"],
-      ["Support 7j/7", INCLUDED, INCLUDED, INCLUDED],
-    ],
-  },
-  { title: "Prix", rows: [["Prix mensuel", "299 MAD", "599 MAD", "À partir de 999 MAD"]] },
-];
-
-function Feature({ children, missing = false }: { children: React.ReactNode; missing?: boolean; dark?: boolean }) {
-  const Icon = missing ? X : Check;
-  return (
-    <li className={`flex items-start gap-2.5 text-[13px] leading-5 ${missing ? "text-[#9CA3AF]" : "text-[#374151]"}`}>
-      <Icon className={`mt-0.5 shrink-0 ${missing ? "text-[#9CA3AF]" : "text-[#7A6668]"}`} size={15} strokeWidth={2.5} />
-      <span>{children}</span>
-    </li>
-  );
-}
 
 function PlanCard({ plan }: { plan: Plan }) {
   return (
-    <article className={`public-surface relative flex h-full flex-col p-7 ${plan.popular || plan.dark ? "public-accent-surface" : ""}`}>
-      <h2 className="text-[17px] font-bold uppercase text-[#0D1526]">{plan.name}</h2>
-      <p className={`mt-3 flex items-end gap-1 font-extrabold leading-none ${plan.popular || plan.dark ? "text-[#7A6668]" : "text-[#0D1526]"}`}>
-        <span className={plan.priceLabel ? "text-[28px]" : "text-[45px]"}>{plan.priceLabel ?? plan.price}</span>
-        <span className="pb-1 text-[12px] font-semibold text-[#6B7280]">MAD/mois</span>
+    <article className="relative flex h-full flex-col border border-[#9CA3AF] bg-white p-6 text-[#0D1526] sm:p-8 lg:p-10">
+      <div>
+        <div>
+          <h1 className="max-w-[400px] text-[26px] font-bold leading-[1.15] sm:text-[30px]">
+            {plan.name}
+          </h1>
+        </div>
+      </div>
+
+      <p className="mt-6 max-w-[470px] text-[13.5px] leading-6 text-[#666B75]">
+        {plan.tagline}
       </p>
-      <p className="mt-3 text-[13px] text-[#6B7280]">{plan.tagline}</p>
+
+      <div className="mt-8 border-y border-[#D1D5DB] py-6">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#0D1526]">
+          À partir de
+        </p>
+        <div className="mt-2 flex flex-wrap items-end gap-x-2">
+          <span className="text-[58px] font-extrabold leading-[0.82] tracking-[-0.055em] sm:text-[68px]">
+            {plan.price}
+          </span>
+          <span className="pb-1 text-[12px] font-semibold text-[#6B7280]">
+            DH / mois
+          </span>
+        </div>
+        <p className="mt-4 text-[11px] text-[#8B9099]">{plan.priceNote}</p>
+      </div>
+
+      <div className="mt-7 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#898D95]">
+          Tout ce qu&apos;il vous faut
+        </p>
+        <ul className="mt-4 grid gap-x-5 gap-y-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+          {plan.features.map((feature) => (
+            <li key={feature} className="flex items-baseline gap-2.5 text-[12.5px] leading-5 text-[#374151]">
+              <span className="shrink-0 text-[14px] leading-none text-[#9A7747]">•</span>
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <Link
         href={appUrl("/inscription")}
-        className="mt-3 inline-flex w-fit text-[12px] font-bold text-[#7A6668] underline underline-offset-4 transition hover:text-[#A18E8F]"
+        className="mt-8 inline-flex min-h-12 w-fit items-center gap-8 bg-[#0D1526] px-5 text-[12.5px] font-bold text-white transition-colors hover:bg-[#253047]"
       >
         Créer un compte gratuitement
+        <ArrowRight size={15} />
       </Link>
-
-      <div className="my-6 h-px bg-black/[0.07]" />
-      <ul className="space-y-2.5">
-        {plan.features.map((feature) => <Feature key={feature}>{feature}</Feature>)}
-        {plan.missing?.map((feature) => <Feature key={feature} missing>{feature}</Feature>)}
-      </ul>
-      {plan.note && <p className="mt-4 pl-6 text-[11px] italic text-[#D9AE73]">{plan.note}</p>}
     </article>
-  );
-}
-
-function ComparisonTable({ track }: { track: Track }) {
-  const sections = track === "business" ? businessComparison : comptableComparison;
-  const headings = track === "business"
-    ? ["Fonctionnalité", "Starter", "Business", "Business Pro"]
-    : ["Fonctionnalité", "Starter", "Essentiel", "Illimité"];
-  const renderValue = (value: string) => {
-    if (value === INCLUDED) return <Check aria-label="Inclus" className="text-[#7A6668]" size={17} strokeWidth={2.8} />;
-    if (value === EXCLUDED) return <X aria-label="Non inclus" className="text-[#B8BEC7]" size={16} strokeWidth={2.4} />;
-    return value;
-  };
-
-  return (
-    <div className="public-surface overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-left text-[12px]">
-        <thead className="bg-[#0D1526] text-white">
-          <tr>{headings.map((heading) => <th key={heading} className="px-5 py-4 font-semibold">{heading}</th>)}</tr>
-        </thead>
-        <tbody>
-          {sections.map((section) => (
-            <Fragment key={section.title}>
-              <tr className="bg-[#F2F2ED]">
-                <th colSpan={4} className="px-5 py-3 text-[11px] font-bold uppercase tracking-[1.5px] text-[#6B7280]">{section.title}</th>
-              </tr>
-              {section.rows.map((row, rowIndex) => (
-                <tr key={`${section.title}-${row[0]}`} className={rowIndex % 2 === 0 ? "bg-white" : "bg-[#F8F7F7]"}>
-                  {row.map((value, index) => (
-                    <td key={`${row[0]}-${index}`} className={`border-t border-black/[0.06] px-5 py-3.5 ${index === 0 ? "font-semibold text-[#374151]" : value === INCLUDED || value === EXCLUDED ? "text-left" : "text-[#6B7280]"}`}>
-                      <span className={value === INCLUDED || value === EXCLUDED ? "inline-flex items-center justify-start" : undefined}>
-                        {renderValue(value)}
-                      </span>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </Fragment>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function PricingContent() {
-  const searchParams = useSearchParams();
-  const initialTrack = searchParams.get("plan") === "comptable" ? "comptable" : "business";
-  const [track, setTrack] = useState<Track>(initialTrack);
-  const plans = track === "business" ? businessPlans : comptablePlans;
-
-  function selectTrack(nextTrack: Track) {
-    setTrack(nextTrack);
-    window.history.replaceState(null, "", nextTrack === "comptable" ? "/tarifs?plan=comptable" : "/tarifs");
-  }
-
-  return (
-    <main className="public-site">
-      <PublicNavbar />
-
-      <div className="mx-auto max-w-[1200px] px-5 pb-20 pt-16 sm:px-10 sm:pb-24 sm:pt-24">
-        <header className="text-center">
-          <p className="public-eyebrow">Tarification</p>
-          <h1 className="mt-3 text-[38px] font-bold leading-tight md:text-[52px]">Choisissez votre plan</h1>
-          <p className="mt-3 text-[15px] text-[#6B7280]">Des plans adaptés à votre activité et à la taille de votre équipe.</p>
-
-          <div className="mt-9 inline-flex border border-[#DADAD5] bg-white p-1" role="tablist" aria-label="Type de plan">
-            <button onClick={() => selectTrack("business")} role="tab" aria-selected={track === "business"} className={`inline-flex min-h-10 items-center gap-2 rounded-full px-5 text-[13px] font-semibold transition-colors ${track === "business" ? "bg-[#0D1526] text-white" : "text-[#6B7280] hover:text-[#0D1526]"}`}>
-              <Building2 size={16} /> Business
-            </button>
-            <button onClick={() => selectTrack("comptable")} role="tab" aria-selected={track === "comptable"} className={`inline-flex min-h-10 items-center gap-2 rounded-full px-5 text-[13px] font-semibold transition-colors ${track === "comptable" ? "bg-[#0D1526] text-white" : "text-[#6B7280] hover:text-[#0D1526]"}`}>
-              <Landmark size={16} /> Comptable Pro
-            </button>
-          </div>
-        </header>
-
-        <section key={track} className="mx-auto mt-14 grid max-w-[1040px] gap-5 md:grid-cols-3">
-          {plans.map((plan) => <PlanCard key={plan.name} plan={plan} />)}
-        </section>
-
-        <section className="mx-auto mt-12 max-w-[1040px]">
-          <ComparisonTable track={track} />
-        </section>
-
-        <section className="mx-auto mt-16 max-w-[1040px] text-center">
-          <p className="text-[15px] font-semibold">Vous avez des besoins spécifiques ?</p>
-          <a href="mailto:contact@mohasibai.com" className="mt-2 inline-block text-[13px] font-bold text-[#7A6668] hover:underline">Contactez-nous pour un devis sur mesure →</a>
-          <p className="mt-5 text-[12px] text-[#6B7280]">
-            En souscrivant à Mohasib AI, vous acceptez nos{" "}
-            <Link href="/cgu" className="font-semibold text-[#7A6668] hover:underline">CGU</Link>
-            {" "}et notre{" "}
-            <Link href="/confidentialite" className="font-semibold text-[#7A6668] hover:underline">Politique de Confidentialité</Link>.
-          </p>
-        </section>
-      </div>
-
-      <PublicFooter />
-    </main>
   );
 }
 
 export default function TarifsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F8F7F7]" />}>
-      <PricingContent />
-    </Suspense>
+    <main className="public-site bg-white">
+      <PublicNavbar />
+
+      <section className="relative overflow-hidden bg-white">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-50"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(13,21,38,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(13,21,38,0.035) 1px, transparent 1px)",
+            backgroundSize: "72px 72px",
+            maskImage: "linear-gradient(to bottom, black, transparent 78%)",
+          }}
+        />
+
+        <div className="relative mx-auto max-w-[1120px] px-5 pb-14 pt-16 text-center sm:px-10 sm:pb-20 sm:pt-24 lg:pt-28">
+          <p className="public-eyebrow">Une tarification simple · Maroc</p>
+          <h1 className="mx-auto mt-5 max-w-[900px] text-[42px] font-extrabold leading-[0.98] tracking-[-0.045em] text-[#0D1526] sm:text-[58px] lg:text-[72px]">
+            Un prix qui suit le rythme de votre activité.
+          </h1>
+          <p className="mx-auto mt-6 max-w-[650px] text-[14px] leading-6 text-[#666B75] sm:text-[16px] sm:leading-7">
+            Commencez simplement, puis adaptez votre formule au volume de documents, de dossiers,
+            d&apos;utilisateurs ou d&apos;employés dont vous avez réellement besoin.
+          </p>
+        </div>
+      </section>
+
+      <section className="bg-white px-5 py-16 sm:px-10 sm:py-24">
+        <div className="mx-auto max-w-[1120px]">
+          <div className="mb-9 border-b border-[#D1D5DB] pb-6">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8B765A]">Choisissez votre espace</p>
+              <h2 className="mt-2 text-[28px] font-bold tracking-[-0.025em] text-[#0D1526] sm:text-[36px]">
+                Deux métiers. Une même exigence.
+              </h2>
+            </div>
+          </div>
+
+          <div className="grid items-stretch gap-5 lg:grid-cols-2">
+            {plans.map((plan) => (
+              <PlanCard key={plan.name} plan={plan} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white px-5 py-12 sm:px-10">
+        <div className="mx-auto grid max-w-[1120px] gap-7 sm:grid-cols-3">
+          {[
+            ["01", "Pensé pour le Maroc", "TVA, CGNC, paie et obligations locales intégrées."],
+            ["02", "Votre usage, votre prix", "Vous payez selon la taille réelle de votre activité."],
+            ["03", "Une équipe disponible", "Accompagnement humain et support 7 jours sur 7."],
+          ].map(([number, title, description]) => (
+            <div key={number} className="border-l border-[#D1D5DB] pl-5">
+              <p className="text-[10px] font-bold tracking-[0.15em] text-[#A28358]">{number}</p>
+              <h3 className="mt-2 text-[15px] font-bold text-[#0D1526]">{title}</h3>
+              <p className="mt-1.5 text-[12px] leading-5 text-[#737883]">{description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-white px-5 py-16 text-[#0D1526] sm:px-10 sm:py-24">
+        <div className="mx-auto flex max-w-[1120px] flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8B765A]">Besoin d&apos;une formule sur mesure ?</p>
+            <h2 className="mt-4 max-w-[690px] text-[34px] font-bold leading-[1.05] tracking-[-0.035em] sm:text-[50px]">
+              Parlons de votre activité, pas seulement d&apos;un abonnement.
+            </h2>
+            <p className="mt-5 max-w-[590px] text-[13px] leading-6 text-[#737883]">
+              Chaque entreprise et chaque cabinet fonctionne différemment. Nous vous aiderons à trouver la configuration juste.
+            </p>
+          </div>
+          <a
+            href="mailto:contact@mohasibai.com"
+            className="inline-flex min-h-12 shrink-0 items-center justify-between gap-8 bg-[#0D1526] px-5 text-[12.5px] font-bold text-white transition-colors hover:bg-[#253047]"
+          >
+            Demander un devis
+            <ArrowRight size={15} />
+          </a>
+        </div>
+        <div className="mx-auto mt-12 max-w-[1120px] pt-5 text-[10.5px] text-[#92969E]">
+          En souscrivant à Mohasib AI, vous acceptez nos{" "}
+          <Link href="/cgu" className="font-semibold text-[#0D1526] hover:underline">CGU</Link>
+          {" "}et notre{" "}
+          <Link href="/confidentialite" className="font-semibold text-[#0D1526] hover:underline">Politique de Confidentialité</Link>.
+        </div>
+      </section>
+
+      <PublicFooter />
+    </main>
   );
 }

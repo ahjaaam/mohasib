@@ -121,7 +121,7 @@ export default function AddTransactionModal({ userId, clients }: Props) {
                   onChange={(e) => set("description", e.target.value)} />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="label">Montant (MAD) *</label>
                   <input type="number" min="0" step="0.01" className="input" required
@@ -191,7 +191,7 @@ export default function AddTransactionModal({ userId, clients }: Props) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="label">IF Fournisseur <span className="text-[#9CA3AF] font-normal">(optionnel)</span></label>
                       <input
@@ -212,7 +212,7 @@ export default function AddTransactionModal({ userId, clients }: Props) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="label">Mode de paiement</label>
                       <select

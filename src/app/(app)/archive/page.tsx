@@ -333,7 +333,7 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
               onChange={(e) => setCustomName(e.target.value)} />
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-[11.5px] font-medium text-[#6B7280] mb-1.5">Date d'expiration (optionnel)</label>
               <input type="date" className="input" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
@@ -524,10 +524,10 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         />
       )}
 
-      <div className="flex h-screen -m-4 md:-mx-[22px] md:-mt-[24px] md:-mb-[18px] overflow-hidden">
+      <div className="flex h-full min-h-0 -m-4 overflow-hidden md:-mx-[22px] md:-mt-[24px] md:-mb-[18px]">
 
         {/* ── Left Panel ──────────────────────────────────────────────────── */}
-        <div className="w-[38%] min-w-[280px] flex-shrink-0 flex flex-col bg-white border-r border-[rgba(0,0,0,0.08)] overflow-hidden">
+        <div className={`${selected ? "hidden md:flex" : "flex"} w-full min-w-0 flex-shrink-0 flex-col overflow-hidden bg-white md:w-[38%] md:min-w-[280px] md:border-r md:border-[rgba(0,0,0,0.08)]`}>
 
           {/* Page header */}
           <div className="px-3.5 pt-3.5 pb-3 border-b border-[rgba(0,0,0,0.06)] flex-shrink-0">
@@ -640,7 +640,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         </div>
 
         {/* ── Right Panel ─────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-hidden">
+        <div className={`${selected ? "flex" : "hidden md:flex"} min-w-0 flex-1 overflow-hidden`}>
           {selected ? (
             resolving ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">

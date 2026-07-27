@@ -12,13 +12,13 @@ export default function PublicFooter() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
           <Image src="/logo2.png" alt="Mohasib" width={112} height={34} style={{ height: "auto", objectFit: "contain", opacity: 0.82 }} />
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <Link href="https://www.linkedin.com/company/mohasibai/" aria-label="LinkedIn" className="ui-circle border border-[#D5D4CE] text-[#777E8B] transition-colors hover:border-[#A89596] hover:text-[#7A6668]" style={{ width: 34, height: 34, borderRadius: 17, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+            <Link href="https://www.linkedin.com/company/mohasibai/" aria-label="LinkedIn" className="border border-[#D5D4CE] text-[#777E8B] transition-colors hover:border-[#A89596] hover:text-[#7A6668]" style={{ width: 34, height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
               <Linkedin size={16} />
             </Link>
-            <Link href="https://www.instagram.com/mohasibai/" aria-label="Instagram" className="ui-circle border border-[#D5D4CE] text-[#777E8B] transition-colors hover:border-[#A89596] hover:text-[#7A6668]" style={{ width: 34, height: 34, borderRadius: 17, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+            <Link href="https://www.instagram.com/mohasibai/" aria-label="Instagram" className="border border-[#D5D4CE] text-[#777E8B] transition-colors hover:border-[#A89596] hover:text-[#7A6668]" style={{ width: 34, height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
               <Instagram size={16} />
             </Link>
-            <Link href="https://www.facebook.com/mohasibai" aria-label="Facebook" className="ui-circle border border-[#D5D4CE] text-[#777E8B] transition-colors hover:border-[#A89596] hover:text-[#7A6668]" style={{ width: 34, height: 34, borderRadius: 17, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+            <Link href="https://www.facebook.com/mohasibai" aria-label="Facebook" className="border border-[#D5D4CE] text-[#777E8B] transition-colors hover:border-[#A89596] hover:text-[#7A6668]" style={{ width: 34, height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
               <Facebook size={16} />
             </Link>
           </div>

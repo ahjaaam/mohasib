@@ -33,8 +33,16 @@
 }
 
 @layer base {
-  html { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
-  body { @apply bg-[#FAFAF6] text-[#1A1A2E]; }
+  html {
+    min-width: 320px;
+    overflow-x: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+  body {
+    @apply bg-[#FAFAF6] text-[#1A1A2E];
+    min-width: 320px;
+    overflow-x: hidden;
+  }
   * { box-sizing: border-box; }
 
   /*
@@ -485,10 +493,55 @@
   .mohasib-app {
     --space-card: 18px;
     --space-section: 22px;
+    width: 100%;
+    max-width: 100vw;
   }
 
   .mohasib-app :is(.btn, .input) {
     min-height: 42px;
+  }
+
+  .mohasib-app :is(.tabs, .tbl, [data-mobile-scroll]) {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mohasib-app .tabs {
+    flex-wrap: nowrap;
+  }
+
+  .mohasib-app .tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .mohasib-app :is([role="dialog"], .mobile-dialog) {
+    max-width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .mohasib-app .kpi {
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .mohasib-app .kpi-value {
+    overflow-wrap: anywhere;
+    font-size: clamp(19px, 6vw, 26px);
+  }
+
+  .mohasib-app :is(input, select, textarea) {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  .mohasib-app .page-fade {
+    min-width: 0;
+    max-width: 100%;
   }
 }
 

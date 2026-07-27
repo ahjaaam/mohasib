@@ -290,7 +290,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
   }, [clients, search, sortKey, sortDirection]);
 
   const header = (
-    <div className="flex items-center justify-between gap-3 mb-5">
+    <div className="mb-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
       <div className="flex items-center gap-2.5">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: "rgba(200,146,74,0.12)" }}>
@@ -301,7 +301,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
           <p className="text-[11px] text-[#9CA3AF] mt-0.5">Gérez vos clients et suivez leur activité</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <input
           ref={importInputRef}
           type="file"

@@ -147,7 +147,7 @@ export default function InvoiceItemsTab({ userId, dossierId }: Props) {
             <span className="text-[11px] font-medium text-[#6B7280]">Prix unitaire HT</span>
             <input type="number" min={0} step={0.01} className="input" value={form.unit_price} onChange={e => set("unit_price", e.target.value)} placeholder="0" />
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5">
               <span className="text-[11px] font-medium text-[#6B7280]">Unité</span>
               <select className="input" value={form.unit} onChange={e => set("unit", e.target.value)}>

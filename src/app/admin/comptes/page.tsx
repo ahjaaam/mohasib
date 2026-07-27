@@ -23,7 +23,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
       && (!filters.type || company.user_type === filters.type);
   });
   return <div>
-    <div className="mb-5 flex items-center justify-between"><div><h1 className="text-xl font-bold">Comptes</h1><p className="mt-1 text-xs text-gray-500">{rows.length} compte(s)</p></div><CreateAccountButton /></div>
+    <div className="mb-5 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-xl font-bold">Comptes</h1><p className="mt-1 text-xs text-gray-500">{rows.length} compte(s)</p></div><CreateAccountButton /></div>
     <form className="mb-3 grid gap-2 rounded-md border border-black/10 bg-white p-3 sm:grid-cols-6">
       <input name="q" defaultValue={filters.q} placeholder="Nom, email ou téléphone" className="input text-xs sm:col-span-2" />
       <select name="plan" defaultValue={filters.plan} className="input text-xs"><option value="">Tous les plans</option>{["trial", "starter", "business", "business_pro", "comptable_s", "comptable_pro", "comptable_inf"].map(value => <option key={value}>{value}</option>)}</select>
