@@ -71,12 +71,19 @@ export default function HomePageClient() {
                 width: 1780,
                 height: 1080,
               }
-            : {
-                src: "/images/mohasib-dashboard-demo-v3.gif",
-                alt: "Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements",
-                width: 1920,
-                height: 990,
-              };
+            : activeProductTab === 4
+              ? {
+                  src: "/images/mohasib-payroll-demo.gif",
+                  alt: "Démonstration animée de la gestion de la paie Mohasib avec les employés, congés, heures, bulletins et CNSS",
+                  width: 1784,
+                  height: 1080,
+                }
+              : {
+                  src: "/images/mohasib-dashboard-demo-v3.gif",
+                  alt: "Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements",
+                  width: 1920,
+                  height: 990,
+                };
 
   return (
     <div className="public-site" style={{ fontFamily: FONT }}>
