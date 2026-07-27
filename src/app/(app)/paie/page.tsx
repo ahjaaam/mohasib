@@ -15,6 +15,7 @@ import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
 import PageHeader from "@/components/PageHeader";
+import SectionLabel from "@/components/SectionLabel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1094,11 +1095,8 @@ function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loadi
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 rounded-2xl border border-[rgba(0,0,0,0.07)] bg-gradient-to-r from-white to-[#FBF8F2] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[#C8924A]">Suivi mensuel</p>
-          <h2 className="mt-0.5 text-[15px] font-bold text-[#1A1A2E]">Congés & absences</h2>
-        </div>
+      <div className="flex flex-col gap-3 border border-[rgba(0,0,0,0.07)] bg-[#FAFAF7] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <SectionLabel className="mb-0">Congés & absences</SectionLabel>
         <div className="flex items-center gap-1.5 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-1 shadow-sm">
           <button aria-label="Mois précédent" onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A2E] transition-colors">
             <ChevronLeft size={16} />
@@ -1118,7 +1116,7 @@ function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loadi
           { label: "Jours fériés", value: calendarDays.filter(d => d.isHoliday).length, color: "#059669" },
         ].map(card => (
           <div key={card.label} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-3.5">
-            <div className="text-[10.5px] text-[#9CA3AF] uppercase tracking-[0.4px] mb-1.5">{card.label}</div>
+            <SectionLabel className="mb-1.5">{card.label}</SectionLabel>
             <div className="text-[20px] font-bold" style={{ color: card.color }}>{card.value}</div>
           </div>
         ))}
@@ -1126,160 +1124,158 @@ function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loadi
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start">
         <div className="space-y-4 min-w-0">
-          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-          <div className="px-4 py-3.5 border-b border-[rgba(0,0,0,0.07)] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-[13px] font-semibold text-[#1A1A2E]">Calendrier des absences</h2>
-              <p className="mt-0.5 text-[10.5px] text-[#9CA3AF]">Vue du lundi au dimanche</p>
-            </div>
-            <div className="flex flex-wrap gap-x-2.5 gap-y-1 text-[10px] text-[#6B7280]">
-              {leaveTypes.slice(0, 5).map((t: LeaveType) => (
-                <span key={t.id ?? t.name} className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full" style={{ background: t.color ?? "#C8924A" }} /> {t.name}
-                </span>
-              ))}
-            </div>
-          </div>
-          {loading ? (
-            <div className="h-40 animate-pulse bg-[#F9F9F6]" />
-          ) : (
-            <div className="overflow-x-auto">
-              <div className="min-w-[680px]">
-                <div className="grid grid-cols-7 border-b border-[rgba(0,0,0,0.07)] bg-[#F8F8F5]">
-                  {weekDays.map((day, index) => (
-                    <div
-                      key={day}
-                      className={`px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-[0.7px] ${
-                        index >= 5 ? "text-[#C8924A]" : "text-[#6B7280]"
-                      }`}
-                    >
-                      {day}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-px bg-[rgba(0,0,0,0.06)] text-[11px]">
-                  {calendarCells.map((day, index) => day ? (
-                    <div
-                      key={day.iso}
-                      className={`group min-h-[96px] p-2 transition-colors ${
-                        day.isHoliday
-                          ? "bg-[#FFFBEB]"
-                          : day.isWeekend
-                            ? "bg-[#FAFAF8]"
-                            : "bg-white hover:bg-[#FCFCFA]"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[11px] font-semibold ${
-                          day.isToday
-                            ? "bg-[#1A1A2E] text-white"
-                            : day.isWeekend
-                              ? "text-[#9CA3AF]"
-                              : "text-[#1A1A2E]"
-                        }`}>
-                          {day.day}
-                        </span>
-                        {day.isHoliday && <span className="rounded-full bg-[#FEF3C7] px-1.5 py-0.5 text-[8px] font-semibold uppercase text-[#92400E]">Férié</span>}
-                      </div>
-                      <div className="space-y-1">
-                        {day.dayLeaves.slice(0, 3).map((leave: EmployeeLeave) => (
-                          <div
-                            key={leave.id}
-                            title={`${leave.employees?.prenom ?? ""} ${leave.employees?.nom ?? ""} — ${leave.leave_types?.name ?? "Absence"}`}
-                            className="truncate rounded-md px-1.5 py-1 text-[9.5px] font-medium text-white shadow-sm"
-                            style={{ background: leave.leave_types?.color ?? "#C8924A" }}
-                          >
-                            {leave.employees?.prenom?.[0] ?? ""}. {leave.employees?.nom ?? ""}
-                          </div>
-                        ))}
-                        {day.dayLeaves.length > 3 && <div className="px-1 text-[9px] font-medium text-[#6B7280]">+{day.dayLeaves.length - 3} autre{day.dayLeaves.length - 3 > 1 ? "s" : ""}</div>}
-                      </div>
-                    </div>
-                  ) : (
-                    <div key={`empty-${index}`} className="min-h-[96px] bg-[#F7F7F4]" aria-hidden="true" />
-                  ))}
-                </div>
+          <div>
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <SectionLabel className="mb-0">Calendrier des absences</SectionLabel>
+              <div className="flex flex-wrap gap-x-2.5 gap-y-1 text-[10px] text-[#6B7280]">
+                {leaveTypes.slice(0, 5).map((t: LeaveType) => (
+                  <span key={t.id ?? t.name} className="inline-flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full" style={{ background: t.color ?? "#C8924A" }} /> {t.name}
+                  </span>
+                ))}
               </div>
             </div>
-          )}
+            <div className="overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white">
+              {loading ? (
+                <div className="h-40 animate-pulse bg-[#F9F9F6]" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <div className="min-w-[680px]">
+                    <div className="grid grid-cols-7 border-b border-[rgba(0,0,0,0.07)] bg-[#F8F8F5]">
+                      {weekDays.map((day, index) => (
+                        <div
+                          key={day}
+                          className={`px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-[0.7px] ${
+                            index >= 5 ? "text-[#C8924A]" : "text-[#6B7280]"
+                          }`}
+                        >
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-px bg-[rgba(0,0,0,0.06)] text-[11px]">
+                      {calendarCells.map((day, index) => day ? (
+                        <div
+                          key={day.iso}
+                          className={`group min-h-[96px] p-2 transition-colors ${
+                            day.isHoliday
+                              ? "bg-[#FFFBEB]"
+                              : day.isWeekend
+                                ? "bg-[#FAFAF8]"
+                                : "bg-white hover:bg-[#FCFCFA]"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[11px] font-semibold ${
+                              day.isToday
+                                ? "bg-[#1A1A2E] text-white"
+                                : day.isWeekend
+                                  ? "text-[#9CA3AF]"
+                                  : "text-[#1A1A2E]"
+                            }`}>
+                              {day.day}
+                            </span>
+                            {day.isHoliday && <span className="rounded-full bg-[#FEF3C7] px-1.5 py-0.5 text-[8px] font-semibold uppercase text-[#92400E]">Férié</span>}
+                          </div>
+                          <div className="space-y-1">
+                            {day.dayLeaves.slice(0, 3).map((leave: EmployeeLeave) => (
+                              <div
+                                key={leave.id}
+                                title={`${leave.employees?.prenom ?? ""} ${leave.employees?.nom ?? ""} — ${leave.leave_types?.name ?? "Absence"}`}
+                                className="truncate rounded-md px-1.5 py-1 text-[9.5px] font-medium text-white shadow-sm"
+                                style={{ background: leave.leave_types?.color ?? "#C8924A" }}
+                              >
+                                {leave.employees?.prenom?.[0] ?? ""}. {leave.employees?.nom ?? ""}
+                              </div>
+                            ))}
+                            {day.dayLeaves.length > 3 && <div className="px-1 text-[9px] font-medium text-[#6B7280]">+{day.dayLeaves.length - 3} autre{day.dayLeaves.length - 3 > 1 ? "s" : ""}</div>}
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={`empty-${index}`} className="min-h-[96px] bg-[#F7F7F4]" aria-hidden="true" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.07)]">
-              <h2 className="text-[13px] font-semibold text-[#1A1A2E]">Résumé mensuel</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px] min-w-[620px]">
-                <thead>
-                  <tr className="bg-[#F9F9F6]">
-                    {["Employé", "Congés/absences", "Jours", "Sans solde", "Impact salaire"].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px]">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {employees.map((emp: Employee) => {
-                    const empLeaves = leavesByEmployee.get(emp.id) ?? [];
-                    const unpaid = empLeaves.filter(l => !l.is_paid);
-                    return (
-                      <tr key={emp.id} className="border-t border-[rgba(0,0,0,0.05)]">
-                        <td className="px-4 py-3 font-medium text-[#1A1A2E]">{emp.prenom} {emp.nom}</td>
-                        <td className="px-4 py-3 text-[#6B7280]">{empLeaves.length}</td>
-                        <td className="px-4 py-3 text-[#374151]">{empLeaves.reduce((s, l) => s + Number(l.nombre_jours), 0)}</td>
-                        <td className="px-4 py-3 text-[#DC2626]">{unpaid.reduce((s, l) => s + Number(l.nombre_jours), 0)}</td>
-                        <td className="px-4 py-3 text-[#DC2626]">{fmtAmt(unpaid.reduce((s, l) => s + Number(l.impact_salaire), 0))} MAD</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <div>
+            <SectionLabel>Résumé mensuel</SectionLabel>
+            <div className="overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white">
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px] min-w-[620px]">
+                  <thead>
+                    <tr className="bg-[#F9F9F6]">
+                      {["Employé", "Congés/absences", "Jours", "Sans solde", "Impact salaire"].map(h => (
+                        <th key={h} className="text-left px-4 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px]">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employees.map((emp: Employee) => {
+                      const empLeaves = leavesByEmployee.get(emp.id) ?? [];
+                      const unpaid = empLeaves.filter(l => !l.is_paid);
+                      return (
+                        <tr key={emp.id} className="border-t border-[rgba(0,0,0,0.05)]">
+                          <td className="px-4 py-3 font-medium text-[#1A1A2E]">{emp.prenom} {emp.nom}</td>
+                          <td className="px-4 py-3 text-[#6B7280]">{empLeaves.length}</td>
+                          <td className="px-4 py-3 text-[#374151]">{empLeaves.reduce((s, l) => s + Number(l.nombre_jours), 0)}</td>
+                          <td className="px-4 py-3 text-[#DC2626]">{unpaid.reduce((s, l) => s + Number(l.nombre_jours), 0)}</td>
+                          <td className="px-4 py-3 text-[#DC2626]">{fmtAmt(unpaid.reduce((s, l) => s + Number(l.impact_salaire), 0))} MAD</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.07)]">
-            <h2 className="text-[13px] font-semibold text-[#1A1A2E]">Jours fériés {selectedYear}</h2>
-            <p className="text-[11px] text-[#9CA3AF] mt-0.5">Dates nationales enregistrées</p>
-          </div>
-          {loading ? (
-            <div className="h-40 animate-pulse bg-[#F9F9F6]" />
-          ) : holidayRows.length === 0 ? (
-            <div className="px-4 py-10 text-center">
-              <CalendarDays size={28} className="text-[#D1D5DB] mx-auto mb-2" />
-              <p className="text-[12.5px] text-[#6B7280]">Aucun jour férié enregistré</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-[rgba(0,0,0,0.05)] max-h-[520px] overflow-y-auto">
-              {holidayRows.map((holiday: Holiday) => {
-                const date = new Date(holiday.date);
-                const isThisMonth = date.getMonth() + 1 === selectedMonth;
-                return (
-                  <div key={holiday.id ?? holiday.date} className={`px-4 py-3 ${isThisMonth ? "bg-[#FFFBEB]" : "bg-white"}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[12.5px] font-semibold text-[#1A1A2E] leading-tight">{holiday.name}</p>
-                        {holiday.name_ar && <p className="text-[11px] text-[#9CA3AF] mt-0.5">{holiday.name_ar}</p>}
+        <div>
+          <SectionLabel>Jours fériés {selectedYear}</SectionLabel>
+          <div className="overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white">
+            {loading ? (
+              <div className="h-40 animate-pulse bg-[#F9F9F6]" />
+            ) : holidayRows.length === 0 ? (
+              <div className="px-4 py-10 text-center">
+                <CalendarDays size={28} className="text-[#D1D5DB] mx-auto mb-2" />
+                <p className="text-[12.5px] text-[#6B7280]">Aucun jour férié enregistré</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-[rgba(0,0,0,0.05)] max-h-[520px] overflow-y-auto">
+                {holidayRows.map((holiday: Holiday) => {
+                  const date = new Date(holiday.date);
+                  const isThisMonth = date.getMonth() + 1 === selectedMonth;
+                  return (
+                    <div key={holiday.id ?? holiday.date} className={`px-4 py-3 ${isThisMonth ? "bg-[#FFFBEB]" : "bg-white"}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[12.5px] font-semibold text-[#1A1A2E] leading-tight">{holiday.name}</p>
+                          {holiday.name_ar && <p className="text-[11px] text-[#9CA3AF] mt-0.5">{holiday.name_ar}</p>}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[12px] font-semibold text-[#C8924A]">
+                            {date.toLocaleDateString("fr-MA", { day: "2-digit", month: "short" })}
+                          </p>
+                          <p className="text-[10px] text-[#9CA3AF]">
+                            {date.toLocaleDateString("fr-MA", { weekday: "short" })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-[12px] font-semibold text-[#C8924A]">
-                          {date.toLocaleDateString("fr-MA", { day: "2-digit", month: "short" })}
-                        </p>
-                        <p className="text-[10px] text-[#9CA3AF]">
-                          {date.toLocaleDateString("fr-MA", { weekday: "short" })}
-                        </p>
-                      </div>
+                      {isThisMonth && (
+                        <span className="inline-block mt-2 rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-semibold text-[#92400E]">
+                          Ce mois
+                        </span>
+                      )}
                     </div>
-                    {isThisMonth && (
-                      <span className="inline-block mt-2 rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-semibold text-[#92400E]">
-                        Ce mois
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

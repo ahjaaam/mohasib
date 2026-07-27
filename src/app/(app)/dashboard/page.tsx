@@ -9,6 +9,7 @@ import DashboardNews from "./DashboardNews";
 import DashboardGreeting from "./DashboardGreeting";
 import { getMonthlyUsage } from "@/lib/usage";
 import RevenueExpenseChart, { type FinanceChartPoint } from "./RevenueExpenseChart";
+import SectionLabel from "@/components/SectionLabel";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -22,15 +23,6 @@ const STATUS_BADGE: Record<string, [string, string, string]> = {
   cancelled:           ["#F3F4F6", "#6B7280",  "Annulée"],
   partiellement_payee: ["#FEF3C7", "#92400E",  "Partiel"],
 };
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 mb-3">
-      <div className="w-[3px] h-4 bg-[#C8924A] rounded-full flex-shrink-0" />
-      <span className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[1px]">{children}</span>
-    </div>
-  );
-}
 
 function supplierTotal(item: any) {
   return Math.abs(Number(item.ocr_data?.amount ?? 0));
