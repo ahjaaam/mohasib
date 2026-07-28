@@ -32,20 +32,13 @@ export default function PublicNavbar() {
           align-items: center;
           text-decoration: none;
         }
-        .public-nav-right,
-        .public-nav-links {
+        .public-nav-right {
           display: flex;
           align-items: center;
-        }
-        .public-nav-right {
           gap: 26px;
-        }
-        .public-nav-links {
-          gap: 34px;
         }
         .public-nav-link {
           display: inline-flex;
-          min-height: 76px;
           align-items: center;
           gap: 6px;
           color: #5E6065;
@@ -163,15 +156,9 @@ export default function PublicNavbar() {
           </Link>
 
           <div className="public-nav-right">
-            <div className="public-nav-links">
-              <Link href="/tarifs" className="public-nav-link">
-                Tarification
-              </Link>
-
-              <Link href="/centre-aide" className="public-nav-link">
-                Centre d&apos;aide
-              </Link>
-            </div>
+            <Link href="/centre-aide" className="public-nav-link">
+              Centre d&apos;aide
+            </Link>
 
             <Link href={appUrl("/connexion")} className="public-login-link">
               Se connecter
@@ -191,9 +178,6 @@ export default function PublicNavbar() {
 
         {mobileOpen && (
           <div className="public-mobile-panel">
-            <Link href="/tarifs" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
-              Tarification
-            </Link>
             <Link href="/centre-aide" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
               Centre d&apos;aide
             </Link>

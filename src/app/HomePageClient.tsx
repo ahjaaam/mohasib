@@ -37,6 +37,7 @@ const FLOATING_ITEMS = [
   { position: "fifteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
   { position: "sixteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
   { position: "seventeen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
+  { position: "eighteen", src: "/images/whatsapp-logo-cropped.png", alt: "", width: 239, height: 232, isMark: true },
 ];
 
 export default function HomePageClient() {
@@ -45,48 +46,48 @@ export default function HomePageClient() {
   const productPreview =
     activeProductTab === 0
       ? {
-          src: "/images/mohasib-invoicing-demo.gif",
+          src: "/images/mohasib-invoicing-demo.mp4",
           alt: "Démonstration animée de la facturation Mohasib avec le suivi des factures clients",
           width: 1780,
           height: 1080,
         }
       : activeProductTab === 1
         ? {
-            src: "/images/mohasib-inbox-demo.gif",
+            src: "/images/mohasib-inbox-demo.mp4",
             alt: "Démonstration animée de la boîte de réception Mohasib pour importer et traiter les factures fournisseurs",
             width: 1784,
             height: 1080,
           }
         : activeProductTab === 2
           ? {
-              src: "/images/mohasib-vat-demo.gif",
+              src: "/images/mohasib-vat-demo.mp4",
               alt: "Démonstration animée de la déclaration de TVA Mohasib avec les lignes DGI et l’historique des déclarations",
               width: 1784,
               height: 1080,
             }
           : activeProductTab === 3
             ? {
-                src: "/images/mohasib-payment-tracking-demo.gif",
+                src: "/images/mohasib-payment-tracking-demo.mp4",
                 alt: "Démonstration animée du suivi des paiements Mohasib avec encaissements clients et paiements fournisseurs",
                 width: 1780,
                 height: 1080,
               }
             : activeProductTab === 4
               ? {
-                  src: "/images/mohasib-payroll-demo.gif",
+                  src: "/images/mohasib-payroll-demo.mp4",
                   alt: "Démonstration animée de la gestion de la paie Mohasib avec les employés, congés, heures, bulletins et CNSS",
                   width: 1784,
                   height: 1080,
                 }
               : activeProductTab === 5
                 ? {
-                    src: "/images/mohasib-assistant-demo.gif",
+                    src: "/images/mohasib-assistant-demo.mp4",
                     alt: "Démonstration animée de l’assistant Mohasib répondant aux questions comptables dans le contexte de l’entreprise",
                     width: 1784,
                     height: 1080,
                   }
                 : {
-                    src: "/images/mohasib-archive-demo.gif",
+                    src: "/images/mohasib-archive-demo.mp4",
                     alt: "Démonstration animée de l’archive Mohasib pour rechercher, classer et prévisualiser les documents et pièces justificatives",
                     width: 1788,
                     height: 1080,
@@ -329,13 +330,21 @@ export default function HomePageClient() {
           right: 3%;
           bottom: -3%;
         }
+        .home-receipt-eighteen {
+          --receipt-width: 64px;
+          --receipt-rotation: -10deg;
+          --receipt-duration: 7.5s;
+          --receipt-delay: -2.6s;
+          top: 55%;
+          left: 2%;
+        }
         .home-hero-tabs {
           position: relative;
           z-index: 2;
           display: inline-flex;
           align-items: stretch;
           max-width: 100%;
-          margin: 54px auto 0;
+          margin: 88px auto 0;
           background: #FFFFFF;
           border: 1px solid #E5E5E1;
           border-bottom: none;
@@ -366,10 +375,11 @@ export default function HomePageClient() {
           border-right: none;
         }
         .home-hero-tab:hover {
-          color: #0A0A0A;
+          color: #C8924A;
         }
         .home-hero-tab.is-active {
-          color: #0A0A0A;
+          background: rgba(200, 146, 74, 0.12);
+          color: #C8924A;
           font-weight: 500;
         }
         .home-hero-preview {
@@ -379,7 +389,7 @@ export default function HomePageClient() {
           margin: 0 auto 0;
           overflow: hidden;
           background: #FFFFFF;
-          box-shadow: 0 34px 90px rgba(0, 0, 0, 0.38);
+          box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
           line-height: 0;
         }
         .home-hero-preview-image {
@@ -520,11 +530,14 @@ export default function HomePageClient() {
             right: 18%;
             bottom: -1%;
           }
+          .home-receipt-eighteen {
+            display: none;
+          }
           .home-receipt-field {
             height: 500px;
           }
           .home-hero-tabs {
-            margin: 36px auto 0;
+            margin: 56px auto 0;
             max-width: calc(100% - 8px);
           }
           .home-hero-tab {
@@ -548,7 +561,7 @@ export default function HomePageClient() {
         </div>
 
         <div className="home-hero-content">
-            <p className="public-eyebrow mb-4">Comptabilité intelligente · Maroc</p>
+            <p className="public-eyebrow mb-4">L&apos;IA pour votre vie professionnelle</p>
             <h1 className="home-hero-title">
               Automatisez vos tâches administratives et{" "}comptables
             </h1>
@@ -560,7 +573,7 @@ export default function HomePageClient() {
               <a
                 className="public-primary-action home-hero-cta ui-control"
                 href={appUrl("/inscription")}
-                style={{ minHeight: 50, padding: "0 30px", fontSize: 14, fontFamily: FONT }}
+                style={{ minHeight: 50, padding: "0 30px", fontSize: 16, fontFamily: FONT }}
               >
                 Créer un compte gratuit
               </a>
@@ -568,7 +581,7 @@ export default function HomePageClient() {
                 type="button"
                 className="public-secondary-action home-demo-action ui-control"
                 onClick={() => setDemoOpen(true)}
-                style={{ minHeight: 50, padding: "0 24px", fontSize: 14, fontFamily: FONT }}
+                style={{ minHeight: 50, padding: "0 24px", fontSize: 16, fontFamily: FONT }}
               >
                 Recevoir la vidéo démo
               </button>
@@ -590,16 +603,18 @@ export default function HomePageClient() {
             </div>
 
             <div className="home-hero-preview" aria-label="Aperçu du tableau de bord Mohasib">
-              <Image
+              <video
                 key={productPreview.src}
                 className="home-hero-preview-image"
                 src={productPreview.src}
-                alt={productPreview.alt}
+                aria-label={productPreview.alt}
                 width={productPreview.width}
                 height={productPreview.height}
-                sizes="(max-width: 1180px) calc(100vw - 36px), 1140px"
-                priority
-                unoptimized
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
               />
             </div>
         </div>
