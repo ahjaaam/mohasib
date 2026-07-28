@@ -15,7 +15,7 @@ const PRODUCT_TABS = [
   "TVA & Déclarations",
   "Suivi des paiements",
   "La paie",
-  "Cabinet comptable",
+  "L’assistant Mohasib",
   "OCR & Documents",
 ];
 
@@ -78,12 +78,19 @@ export default function HomePageClient() {
                   width: 1784,
                   height: 1080,
                 }
-              : {
-                  src: "/images/mohasib-dashboard-demo-v3.gif",
-                  alt: "Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements",
-                  width: 1920,
-                  height: 990,
-                };
+              : activeProductTab === 5
+                ? {
+                    src: "/images/mohasib-assistant-demo.gif",
+                    alt: "Démonstration animée de l’assistant Mohasib répondant aux questions comptables dans le contexte de l’entreprise",
+                    width: 1784,
+                    height: 1080,
+                  }
+                : {
+                    src: "/images/mohasib-dashboard-demo-v3.gif",
+                    alt: "Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements",
+                    width: 1920,
+                    height: 990,
+                  };
 
   return (
     <div className="public-site" style={{ fontFamily: FONT }}>
