@@ -16,7 +16,7 @@ const PRODUCT_TABS = [
   "Suivi des paiements",
   "La paie",
   "L’Assistant Mohasib",
-  "OCR & Documents",
+  "Archive",
 ];
 
 const FLOATING_ITEMS = [
@@ -86,10 +86,10 @@ export default function HomePageClient() {
                     height: 1080,
                   }
                 : {
-                    src: "/images/mohasib-dashboard-demo-v3.gif",
-                    alt: "Démonstration animée du tableau de bord Mohasib avec revenus, dépenses, échéances et suivi des paiements",
-                    width: 1920,
-                    height: 990,
+                    src: "/images/mohasib-archive-demo.gif",
+                    alt: "Démonstration animée de l’archive Mohasib pour rechercher, classer et prévisualiser les documents et pièces justificatives",
+                    width: 1788,
+                    height: 1080,
                   };
 
   return (
