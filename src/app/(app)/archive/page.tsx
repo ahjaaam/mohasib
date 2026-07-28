@@ -640,7 +640,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         </div>
 
         {/* ── Right Panel ─────────────────────────────────────────────────── */}
-        <div className={`${selected ? "flex" : "hidden md:flex"} min-w-0 flex-1 overflow-hidden`}>
+        <div className={`${selected ? "block" : "hidden md:block"} min-w-0 flex-1 overflow-hidden`}>
           {selected ? (
             resolving ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
