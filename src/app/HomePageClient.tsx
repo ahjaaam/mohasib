@@ -15,7 +15,7 @@ const PRODUCT_TABS = [
   "TVA & Déclarations",
   "Suivi des paiements",
   "La paie",
-  "L’assistant Mohasib",
+  "L’Assistant Mohasib",
   "OCR & Documents",
 ];
 
