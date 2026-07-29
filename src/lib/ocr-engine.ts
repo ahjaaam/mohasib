@@ -124,7 +124,7 @@ Extract:
 8. description: A proper accounting description in French, not a raw copy of the line-item designation. It should summarize the accounting nature of the invoice for bookkeeping.
 9. payment_method: Cash, Virement, Chèque, or Carte
 10. category: Best guess from: Achats, Salaires, Loyer, Fournitures, Transport, Communication, Fiscalité, Autre dépense
-11. document_type: Use "avoir" if the document is a credit note / avoir fournisseur (keywords: AVOIR, Note de crédit, Credit Note, Avoir N°, rectificatif)
+11. document_type: Classify as "invoice", "receipt" (including ticket/reçu), "purchase_order" (bon de commande), "delivery_note" (bon de livraison), "avoir", "bank_statement", or "other". Use "avoir" for a credit note / avoir fournisseur (keywords: AVOIR, Note de crédit, Credit Note, Avoir N°, rectificatif).
 12. due_date: Payment due date — look for: "Date d'échéance", "Payable avant", "À régler avant", "Due date", "Net 30/60", "Échéance", "Paiement à X jours" (add X days to invoice date). Format: DD/MM/YYYY. If no due date/payment term is found, default to invoice date + 60 days.
 13. is_supplier_invoice: true if this document was issued BY a supplier TO you (you are the buyer/recipient — check the "À:" section). true for receipts/tickets. false if your company is in the "De:" section (it's your own invoice). Default: true.
 
@@ -166,7 +166,7 @@ Return ONLY this JSON, nothing else:
   "category": {"value": "...", "confidence": "high|medium|low"},
   "due_date": {"value": "DD/MM/YYYY or null", "confidence": "high|medium|low"},
   "is_supplier_invoice": {"value": true, "confidence": "high|medium|low"},
-  "document_type": "invoice|receipt|avoir|bank_statement|other",
+  "document_type": "invoice|receipt|purchase_order|delivery_note|avoir|bank_statement|other",
   "overall_confidence": "high|medium|low",
   "extraction_notes": "Any issues noticed with the document"
 }`;
@@ -197,7 +197,7 @@ Return ONLY this JSON, nothing else:
   "category": {"value": "Achats|Salaires|Loyer|Fournitures|Transport|Communication|Fiscalité|Autre dépense", "confidence": "high|medium|low"},
   "due_date": {"value": "DD/MM/YYYY or null", "confidence": "high|medium|low"},
   "is_supplier_invoice": {"value": true, "confidence": "high|medium|low"},
-  "document_type": "invoice|receipt|avoir|bank_statement|other",
+  "document_type": "invoice|receipt|purchase_order|delivery_note|avoir|bank_statement|other",
   "overall_confidence": "high|medium|low",
   "extraction_notes": "..."
 }`;

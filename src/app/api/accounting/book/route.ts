@@ -5,6 +5,9 @@ import { authorizePermission } from "@/lib/api-permissions";
 import { logAccountingEvent, logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { enforcePeriodLock } from "@/lib/period-check";
+import { computePurchaseAmounts } from "@/lib/purchase-booking";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +26,7 @@ export async function POST(req: NextRequest) {
     }
     const permission = await authorizePermission("accounting", "create", { dossierId });
     if (permission.response) return permission.response;
+    const ownerId = await resolveAccountOwnerId(user.id);
 
     // Resolve company_id when not in dossier context
     let companyId: string | null = null;
@@ -31,7 +35,7 @@ export async function POST(req: NextRequest) {
         .from("dossiers")
         .select("id")
         .eq("id", dossierId)
-        .eq("fiduciaire_user_id", user.id)
+        .eq("fiduciaire_user_id", ownerId)
         .single();
       if (!dossier) {
         return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
@@ -40,7 +44,7 @@ export async function POST(req: NextRequest) {
       const { data: co } = await supabase
         .from("companies")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", ownerId)
         .single();
       companyId = co?.id ?? null;
       if (!companyId) {
@@ -162,20 +166,29 @@ export async function POST(req: NextRequest) {
       if (!receipt) return NextResponse.json({ error: "Reçu introuvable" }, { status: 404 });
 
       const ocr = receipt.ocr_data ?? {};
-      const totalTtc = Math.abs(Number(ocr.amount ?? 0));
-      const tvaAmt   = Math.abs(Number(ocr.tva_amount ?? 0));
-      const totalHt  = totalTtc - tvaAmt;
+      const { totalTtc, totalHt, tvaAmount } = computePurchaseAmounts(ocr);
       const date     = ocr.date ?? receipt.created_at?.split("T")[0] ?? new Date().toISOString().split("T")[0];
+      if (totalTtc <= 0) {
+        return NextResponse.json({ error: "Montant du justificatif invalide" }, { status: 400 });
+      }
+
+      const mois = Number(String(date).slice(5, 7));
+      const annee = Number(String(date).slice(0, 4));
+      if (mois && annee) {
+        const locked = await enforcePeriodLock(mois, annee, companyId, dossierId ?? null);
+        if (locked) return locked;
+      }
 
       await bookPurchaseInvoice(supabase, {
         id: receipt.id,
         date,
-        description: ocr.vendor ?? ocr.description ?? "Achat",
+        description: ocr.vendor_name ?? ocr.vendor ?? ocr.description ?? "Achat",
         total_ht: totalHt,
         total_ttc: totalTtc,
-        tva_amount: tvaAmt,
+        tva_amount: tvaAmount,
         category: ocr.category ?? null,
-        supplier_name: ocr.vendor ?? ocr.vendor_name ?? null,
+        expense_account: ocr.compte ?? null,
+        supplier_name: ocr.vendor_name ?? ocr.vendor ?? null,
         reference: ocr.receipt_number ?? null,
       }, companyId, dossierId ?? null);
 
@@ -188,7 +201,7 @@ export async function POST(req: NextRequest) {
         entityType: "ecriture_comptable",
         entityId: receipt.id,
         entityLabel: ocr.vendor ?? ocr.description ?? "Achat",
-        newValues: { receipt, total_ht: totalHt, total_ttc: totalTtc, tva_amount: tvaAmt },
+        newValues: { receipt, total_ht: totalHt, total_ttc: totalTtc, tva_amount: tvaAmount },
         ...getRequestMeta(req),
       });
       await logAccountingEvent({

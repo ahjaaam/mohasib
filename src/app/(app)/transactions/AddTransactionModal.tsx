@@ -243,7 +243,7 @@ export default function AddTransactionModal({ userId, clients }: Props) {
 
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setOpen(false)}
-                  className="btn-secondary flex-1 justify-center">Annuler</button>
+                  className="btn btn-outline flex-1 justify-center">Annuler</button>
                 <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
                   {saving ? "Enregistrement..." : "Enregistrer"}
                 </button>

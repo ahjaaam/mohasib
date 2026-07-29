@@ -10,6 +10,7 @@ import {
   LayoutDashboard, FileText, Users, ArrowLeftRight, PenLine, LayoutTemplate,
   Calculator, Download, BarChart2, Banknote, Archive,
   Inbox, ChevronLeft, Building2, X, ChevronDown, GitMerge, Lock,
+  ReceiptText,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -19,6 +20,7 @@ import { FEATURES } from "@/lib/features";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 import AppTopBar from "@/components/AppTopBar";
+import SidebarToggleButton from "@/components/SidebarToggleButton";
 
 const SIDEBAR_BACKGROUND = "linear-gradient(160deg, #1e2536 0%, #000000 100%)";
 
@@ -28,6 +30,7 @@ const NAV_GROUPS = [
     items: [
       { slug: "dashboard",    icon: LayoutDashboard, label: "Tableau de bord", permission: "report:read" },
       { slug: "inbox",        icon: Inbox,           label: "Boîte de réception", permission: "document:read" },
+      { slug: "receipts",     icon: ReceiptText,     label: "Justificatifs", permission: "document:read" },
       { slug: "invoices",     icon: FileText,        label: "Factures clients", permission: "invoice:read" },
       { slug: "clients",      icon: Users,           label: "Clients", permission: "invoice:read" },
       { slug: "transactions", icon: ArrowLeftRight,  label: "Transactions", permission: "accounting:read" },
@@ -218,6 +221,10 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
             style={{ width: sidebarCollapsed ? 56 : 210, background: SIDEBAR_BACKGROUND }}
           >
             <SidebarContent compact={sidebarCollapsed} />
+            <SidebarToggleButton
+              collapsed={sidebarCollapsed}
+              onToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            />
           </aside>
 
           {/* Right column: search top bar + scrollable page content */}
@@ -228,8 +235,6 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               userEmail={userEmail}
               userId={userId}
               avatarUrl={userAvatar}
-              sidebarCollapsed={sidebarCollapsed}
-              onToggleSidebar={() => setSidebarCollapsed((collapsed) => !collapsed)}
               onOpenMobileMenu={() => setDrawerOpen(true)}
               onSignOut={signOut}
               settingsHref={`${base}/settings`}

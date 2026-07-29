@@ -17,6 +17,7 @@ export const ROUTES = {
   CLIENTS: "/clients",
   TRANSACTIONS: "/transactions",
   INBOX: "/boite-de-reception",
+  RECEIPTS: "/receipts",
   TVA: "/declarations-tva",
   EXPORT: "/export-fiduciaire",
   ARCHIVE: "/archive",

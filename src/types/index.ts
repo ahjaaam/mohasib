@@ -140,6 +140,7 @@ export interface OcrData {
 export interface Receipt {
   id: string;
   user_id: string;
+  dossier_id?: string | null;
   transaction_id: string | null;
   storage_path: string | null;
   file_name: string | null;

@@ -478,7 +478,7 @@ export function createInvoicePDF({ invoice, client, company, generatedAt }: Invo
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerBrand}>Généré par Mohasib — mohasib.ma</Text>
+          <Text style={styles.footerText} />
           <Text style={styles.footerText}>Page 1 / 1</Text>
           <Text style={styles.footerText}>{generatedAt}</Text>
         </View>

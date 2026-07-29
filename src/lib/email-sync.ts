@@ -4,6 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decodeTokenPayload, encodeTokenPayload, type EmailProvider } from "@/lib/email-oauth";
 import { extractWithFallback } from "@/lib/ocr-engine";
 import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
+import {
+  shouldImportEmailDocument,
+  type EmailImportMode,
+} from "@/lib/email-document-filter";
 
 type OAuthToken = {
   access_token?: string;
@@ -40,7 +44,6 @@ export type EmailSyncResult = {
 const MAX_MESSAGES = 20;
 const MAX_IMPORTS = 20;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const INVOICE_WORDS = /(facture|invoice|re[cç]u|receipt|avoir|credit.?note|note.?de.?cr[eé]dit|bill|(^|[_\W])(inv|fac)([_\W]|\d))/i;
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -61,13 +64,6 @@ function normalizedMimeType(fileName: string, mimeType: string) {
 
 function isSupportedAttachment(fileName: string, mimeType: string) {
   return ALLOWED_MIME_TYPES.has(normalizedMimeType(fileName, mimeType));
-}
-
-function looksLikeInvoice(ocrData: Record<string, unknown>) {
-  const documentType = String(ocrData.document_type ?? "")
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-  return ["invoice", "facture", "avoir", "credit_note", "note_de_credit"].includes(documentType);
 }
 
 function tokenExpired(token: OAuthToken) {
@@ -229,7 +225,11 @@ async function fetchOutlookAttachments(accessToken: string): Promise<{ messagesS
   return { messagesScanned: list.value?.length ?? 0, messagesFound, attachments };
 }
 
-export async function syncCompanyEmail(provider: EmailProvider, companyId: string): Promise<EmailSyncResult> {
+export async function syncCompanyEmail(
+  provider: EmailProvider,
+  companyId: string,
+  mode: EmailImportMode = "accounting_documents",
+): Promise<EmailSyncResult> {
   const admin = createAdminClient();
   const tokenColumn = provider === "gmail" ? "gmail_token_encrypted" : "outlook_token_encrypted";
   const lastSyncColumn = provider === "gmail" ? "gmail_last_sync" : "outlook_last_sync";
@@ -284,7 +284,10 @@ export async function syncCompanyEmail(provider: EmailProvider, companyId: strin
     } catch {
       // Filename/subject classification below can still identify an invoice.
     }
-    if (!looksLikeInvoice(ocrData)) {
+    if (!shouldImportEmailDocument(ocrData, mode, {
+      fileName: attachment.fileName,
+      subject: attachment.subject,
+    })) {
       skipped++;
       continue;
     }
@@ -350,7 +353,11 @@ export async function syncCompanyEmail(provider: EmailProvider, companyId: strin
   };
 }
 
-export async function syncDossierEmail(provider: EmailProvider, dossierId: string): Promise<EmailSyncResult> {
+export async function syncDossierEmail(
+  provider: EmailProvider,
+  dossierId: string,
+  mode: EmailImportMode = "accounting_documents",
+): Promise<EmailSyncResult> {
   const admin = createAdminClient();
   const tokenColumn = provider === "gmail" ? "gmail_token_encrypted" : "outlook_token_encrypted";
   const lastSyncColumn = provider === "gmail" ? "gmail_last_sync" : "outlook_last_sync";
@@ -413,7 +420,10 @@ export async function syncDossierEmail(provider: EmailProvider, dossierId: strin
     } catch {
       // Filename/subject classification below can still identify an invoice.
     }
-    if (!looksLikeInvoice(ocrData)) {
+    if (!shouldImportEmailDocument(ocrData, mode, {
+      fileName: attachment.fileName,
+      subject: attachment.subject,
+    })) {
       skipped++;
       continue;
     }

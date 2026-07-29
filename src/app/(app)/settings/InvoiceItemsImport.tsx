@@ -254,7 +254,7 @@ export default function InvoiceItemsImport({ userId, dossierId, existingNames, o
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-black/[0.07] px-5 py-4">
-              <button type="button" onClick={reset} disabled={importing} className="btn">
+              <button type="button" onClick={reset} disabled={importing} className="btn btn-outline">
                 Annuler
               </button>
               <button

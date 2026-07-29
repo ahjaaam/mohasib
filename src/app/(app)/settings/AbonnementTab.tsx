@@ -41,6 +41,7 @@ const PLAN_LABELS: Record<string, string> = {
   comptable_s: "Comptable S",
   comptable_pro: "Comptable Pro",
   comptable_inf: "Comptable Infini",
+  custom: "Abonnement personnalisé",
 };
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
@@ -74,6 +75,7 @@ function formatDate(value?: string | null) {
 }
 
 function getUpgradeCta(plan: string, userType?: string | null) {
+  if (plan === "custom") return null;
   const isComptableAccount = userType === "fiduciaire" || plan.startsWith("comptable_");
   if (plan === "business_pro" || plan === "comptable_inf") return null;
   if (isComptableAccount) return { label: "Demander Comptable Illimité", requestedPlan: "comptable_inf" };
@@ -81,12 +83,9 @@ function getUpgradeCta(plan: string, userType?: string | null) {
   return null;
 }
 
-export default function AbonnementTab({ userId, userEmail: _userEmail, companyId, company }: Props) {
+export default function AbonnementTab({ userId: _userId, userEmail: _userEmail, companyId, company }: Props) {
   const supabase = createClient();
   const entitlements = usePlanEntitlements();
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
 
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number; resetDate: string } | null>(null);
   useEffect(() => {
@@ -104,15 +103,6 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
   const includedFeatures = FEATURE_LABELS.filter(([key]) => entitlements.features[key]);
   const missingFeatures = FEATURE_LABELS.filter(([key]) => !entitlements.features[key]);
   const upgradeCta = getUpgradeCta(plan, company.user_type);
-
-  async function deleteAccount() {
-    if (deleteConfirm !== "SUPPRIMER") return;
-    const { error } = await supabase.auth.admin.deleteUser(userId);
-    if (error) {
-      await supabase.auth.signOut();
-      toast.error("Contactez le support pour supprimer votre compte");
-    }
-  }
 
   async function requestUpgrade() {
     if (!upgradeCta) return;
@@ -247,82 +237,12 @@ export default function AbonnementTab({ userId, userEmail: _userEmail, companyId
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mt-4 flex-wrap">
-          {upgradeCta && <button onClick={requestUpgrade} className="btn btn-outline">{upgradeCta.label}</button>}
-          <button onClick={() => setShowCancelModal(true)} className="text-[12px] text-[#DC2626] hover:underline cursor-pointer">
-            Annuler mon abonnement
-          </button>
-        </div>
-      </div>
-
-      {/* Danger Zone */}
-      <div className="border-2 border-[#FCA5A5] rounded-xl p-5">
-        <h3 className="text-[13px] font-bold text-[#DC2626] mb-1">Zone dangereuse</h3>
-        <p className="text-[12px] text-[#6B7280] mb-3">
-          Cette action est irréversible. Toutes vos données seront définitivement supprimées.
-        </p>
-        <button onClick={() => setShowDeleteModal(true)} className="btn btn-sm text-[#DC2626] bg-[#FEE2E2] hover:bg-[#FCA5A5] border-none">
-          Supprimer mon compte
-        </button>
-      </div>
-
-      {/* Cancel Modal */}
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full">
-            <div className="flex items-start justify-between mb-3">
-              <h3 className="text-[14px] font-bold text-[#1A1A2E]">Annuler l&apos;abonnement ?</h3>
-              <button onClick={() => setShowCancelModal(false)}><X size={16} className="text-[#9CA3AF]" /></button>
-            </div>
-            <p className="text-[12.5px] text-[#6B7280] mb-4">
-              Êtes-vous sûr ? Vous perdrez accès à toutes les fonctionnalités Pro le {nextRenewal}.
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => { toast("Abonnement annulé"); setShowCancelModal(false); }}
-                className="btn btn-sm flex-1 bg-[#DC2626] text-white hover:bg-[#B91C1C] border-none justify-center">
-                Annuler mon abonnement
-              </button>
-              <button onClick={() => setShowCancelModal(false)} className="btn btn-gold btn-sm flex-1 justify-center">
-                Garder mon abonnement
-              </button>
-            </div>
+        {upgradeCta && (
+          <div className="flex items-center gap-3 mt-4 flex-wrap">
+            <button onClick={requestUpgrade} className="btn btn-outline">{upgradeCta.label}</button>
           </div>
-        </div>
-      )}
-
-      {/* Delete Account Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full">
-            <div className="flex items-start justify-between mb-3">
-              <h3 className="text-[14px] font-bold text-[#DC2626]">Supprimer le compte</h3>
-              <button onClick={() => { setShowDeleteModal(false); setDeleteConfirm(""); }}><X size={16} className="text-[#9CA3AF]" /></button>
-            </div>
-            <p className="text-[12.5px] text-[#6B7280] mb-3">
-              Cette action est <strong>irréversible</strong>. Toutes vos factures, clients et données seront supprimés.
-            </p>
-            <p className="text-[12px] text-[#6B7280] mb-2">Tapez <strong>SUPPRIMER</strong> pour confirmer :</p>
-            <input
-              className="input mb-3"
-              value={deleteConfirm}
-              onChange={e => setDeleteConfirm(e.target.value)}
-              placeholder="SUPPRIMER"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={deleteAccount}
-                disabled={deleteConfirm !== "SUPPRIMER"}
-                className="btn btn-sm flex-1 bg-[#DC2626] text-white hover:bg-[#B91C1C] border-none justify-center disabled:opacity-40"
-              >
-                Supprimer définitivement
-              </button>
-              <button onClick={() => { setShowDeleteModal(false); setDeleteConfirm(""); }} className="btn btn-outline btn-sm flex-1 justify-center">
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

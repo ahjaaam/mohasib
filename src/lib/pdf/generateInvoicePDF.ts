@@ -396,12 +396,8 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   doc.setDrawColor(229, 231, 235);
   doc.line(marginL, footerY - 3, pageW - marginR, footerY - 3);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.setTextColor(...accentRgb);
-  doc.text("Généré par Mohasib — mohasib.ma", marginL, footerY);
-
   doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
   doc.setTextColor(...MUTED_RGB);
   doc.text("Page 1 / 1", pageW / 2, footerY, { align: "center" });
   doc.text(data.generatedAt, pageW - marginR, footerY, { align: "right" });

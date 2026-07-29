@@ -128,7 +128,7 @@ export default function MessagesTab({ userId, companyId, company }: Props) {
           className="w-full px-3 py-2.5 border border-[rgba(0,0,0,0.12)] rounded-xl text-[12.5px] text-[#1A1A2E] font-mono resize-y focus:outline-none focus:border-[#C8924A] focus:ring-1 focus:ring-[#C8924A]/30 placeholder:text-[#D1D5DB] bg-[#FAFAF6]"
         />
         <p className="text-[11px] text-[#9CA3AF] mt-1.5">
-          La facture PDF sera jointe automatiquement. La note de bas de page Mohasib est conservée.
+          La facture PDF sera jointe automatiquement, sans mention de la plateforme.
         </p>
       </div>
 

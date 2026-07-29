@@ -217,7 +217,6 @@ export default function ExportPage() {
           doc.setPage(i);
           const y = doc.internal.pageSize.height - 8;
           doc.setFontSize(7); doc.setTextColor(150);
-          doc.text("Généré par Mohasib — mohasib.ma", 14, y);
           doc.text(`Page ${i}/${n}`, doc.internal.pageSize.width - 14, y, { align: "right" });
         }
       }

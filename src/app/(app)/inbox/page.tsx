@@ -325,12 +325,41 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       tva_rate: form.tva_rate ? parseFloat(form.tva_rate) : receipt.ocr_data.tva_rate,
       compte: form.compte_comptable || (receipt.ocr_data as any).compte || null,
     };
-    const { error } = await supabase
+    const { error: ocrUpdateError } = await supabase
       .from("receipts")
-      .update({ status: "matched", ocr_data: confirmedOcr })
+      .update({ ocr_data: confirmedOcr })
       .eq("id", id);
-    if (error) {
+    if (ocrUpdateError) {
       toast.error("Erreur lors de la confirmation");
+      setSaving((s) => { s.delete(id); return new Set(s); });
+      return;
+    }
+
+    if (confirmedOcr.is_supplier_invoice !== false) {
+      const bookingResponse = await fetch("/api/accounting/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "purchase", receiptId: id, dossierId }),
+      });
+      const bookingResult = await bookingResponse.json().catch(() => ({}));
+      if (!bookingResponse.ok) {
+        toast.error(
+          bookingResult.message
+            ?? bookingResult.error
+            ?? "La comptabilisation automatique a échoué.",
+          { duration: 5000 },
+        );
+        setSaving((s) => { s.delete(id); return new Set(s); });
+        return;
+      }
+    }
+
+    const { error: statusUpdateError } = await supabase
+      .from("receipts")
+      .update({ status: "matched" })
+      .eq("id", id);
+    if (statusUpdateError) {
+      toast.error("Le justificatif est comptabilisé, mais son statut n'a pas pu être mis à jour.");
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
@@ -341,7 +370,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     if (previewReceipt?.id === id) setPreviewReceipt(null);
     dismissCard(id, "right");
     if (confirmedOcr.is_supplier_invoice !== false) {
-      toast.success("Ajoutée au suivi des paiements fournisseurs !");
+      toast.success("Justificatif comptabilisé et ajouté au suivi fournisseurs !");
     } else {
       toast.success("Facture confirmée !");
     }
@@ -449,11 +478,11 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                   </button>
                 )}
                 <button data-permission="document:create" onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1.5 whitespace-nowrap border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-medium text-[#374151] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition-colors hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]">
+                  className="btn btn-outline">
                   <Upload size={13} /> Importer des documents
                 </button>
                 <button data-permission="document:create" onClick={() => cameraInputRef.current?.click()}
-                  className="flex items-center gap-1.5 whitespace-nowrap border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-medium text-[#374151] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition-colors hover:border-[#C8924A] hover:bg-[#F0EDE5] hover:text-[#C8924A]">
+                  className="btn btn-outline">
                   <Camera size={13} /> Prendre une photo
                 </button>
               </div>

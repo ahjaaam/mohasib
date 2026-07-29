@@ -10,50 +10,99 @@ async function post(endpoint: string, body: Record<string, unknown>) {
   window.location.reload();
 }
 
-export function AccountControls({ company }: { company: Record<string, any> }) {
+const NUMERIC_LIMITS = [
+  ["ocr_limit", "Documents OCR / mois"],
+  ["storage_gb", "Stockage (Go)"],
+  ["dossiers_limit", "Espaces clients"],
+  ["users_limit", "Utilisateurs / collaborateurs"],
+  ["employee_limit", "Employés en paie"],
+] as const;
+
+const FEATURE_LIMITS = [
+  ["has_bank_import", "Import et rapprochement bancaire"],
+  ["has_saisie", "Saisie et écritures automatiques"],
+  ["has_paie", "Paie"],
+  ["has_export_fiduciaire", "Exports comptables"],
+  ["has_avoirs", "Avoirs"],
+  ["has_bilan", "Bilan et CPC"],
+  ["has_tva_edi", "EDI TVA"],
+  ["has_inbox_global", "Inbox globale cabinet"],
+  ["has_mass_declarations", "Déclarations de masse"],
+  ["has_whatsapp_agent", "Agent WhatsApp"],
+] as const;
+
+export function AccountControls({
+  company,
+  override,
+  effectiveLimits,
+}: {
+  company: Record<string, any>;
+  override?: Record<string, any> | null;
+  effectiveLimits: Record<string, any>;
+}) {
   const [busy, setBusy] = useState(false);
   const run = async (endpoint: string, body: Record<string, unknown>) => {
     setBusy(true);
     try { await post(endpoint, body); } catch (error) { alert(error instanceof Error ? error.message : "Erreur"); setBusy(false); }
   };
   return <div className="space-y-4">
-    <section className="rounded-md border border-black/10 bg-white p-4">
-      <h2 className="text-sm font-bold">Plan et abonnement</h2>
-      <form className="mt-3 grid gap-2 sm:grid-cols-4" onSubmit={event => {
-        event.preventDefault();
-        const values = Object.fromEntries(new FormData(event.currentTarget));
-        void run(`/api/admin/accounts/${company.id}/plan`, values);
-      }}>
-        <select name="plan" defaultValue={company.plan ?? "trial"} className="input text-xs">
-          {["trial", "starter", "business", "business_pro", "comptable_s", "comptable_pro", "comptable_inf"].map(plan => <option key={plan}>{plan}</option>)}
-        </select>
-        <select name="billing_period" className="input text-xs"><option value="monthly">Mensuel</option><option value="annual">Annuel</option></select>
-        <input name="amount_mad" type="number" placeholder="Montant MAD" className="input text-xs" />
-        <select name="payment_method" className="input text-xs"><option value="">Mode de paiement</option><option value="virement">Virement</option><option value="cmi">CMI</option><option value="especes">Espèces</option><option value="gratuit">Gratuit</option></select>
-        <input name="payment_reference" placeholder="Référence paiement" className="input text-xs sm:col-span-2" />
-        <button disabled={busy} className="rounded bg-[#0D1526] px-3 py-2 text-xs font-bold text-white">Appliquer</button>
-      </form>
-      <form className="mt-2 flex gap-2" onSubmit={event => {
-        event.preventDefault();
-        void run(`/api/admin/accounts/${company.id}/trial`, Object.fromEntries(new FormData(event.currentTarget)));
-      }}>
-        <input name="days" type="number" min="1" defaultValue="7" className="input max-w-32 text-xs" />
-        <button disabled={busy} className="rounded border border-black/15 px-3 text-xs font-semibold">Prolonger l’essai</button>
-      </form>
-    </section>
-    <section className="rounded-md border border-black/10 bg-white p-4">
-      <h2 className="text-sm font-bold">Limites personnalisées</h2>
-      <form className="mt-3 grid gap-2 sm:grid-cols-3" onSubmit={event => {
+    <section className="rounded-md border border-[#C8924A]/30 bg-white p-4 shadow-sm">
+      <div>
+        <h2 className="text-sm font-bold">Droits et limites du compte</h2>
+        <p className="mt-1 text-[11px] text-gray-500">Configuration principale appliquée au compte, à ses collaborateurs et à tous ses espaces clients. Utilisez −1 pour une limite illimitée, sauf pour le nombre d’utilisateurs.</p>
+      </div>
+      <form className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5" onSubmit={event => {
         event.preventDefault();
         void run(`/api/admin/accounts/${company.id}/limits`, Object.fromEntries(new FormData(event.currentTarget)));
       }}>
-        {["ocr_limit", "storage_gb", "dossiers_limit", "users_limit", "employee_limit"].map(field => <input key={field} name={field} type="number" placeholder={field} className="input text-xs" />)}
-        {["has_paie", "has_bank_import", "has_saisie", "has_export_fiduciaire", "has_avoirs", "has_bilan", "has_tva_edi", "has_inbox_global", "has_mass_declarations", "has_whatsapp_agent"].map(field => <select key={field} name={field} className="input text-xs"><option value="">{field} : plan</option><option value="true">{field} : oui</option><option value="false">{field} : non</option></select>)}
-        <input name="expires_at" type="date" className="input text-xs" />
-        <input name="reason" required placeholder="Motif obligatoire" className="input text-xs" />
-        <button disabled={busy} className="rounded bg-[#0D1526] px-3 py-2 text-xs font-bold text-white">Enregistrer</button>
+        {NUMERIC_LIMITS.map(([field, label]) => (
+          <label key={field} className="text-[10.5px] font-semibold text-gray-600">
+            {label}
+            <input name={field} type="number" min={field === "users_limit" ? 1 : -1} required defaultValue={override?.[field] ?? effectiveLimits[field] ?? 0} className="input mt-1 text-xs" />
+          </label>
+        ))}
+        <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2 xl:col-span-5 xl:grid-cols-5">
+          {FEATURE_LIMITS.map(([field, label]) => (
+            <label key={field} className="text-[10.5px] font-semibold text-gray-600">
+              {label}
+              <select name={field} defaultValue={String(override?.[field] ?? effectiveLimits[field] ?? false)} className="input mt-1 text-xs">
+                <option value="true">Activé</option>
+                <option value="false">Désactivé</option>
+              </select>
+            </label>
+          ))}
+        </div>
+        <label className="text-[10.5px] font-semibold text-gray-600 sm:col-span-2 xl:col-span-2">
+          Motif / référence interne
+          <input name="reason" required defaultValue={override?.reason ?? "Configuration directe du compte"} className="input mt-1 text-xs" />
+        </label>
+        <label className="text-[10.5px] font-semibold text-gray-600">
+          Expiration des droits
+          <input name="expires_at" type="date" defaultValue={override?.expires_at ?? ""} className="input mt-1 text-xs" />
+        </label>
+        <button disabled={busy} className="rounded bg-[#0D1526] px-3 py-2 text-xs font-bold text-white sm:col-span-2 xl:col-span-2">Enregistrer tous les droits</button>
       </form>
-      <button onClick={() => void run(`/api/admin/accounts/${company.id}/limits`, { reset: true })} disabled={busy} className="mt-2 rounded border border-black/15 px-3 py-2 text-[11px] font-semibold">Réinitialiser aux limites du plan</button>
+    </section>
+    <section className="rounded-md border border-black/10 bg-white p-4">
+      <h2 className="text-sm font-bold">Abonnement et accès</h2>
+      <p className="mt-1 text-[11px] text-gray-500">Le statut active ou bloque les droits configurés ci-dessus, sans sélectionner de package.</p>
+      <form className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-6" onSubmit={event => {
+        event.preventDefault();
+        void run(`/api/admin/accounts/${company.id}/access`, Object.fromEntries(new FormData(event.currentTarget)));
+      }}>
+        <select name="status" defaultValue={company.subscription_status ?? "trial"} className="input text-xs">
+          <option value="trial">Version gratuite limitée</option>
+          <option value="active">Actif</option>
+          <option value="grace">Délai de grâce</option>
+          <option value="expired">Expiré</option>
+        </select>
+        <input name="ends_at" type="date" defaultValue={company.subscription_ends_at ?? company.trial_ends_at?.slice(0, 10) ?? ""} className="input text-xs" />
+        <select name="billing_period" className="input text-xs"><option value="monthly">Mensuel</option><option value="annual">Annuel</option></select>
+        <input name="amount_mad" type="number" min="0" step="0.01" placeholder="Montant MAD" className="input text-xs" />
+        <select name="payment_method" className="input text-xs"><option value="">Mode de paiement</option><option value="virement">Virement</option><option value="cmi">CMI</option><option value="especes">Espèces</option><option value="gratuit">Gratuit</option></select>
+        <input name="payment_reference" placeholder="Référence paiement" className="input text-xs" />
+        <button disabled={busy} className="rounded bg-[#0D1526] px-3 py-2 text-xs font-bold text-white sm:col-span-3 xl:col-span-6">Mettre à jour l’accès</button>
+      </form>
     </section>
     <section className="rounded-md border border-black/10 bg-white p-4">
       <h2 className="text-sm font-bold">Notes et état du compte</h2>
@@ -74,6 +123,44 @@ export function AccountControls({ company }: { company: Record<string, any> }) {
       </form>
     </section>
   </div>;
+}
+
+export function WorkspaceControls({ workspace }: { workspace: Record<string, any> }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(form: HTMLFormElement) {
+    setBusy(true);
+    try {
+      await post(`/api/admin/workspaces/${workspace.id}`, Object.fromEntries(new FormData(form)));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Modification impossible");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(current => !current)} className="rounded border border-black/10 px-2.5 py-1.5 text-[10.5px] font-semibold">
+        {open ? "Fermer" : "Gérer l’espace"}
+      </button>
+      {open && (
+        <form className="mt-3 grid gap-2 rounded border border-black/10 bg-[#FAFAF6] p-3 sm:grid-cols-2 xl:grid-cols-4" onSubmit={event => {
+          event.preventDefault();
+          void submit(event.currentTarget);
+        }}>
+          <label className="text-[10px] font-semibold text-gray-500">Raison sociale<input name="raison_sociale" required defaultValue={workspace.raison_sociale ?? ""} className="input mt-1 text-xs" /></label>
+          <label className="text-[10px] font-semibold text-gray-500">Statut<select name="statut" defaultValue={workspace.statut ?? "actif"} className="input mt-1 text-xs"><option value="actif">Actif</option><option value="inactif">Inactif</option></select></label>
+          <label className="text-[10px] font-semibold text-gray-500">Régime TVA<select name="regime_tva" defaultValue={workspace.regime_tva ?? "mensuel"} className="input mt-1 text-xs"><option value="mensuel">Mensuel</option><option value="trimestriel">Trimestriel</option><option value="exonere">Exonéré</option></select></label>
+          <label className="text-[10px] font-semibold text-gray-500">Contact<input name="contact_nom" defaultValue={workspace.contact_nom ?? ""} className="input mt-1 text-xs" /></label>
+          <label className="text-[10px] font-semibold text-gray-500">E-mail<input name="contact_email" type="email" defaultValue={workspace.contact_email ?? ""} className="input mt-1 text-xs" /></label>
+          <label className="text-[10px] font-semibold text-gray-500">Téléphone<input name="contact_phone" defaultValue={workspace.contact_phone ?? ""} className="input mt-1 text-xs" /></label>
+          <label className="text-[10px] font-semibold text-gray-500 sm:col-span-2">Notes<input name="notes" defaultValue={workspace.notes ?? ""} className="input mt-1 text-xs" /></label>
+          <button disabled={busy} className="rounded bg-[#0D1526] px-3 py-2 text-xs font-bold text-white sm:col-span-2 xl:col-span-4">Enregistrer l’espace</button>
+        </form>
+      )}
+    </div>
+  );
 }
 
 export function DeleteAccountControl({ companyId, companyName }: { companyId: string; companyName: string }) {

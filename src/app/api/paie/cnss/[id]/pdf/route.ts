@@ -133,8 +133,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const footY = 285;
     doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...MUTED);
     doc.text("À déposer sur damancom.cnss.ma avant le 15 du mois suivant.", ml, footY);
-    doc.setFont("helvetica","bold"); doc.setTextColor(...GOLD);
-    doc.text("Généré par Mohasib — mohasibai.com", pw - mr, footY, { align: "right" });
 
     const buf = doc.output("arraybuffer");
     return new NextResponse(buf, {

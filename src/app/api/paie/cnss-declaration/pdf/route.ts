@@ -14,7 +14,6 @@ function fmtAmt(n: number) {
 function generateFallbackPdf(data: any) {
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
   const NAVY: [number, number, number] = [31, 56, 100];
-  const GOLD: [number, number, number] = [200, 146, 74];
   const MUTED: [number, number, number] = [107, 114, 128];
   const pageWidth = 297;
   const ml = 10;
@@ -100,8 +99,6 @@ function generateFallbackPdf(data: any) {
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...MUTED);
   doc.text("À déposer avant le 15 du mois suivant sur damancom.ma", ml, 202);
-  doc.setTextColor(...GOLD);
-  doc.text("Généré par Mohasib", pageWidth - mr, 202, { align: "right" });
 
   return doc.output("arraybuffer");
 }

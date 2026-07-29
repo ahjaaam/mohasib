@@ -378,7 +378,7 @@ export default function CalendrierClient() {
           </button>
         </div>
         <button onClick={goToday}
-          className="text-[12px] font-medium text-[#6B7280] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-3 py-1.5 rounded-lg shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+          className="btn btn-outline btn-sm">
           Aujourd'hui
         </button>
         <div className="ml-auto flex items-center gap-2 flex-wrap">

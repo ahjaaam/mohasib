@@ -60,8 +60,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ session
     doc.text(`Etabli par: ${profile?.full_name || user.email || "-"}`, 14, finalY);
     doc.text(`Date: ${new Date().toLocaleDateString("fr-FR")}`, 14, finalY + 6);
     doc.text("Signature: ____________________", 14, finalY + 16);
-    doc.setFontSize(8);
-    doc.text("Genere via Mohasib AI - mohasibai.com", 14, 287);
 
     return new NextResponse(Buffer.from(doc.output("arraybuffer")), {
       headers: {

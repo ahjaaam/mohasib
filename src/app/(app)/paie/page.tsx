@@ -775,10 +775,6 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
             <button data-permission="bulletin_paie:validate" onClick={openLeaveModal} className="btn btn-gold min-h-10">
               <Plus size={14} /> Nouvelle absence
             </button>
-          ) : tab === "bulletins" && bulletins.length > 0 ? (
-            <button data-permission="bulletin_paie:validate" onClick={validateAll} className="flex min-h-10 items-center gap-1.5 border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] font-medium text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE]">
-              <CheckCircle size={13} /> Tout valider
-            </button>
           ) : null
         }
       />
@@ -1381,7 +1377,7 @@ function HeuresTab({ employees, hoursRows, loading, savingId, periodLabel, selec
 
 // ─── Bulletins Tab ────────────────────────────────────────────────────────────
 
-function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, selectedMonth, selectedYear, masseSalariale, irTotal, onPrev, onNext, onGenerate, onUpdateStatus, onDelete, onDownloadPdf }: any) {
+function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, selectedMonth, selectedYear, masseSalariale, irTotal, onPrev, onNext, onGenerate, onUpdateStatus, onDelete, onDownloadPdf, onValidateAll }: any) {
   return (
     <div>
       {/* Month selector */}
@@ -1395,10 +1391,17 @@ function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, 
             <ChevronRight size={16} />
           </button>
         </div>
-        <button data-permission="bulletin_paie:validate" onClick={onGenerate} disabled={generating || !employees.length} className="btn btn-gold min-h-10 disabled:opacity-50">
-          {generating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-          Générer les bulletins de {MONTHS[selectedMonth - 1]}
-        </button>
+        <div className="flex items-center gap-2">
+          {bulletins.length > 0 && (
+            <button data-permission="bulletin_paie:validate" onClick={onValidateAll} className="flex min-h-10 items-center gap-1.5 border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] font-medium text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE]">
+              <CheckCircle size={13} /> Tout valider
+            </button>
+          )}
+          <button data-permission="bulletin_paie:validate" onClick={onGenerate} disabled={generating || !employees.length} className="btn btn-gold min-h-10 disabled:opacity-50">
+            {generating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+            Générer les bulletins de {MONTHS[selectedMonth - 1]}
+          </button>
+        </div>
       </div>
 
       {loading && <div className="h-32 bg-white rounded-xl border animate-pulse" />}
@@ -1527,7 +1530,7 @@ function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onN
           <button onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
             <ChevronRight size={16} />
           </button>
-          <button onClick={onDownloadExcel} disabled={actionLoading === "cnss-excel" || loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] transition-colors disabled:opacity-50">
+          <button onClick={onDownloadExcel} disabled={actionLoading === "cnss-excel" || loading} className="btn btn-outline">
             {actionLoading === "cnss-excel" ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Exporter Excel
           </button>
           <button onClick={onDownloadPdf} disabled={actionLoading === "cnss-pdf" || loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-white transition-colors disabled:opacity-50" style={{ backgroundColor: "#1A1A2E" }}>

@@ -185,8 +185,8 @@ export async function GET(request: NextRequest) {
         id: `receipt-supplier-${receipt.id}`,
         kind: "supplier",
         label: vendor,
-        description: "Fournisseur · Boîte de réception",
-        href: scopedHref(receipt.dossier_id, "archive", { search: vendor }),
+        description: "Fournisseur · Justificatifs",
+        href: scopedHref(receipt.dossier_id, "receipts", { search: vendor }),
       });
     }
 
@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
       kind: "document",
       label: receipt.file_name || vendor || "Reçu",
       description: vendor ? `Reçu · ${vendor}` : "Reçu fournisseur",
-      href: scopedHref(receipt.dossier_id, "archive", { search: vendor || receipt.file_name || "" }),
+      href: scopedHref(receipt.dossier_id, "receipts", { search: vendor || receipt.file_name || "" }),
     });
   }
 

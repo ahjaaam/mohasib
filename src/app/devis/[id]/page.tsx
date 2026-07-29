@@ -260,7 +260,7 @@ export default function PublicDevisPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowRefuseForm(false)}
-                        className="flex-1 py-2.5 rounded-xl border border-[rgba(0,0,0,0.12)] text-[13px] text-[#6B7280] hover:bg-[#F3F4F6] transition-colors"
+                        className="btn btn-outline flex-1 justify-center"
                       >
                         Annuler
                       </button>

@@ -264,15 +264,15 @@ export default async function FiduciaireOverviewPage() {
                       <td>
                         <div className="flex items-center gap-1.5">
                           <Link href={`/comptable-pro/dossiers/${d.id}`}
-                            className="text-[11px] font-medium text-[#6B7280] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-2 py-1 rounded-lg shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+                            className="btn btn-outline btn-sm">
                             Ouvrir
                           </Link>
                           <Link href={`/comptable-pro/dossiers/${d.id}/edit`}
-                            className="text-[11px] font-medium text-[#6B7280] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-2 py-1 rounded-lg shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+                            className="btn btn-outline btn-sm">
                             Modifier
                           </Link>
                           <Link href={`/comptable-pro/dossiers/${d.id}/tva`}
-                            className="text-[11px] font-medium text-[#6B7280] border border-[rgba(0,0,0,0.18)] bg-[#FAFAF6] px-2 py-1 rounded-lg shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A] transition-colors">
+                            className="btn btn-outline btn-sm">
                             TVA
                           </Link>
                         </div>

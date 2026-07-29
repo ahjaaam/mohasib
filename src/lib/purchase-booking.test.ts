@@ -1,0 +1,48 @@
+import { describe, expect, it } from "vitest";
+import { computePurchaseAmounts } from "./purchase-booking";
+
+describe("computePurchaseAmounts", () => {
+  it("uses an explicit TVA amount", () => {
+    expect(computePurchaseAmounts({ amount: -1200, tva_amount: 200, tva_rate: 20 })).toEqual({
+      totalHt: 1000,
+      totalTtc: 1200,
+      tvaAmount: 200,
+    });
+  });
+
+  it("derives TVA from the rate when OCR has no TVA amount", () => {
+    expect(computePurchaseAmounts({ amount: -1200, tva_rate: 20 })).toEqual({
+      totalHt: 1000,
+      totalTtc: 1200,
+      tvaAmount: 200,
+    });
+  });
+
+  it("supports the legacy tax_amount alias", () => {
+    expect(computePurchaseAmounts({ amount: 110, tax_amount: 10 })).toEqual({
+      totalHt: 100,
+      totalTtc: 110,
+      tvaAmount: 10,
+    });
+  });
+
+  it("never allows TVA to exceed TTC", () => {
+    expect(computePurchaseAmounts({ amount: 100, tva_amount: 150 })).toEqual({
+      totalHt: 0,
+      totalTtc: 100,
+      tvaAmount: 100,
+    });
+  });
+
+  it("turns malformed OCR numbers into safe zero values", () => {
+    expect(computePurchaseAmounts({
+      amount: "not-a-number",
+      tva_amount: Number.NaN,
+      tva_rate: Number.POSITIVE_INFINITY,
+    })).toEqual({
+      totalHt: 0,
+      totalTtc: 0,
+      tvaAmount: 0,
+    });
+  });
+});

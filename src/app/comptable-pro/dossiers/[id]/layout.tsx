@@ -31,7 +31,8 @@ export default async function DossierLayout({
   let dossiersQuery = db
     .from("dossiers")
     .select("id, raison_sociale, ice, regime_tva")
-    .eq("fiduciaire_user_id", ownerId);
+    .eq("fiduciaire_user_id", ownerId)
+    .eq("statut", "actif");
   if (access.permissions !== null && access.dossierScope?.length) dossiersQuery = dossiersQuery.in("id", access.dossierScope);
 
   const [dossierRes, dossiersRes, profileRes, entitlements] = await Promise.all([
@@ -40,6 +41,7 @@ export default async function DossierLayout({
       .select("id, raison_sociale, ice, regime_tva")
       .eq("id", id)
       .eq("fiduciaire_user_id", ownerId)
+      .eq("statut", "actif")
       .single(),
     dossiersQuery.order("raison_sociale"),
     supabase.from("users").select("full_name, avatar_url").eq("id", user.id).single(),

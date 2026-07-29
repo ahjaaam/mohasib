@@ -14,8 +14,6 @@ import {
   Loader2,
   LogOut,
   Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
   Search,
   Settings,
   Sparkles,
@@ -43,8 +41,6 @@ type Props = {
   avatarUrl?: string | null;
   settingsHref?: string;
   dossierId?: string;
-  sidebarCollapsed?: boolean;
-  onToggleSidebar?: () => void;
   onOpenMobileMenu?: () => void;
   onSignOut: () => void | Promise<void>;
 };
@@ -75,8 +71,6 @@ export default function AppTopBar({
   avatarUrl,
   settingsHref = "/settings",
   dossierId,
-  sidebarCollapsed = false,
-  onToggleSidebar,
   onOpenMobileMenu,
   onSignOut,
 }: Props) {
@@ -205,18 +199,6 @@ export default function AppTopBar({
             <Menu size={18} />
           </button>
         )}
-        {onToggleSidebar && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            title={sidebarCollapsed ? "Développer la navigation" : "Réduire la navigation"}
-            aria-label={sidebarCollapsed ? "Développer la navigation" : "Réduire la navigation"}
-            className="hidden h-10 w-10 flex-shrink-0 items-center justify-center border border-transparent text-[#777E8B] transition-colors hover:border-[#E1E0DA] hover:bg-[#F5F4EF] hover:text-[#C8924A] md:flex"
-          >
-            {sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
-          </button>
-        )}
-
         <div className="group relative min-w-0 flex-1 md:max-w-[520px]">
           <label htmlFor="app-global-search" className="sr-only">
             Rechercher dans Mohasib

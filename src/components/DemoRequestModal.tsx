@@ -154,7 +154,7 @@ export default function DemoRequestModal({ open, onClose }: DemoRequestModalProp
                 </label>
 
                 <label className={styles.wideField}>
-                  <span className={styles.label}>Entreprise ou cabinet *</span>
+                  <span className={styles.label}>Votre Entreprise ou cabinet *</span>
                   <input className={styles.input} name="entreprise" autoComplete="organization" required maxLength={160} placeholder="Nom de votre structure" />
                 </label>
 

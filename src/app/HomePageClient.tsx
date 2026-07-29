@@ -179,10 +179,10 @@ export default function HomePageClient() {
           will-change: transform;
         }
         .home-scattered-mark {
-          opacity: 0.92;
+          opacity: 1;
         }
         .home-scattered-mark img {
-          filter: grayscale(0.40);
+          filter: grayscale(0.30);
         }
         .home-receipt-one {
           --receipt-width: 152px;
@@ -346,10 +346,10 @@ export default function HomePageClient() {
           max-width: 100%;
           margin: 88px auto 0;
           background: #FFFFFF;
-          border: 1px solid #E5E5E1;
+          border: 1px solid #c8c3b8;
           border-bottom: none;
           border-radius: 12px 12px 0 0;
-          box-shadow: 0 8px 24px rgba(13, 21, 38, 0.08);
+          box-shadow: 10px 10px 20px 24px rgba(13, 21, 38, 0.08);
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
@@ -360,13 +360,13 @@ export default function HomePageClient() {
         .home-hero-tab {
           flex-shrink: 0;
           padding: 12px 20px;
-          font-family: ${FONT};
+          font-family: var(--font-inter), sans-serif;
           font-size: 13px;
           font-weight: 400;
           color: #6B7280;
           background: transparent;
           border: none;
-          border-right: 1px solid #E5E5E1;
+          border-right: 1px solid #c8c3b8;
           cursor: pointer;
           white-space: nowrap;
           transition: color 0.15s ease;
@@ -375,11 +375,11 @@ export default function HomePageClient() {
           border-right: none;
         }
         .home-hero-tab:hover {
-          color: #C8924A;
+          color: #0c1526;
         }
         .home-hero-tab.is-active {
-          background: rgba(200, 146, 74, 0.12);
-          color: #C8924A;
+          background: rgba(178, 166, 149, 0.12);
+          color: #0c1526;
           font-weight: 500;
         }
         .home-hero-preview {

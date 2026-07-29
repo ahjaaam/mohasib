@@ -249,7 +249,7 @@ function MemberModal({
         </div>
 
         <div className="mt-7 flex flex-col-reverse gap-2 border-t border-black/[0.07] pt-4 sm:flex-row sm:justify-between">
-          <button onClick={onClose} className="rounded-lg border border-black/[0.10] px-4 py-2 text-[12px] font-semibold text-[#6B7280]">Annuler</button>
+          <button onClick={onClose} className="btn btn-outline">Annuler</button>
           <button disabled={saving || !form.email} onClick={save} className="rounded-lg bg-[#C8924A] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : member ? "Enregistrer" : "Envoyer l'invitation"}</button>
         </div>
       </div>

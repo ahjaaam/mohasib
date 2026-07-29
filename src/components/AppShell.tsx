@@ -10,7 +10,7 @@ import {
   LayoutDashboard, FileText, Users, ArrowLeftRight,
   LogOut, Menu, Inbox, Download,
   Settings, Calculator, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine, LayoutTemplate,
-  GitMerge, Lock, Calendar, ChevronDown,
+  GitMerge, Lock, Calendar, ChevronDown, ReceiptText,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -22,12 +22,14 @@ import TrialLimitModal from "@/components/TrialLimitModal";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 import AppTopBar from "@/components/AppTopBar";
+import SidebarToggleButton from "@/components/SidebarToggleButton";
 
 const SIDEBAR_BACKGROUND = "linear-gradient(160deg, #1e2536 0%, #000000 100%)";
 
 const NAV_MAIN = [
   { href: "/dashboard",    icon: LayoutDashboard, label: "Tableau de bord",    key: "dashboard", permission: "report:read" },
   { href: "/inbox",        icon: Inbox,           label: "Boîte de réception", key: "inbox", permission: "document:read" },
+  { href: "/receipts",     icon: ReceiptText,     label: "Justificatifs",      key: "receipts", permission: "document:read" },
   { href: "/invoices",          icon: FileText,   label: "Factures",            key: "invoices", permission: "invoice:read" },
   { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des paiements", key: "suivi-paiements", permission: "invoice:read" },
   { href: "/clients",           icon: Users,      label: "Clients",             key: "clients", permission: "invoice:read" },
@@ -288,6 +290,10 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
           style={{ width: sidebarCollapsed ? 56 : 210, background: SIDEBAR_BACKGROUND }}
         >
           <SidebarContent />
+          <SidebarToggleButton
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          />
         </aside>
 
         {/* Main */}
@@ -303,8 +309,6 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             userEmail={userEmail}
             userId={userId}
             avatarUrl={userAvatar}
-            sidebarCollapsed={sidebarCollapsed}
-            onToggleSidebar={() => setSidebarCollapsed((collapsed) => !collapsed)}
             onSignOut={signOut}
           />
 

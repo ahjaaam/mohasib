@@ -223,7 +223,7 @@ function SubTabBar({
               onDateFromChange("");
               onDateToChange("");
             }}
-            className="flex h-8 items-center gap-1.5 border border-[rgba(0,0,0,0.18)] bg-white px-2.5 text-[11px] text-[#6B7280] transition-colors hover:bg-[#F0EDE5] hover:text-[#1A1A2E]"
+            className="btn btn-outline btn-sm h-8"
           >
             <X size={12} /> Effacer
           </button>
@@ -782,7 +782,7 @@ function ClientsSection({
                           )}
                           {!isPaid && (
                             <button onClick={() => onRelance(inv)}
-                              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-[rgba(0,0,0,0.18)] text-[#374151] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] transition-colors">
+                              className="btn btn-outline btn-sm">
                               <Send size={10} /> Relancer
                             </button>
                           )}
@@ -945,7 +945,7 @@ function SuppliersSection({
                             </button>
                           )}
                           <a href={`/inbox`}
-                            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-[rgba(0,0,0,0.18)] text-[#374151] bg-[#FAFAF6] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] transition-colors">
+                            className="btn btn-outline btn-sm">
                             <Eye size={10} /> Voir
                           </a>
                         </div>

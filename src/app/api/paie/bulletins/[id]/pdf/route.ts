@@ -318,9 +318,6 @@ export async function GET(
     doc.setFontSize(7);
     doc.setTextColor(...colors.MUTED);
     doc.text("Pour vous aider à faire valoir vos droits, conservez ce bulletin de paie sans limitation de durée.", pw / 2, 285, { align: "center" });
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.ACCENT);
-    doc.text("Généré par Mohasib", pw / 2, 290, { align: "center" });
 
     const arrayBuffer = doc.output("arraybuffer");
     const filename = `Bulletin_${emp.prenom}_${emp.nom}_${period}.pdf`.replace(/\s/g, "_");

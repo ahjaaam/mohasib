@@ -31,6 +31,7 @@ export interface BookablePurchase {
   total_ttc: number;
   tva_amount: number;
   category: string | null;
+  expense_account?: string | null;
   supplier_name?: string | null;
   reference?: string | null;
 }
@@ -180,7 +181,7 @@ export async function bookPurchaseInvoice(
 ) {
   if (await isAlreadyBooked(supabase, purchase.id)) return;
 
-  const expenseAccount = getExpenseAccount(purchase.category ?? "");
+  const expenseAccount = purchase.expense_account || getExpenseAccount(purchase.category ?? "");
   const supplierLabel  = purchase.supplier_name ?? "Fournisseur";
   const entries: JournalEntry[] = [];
 

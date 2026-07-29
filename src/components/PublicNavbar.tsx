@@ -8,6 +8,8 @@ import { appUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
 const NAVY = "#0D1526";
+const ROADMAP_URL =
+  "https://app.notion.com/p/582f8f92c3d142898de0f00e94d26caf?v=3acb4e543c0b81e893fa000c40c51c08";
 
 export default function PublicNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -156,6 +158,10 @@ export default function PublicNavbar() {
           </Link>
 
           <div className="public-nav-right">
+            <a href={ROADMAP_URL} className="public-nav-link" target="_blank" rel="noreferrer">
+              Roadmap
+            </a>
+
             <Link href="/centre-aide" className="public-nav-link">
               Centre d&apos;aide
             </Link>
@@ -178,6 +184,16 @@ export default function PublicNavbar() {
 
         {mobileOpen && (
           <div className="public-mobile-panel">
+            <a
+              href={ROADMAP_URL}
+              className="public-mobile-main-link"
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setMobileOpen(false)}
+            >
+              Roadmap
+            </a>
+
             <Link href="/centre-aide" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
               Centre d&apos;aide
             </Link>
