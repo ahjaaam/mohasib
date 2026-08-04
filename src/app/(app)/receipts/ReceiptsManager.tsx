@@ -10,6 +10,8 @@ import {
   Eye,
   FileText,
   Loader2,
+  Mail,
+  MailOpen,
   ReceiptText,
   RefreshCw,
   Search,
@@ -163,7 +165,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       if (!response.ok) throw new Error(result.error ?? "Importation impossible");
 
       if (result.not_connected) {
-        toast("Connectez votre email dans les paramètres d’intégration.", { icon: "📧" });
+        toast("Connectez votre email dans les paramètres d’intégration.", { icon: <Mail size={16} /> });
         router.push(
           dossierId
             ? `/comptable-pro/dossiers/${dossierId}/settings?tab=integrations`
@@ -181,7 +183,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
         toast.error(result.errors.join(" "), { duration: 5000 });
       } else {
         toast("Aucun nouveau reçu ou bon trouvé. Les factures et avoirs ont été exclus.", {
-          icon: "📭",
+          icon: <MailOpen size={16} />,
           duration: 5000,
         });
       }

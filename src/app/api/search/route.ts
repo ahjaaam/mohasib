@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { GlobalSearchResult } from "@/lib/global-search";
+import { resolveTeamContext } from "@/lib/team";
 
 const RESULT_LIMIT = 5;
 
@@ -40,6 +41,8 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ results: [] }, { status: 401 });
   }
+  const context = await resolveTeamContext(user.id);
+  const invoicingOnly = context?.plan === "free";
 
   const query = searchableTerm(request.nextUrl.searchParams.get("q") ?? "");
   if (query.length < 2) {
@@ -210,8 +213,11 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const planVisibleResults = invoicingOnly
+    ? results.filter((result) => result.kind === "client" || result.kind === "invoice")
+    : results;
   const deduplicated = Array.from(
-    new Map(results.map((result) => [`${result.kind}:${normalize(result.label)}:${result.href}`, result])).values()
+    new Map(planVisibleResults.map((result) => [`${result.kind}:${normalize(result.label)}:${result.href}`, result])).values()
   );
 
   return NextResponse.json(

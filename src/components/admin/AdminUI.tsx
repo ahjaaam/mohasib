@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ExternalLink, Plus, X } from "lucide-react";
 
 export function StatusBadge({ status }: { status?: string | null }) {
-  const map: Record<string, string> = { active: "bg-emerald-50 text-emerald-700", actif: "bg-emerald-50 text-emerald-700", approved: "bg-emerald-50 text-emerald-700", pending: "bg-amber-50 text-amber-700", rejected: "bg-red-50 text-red-700", trial: "bg-amber-50 text-amber-700", grace: "bg-orange-50 text-orange-700", expired: "bg-red-50 text-red-700", suspended: "bg-gray-200 text-gray-700", inactif: "bg-gray-200 text-gray-700", banned: "bg-red-50 text-red-700", invited: "bg-blue-50 text-blue-700", nouveau: "bg-blue-50 text-blue-700", contacté: "bg-amber-50 text-amber-700", finalisé: "bg-emerald-50 text-emerald-700", cancelled: "bg-gray-100 text-gray-600" };
+  const map: Record<string, string> = { active: "bg-emerald-50 text-emerald-700", actif: "bg-emerald-50 text-emerald-700", approved: "bg-emerald-50 text-emerald-700", free: "bg-sky-50 text-sky-700", pending: "bg-amber-50 text-amber-700", rejected: "bg-red-50 text-red-700", trial: "bg-amber-50 text-amber-700", grace: "bg-orange-50 text-orange-700", expired: "bg-red-50 text-red-700", suspended: "bg-gray-200 text-gray-700", inactif: "bg-gray-200 text-gray-700", banned: "bg-red-50 text-red-700", invited: "bg-blue-50 text-blue-700", nouveau: "bg-blue-50 text-blue-700", contacté: "bg-amber-50 text-amber-700", finalisé: "bg-emerald-50 text-emerald-700", cancelled: "bg-gray-100 text-gray-600" };
   return <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${map[status ?? ""] ?? "bg-gray-100 text-gray-600"}`}>{status || "—"}</span>;
 }
 
@@ -38,6 +38,33 @@ export function CreateAccountButton({ prefill, waitlistId }: { prefill?: { email
       {result && <p className="mt-4 break-all rounded bg-[#FAFAF6] p-3 text-[11px]">{result}</p>}
     </div></div>}
   </>;
+}
+
+export function ActivateSignupButton({ waitlistId }: { waitlistId: string }) {
+  const [loading, setLoading] = useState(false);
+
+  async function activate() {
+    if (!window.confirm("Activer ce compte et démarrer son accès maintenant ?")) return;
+    setLoading(true);
+    const response = await fetch(`/api/admin/waitlist/${waitlistId}/approve`, { method: "POST" });
+    const data = await response.json();
+    setLoading(false);
+    if (!response.ok) {
+      alert(data.message || "Activation impossible.");
+      return;
+    }
+    window.location.reload();
+  }
+
+  return (
+    <button
+      onClick={activate}
+      disabled={loading}
+      className="inline-flex min-h-8 items-center rounded bg-[#C8924A] px-3 text-[10.5px] font-bold text-white disabled:opacity-60"
+    >
+      {loading ? "Activation..." : "Activer le compte"}
+    </button>
+  );
 }
 
 export function AdminAction({ endpoint, body, label, danger = false, reload = true }: { endpoint: string; body?: Record<string, unknown>; label: string; danger?: boolean; reload?: boolean }) {

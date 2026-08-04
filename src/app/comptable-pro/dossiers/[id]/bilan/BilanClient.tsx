@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Printer, Mail, Info, CheckCircle2, AlertCircle } from "lucide-react";
+import { BarChart3, ChevronLeft, ChevronRight, Printer, Mail, Info, CheckCircle2, AlertCircle, Scale } from "lucide-react";
 import toast from "react-hot-toast";
 import type { DossierEcriture } from "@/types/fiduciaire";
 import { FEATURES } from "@/lib/features";
@@ -266,7 +266,7 @@ export default function BilanClient({ dossier, ecritures, invoices, transactions
     return (
       <div className="max-w-lg mx-auto mt-10">
         <div className="card p-8 text-center">
-          <div className="text-5xl mb-4">📊</div>
+          <BarChart3 size={44} className="mx-auto mb-4 text-[#9CA3AF]" aria-hidden="true" />
           <h2 className="text-[17px] font-bold text-[#1A1A2E] mb-2">Aucune donnée pour {year}</h2>
           <p className="text-[13px] text-[#6B7280] mb-5 leading-relaxed">
             Pour générer votre bilan, commencez par alimenter le dossier.
@@ -330,7 +330,7 @@ export default function BilanClient({ dossier, ecritures, invoices, transactions
           {(["cpc", "bilan"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${tab === t ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"}`}>
-              {t === "cpc" ? "📊 CPC" : "⚖️ Bilan"}
+              <span className="inline-flex items-center gap-1.5">{t === "cpc" ? <><BarChart3 size={13} /> CPC</> : <><Scale size={13} /> Bilan</>}</span>
             </button>
           ))}
         </div>
@@ -516,7 +516,7 @@ export default function BilanClient({ dossier, ecritures, invoices, transactions
         }`}>
           {Math.abs(cur.tot_actif - cur.tot_passif) < 1
             ? <><CheckCircle2 size={15} aria-hidden="true" /> Bilan équilibré — Actif = Passif</>
-            : `⚠ Écart de ${fmtA(Math.abs(cur.tot_actif - cur.tot_passif))} — Actif ≠ Passif`}
+            : <><AlertCircle size={15} aria-hidden="true" /> Écart de {fmtA(Math.abs(cur.tot_actif - cur.tot_passif))} — Actif ≠ Passif</>}
         </div>
         </>
       )}

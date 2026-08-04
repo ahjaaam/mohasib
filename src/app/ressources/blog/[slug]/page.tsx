@@ -80,7 +80,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   const resolvedSlug = getSlugValue(post.slug) ?? slug;
-  const image = post.coverImage ? urlFor(post.coverImage).width(1200).height(630).fit("crop").url() : "/og-image.png";
+  const image = post.coverImage ? urlFor(post.coverImage).width(1200).height(630).fit("crop").url() : "/og-image-2026.png";
 
   return seoMetadata({
     title: post.seoTitle || `${post.title} | Mohasib AI`,

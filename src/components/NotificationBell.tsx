@@ -78,7 +78,7 @@ export default function NotificationBell({ userId, onOpen }: { userId: string; o
           const n = payload.new as NotifRow;
           setItems((prev) => [n, ...prev].slice(0, 5));
           if (n.priority === "high") {
-            toast(`🔔 ${n.title}`, { duration: 4000, icon: "🔴" });
+            toast(n.title, { duration: 4000, icon: <Bell size={16} aria-hidden="true" /> });
           }
         }
       )

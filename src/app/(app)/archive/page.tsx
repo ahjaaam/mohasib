@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
+import GoogleDriveIcon from "@/components/GoogleDriveIcon";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,13 @@ interface ArchiveDoc {
   document_category?: string;
   expiration_date?: string | null;
   notes?: string | null;
+  archive_id?: string | null;
+}
+
+interface NamedArchive {
+  id: string;
+  name: string;
+  created_at: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -54,7 +62,7 @@ const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
 
 const DOC_CATEGORIES = [
   "Certificat ICE", "RC", "Patente", "Statuts",
-  "Contrat", "Attestation", "Autre",
+  "Contrat", "Attestation", "Relevé bancaire", "Autre",
 ];
 
 function fmtDate(d: string) {
@@ -206,82 +214,55 @@ function PreviewPanel({ doc, onClose, onDelete }: {
 
 // ─── Upload modal ─────────────────────────────────────────────────────────────
 
-function UploadModal({ dossierId, onClose, onUploaded }: {
+function UploadModal({ dossierId, archives, driveConnected, onClose, onUploaded }: {
   dossierId?: string;
+  archives: NamedArchive[];
+  driveConnected: boolean;
   onClose: () => void;
   onUploaded: (doc: ArchiveDoc) => void;
 }) {
-  const ownerId = useAccountOwnerId();
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState(DOC_CATEGORIES[0]);
   const [customName, setCustomName] = useState("");
   const [expiry, setExpiry] = useState("");
   const [notes, setNotes] = useState("");
+  const [archiveId, setArchiveId] = useState(archives[0]?.id ?? "");
   const [uploading, setUploading] = useState(false);
-  const supabase = createClient();
 
   async function handleUpload() {
     if (!file) return;
     setUploading(true);
-    let uploadedPath: string | null = null;
     try {
-      const ext = file.name.split(".").pop();
-      const scope = dossierId ? `dossiers/${dossierId}` : "main";
-      const path = `${ownerId}/${scope}/${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("company-documents").upload(path, file);
-      if (uploadError) throw uploadError;
-      uploadedPath = path;
-
-      const { data: urlData } = supabase.storage
-        .from("company-documents").getPublicUrl(path);
-
-      const name = category === "Autre" && customName ? customName : (category + " — " + file.name);
-
-      const { data: inserted, error: dbError } = await supabase
-        .from("company_documents")
-        .insert({
-          user_id: ownerId,
-          name,
-          document_category: category,
-          storage_path: path,
-          file_name: file.name,
-          mime_type: file.type,
-          expiration_date: expiry || null,
-          notes: notes || null,
-          dossier_id: dossierId ?? null,
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        await supabase.storage.from("company-documents").remove([path]);
-        uploadedPath = null;
-        throw dbError;
-      }
+      const form = new FormData();
+      form.set("file", file);
+      form.set("category", category);
+      form.set("customName", customName);
+      form.set("expiry", expiry);
+      form.set("notes", notes);
+      if (dossierId) form.set("dossierId", dossierId);
+      if (archiveId) form.set("archiveId", archiveId);
+      const response = await fetch("/api/archive/documents", { method: "POST", body: form });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error || "Ajout du document impossible.");
+      const inserted = json.document;
 
       toast.success("Document ajouté à l'archive");
       onUploaded({
         id: inserted.id,
-        name,
+        name: inserted.name,
         type: "company_document",
         date: inserted.created_at,
-        url: urlData?.publicUrl ?? null,
-        mime_type: file.type,
-        document_category: category,
-        expiration_date: expiry || null,
-        notes: notes || null,
-        subtitle: category,
-        storage_path: path,
+        url: inserted.content_url,
+        mime_type: inserted.mime_type,
+        document_category: inserted.document_category,
+        expiration_date: inserted.expiration_date,
+        notes: inserted.notes,
+        subtitle: inserted.document_category ?? "",
+        archive_id: inserted.archive_id,
       });
-      uploadedPath = null;
       onClose();
-    } catch (err: any) {
-      if (uploadedPath) {
-        await supabase.storage.from("company-documents").remove([uploadedPath]);
-      }
-      toast.error(translateError(err));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : translateError(err));
     } finally {
       setUploading(false);
     }
@@ -310,6 +291,24 @@ function UploadModal({ dossierId, onClose, onUploaded }: {
               </>
             )}
           </label>
+
+          {/* Category */}
+          {driveConnected && (
+            <div>
+              <label className="block text-[11.5px] font-medium text-[#6B7280] mb-1.5">Destination</label>
+              <select className="input" value={archiveId} onChange={(event) => setArchiveId(event.target.value)}>
+                <option value="">Stockage Mohasib</option>
+                {archives.map(archive => (
+                  <option key={archive.id} value={archive.id}>Google Drive — {archive.name}</option>
+                ))}
+              </select>
+              {archives.length === 0 && (
+                <p className="text-[10.5px] text-[#9CA3AF] mt-1">
+                  Créez une archive Drive depuis l'écran Archive pour l'utiliser ici.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Category */}
           <div>
@@ -382,7 +381,20 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
   const search = searchState.source === requestedSearch ? searchState.value : requestedSearch;
   const setSearch = (value: string) => setSearchState({ source: requestedSearch, value });
   const [showUpload, setShowUpload] = useState(false);
+  const [archives, setArchives] = useState<NamedArchive[]>([]);
+  const [driveConnected, setDriveConnected] = useState(false);
+  const [activeArchive, setActiveArchive] = useState("all");
+  const [creatingArchive, setCreatingArchive] = useState(false);
   const supabase = createClient();
+
+  const loadArchives = useCallback(async () => {
+    const query = dossierId ? `?dossierId=${encodeURIComponent(dossierId)}` : "";
+    const response = await fetch(`/api/google-drive/archives${query}`);
+    if (!response.ok) return;
+    const json = await response.json();
+    setDriveConnected(!!json.connected);
+    setArchives(json.archives ?? []);
+  }, [dossierId]);
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -425,25 +437,19 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
 
     // Company docs
     for (const cd of (cdRes.data ?? [])) {
-      // get signed url
-      let url: string | null = null;
-      if (cd.storage_path) {
-        const { data } = supabase.storage.from("company-documents")
-          .getPublicUrl(cd.storage_path);
-        url = data?.publicUrl ?? null;
-      }
       result.push({
         id: `cd-${cd.id}`,
         name: cd.name,
         type: "company_document",
         date: cd.created_at,
-        url,
+        url: `/api/archive/documents/${cd.id}/content`,
         mime_type: cd.mime_type,
         subtitle: cd.document_category ?? "",
         document_category: cd.document_category,
         expiration_date: cd.expiration_date,
         notes: cd.notes,
         storage_path: cd.storage_path,
+        archive_id: cd.archive_id,
       });
     }
 
@@ -453,6 +459,29 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
   }, [dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadArchives(); }, [loadArchives]);
+
+  async function createArchive() {
+    const name = prompt("Nom de la nouvelle archive");
+    if (!name?.trim()) return;
+    setCreatingArchive(true);
+    try {
+      const response = await fetch("/api/google-drive/archives", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), dossierId: dossierId ?? null }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error || "Création impossible.");
+      setArchives(previous => [...previous, json.archive]);
+      setActiveArchive(json.archive.id);
+      toast.success("Archive Google Drive créée");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Création impossible.");
+    } finally {
+      setCreatingArchive(false);
+    }
+  }
 
   // ── Resolve URL on select ─────────────────────────────────────────────────
 
@@ -485,8 +514,12 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
       if (error) { toast.error("Erreur lors de la suppression"); return; }
     } else if (doc.type === "company_document") {
       const realId = doc.id.replace("cd-", "");
-      const { error } = await supabase.from("company_documents").delete().eq("id", realId);
-      if (error) { toast.error("Erreur lors de la suppression"); return; }
+      const response = await fetch(`/api/archive/documents/${realId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        toast.error(json.error || "Erreur lors de la suppression");
+        return;
+      }
     }
 
     setDocs((prev) => prev.filter((d) => d.id !== doc.id));
@@ -497,6 +530,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
   // ── Filter ────────────────────────────────────────────────────────────────
 
   const filtered = docs.filter((d) => {
+    if (activeArchive !== "all" && (d.type !== "company_document" || d.archive_id !== activeArchive)) return false;
     if (tab !== "all" && d.type !== tab) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -519,6 +553,8 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
       {showUpload && (
         <UploadModal
           dossierId={dossierId}
+          archives={archives}
+          driveConnected={driveConnected}
           onClose={() => setShowUpload(false)}
           onUploaded={(doc) => { setDocs((prev) => [doc, ...prev]); setSelected(doc); }}
         />
@@ -545,6 +581,34 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
 
           {/* Search + Add */}
           <div className="px-3.5 pt-3.5 pb-2 flex-shrink-0">
+            <div className="flex items-center gap-2 mb-2">
+              <select
+                className="input flex-1 text-[12px]"
+                value={activeArchive}
+                onChange={(event) => setActiveArchive(event.target.value)}
+              >
+                <option value="all">Toutes les archives</option>
+                {archives.map(archive => (
+                  <option key={archive.id} value={archive.id}>{archive.name} · Google Drive</option>
+                ))}
+              </select>
+              {driveConnected ? (
+                <button
+                  data-permission="document:create"
+                  onClick={createArchive}
+                  disabled={creatingArchive}
+                  className="btn btn-outline flex-shrink-0 text-[11.5px]"
+                  title="Créer une archive Google Drive"
+                >
+                  {creatingArchive ? <Loader2 size={12} className="animate-spin" /> : <GoogleDriveIcon size={12} />}
+                  Nouvelle
+                </button>
+              ) : (
+                <a href="/settings?tab=integrations" className="btn btn-outline flex-shrink-0 text-[11.5px]">
+                  <GoogleDriveIcon size={12} /> Connecter Drive
+                </a>
+              )}
+            </div>
             <div className="flex items-stretch gap-2">
               <div className="relative flex-1">
                 <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6B7280]" />

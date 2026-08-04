@@ -57,7 +57,7 @@ The business workspace uses a `64px` top bar above page content:
 
 - Global navigation search on the left (`⌘/Ctrl + K`)
 - Desktop sidebar toggle immediately before search
-- Notifications and Mohasib Chat actions on the right
+- Notifications and Mohasib Agent actions on the right
 - Profile avatar and account menu at the far right
 - Account details, Settings, and sign-out inside the profile menu
 - Neutral borders and backgrounds; gold is reserved for focus and hover emphasis
@@ -99,7 +99,7 @@ Compact status filters may use the neutral filter-toolbar pattern: search and
 date controls on the left, square filters on the right, and a gray active state.
 Pills remain appropriate for semantic statuses and modal-only switches.
 
-Mohasib Chat opens as a fixed bottom-right dock. It stays within the viewport,
+Mohasib Agent opens as a fixed bottom-right dock. It stays within the viewport,
 clears the mobile bottom navigation, and uses an internal slide-over for
 conversation history instead of navigating away from the current page.
 

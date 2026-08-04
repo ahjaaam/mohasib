@@ -144,9 +144,9 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
         </div>
       </div>
 
-      {/* Suivi des paiements widget */}
+      {/* Suivi des échéances widget */}
       <div className="mb-8">
-        <SectionLabel>Suivi des paiements</SectionLabel>
+        <SectionLabel>Suivi des échéances</SectionLabel>
         <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 flex items-center gap-6 flex-wrap" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div className="flex-1 min-w-[160px]">
             <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-1">À encaisser</div>

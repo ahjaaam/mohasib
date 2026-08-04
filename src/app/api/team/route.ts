@@ -56,9 +56,16 @@ export async function GET() {
       .neq("status", "revoked")
       .neq("role_name", "client_portal")
       .order("created_at"),
-    admin.from("users").select("full_name,email").eq("id", context.ownerId).maybeSingle(),
+    admin.from("users").select("full_name,email,avatar_url").eq("id", context.ownerId).maybeSingle(),
     checkPlanLimit(context.companyId, "multi_users"),
   ]);
+  const memberUserIds = (memberships ?? [])
+    .map(membership => membership.user_id)
+    .filter((userId): userId is string => Boolean(userId));
+  const { data: memberProfiles } = memberUserIds.length
+    ? await admin.from("users").select("id,avatar_url").in("id", memberUserIds)
+    : { data: [] };
+  const avatarByUserId = new Map((memberProfiles ?? []).map(profile => [profile.id, profile.avatar_url]));
   const membershipIds = (memberships ?? []).map(membership => membership.id);
   if (membershipIds.length) {
     await admin.from("membership_permissions").delete().in("membership_id", membershipIds);
@@ -66,6 +73,7 @@ export async function GET() {
 
   const members = (memberships ?? []).map(membership => ({
     ...membership,
+    avatar_url: membership.user_id ? avatarByUserId.get(membership.user_id) ?? null : null,
     invitation_url: membership.invitation_token
       ? appUrl(`/invitations/${membership.invitation_token}`)
       : null,
@@ -81,6 +89,7 @@ export async function GET() {
       id: context.ownerId,
       email: owner?.email ?? context.ownerEmail,
       full_name: owner?.full_name ?? context.ownerName,
+      avatar_url: owner?.avatar_url ?? null,
       role_label: "Propriétaire",
     },
     members,

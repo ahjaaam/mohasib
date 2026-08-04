@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
-import { appUrl } from "@/lib/public-urls";
+import { appUrl, invoicingUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
 const NAVY = "#0D1526";
@@ -43,10 +43,10 @@ export default function PublicNavbar() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          color: #5E6065;
+          color: #77787a;
           font-family: ${FONT};
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 200;
           text-decoration: none;
           transition: color 0.15s ease;
         }
@@ -158,6 +158,14 @@ export default function PublicNavbar() {
           </Link>
 
           <div className="public-nav-right">
+            <Link href="/ressources" className="public-nav-link">
+              Bibliothèque
+            </Link>
+
+            <Link href={invoicingUrl("/")} className="public-nav-link">
+              Outil de facturation
+            </Link>
+
             <a href={ROADMAP_URL} className="public-nav-link" target="_blank" rel="noreferrer">
               Roadmap
             </a>
@@ -184,6 +192,14 @@ export default function PublicNavbar() {
 
         {mobileOpen && (
           <div className="public-mobile-panel">
+            <Link href="/ressources" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
+              Bibliothèque
+            </Link>
+
+            <Link href={invoicingUrl("/")} className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
+              Outil de facturation
+            </Link>
+
             <a
               href={ROADMAP_URL}
               className="public-mobile-main-link"

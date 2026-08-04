@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Facebook, Instagram, Linkedin } from "lucide-react";
-import { whatsappUrl } from "@/lib/public-urls";
+import { invoicingUrl, whatsappUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
 
@@ -27,6 +27,9 @@ export default function PublicFooter() {
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <span style={{ fontSize: 13, color: "#777E8B", fontFamily: FONT }}>© 2026 Mohasib AI</span>
           <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+            <Link href={invoicingUrl()} className="text-[#777E8B] transition-colors hover:text-[#7A6668]" style={{ fontSize: 13, textDecoration: "none", fontFamily: FONT }}>
+              Facturation gratuite
+            </Link>
             <Link href="/cgu" className="text-[#777E8B] transition-colors hover:text-[#7A6668]" style={{ fontSize: 13, textDecoration: "none", fontFamily: FONT }}>
               CGU
             </Link>

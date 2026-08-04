@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
-import { Check, CheckCircle2, Download, Loader2, Send, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Download, Loader2, Mail, Pencil, Send, Upload, X, XCircle } from "lucide-react";
 import type { PartialPayment } from "@/types";
 
 type WaState = "idle" | "loading" | "success" | "error";
@@ -283,7 +283,7 @@ export default function InvoiceActions({
       const { whatsappUrl } = await res.json();
       window.open(whatsappUrl, "_blank");
       setWaState("success");
-      toast.success("WhatsApp ouvert avec la facture en pièce jointe 📲");
+      toast.success("WhatsApp ouvert avec la facture en pièce jointe");
       router.refresh();
       setTimeout(() => setWaState("idle"), 2500);
     } catch (e: any) {
@@ -321,7 +321,7 @@ export default function InvoiceActions({
         return;
       }
       setEmailState("success");
-      toast.success("Email envoyé avec succès 📧");
+      toast.success("Email envoyé avec succès");
       router.refresh();
       setTimeout(() => setEmailState("idle"), 3000);
     } catch (e: any) {
@@ -344,14 +344,14 @@ export default function InvoiceActions({
         {status === "draft" && (
           <>
             <Link href={`/invoices/${invoiceId}/edit`} className="btn btn-outline justify-center w-full">
-              ✏️ Modifier la facture
+              <Pencil size={13} /> Modifier la facture
             </Link>
             <button
               onClick={() => updateStatus("sent")}
               disabled={!!loadingAction}
               className="btn btn-outline justify-center w-full disabled:opacity-60"
             >
-              {loadingAction === "sent" ? "..." : "📤 Marquer comme envoyée"}
+              {loadingAction === "sent" ? "..." : <><Upload size={13} /> Marquer comme envoyée</>}
             </button>
             <button
               onClick={() => updateStatus("paid")}
@@ -421,7 +421,7 @@ export default function InvoiceActions({
         >
           {waState === "loading" && <><Loader2 size={13} className="animate-spin" /> Préparation...</>}
           {waState === "success" && <><Check size={13} /> WhatsApp ouvert</>}
-          {waState === "error" && <>❌ Erreur — réessayer</>}
+          {waState === "error" && <><XCircle size={13} /> Erreur — réessayer</>}
           {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
         </button>
 
@@ -437,14 +437,14 @@ export default function InvoiceActions({
         >
           {emailState === "loading" && <><Loader2 size={13} className="animate-spin" /> Envoi en cours...</>}
           {emailState === "success" && <><Check size={13} /> Email envoyé</>}
-          {emailState === "error" && <>❌ Erreur — réessayer</>}
-          {emailState === "idle" && <>📧 Envoyer par email</>}
+          {emailState === "error" && <><XCircle size={13} /> Erreur — réessayer</>}
+          {emailState === "idle" && <><Mail size={13} /> Envoyer par email</>}
         </button>
 
         {/* Warnings */}
         {!clientPhone && (
           <div className="text-[10.5px] text-[#D97706] bg-[#FEF3C7] rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-            <span>⚠️ Aucun numéro WhatsApp pour ce client</span>
+            <span className="inline-flex items-center gap-1"><AlertTriangle size={12} /> Aucun numéro WhatsApp pour ce client</span>
             {clientId && (
               <Link href="/clients" className="text-[10px] text-[#D97706] underline hover:text-[#B45309] flex-shrink-0">
                 Ajouter →
@@ -454,7 +454,7 @@ export default function InvoiceActions({
         )}
         {!clientEmail && (
           <div className="text-[10.5px] text-[#D97706] bg-[#FEF3C7] rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-            <span>⚠️ Aucun email enregistré — il sera demandé à l&apos;envoi</span>
+            <span className="inline-flex items-center gap-1"><AlertTriangle size={12} /> Aucun email enregistré — il sera demandé à l&apos;envoi</span>
             {clientId && (
               <Link href="/clients" className="text-[10px] text-[#D97706] underline hover:text-[#B45309] flex-shrink-0">
                 Ajouter →
@@ -467,14 +467,14 @@ export default function InvoiceActions({
         {(whatsappSentAt || emailSentAt) && (
           <div className="flex flex-col gap-0.5 mt-1 px-0.5">
             {whatsappSentAt && (
-              <div className="text-[10.5px] text-[#6B7280]">
-                📲 Envoyé par WhatsApp le {fmtDate(whatsappSentAt)}
+              <div className="text-[10.5px] text-[#6B7280] flex items-center gap-1">
+                <Send size={11} /> Envoyé par WhatsApp le {fmtDate(whatsappSentAt)}
                 {whatsappSentCount && whatsappSentCount > 1 ? ` (×${whatsappSentCount})` : ""}
               </div>
             )}
             {emailSentAt && (
-              <div className="text-[10.5px] text-[#6B7280]">
-                📧 Envoyé par email le {fmtDate(emailSentAt)}
+              <div className="text-[10.5px] text-[#6B7280] flex items-center gap-1">
+                <Mail size={11} /> Envoyé par email le {fmtDate(emailSentAt)}
                 {emailSentCount && emailSentCount > 1 ? ` (×${emailSentCount})` : ""}
               </div>
             )}

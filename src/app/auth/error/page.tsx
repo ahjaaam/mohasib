@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 
 export default function AuthErrorPage() {
   return (
@@ -20,7 +21,7 @@ export default function AuthErrorPage() {
         boxShadow: "0 2px 16px rgba(0,0,0,0.08)",
         textAlign: "center",
       }}>
-        <div style={{ fontSize: 36, marginBottom: 16 }}>⚠️</div>
+        <AlertTriangle size={36} color="#D97706" style={{ margin: "0 auto 16px" }} aria-hidden="true" />
 
         <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0D1526", margin: "0 0 10px" }}>
           Erreur de connexion

@@ -1408,7 +1408,7 @@ function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, 
 
       {!loading && bulletins.length === 0 && (
         <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-12 text-center">
-          <div className="text-3xl mb-3">📋</div>
+          <FileText size={32} className="mx-auto mb-3 text-[#9CA3AF]" aria-hidden="true" />
           <p className="text-[13px] font-semibold text-[#6B7280]">Aucun bulletin pour {periodLabel}</p>
           <p className="text-[11.5px] text-[#9CA3AF] mt-1">Cliquez sur "Générer les bulletins" pour créer les bulletins de paie</p>
         </div>

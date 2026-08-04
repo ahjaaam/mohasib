@@ -6,11 +6,16 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
-import { Loader2, FileText, Plus, X, Search, ReceiptText, ClipboardList } from "lucide-react";
+import {
+  Loader2, FileText, Plus, X, Search, ReceiptText, ClipboardList,
+  CheckCircle2, Send, Trash2, ThumbsDown,
+} from "lucide-react";
 import type { Invoice, InvoiceStatus, PartialPayment, DevisStatus } from "@/types";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
+import TableBulkActions from "@/components/TableBulkActions";
+import TableSelectionCheckbox from "@/components/TableSelectionCheckbox";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -328,7 +333,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
     setOpen(false); setEmailLoading(true);
     try {
       const sent = await sendInvoiceEmail(inv.id, inv.clients?.email);
-      if (sent) toast.success("Email envoyé avec succès 📧");
+      if (sent) toast.success("Email envoyé avec succès");
     } catch (error: any) {
       toast.error(error.message || "Erreur d'envoi. Vérifiez votre connexion.", { duration: 5000 });
     }
@@ -342,7 +347,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
       const { whatsappUrl } = await res.json();
       window.open(whatsappUrl, "_blank");
-      toast.success("WhatsApp ouvert 📲");
+      toast.success("WhatsApp ouvert");
     } catch (err: any) { toast.error(translateError(err), { duration: 5000 }); }
     finally { setWaLoading(false); }
   }
@@ -554,7 +559,7 @@ function DevisMenu({ inv, onDelete, onAccept, onRefuse, onConvert }: {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
       const { whatsappUrl } = await res.json();
       window.open(whatsappUrl, "_blank");
-      toast.success("WhatsApp ouvert 📲");
+      toast.success("WhatsApp ouvert");
     } catch (err: any) { toast.error(translateError(err), { duration: 5000 }); }
     finally { setWaLoading(false); }
   }
@@ -563,7 +568,7 @@ function DevisMenu({ inv, onDelete, onAccept, onRefuse, onConvert }: {
     setOpen(false); setEmailLoading(true);
     try {
       const sent = await sendInvoiceEmail(inv.id, inv.clients?.email);
-      if (sent) toast.success("Email envoyé avec succès 📧");
+      if (sent) toast.success("Email envoyé avec succès");
     } catch (error: any) {
       toast.error(error.message || "Erreur d'envoi. Vérifiez votre connexion.", { duration: 5000 });
     }
@@ -651,7 +656,7 @@ function DevisMenu({ inv, onDelete, onAccept, onRefuse, onConvert }: {
 
 type PageMode = "factures" | "avoirs" | "devis";
 
-export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?: string } = {}) {
+export default function InvoicesPage({ dossierId: propDossierId, initialMode, facturesTitle = "Factures" }: { dossierId?: string; initialMode?: PageMode; facturesTitle?: string } = {}) {
   const entitlements = usePlanEntitlements();
   const ownerId = useAccountOwnerId();
   const searchParams = useSearchParams();
@@ -659,7 +664,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
   const basePath = dossierId ? `/comptable-pro/dossiers/${dossierId}/invoices` : "/invoices";
   const [invoices, setInvoices] = useState<InvoiceExt[]>([]);
-  const [mode, setMode] = useState<PageMode>((searchParams.get("mode") as PageMode) ?? "factures");
+  const [mode, setMode] = useState<PageMode>((searchParams.get("mode") as PageMode) ?? initialMode ?? "factures");
   const [tab, setTab] = useState<TabKey>("all");
   const [searchState, setSearchState] = useState({ source: requestedSearch, value: requestedSearch });
   const search = searchState.source === requestedSearch ? searchState.value : requestedSearch;
@@ -670,9 +675,16 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
   const [paymentModal, setPaymentModal] = useState<InvoiceExt | null>(null);
   const [sortKey, setSortKey] = useState<InvoiceSortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const supabase = createClient();
 
   async function load() {
+    if (!ownerId) {
+      setInvoices([]);
+      setLoading(false);
+      return;
+    }
     const query = supabase.from("invoices").select("*, clients(id, name, email, phone)");
     const { data } = await (dossierId
       ? query.eq("dossier_id", dossierId)
@@ -743,6 +755,15 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
     toast.success("Facture supprimée");
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const factures = invoices.filter(
     (i) => !(i as any).invoice_type || (i as any).invoice_type === "facture"
   );
@@ -811,7 +832,112 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
     return [...filtered].sort((a, b) => compareValues(valueFor(a, sortKey), valueFor(b, sortKey), sortDirection));
   }, [filtered, sortKey, sortDirection, mode]);
 
+  const visibleIds = sorted.map((invoice) => invoice.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id));
+  const selectedInvoices = invoices.filter((invoice) => selectedIds.has(invoice.id));
+
+  function toggleAllVisible() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  async function bulkSetStatus(status: "sent" | "paid") {
+    if (!selectedInvoices.length) return;
+    const noun = mode === "avoirs" ? "avoir" : "facture";
+    const plural = selectedInvoices.length > 1;
+    const targetStatus = status === "paid"
+      ? `payée${plural ? "s" : ""}`
+      : mode === "avoirs"
+        ? `envoyé${plural ? "s" : ""}`
+        : "en attente";
+    if (!confirm(
+      `Confirmer : marquer ${selectedInvoices.length} ${noun}${plural ? "s" : ""} sélectionné${plural ? "s" : ""} comme ${targetStatus} ?`
+    )) return;
+    setBulkBusy(true);
+
+    const results = status === "paid"
+      ? await Promise.all(selectedInvoices.map((invoice) =>
+          supabase.from("invoices").update({
+            status: "paid",
+            montant_paye: Number(invoice.total),
+            reste_a_payer: 0,
+          }).eq("id", invoice.id)
+        ))
+      : [await supabase.from("invoices").update({ status }).in("id", [...selectedIds])];
+    const failed = results.find((result) => result.error)?.error;
+
+    setBulkBusy(false);
+    if (failed) {
+      toast.error(translateError(failed));
+      await load();
+      return;
+    }
+    setInvoices((current) => current.map((invoice) => {
+      if (!selectedIds.has(invoice.id)) return invoice;
+      return status === "paid"
+        ? {
+            ...invoice,
+            status: "paid" as InvoiceStatus,
+            montant_paye: Number(invoice.total),
+            reste_a_payer: 0,
+          }
+        : { ...invoice, status: "sent" as InvoiceStatus };
+    }));
+    setSelectedIds(new Set());
+    toast.success(`${selectedInvoices.length} élément${selectedInvoices.length > 1 ? "s" : ""} mis à jour`);
+  }
+
+  async function bulkSetDevisStatus(status: "accepté" | "refusé") {
+    if (!selectedInvoices.length) return;
+    const action = status === "accepté" ? "accepter" : "refuser";
+    if (!confirm(
+      `Confirmer : ${action} ${selectedInvoices.length} devis sélectionné${selectedInvoices.length > 1 ? "s" : ""} ?`
+    )) return;
+    setBulkBusy(true);
+    const timestampField = status === "accepté" ? "devis_accepted_at" : "devis_refused_at";
+    const { error } = await supabase.from("invoices").update({
+      devis_status: status,
+      [timestampField]: new Date().toISOString(),
+    }).in("id", [...selectedIds]);
+    setBulkBusy(false);
+    if (error) {
+      toast.error(translateError(error));
+      return;
+    }
+    setInvoices((current) => current.map((invoice) =>
+      selectedIds.has(invoice.id) ? { ...invoice, devis_status: status } as InvoiceExt : invoice
+    ));
+    setSelectedIds(new Set());
+    toast.success(`${selectedInvoices.length} devis mis à jour`);
+  }
+
+  async function bulkDelete() {
+    if (!selectedInvoices.length) return;
+    const label = mode === "factures" ? "facture" : mode === "avoirs" ? "avoir" : "devis";
+    if (!confirm(`Supprimer ${selectedInvoices.length} ${label}${selectedInvoices.length > 1 ? "s" : ""} sélectionné${selectedInvoices.length > 1 ? "s" : ""} ?`)) return;
+    setBulkBusy(true);
+    const { error } = await supabase.from("invoices").delete().in("id", [...selectedIds]);
+    setBulkBusy(false);
+    if (error) {
+      toast.error(translateError(error));
+      return;
+    }
+    setInvoices((current) => current.filter((invoice) => !selectedIds.has(invoice.id)));
+    setSelectedIds(new Set());
+    toast.success(`${selectedInvoices.length} élément${selectedInvoices.length > 1 ? "s" : ""} supprimé${selectedInvoices.length > 1 ? "s" : ""}`);
+  }
+
   const hasFilters = search || dateFrom || dateTo;
+  const emptyTableActionClass = `btn btn-gold ${
+    entitlements.plan === "free"
+      ? "!bg-[#C8924A] !text-white hover:!bg-[#B8823A]"
+      : ""
+  }`;
 
   return (
     <div>
@@ -829,7 +955,7 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
           </div>
           <div>
             <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">
-              {mode === "avoirs" ? "Avoirs clients" : mode === "devis" ? "Devis" : "Factures"}
+              {mode === "avoirs" ? "Avoirs clients" : mode === "devis" ? "Devis" : facturesTitle}
             </h1>
             <p className="text-[11px] text-[#9CA3AF] mt-0.5">
               {mode === "avoirs" ? "Avoirs et notes de crédit émis" : mode === "devis" ? "Propositions commerciales envoyées aux clients" : "Gérez et suivez vos factures clients"}
@@ -862,7 +988,14 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
         ] as { key: PageMode; label: string; count: number }[]).filter(item => item.key !== "avoirs" || entitlements.features.avoirs).map(({ key, label, count }) => (
           <button
             key={key}
-            onClick={() => { setMode(key); setTab("all"); setSearch(""); setDateFrom(""); setDateTo(""); }}
+            onClick={() => {
+              setMode(key);
+              setTab("all");
+              setSearch("");
+              setDateFrom("");
+              setDateTo("");
+              setSelectedIds(new Set());
+            }}
             className={`tab flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap ${mode === key ? "active" : ""}`}
           >
             {label}
@@ -928,7 +1061,10 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setTab(key)}
+                  onClick={() => {
+                    setTab(key);
+                    setSelectedIds(new Set());
+                  }}
                   aria-pressed={isActive}
                   className={`flex h-8 flex-shrink-0 items-center whitespace-nowrap border px-3 text-[11.5px] font-medium transition-colors ${
                     isActive
@@ -951,11 +1087,92 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
         </div>
       </div>
 
+      <TableBulkActions
+        count={selectedIds.size}
+        noun={mode === "factures" ? "facture" : mode === "avoirs" ? "avoir" : "devis"}
+        busy={bulkBusy}
+        onClear={() => setSelectedIds(new Set())}
+      >
+        {mode === "factures" && (
+          <>
+            <button
+              data-permission="invoice:create"
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => bulkSetStatus("paid")}
+              className="btn btn-sm border-[#A7D7C5] bg-white text-[#047857] disabled:opacity-50"
+            >
+              <CheckCircle2 size={13} /> Marquer payées
+            </button>
+            <button
+              data-permission="invoice:create"
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => bulkSetStatus("sent")}
+              className="btn btn-sm border-[#BFDBFE] bg-white text-[#1D4ED8] disabled:opacity-50"
+            >
+              <Send size={13} /> Marquer en attente
+            </button>
+          </>
+        )}
+        {mode === "avoirs" && (
+          <button
+            data-permission="invoice:create"
+            type="button"
+            disabled={bulkBusy}
+            onClick={() => bulkSetStatus("sent")}
+            className="btn btn-sm border-[#BFDBFE] bg-white text-[#1D4ED8] disabled:opacity-50"
+          >
+            <Send size={13} /> Marquer envoyés
+          </button>
+        )}
+        {mode === "devis" && (
+          <>
+            <button
+              data-permission="invoice:create"
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => bulkSetDevisStatus("accepté")}
+              className="btn btn-sm border-[#A7D7C5] bg-white text-[#047857] disabled:opacity-50"
+            >
+              <CheckCircle2 size={13} /> Accepter
+            </button>
+            <button
+              data-permission="invoice:create"
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => bulkSetDevisStatus("refusé")}
+              className="btn btn-sm border-[#FECACA] bg-white text-[#B91C1C] disabled:opacity-50"
+            >
+              <ThumbsDown size={13} /> Refuser
+            </button>
+          </>
+        )}
+        <button
+          data-permission="invoice:delete"
+          type="button"
+          disabled={bulkBusy}
+          onClick={bulkDelete}
+          className="btn btn-sm border-[#FECACA] bg-white text-[#DC2626] disabled:opacity-50"
+        >
+          {bulkBusy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+          Supprimer
+        </button>
+      </TableBulkActions>
+
       {/* ─── Table ────────────────────────────────────────────────────────── */}
       <div className="tbl">
         <table>
           <thead>
             <tr>
+              <th className="w-10">
+                <TableSelectionCheckbox
+                  checked={allVisibleSelected}
+                  indeterminate={someVisibleSelected && !allVisibleSelected}
+                  onChange={toggleAllVisible}
+                  label="Sélectionner les lignes affichées"
+                />
+              </th>
               <SortableTh sortKey="number" label={mode === "avoirs" ? "N° Avoir" : mode === "devis" ? "N° Devis" : "N° Facture"} activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
               <SortableTh sortKey="client" label="Client" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
               {mode === "devis"
@@ -977,27 +1194,37 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={9} className="loading-cell">
+                <td colSpan={10} className="loading-cell">
                   Chargement...
                 </td>
               </tr>
             )}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="empty-cell">
+                <td colSpan={10} className="empty-cell">
                   <p className="text-[#6B7280] text-[12.5px] mb-3">
-                    {mode === "avoirs" ? "Aucun avoir client" : mode === "devis" ? "Aucun devis" : "Aucune facture"}
+                    {mode === "avoirs"
+                      ? "Aucun avoir client. Créez votre premier avoir lorsque vous devez corriger une facture."
+                      : mode === "devis"
+                        ? "Aucun devis. Créez votre première proposition commerciale."
+                        : "Aucune facture. Créez votre première facture et envoyez-la à votre client."}
                   </p>
                   {mode === "avoirs" ? (
-                    <Link data-permission="invoice:create" href={`${basePath}/avoir/new`} className="btn btn-gold">
+                    <Link data-permission="invoice:create" href={`${basePath}/avoir/new`} className={emptyTableActionClass}>
                       + Nouvel Avoir
                     </Link>
                   ) : mode === "devis" ? (
-                    <Link data-permission="invoice:create" href="/invoices/devis/new" className="btn btn-gold">
+                    <Link data-permission="invoice:create" href="/invoices/devis/new" className={emptyTableActionClass}>
                       + Nouveau Devis
                     </Link>
                   ) : (
-                    <Link data-permission="invoice:create" href={`${basePath}/new`} className="btn btn-gold">+ Nouvelle Facture</Link>
+                    <Link
+                      data-permission="invoice:create"
+                      href={`${basePath}/new`}
+                      className={emptyTableActionClass}
+                    >
+                      + Nouvelle Facture
+                    </Link>
                   )}
                 </td>
               </tr>
@@ -1012,7 +1239,14 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
                 const today = new Date().toISOString().slice(0, 10);
                 const isExpired = expiryDate && expiryDate < today && ds !== "accepté" && ds !== "refusé";
                 return (
-                  <tr key={inv.id}>
+                  <tr key={inv.id} className={selectedIds.has(inv.id) ? "bg-[#FAF3E8]" : undefined}>
+                    <td>
+                      <TableSelectionCheckbox
+                        checked={selectedIds.has(inv.id)}
+                        onChange={() => toggleSelected(inv.id)}
+                        label={`Sélectionner ${inv.invoice_number}`}
+                      />
+                    </td>
                     <td>
                       <span className="font-medium text-[#6B7280]">{inv.invoice_number}</span>
                     </td>
@@ -1053,7 +1287,14 @@ export default function InvoicesPage({ dossierId: propDossierId }: { dossierId?:
               const pct = totalTtc > 0 ? Math.min(100, (montantPaye / totalTtc) * 100) : 0;
 
               return (
-                <tr key={inv.id}>
+                <tr key={inv.id} className={selectedIds.has(inv.id) ? "bg-[#FAF3E8]" : undefined}>
+                  <td>
+                    <TableSelectionCheckbox
+                      checked={selectedIds.has(inv.id)}
+                      onChange={() => toggleSelected(inv.id)}
+                      label={`Sélectionner ${inv.invoice_number}`}
+                    />
+                  </td>
                   <td>
                     <Link href={`${basePath}/${inv.id}`}
                       className="font-medium text-[#6B7280] transition-colors hover:text-[#C8924A]">

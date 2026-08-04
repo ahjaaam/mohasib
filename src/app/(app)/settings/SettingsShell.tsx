@@ -43,19 +43,23 @@ const TABS = [
   { id: "audit",        label: "Journal d'audit", icon: ScrollText, ownerOnly: true },
 ];
 
+const FREE_PLAN_TABS = new Set(["entreprise", "profil", "apparence", "abonnement", "articles", "messages"]);
+
 export default function SettingsShell({ userId, accountOwnerId, userEmail, companyId, profile, company, prefs, auditLogs }: Props) {
   const entitlements = usePlanEntitlements();
   const { can, isOwner } = usePermissions();
-  const visibleTabs = TABS.filter(item => item.id !== "equipe" || entitlements.features.multi_users);
+  const planAllowsTab = (id: string) => entitlements.plan !== "free" || FREE_PLAN_TABS.has(id);
+  const visibleTabs = TABS.filter(item => planAllowsTab(item.id) && (item.id !== "equipe" || entitlements.features.multi_users));
   const [tab, setTab] = useState(() => {
     if (typeof window !== "undefined") {
       const t = new URLSearchParams(window.location.search).get("tab");
-      if (TABS.some(x => x.id === t)) return t!;
+      if (TABS.some(x => x.id === t) && planAllowsTab(t ?? "")) return t!;
     }
     return "entreprise";
   });
   const activeTab = TABS.find(item => item.id === tab);
-  const tabAllowed = isOwner || (!activeTab?.ownerOnly && (!activeTab?.permission || can(...activeTab.permission.split(":") as [string, string])));
+  const tabAllowedByPlan = planAllowsTab(tab);
+  const tabAllowed = tabAllowedByPlan && (isOwner || (!activeTab?.ownerOnly && (!activeTab?.permission || can(...activeTab.permission.split(":") as [string, string]))));
 
   return (
     <>
@@ -119,11 +123,11 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
 
         {/* Tab content */}
         <div className="flex-1 min-w-0">
-          {!tabAllowed && <AccessRestricted backHref="/settings" />}
+          {!tabAllowed && <AccessRestricted backHref="/settings" reason={tabAllowedByPlan ? "permission" : "plan"} />}
           {tabAllowed && <>
           {tab === "entreprise" && <EntrepriseTab userId={accountOwnerId} company={company} />}
           {tab === "profil" && <ProfilTab userId={userId} userEmail={userEmail} profile={profile} prefs={prefs} />}
-          {tab === "apparence" && <ApparenceTab userId={accountOwnerId} company={company} />}
+          {tab === "apparence" && <ApparenceTab userId={accountOwnerId} company={company} prefs={prefs} />}
           {tab === "abonnement" && <AbonnementTab userId={accountOwnerId} userEmail={userEmail} companyId={companyId} company={company} />}
           {tab === "integrations" && <IntegrationsTab company={company} />}
           {tab === "articles"     && <InvoiceItemsTab userId={accountOwnerId} />}

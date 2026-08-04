@@ -77,9 +77,10 @@ interface Props {
   isClientPortal?: boolean;
   entitlements: PlanEntitlements;
   ownerId: string;
+  sidebarTheme?: "dark" | "cream";
 }
 
-export default function DossierShell({ children, dossier, dossiers = [dossier], userId, userName, userEmail, userAvatar, permissions = null, roleLabel, isClientPortal = false, entitlements, ownerId }: Props) {
+export default function DossierShell({ children, dossier, dossiers = [dossier], userId, userName, userEmail, userAvatar, permissions = null, roleLabel, isClientPortal = false, entitlements, ownerId, sidebarTheme = "cream" }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
@@ -88,6 +89,8 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   const { can } = usePermissions(permissions);
   const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
   const entitled = (feature?: PlanFeature) => !feature || entitlements.features[feature];
+  const lightSidebar = sidebarTheme === "cream";
+  const sidebarBackground = lightSidebar ? "#F8F6ED" : SIDEBAR_BACKGROUND;
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
@@ -128,12 +131,12 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   }
 
   const DossierSwitcher = ({ compact = false }: { compact?: boolean }) => (
-    <div className={`group relative flex items-center min-w-0 rounded-md bg-white/[0.06] hover:bg-white/10 py-1.5 pl-7 pr-7 transition-colors ${compact ? "max-w-[190px]" : "max-w-full"}`}>
-      <Building2 size={13} className="absolute left-2.5 text-white/50 pointer-events-none flex-shrink-0" />
-      <span className="block min-w-0 flex-1 truncate text-[12px] font-medium text-white/90" title={dossier.raison_sociale}>
+    <div className={`group relative flex items-center min-w-0 rounded-md py-1.5 pl-7 pr-7 transition-colors ${lightSidebar ? "bg-black/[0.04] hover:bg-black/[0.07]" : "bg-white/[0.06] hover:bg-white/10"} ${compact ? "max-w-[190px]" : "max-w-full"}`}>
+      <Building2 size={13} className={`absolute left-2.5 pointer-events-none flex-shrink-0 ${lightSidebar ? "text-[#6F695D]" : "text-white/50"}`} />
+      <span className={`block min-w-0 flex-1 truncate text-[12px] font-medium ${lightSidebar ? "text-[#1A1A2E]" : "text-white/90"}`} title={dossier.raison_sociale}>
         {dossier.raison_sociale}
       </span>
-      <ChevronDown size={13} strokeWidth={2.5} className="absolute right-2 text-white/50 pointer-events-none flex-shrink-0" />
+      <ChevronDown size={13} strokeWidth={2.5} className={`absolute right-2 pointer-events-none flex-shrink-0 ${lightSidebar ? "text-[#6F695D]" : "text-white/50"}`} />
       <select
         value={dossier.id}
         onChange={(event) => switchDossier(event.target.value)}
@@ -152,21 +155,21 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   const SidebarContent = ({ compact = false, showContextBlock = true }: { compact?: boolean; showContextBlock?: boolean } = {}) => (
     <>
       {/* Mohasib branding */}
-      <div className={`pt-4 pb-[15px] border-b border-white/[0.07] flex items-center ${compact ? "justify-center px-0" : "px-[18px]"}`}>
+      <div className={`pt-4 pb-[15px] border-b flex items-center ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"} ${compact ? "justify-center px-0" : "px-[18px]"}`}>
         {compact ? (
           <Image src="/favicon.png" alt="Mohasib" width={28} height={28} className="object-contain" />
         ) : (
           <div>
-            <Image src="/logo.png" alt="Mohasib" width={120} height={40} style={{ height: "auto" }} className="object-contain" />
-            <div className="text-[10.5px] text-white/[0.28] mt-1.5">AI accounting for Moroccan SMEs</div>
+            <Image src={lightSidebar ? "/logo2.png" : "/logo.png"} alt="Mohasib" width={120} height={40} style={{ height: "auto" }} className="object-contain" />
+            <div className={`text-[10.5px] mt-1.5 ${lightSidebar ? "text-[#817A6D]" : "text-white/[0.28]"}`}>AI accounting for Moroccan SMEs</div>
           </div>
         )}
       </div>
 
       {!isClientPortal && showContextBlock && !compact && (
-        <div className="border-b border-white/[0.07] px-[18px] py-3 flex flex-col gap-2.5">
+        <div className={`border-b px-[18px] py-3 flex flex-col gap-2.5 ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"}`}>
           <Link href="/comptable-pro"
-            className="flex items-center gap-1.5 text-white/60 hover:text-white text-[11.5px] font-medium transition-colors">
+            className={`flex items-center gap-1.5 text-[11.5px] font-medium transition-colors ${lightSidebar ? "text-[#6F695D] hover:text-[#1A1A2E]" : "text-white/60 hover:text-white"}`}>
             <ChevronLeft size={13} /> Retour
           </Link>
           <DossierSwitcher />
@@ -177,7 +180,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
         {NAV_GROUPS.map(({ group, items }) => (
           <div key={group}>
             {!compact && (
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: "rgba(255,255,255,0.14)", padding: "14px 18px 6px" }}>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: lightSidebar ? "#9A9386" : "rgba(255,255,255,0.14)", padding: "14px 18px 6px" }}>
                 {group}
               </div>
             )}
@@ -191,8 +194,12 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
                   isActive(slug)
                     ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
                     : locked
-                      ? "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
-                      : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                      ? lightSidebar
+                        ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
+                        : "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                      : lightSidebar
+                        ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
+                        : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
                 }`}>
                 <Icon size={compact ? 18 : 15} />
                 {!compact && label}
@@ -218,12 +225,13 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
           {/* Desktop sidebar */}
           <aside
             className="hidden md:flex flex-col flex-shrink-0 relative transition-[width] duration-200 overflow-visible"
-            style={{ width: sidebarCollapsed ? 56 : 210, background: SIDEBAR_BACKGROUND }}
+            style={{ width: sidebarCollapsed ? 56 : 210, background: sidebarBackground }}
           >
             <SidebarContent compact={sidebarCollapsed} />
             <SidebarToggleButton
               collapsed={sidebarCollapsed}
               onToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              light={lightSidebar}
             />
           </aside>
 
@@ -258,14 +266,14 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
             />
             <div
               className="md:hidden fixed top-0 left-0 h-full w-[260px] z-[70] flex flex-col"
-              style={{ background: SIDEBAR_BACKGROUND }}
+              style={{ background: sidebarBackground }}
             >
-              <div className="flex items-center justify-between px-4 h-[52px] border-b border-white/10 flex-shrink-0"
-                style={{ background: SIDEBAR_BACKGROUND }}>
+              <div className={`flex items-center justify-between px-4 h-[52px] border-b flex-shrink-0 ${lightSidebar ? "border-black/10" : "border-white/10"}`}
+                style={{ background: sidebarBackground }}>
                 {isClientPortal
-                  ? <span className="text-[13px] font-semibold text-white truncate">{dossier.raison_sociale}</span>
+                  ? <span className={`text-[13px] font-semibold truncate ${lightSidebar ? "text-[#1A1A2E]" : "text-white"}`}>{dossier.raison_sociale}</span>
                   : <DossierSwitcher compact />}
-                <button onClick={() => setDrawerOpen(false)} className="text-white/80 hover:text-white p-1">
+                <button onClick={() => setDrawerOpen(false)} className={`p-1 ${lightSidebar ? "text-[#6F695D] hover:text-[#1A1A2E]" : "text-white/80 hover:text-white"}`}>
                   <X size={18} />
                 </button>
               </div>

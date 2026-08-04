@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
-import { X, Upload, Loader2, Search, Trash2, Check } from "lucide-react";
+import { AlertTriangle, Ban, Check, ExternalLink, FileSpreadsheet, FileText, Image, Loader2, Search, Trash2, Upload, X, XCircle } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,9 +42,9 @@ const ALL_CATEGORIES = [
 ];
 
 const PROCESSING_STEPS = [
-  "📄 Lecture du document...",
-  "🔍 Extraction des transactions...",
-  "🤖 Catégorisation par IA...",
+  "Lecture du document...",
+  "Extraction des transactions...",
+  "Catégorisation par IA...",
   "Analyse terminée !",
 ];
 
@@ -364,7 +364,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
   // ── Import ─────────────────────────────────────────────────────────────────
 
   async function doImport() {
-    if (selectedTxs.length === 0) return;
+    if (selectedTxs.length === 0 || !file) return;
     setImporting(true);
 
     const rows = selectedTxs.map((t) => ({
@@ -389,9 +389,8 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       ({ data: insertedRows, error } = await supabase.from("transactions").insert(simpleRows).select("id"));
     }
 
-    setImporting(false);
-
     if (error) {
+      setImporting(false);
       toast.error(translateError(error), { duration: 8000 });
       return;
     }
@@ -409,6 +408,27 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       }).catch(() => {});
     }
 
+    // Keep the original statement alongside the generated transactions.
+    const archiveForm = new FormData();
+    archiveForm.set("file", file);
+    archiveForm.set("category", "Relevé bancaire");
+    archiveForm.set("notes", period ? `Période : ${period}` : "");
+    if (dossierId) archiveForm.set("dossierId", dossierId);
+
+    let archiveError: string | null = null;
+    try {
+      const archiveResponse = await fetch("/api/archive/documents", {
+        method: "POST",
+        body: archiveForm,
+      });
+      if (!archiveResponse.ok) {
+        const archiveResult = await archiveResponse.json().catch(() => ({}));
+        archiveError = archiveResult.error || "Archivage du relevé impossible.";
+      }
+    } catch {
+      archiveError = "Archivage du relevé impossible.";
+    }
+
     const income = selectedTxs.filter((t) => t.amount > 0);
     const expense = selectedTxs.filter((t) => t.amount < 0);
     setImportedStats({
@@ -422,8 +442,12 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
     if (dossierId) {
       await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
     }
+    setImporting(false);
     setStep(4);
     onImported();
+    if (archiveError) {
+      toast.error(`Transactions importées, mais ${archiveError.toLowerCase()}`, { duration: 8000 });
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -474,9 +498,9 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg px-4 py-3 text-[#1E40AF]">
                 <p className="text-[12.5px] font-semibold mb-1">Formats acceptés :</p>
                 <ul className="text-[12px] flex flex-col gap-0.5">
-                  <li>📄 PDF — maximum 8 pages</li>
-                  <li>📋 CSV / Excel — maximum 200 lignes</li>
-                  <li>🖼️ Image (JPG, PNG) — 1 page max</li>
+                  <li className="flex items-center gap-1.5"><FileText size={13} /> PDF — maximum 8 pages</li>
+                  <li className="flex items-center gap-1.5"><FileSpreadsheet size={13} /> CSV / Excel — maximum 200 lignes</li>
+                  <li className="flex items-center gap-1.5"><Image size={13} /> Image (JPG, PNG) — 1 page max</li>
                 </ul>
               </div>
 
@@ -513,7 +537,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               ) : fileValidation && !fileValidation.valid ? (
                 /* REJECTED */
                 <div className="border border-[#FECACA] bg-[#FEF2F2] rounded-xl p-5 flex flex-col gap-3">
-                  <p className="text-[13px] font-semibold text-[#DC2626]">❌ Fichier trop volumineux</p>
+                  <p className="text-[13px] font-semibold text-[#DC2626] flex items-center gap-1.5"><XCircle size={14} /> Fichier trop volumineux</p>
                   <p className="text-[12px] font-medium text-[#374151]">{file.name}</p>
                   <p className="text-[12px] text-[#DC2626]">
                     {fileValidation.type === "pdf"
@@ -529,7 +553,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
                         </p>
                         <a href="https://smallpdf.com/split-pdf" target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-[12px] text-[#C8924A] border border-[#C8924A] rounded-lg px-3 py-1.5 w-fit hover:bg-[rgba(200,146,74,0.05)] transition-colors">
-                          ↗ Ouvrir smallpdf.com
+                          <ExternalLink size={13} /> Ouvrir smallpdf.com
                         </a>
                       </>
                     ) : (
@@ -583,8 +607,8 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               </div>
 
               {apiError && (
-                <div className="bg-[#FEE2E2] border border-[#FECACA] rounded-lg px-4 py-3 text-[12.5px] text-[#DC2626]">
-                  ❌ {apiError}
+                <div className="bg-[#FEE2E2] border border-[#FECACA] rounded-lg px-4 py-3 text-[12.5px] text-[#DC2626] flex items-center gap-1.5">
+                  <XCircle size={14} /> {apiError}
                 </div>
               )}
 
@@ -668,8 +692,8 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
 
               {/* Duplicate warning */}
               {dupCount > 0 && (
-                <div className="mx-5 mt-3 flex-shrink-0 bg-[#FEF3C7] border border-[#FDE68A] rounded-lg px-3.5 py-2.5 text-[12px] text-[#92400E]">
-                  ⚠️ {dupCount} transaction{dupCount > 1 ? "s semblent" : " semble"} déjà exister dans votre journal — décochée{dupCount > 1 ? "s" : ""} automatiquement.
+                <div className="mx-5 mt-3 flex-shrink-0 bg-[#FEF3C7] border border-[#FDE68A] rounded-lg px-3.5 py-2.5 text-[12px] text-[#92400E] flex items-center gap-1.5">
+                  <AlertTriangle size={14} className="flex-shrink-0" /> {dupCount} transaction{dupCount > 1 ? "s semblent" : " semble"} déjà exister dans votre journal — décochée{dupCount > 1 ? "s" : ""} automatiquement.
                 </div>
               )}
 
@@ -749,7 +773,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
                         <td className="px-3 py-2 text-[#6B7280] whitespace-nowrap">
                           {fmtDate(tx.date)}
                           {tx.isDuplicate && (
-                            <span className="ml-1 text-[9px] text-[#D97706]" title="Transaction déjà importée">⚠</span>
+                            <span className="ml-1 text-[#D97706]" title="Transaction déjà importée"><AlertTriangle size={10} /></span>
                           )}
                         </td>
 
@@ -905,7 +929,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       {limitReached && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(13,21,38,0.7)" }}>
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full flex flex-col gap-4">
-            <div className="w-12 h-12 rounded-full bg-[#FEE2E2] flex items-center justify-center text-2xl mx-auto">⛔</div>
+            <div className="w-12 h-12 rounded-full bg-[#FEE2E2] flex items-center justify-center mx-auto"><Ban size={24} className="text-[#DC2626]" /></div>
             <div className="text-center">
               <h3 className="text-[15px] font-bold text-[#1A1A2E] mb-1">Limite mensuelle atteinte</h3>
               <p className="text-[12.5px] text-[#6B7280]">

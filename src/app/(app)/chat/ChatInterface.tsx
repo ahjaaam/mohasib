@@ -17,26 +17,33 @@ type Conversation = {
 const WELCOME: Message = {
   role: "assistant",
   content:
-    "Bonjour, je suis Mohasib Chat. Posez-moi vos questions sur la comptabilité, la TVA, l’IS, l’IR ou les obligations des entreprises marocaines.",
+    "Bonjour, je suis l’agent Mohasib. Je peux analyser vos données comptables et agir dans Mohasib. Demandez-moi par exemple de préparer une facture pour un client.",
 };
 
 const SUGGESTIONS = [
+  "Crée une facture de 5 000 MAD HT pour Atlas",
+  "Quelles factures sont en retard ?",
   "Comment calculer la TVA à déclarer ?",
-  "Explique-moi les acomptes de l’IS",
-  "Quelles mentions sont obligatoires sur une facture ?",
-  "Comment comptabiliser une facture fournisseur ?",
+  "Quel est mon chiffre d’affaires ce mois-ci ?",
 ];
 
 export default function ChatInterface({
   mode = "page",
   onClose,
   dossierId,
+  userName,
+  avatarUrl,
 }: {
   mode?: "page" | "dock";
   onClose?: () => void;
   dossierId?: string;
+  userName?: string | null;
+  avatarUrl?: string | null;
 }) {
   const isDock = mode === "dock";
+  const userInitials = userName
+    ? userName.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join("").toUpperCase()
+    : "V";
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
@@ -309,7 +316,7 @@ export default function ChatInterface({
             </span>
             <span>
               <span className="block text-[11.5px] font-bold leading-tight text-[#1A1A2E]">Assistant Mohasib</span>
-              <span className="mt-0.5 block text-[9.5px] leading-tight text-[#8A909B]">Comptabilité marocaine</span>
+              <span className="mt-0.5 block text-[9.5px] leading-tight text-[#8A909B]">Analyse et gestion comptable</span>
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -322,7 +329,7 @@ export default function ChatInterface({
                 type="button"
                 onClick={onClose}
                 className="flex h-8 w-8 items-center justify-center text-[#777E8B] transition-colors hover:bg-[#F4F3ED] hover:text-[#1A1A2E]"
-                aria-label="Fermer Mohasib Chat"
+                aria-label="Fermer Mohasib Agent"
               >
                 <X size={15} />
               </button>
@@ -338,13 +345,19 @@ export default function ChatInterface({
                 className={`flex max-w-[88%] gap-2.5 ${message.role === "user" ? "self-end flex-row-reverse" : "self-start"}`}
               >
                 <span
-                  className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[9.5px] font-bold ${
+                  className={`flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-[9.5px] font-bold ${
                     message.role === "assistant"
                       ? "bg-[#C8924A] text-white"
                       : "bg-[#0D1526] text-white"
                   }`}
                 >
-                  {message.role === "assistant" ? "M" : "V"}
+                  {message.role === "assistant" ? "M" : avatarUrl ? (
+                    <span
+                      className="h-full w-full bg-cover bg-center"
+                      style={{ backgroundImage: `url("${avatarUrl}")` }}
+                      aria-hidden="true"
+                    />
+                  ) : userInitials}
                 </span>
                 <div
                   className={`border px-3.5 py-2.5 text-[12.5px] leading-[1.6] whitespace-pre-wrap ${
@@ -404,7 +417,7 @@ export default function ChatInterface({
               ref={inputRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Posez votre question comptable…"
+              placeholder="Demandez une action ou posez une question…"
               disabled={loading}
               className="h-10 min-w-0 flex-1 border border-[#D8D8D3] bg-white px-3.5 text-[12.5px] text-[#1A1A2E] outline-none transition-colors placeholder:text-[#A0A5AE] focus:border-[#C8924A]"
             />
@@ -418,7 +431,7 @@ export default function ChatInterface({
             </button>
           </div>
           <p className="mx-auto mt-1.5 max-w-[760px] text-center text-[9px] text-[#A0A5AE]">
-            Vérifiez les informations sensibles avec votre expert-comptable.
+            Mohasib vous accompagne dans vos tâches comptables au quotidien.
           </p>
         </form>
       </section>

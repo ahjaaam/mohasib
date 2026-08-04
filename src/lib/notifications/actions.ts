@@ -39,7 +39,7 @@ export async function generateNotifications() {
   upserts.push({
     user_id: user.id,
     type: "welcome",
-    title: "👋 Bienvenue sur Mohasib !",
+    title: "Bienvenue sur Mohasib !",
     message: "Commencez par configurer votre entreprise et créer votre première facture.",
     link: "/settings",
     priority: "normal",
@@ -54,7 +54,7 @@ export async function generateNotifications() {
       upserts.push({
         user_id: user.id,
         type: "missing_info",
-        title: "⚠️ Complétez votre profil",
+        title: "Complétez votre profil",
         message: "Votre ICE et informations légales sont manquants. Ils sont requis sur vos factures.",
         link: "/settings",
         priority: "normal",
@@ -88,7 +88,7 @@ export async function generateNotifications() {
     upserts.push({
       user_id: user.id,
       type: "tva_deadline",
-      title: `⏰ Déclaration TVA due le ${deadline}`,
+      title: `Déclaration TVA due le ${deadline}`,
       message: `Votre TVA estimée est ~${Math.round(tvaEstimate / 100) * 100} MAD. Ne manquez pas la date limite DGI.`,
       link: "/dashboard",
       priority: daysUntilTVA <= 10 ? "high" : "normal",
@@ -130,7 +130,7 @@ export async function generateNotifications() {
       upserts.push({
         user_id: user.id,
         type: "monthly_summary",
-        title: `📊 Résumé de ${monthLabel}`,
+        title: `Résumé de ${monthLabel}`,
         message: `CA: ${fmt(ca)} MAD | Factures émises: ${count} | Dépenses: ${fmt(deps)} MAD | Résultat net: ${fmt(net)} MAD`,
         link: "/dashboard",
         priority: "normal",
@@ -159,8 +159,8 @@ export async function generateNotifications() {
       user_id: user.id,
       type: isLarge ? "large_invoice_unpaid" : "invoice_overdue",
       title: isLarge
-        ? `🔴 Facture importante en attente`
-        : `📌 Facture en retard — ${clientName}`,
+        ? `Facture importante en attente`
+        : `Facture en retard — ${clientName}`,
       message: isLarge
         ? `${clientName} vous doit ${amount} MAD depuis ${daysOverdue} jours. Pensez à relancer.`
         : `${(inv as any).invoice_number} de ${amount} MAD est en retard de ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}. Envoyez une relance à votre client.`,
@@ -177,7 +177,7 @@ export async function generateNotifications() {
     upserts.push({
       user_id: user.id,
       type: "cnss_reminder",
-      title: "📋 Rappel CNSS",
+      title: "Rappel CNSS",
       message: "N'oubliez pas votre déclaration CNSS mensuelle avant la fin du mois.",
       link: "/dashboard",
       priority: "normal",

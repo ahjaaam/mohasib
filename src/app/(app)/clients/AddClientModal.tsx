@@ -7,12 +7,14 @@ import { X, UserPlus } from "lucide-react";
 
 interface Props {
   userId: string;
+  dossierId?: string;
   className?: string;
-  onCreated?: () => void | Promise<void>;
+  variant?: "gold" | "outline";
+  onCreated?: (client: { id: string; name: string; email: string | null }) => void | Promise<void>;
   buttonId?: string;
 }
 
-export default function AddClientModal({ userId, className = "", onCreated, buttonId }: Props) {
+export default function AddClientModal({ userId, dossierId, className = "", variant = "gold", onCreated, buttonId }: Props) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +34,9 @@ export default function AddClientModal({ userId, className = "", onCreated, butt
     setSaving(true);
     setError(null);
 
-    const { error: err } = await supabase.from("clients").insert({
+    const { data: client, error: err } = await supabase.from("clients").insert({
       user_id: userId,
+      ...(dossierId ? { dossier_id: dossierId } : {}),
       ...form,
       email: form.email || null,
       phone: form.phone || null,
@@ -42,7 +45,7 @@ export default function AddClientModal({ userId, className = "", onCreated, butt
       ice: form.ice || null,
       rc: form.rc || null,
       notes: form.notes || null,
-    });
+    }).select("id,name,email").single();
 
     setSaving(false);
     if (err) {
@@ -50,13 +53,13 @@ export default function AddClientModal({ userId, className = "", onCreated, butt
     } else {
       setOpen(false);
       reset();
-      await onCreated?.();
+      await onCreated?.(client);
     }
   }
 
   return (
     <>
-      <button id={buttonId} onClick={() => setOpen(true)} className={`btn btn-gold ${className}`}>
+      <button id={buttonId} onClick={() => setOpen(true)} className={`btn ${variant === "outline" ? "btn-outline" : "btn-gold"} ${className}`}>
         <UserPlus size={14} />
         Nouveau client
       </button>

@@ -3,7 +3,8 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { Loader2, Mail, CheckCircle2, Unplug, RefreshCw } from "lucide-react";
+import { Loader2, Mail, CheckCircle2, Lock, Unplug, RefreshCw } from "lucide-react";
+import GoogleDriveIcon from "@/components/GoogleDriveIcon";
 
 interface Props {
   company: {
@@ -52,14 +53,20 @@ function OAuthFeedback() {
   useEffect(() => {
     const success = searchParams.get("success");
     const error = searchParams.get("error");
-    if (success === "gmail") toast.success("Gmail connecté avec succès 📧");
-    if (success === "outlook") toast.success("Outlook connecté avec succès 📧");
+    if (success === "gmail") toast.success("Gmail connecté avec succès");
+    if (success === "outlook") toast.success("Outlook connecté avec succès");
+    if (success === "google_drive") toast.success("Google Drive connecté avec succès");
     if (error === "gmail_failed") toast.error("Connexion Gmail échouée. Réessayez.");
     if (error === "outlook_failed") toast.error("Connexion Outlook échouée. Réessayez.");
     if (error === "gmail_not_configured") toast.error("OAuth Gmail n'est pas encore configuré côté serveur.");
     if (error === "outlook_not_configured") toast.error("OAuth Outlook n'est pas encore configuré côté serveur.");
     if (error === "gmail_invalid_state") toast.error("La demande Gmail a expiré ou n'est plus valide. Recommencez la connexion.");
     if (error === "outlook_invalid_state") toast.error("La demande Outlook a expiré ou n'est plus valide. Recommencez la connexion.");
+    if (error === "drive_failed") toast.error("Connexion Google Drive échouée. Réessayez.");
+    if (error === "drive_not_configured") toast.error("Google Drive n'est pas encore configuré côté serveur.");
+    if (error === "drive_invalid_state") toast.error("La demande Google Drive a expiré. Recommencez la connexion.");
+    if (error === "drive_owner_required") toast.error("Seul le propriétaire du compte peut connecter Google Drive.");
+    if (error === "drive_account_mismatch") toast.error("Déconnectez d'abord le compte Google Drive actuel avant d'en utiliser un autre.");
   }, [searchParams]);
   return null;
 }
@@ -168,7 +175,7 @@ export default function IntegrationsTab({ company, dossierId }: Props) {
 
       {/* Privacy notice */}
       <div className="bg-[#F0F9FF] border border-[#BAE6FD] rounded-xl px-4 py-3 text-[12px] text-[#0369A1] leading-relaxed">
-        <span className="font-semibold">🔒 Confidentialité :</span> Mohasib accède uniquement aux
+        <span className="font-semibold inline-flex items-center gap-1"><Lock size={13} /> Confidentialité :</span> Mohasib accède uniquement aux
         emails contenant des factures ou reçus. Vos emails personnels ne sont jamais lus.
         Vous pouvez déconnecter à tout moment.
       </div>
@@ -187,6 +194,8 @@ export default function IntegrationsTab({ company, dossierId }: Props) {
         disconnectLoading={gmailLoading}
         syncLoading={gmailSyncing}
       />
+
+      {!dossierId && <GoogleDriveCard />}
 
       {/* Outlook card */}
       <EmailProviderCard
@@ -207,6 +216,76 @@ export default function IntegrationsTab({ company, dossierId }: Props) {
         La synchronisation automatique s'exécute toutes les 15 minutes.
         Les factures détectées apparaissent dans votre{" "}
         <a href="/inbox" className="underline hover:text-[#6B7280]">Boîte de réception</a>.
+      </p>
+    </div>
+  );
+}
+
+function GoogleDriveCard() {
+  const [status, setStatus] = useState<{ connected: boolean; email: string | null; archives: unknown[] } | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/google-drive/archives")
+      .then(async response => response.ok ? response.json() : Promise.reject())
+      .then(setStatus)
+      .catch(() => setStatus({ connected: false, email: null, archives: [] }));
+  }, []);
+
+  async function disconnect() {
+    if (!confirm("Déconnecter Google Drive ? Les fichiers resteront dans Drive, mais ne seront plus accessibles depuis Mohasib.")) return;
+    setDisconnecting(true);
+    try {
+      const response = await fetch("/api/oauth/google-drive/disconnect", { method: "POST" });
+      if (!response.ok) throw new Error();
+      setStatus({ connected: false, email: null, archives: [] });
+      toast.success("Google Drive déconnecté");
+    } catch {
+      toast.error("Erreur lors de la déconnexion de Google Drive");
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  return (
+    <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-[#F8FAFC] flex items-center justify-center">
+            <GoogleDriveIcon size={20} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-[#1A1A2E]">Google Drive</div>
+            {status ? (
+              <StatusBadge connected={status.connected} email={status.email} />
+            ) : (
+              <span className="text-[11px] text-[#9CA3AF]">Vérification…</span>
+            )}
+          </div>
+        </div>
+
+        {status?.connected ? (
+          <button
+            onClick={disconnect}
+            disabled={disconnecting}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] text-[#DC2626] border border-[rgba(220,38,38,0.2)] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50"
+          >
+            {disconnecting ? <Loader2 size={11} className="animate-spin" /> : <Unplug size={11} />}
+            Déconnecter
+          </button>
+        ) : (
+          <a
+            href="/api/oauth/google-drive/connect"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium text-white bg-[#1A1A2E] rounded-lg hover:bg-[#0D1526]"
+          >
+            <GoogleDriveIcon size={12} />
+            Connecter Drive
+          </a>
+        )}
+      </div>
+      <p className="mt-3 pt-2.5 border-t border-[rgba(0,0,0,0.05)] text-[11px] text-[#6B7280]">
+        Créez plusieurs archives dans Mohasib. Chaque archive correspond à un dossier privé dans votre Google Drive.
+        {status?.connected ? ` ${status.archives.length} archive(s) configurée(s).` : ""}
       </p>
     </div>
   );

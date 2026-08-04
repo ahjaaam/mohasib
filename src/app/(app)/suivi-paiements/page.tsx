@@ -39,7 +39,7 @@ export default async function SuiviPaiementsPage() {
   return (
     <>
       <PageHeader
-        title="Suivi des paiements"
+        title="Suivi des échéances"
         subtitle="Encaissements clients et paiements fournisseurs"
         icon={<CreditCard size={20} />}
       />

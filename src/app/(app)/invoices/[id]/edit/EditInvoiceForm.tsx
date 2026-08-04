@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
-import { Trash2, Plus } from "lucide-react";
+import { Save, Trash2, Plus, Upload } from "lucide-react";
 import type { Client } from "@/types";
 
 interface LineItem {
@@ -170,10 +170,10 @@ export default function EditInvoiceForm({
       {/* Actions */}
       <div className="flex gap-2 mt-4 flex-wrap">
         <button onClick={() => save("draft")} disabled={saving} className="btn btn-outline">
-          💾 {saving ? "..." : "Enregistrer brouillon"}
+          <Save size={13} /> {saving ? "..." : "Enregistrer brouillon"}
         </button>
         <button onClick={() => save("sent")} disabled={saving} className="btn btn-gold">
-          {saving ? "..." : "📤 Marquer comme envoyée"}
+          {saving ? "..." : <><Upload size={13} /> Marquer comme envoyée</>}
         </button>
         <button type="button" onClick={() => router.back()} className="btn btn-outline">
           ← Annuler

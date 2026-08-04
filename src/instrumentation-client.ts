@@ -25,7 +25,7 @@ Sentry.init({
     if (name.includes("/api/health") || name.includes("/monitoring")) return 0;
     return inheritOrSampleWith(process.env.NODE_ENV === "development" ? 1 : 0.1);
   },
-  tracePropagationTargets: ["localhost", /^\//, /^https:\/\/(www\.)?mohasibai\.com/],
+  tracePropagationTargets: ["localhost", /^\//, /^https:\/\/([a-z0-9-]+\.)?mohasibai\.com/],
   beforeBreadcrumb(breadcrumb) {
     if (breadcrumb.data?.url && typeof breadcrumb.data.url === "string") {
       breadcrumb.data.url = stripQuery(breadcrumb.data.url);

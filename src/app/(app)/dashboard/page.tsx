@@ -9,6 +9,8 @@ import DashboardNews from "./DashboardNews";
 import DashboardGreeting from "./DashboardGreeting";
 import { getMonthlyUsage } from "@/lib/usage";
 import RevenueExpenseChart, { type FinanceChartPoint } from "./RevenueExpenseChart";
+import { getPlanEntitlements } from "@/lib/plan-entitlements";
+import { redirect } from "next/navigation";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -47,6 +49,8 @@ function isSupplierPaid(item: any) {
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const entitlements = await getPlanEntitlements(user!.id);
+  if (entitlements.plan === "free") redirect("/invoices");
   const ownerId = await resolveAccountOwnerId(user!.id);
 
   const companyRes = await supabase
@@ -165,8 +169,8 @@ export default async function DashboardPage() {
         }`}>
           <span>
             {usageData.used >= usageData.limit
-              ? `⛔ Limite mensuelle atteinte (${usageData.used}/${usageData.limit} documents). Imports désactivés jusqu'au ${usageData.resetDate}.`
-              : `⚠️ Vous avez utilisé ${usageData.used}/${usageData.limit} documents ce mois (${usageData.remaining} restant${usageData.remaining > 1 ? "s" : ""}).`}
+              ? `Limite mensuelle atteinte (${usageData.used}/${usageData.limit} documents). Imports désactivés jusqu'au ${usageData.resetDate}.`
+              : `Vous avez utilisé ${usageData.used}/${usageData.limit} documents ce mois (${usageData.remaining} restant${usageData.remaining > 1 ? "s" : ""}).`}
           </span>
           <a href="/settings?tab=abonnement" className="font-semibold whitespace-nowrap hover:underline">Voir l'abonnement →</a>
         </div>
@@ -226,9 +230,9 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Suivi des paiements widget */}
+      {/* Suivi des échéances widget */}
       <div className="mb-8">
-        <SectionLabel>Suivi des paiements</SectionLabel>
+        <SectionLabel>Suivi des échéances</SectionLabel>
         <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 flex items-center gap-6 flex-wrap" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div className="flex-1 min-w-[160px]">
             <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-1">Clients — À encaisser</div>

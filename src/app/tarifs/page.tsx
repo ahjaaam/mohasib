@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import PricingCalculator from "./PricingCalculator";
+import { invoicingUrl } from "@/lib/public-urls";
 
 export default function TarifsPage() {
   return (
@@ -35,6 +36,19 @@ export default function TarifsPage() {
 
       <section className="bg-white px-5 py-16 sm:px-10 sm:py-24">
         <div className="mx-auto max-w-[1180px]">
+          <div className="mb-12 grid gap-6 border border-[#D8C19D] bg-[#FAFAF6] p-6 sm:grid-cols-[1fr_auto] sm:items-center sm:p-8">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#A28358]">Mohasib Gratuit · 0 MAD</p>
+              <h2 className="mt-2 text-[26px] font-bold tracking-[-0.025em] text-[#0D1526]">Facturez gratuitement, sans limite de durée.</h2>
+              <p className="mt-3 max-w-[720px] text-[13px] leading-6 text-[#666B75]">
+                Factures, devis, avoirs, PDF, envoi par e-mail et gestion des clients — sans carte bancaire.
+              </p>
+            </div>
+            <Link href={invoicingUrl("/inscription")} className="inline-flex min-h-12 items-center justify-center gap-4 bg-[#C8924A] px-5 text-[12.5px] font-bold text-white transition-colors hover:bg-[#B6823F]">
+              Créer mon compte gratuit
+              <ArrowRight size={15} />
+            </Link>
+          </div>
           <PricingCalculator />
         </div>
       </section>

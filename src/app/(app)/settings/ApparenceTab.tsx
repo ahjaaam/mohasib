@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
@@ -8,6 +9,7 @@ import { translateError } from "@/lib/errors";
 interface Props {
   userId: string;
   company: any;
+  prefs: any;
 }
 
 const COLOR_PRESETS = [
@@ -18,11 +20,15 @@ const COLOR_PRESETS = [
   { label: "Rose", value: "#E11D48" },
 ];
 
-export default function ApparenceTab({ userId, company }: Props) {
+export default function ApparenceTab({ userId, company, prefs }: Props) {
   const supabase = createClient();
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
 
   const [color, setColor] = useState(company.invoice_color ?? "#C8924A");
+  const [sidebarTheme, setSidebarTheme] = useState<"dark" | "cream">(
+    prefs.sidebar_theme === "dark" ? "dark" : "cream",
+  );
   const [shows, setShows] = useState({
     show_logo: company.show_logo ?? true,
     show_cnss: company.show_cnss ?? true,
@@ -36,14 +42,28 @@ export default function ApparenceTab({ userId, company }: Props) {
 
   async function save() {
     setSaving(true);
-    const { data, error } = await supabase.from("companies").update({
-      invoice_color: color,
-      ...shows,
-    }).eq("user_id", userId).select("id").maybeSingle();
-    setSaving(false);
-    if (error) toast.error(translateError(error));
-    else if (!data) toast.error("Entreprise introuvable. Rechargez la page avant de réessayer.");
-    else toast.success("Apparence enregistrée");
+    try {
+      const [{ data, error }, { error: preferencesError }] = await Promise.all([
+        supabase.from("companies").update({
+          invoice_color: color,
+          ...shows,
+        }).eq("user_id", userId).select("id").maybeSingle(),
+        supabase.from("user_preferences").upsert({
+          user_id: userId,
+          sidebar_theme: sidebarTheme,
+        }, { onConflict: "user_id" }),
+      ]);
+      if (error) throw error;
+      if (preferencesError) throw preferencesError;
+      if (!data) throw new Error("Entreprise introuvable. Rechargez la page avant de réessayer.");
+      window.dispatchEvent(new CustomEvent("mohasib:sidebar-theme", { detail: sidebarTheme }));
+      router.refresh();
+      toast.success("Apparence enregistrée");
+    } catch (error) {
+      toast.error(translateError(error));
+    } finally {
+      setSaving(false);
+    }
   }
 
   const Toggle = ({ k, label }: { k: keyof typeof shows; label: string }) => (
@@ -60,6 +80,46 @@ export default function ApparenceTab({ userId, company }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Sidebar */}
+      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-5">
+        <h3 className="text-[13px] font-semibold text-[#1A1A2E] mb-0.5">Couleur de la barre latérale</h3>
+        <p className="text-[11.5px] text-[#9CA3AF] mb-4">Choisissez l’apparence de la navigation principale</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {([
+            { value: "dark", label: "Sombre", background: "linear-gradient(160deg, #1e2536 0%, #000000 100%)", foreground: "#FFFFFF" },
+            { value: "cream", label: "Crème", background: "#F8F6ED", foreground: "#1A1A2E" },
+          ] as const).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setSidebarTheme(option.value)}
+              aria-pressed={sidebarTheme === option.value}
+              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                sidebarTheme === option.value
+                  ? "border-[#C8924A] ring-2 ring-[rgba(200,146,74,0.15)]"
+                  : "border-[rgba(0,0,0,0.10)] hover:border-[rgba(200,146,74,0.55)]"
+              }`}
+            >
+              <span
+                className="flex h-12 w-16 flex-shrink-0 flex-col justify-center gap-1.5 rounded-lg px-2 shadow-sm"
+                style={{ background: option.background }}
+                aria-hidden="true"
+              >
+                <span className="h-1 w-8 rounded-full bg-[#C8924A]" />
+                <span className="h-1 w-10 rounded-full opacity-40" style={{ backgroundColor: option.foreground }} />
+                <span className="h-1 w-7 rounded-full opacity-40" style={{ backgroundColor: option.foreground }} />
+              </span>
+              <span>
+                <span className="block text-[12.5px] font-medium text-[#1A1A2E]">{option.label}</span>
+                <span className="block text-[10.5px] text-[#9CA3AF] mt-0.5">
+                  {option.value === "cream" ? "#F8F6ED" : "Dégradé actuel"}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Color */}
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-5">
         <h3 className="text-[13px] font-semibold text-[#1A1A2E] mb-0.5">Couleur de vos factures</h3>

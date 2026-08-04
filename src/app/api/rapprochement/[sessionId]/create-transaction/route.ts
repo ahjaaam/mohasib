@@ -48,6 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
         date: line.bank_date,
         payment_method: "bank_transfer",
         currency: "MAD",
+        source: "bank_import",
         ...(session.dossier_id ? { dossier_id: session.dossier_id } : {}),
       })
       .select("id")

@@ -15,7 +15,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
 import PermissionBoundary from "@/components/PermissionBoundary";
-import { featureForPath, type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
+import { featureForPath, isFreePlan, isRouteAvailableForPlan, type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
 import { FEATURES } from "@/lib/features";
 import { TRIAL_LIMITS } from "@/lib/trial-limits";
 import TrialLimitModal from "@/components/TrialLimitModal";
@@ -31,7 +31,7 @@ const NAV_MAIN = [
   { href: "/inbox",        icon: Inbox,           label: "Boîte de réception", key: "inbox", permission: "document:read" },
   { href: "/receipts",     icon: ReceiptText,     label: "Justificatifs",      key: "receipts", permission: "document:read" },
   { href: "/invoices",          icon: FileText,   label: "Factures",            key: "invoices", permission: "invoice:read" },
-  { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des paiements", key: "suivi-paiements", permission: "invoice:read" },
+  { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des échéances", key: "suivi-paiements", permission: "invoice:read" },
   { href: "/clients",           icon: Users,      label: "Clients",             key: "clients", permission: "invoice:read" },
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions", permission: "accounting:read" },
   { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
@@ -92,11 +92,14 @@ interface Props {
     trial_rapprochement_matches_used?: number | null;
   } | null;
   entitlements: PlanEntitlements;
+  guestMode?: boolean;
+  sidebarTheme?: "dark" | "cream";
 }
 
-export default function AppShell({ children, userId, ownerId, userEmail, userName, userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements }: Props) {
+export default function AppShell({ children, userId, ownerId, userEmail, userName, userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements, guestMode = false, sidebarTheme: initialSidebarTheme = "cream" }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarTheme, setSidebarTheme] = useState(initialSidebarTheme);
   const [referenceTime] = useState(() => Date.now());
   const pathname = usePathname();
   const [cabinetOpen, setCabinetOpen] = useState(pathname.startsWith("/comptable-pro"));
@@ -107,9 +110,18 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   const router = useRouter();
   const supabase = createClient();
   const { can } = usePermissions(permissions);
+  const effectivePathname = guestMode
+    ? pathname === "/" || pathname.startsWith("/facturation/invoices") || pathname.startsWith("/facturation/devis") || pathname.startsWith("/facturation/avoirs") || pathname.startsWith("/facturation/create") || pathname.startsWith("/devis") || pathname.startsWith("/avoirs")
+      ? "/invoices"
+      : pathname.startsWith("/facturation/clients")
+        ? "/clients"
+        : pathname.startsWith("/facturation/articles") || pathname.startsWith("/articles")
+          ? "/settings"
+          : pathname
+    : pathname;
   const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
   const entitled = (feature?: PlanFeature) => !feature || entitlements.features[feature];
-  const normalizedPath = pathname
+  const normalizedPath = effectivePathname
     .replace(/^\/tableau-de-bord/, "/dashboard")
     .replace(/^\/boite-de-reception/, "/inbox")
     .replace(/^\/factures/, "/invoices")
@@ -117,7 +129,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
     .replace(/^\/export-fiduciaire/, "/export")
     .replace(/^\/parametres/, "/settings");
   const currentNav = ALL_NAV.find(item => normalizedPath === item.href || normalizedPath.startsWith(`${item.href}/`));
-  const currentFeature = featureForPath(pathname) ?? (currentNav && "feature" in currentNav ? currentNav.feature : undefined);
+  const currentFeature = featureForPath(normalizedPath) ?? (currentNav && "feature" in currentNav ? currentNav.feature : undefined);
   const routePermission = /^\/invoices\/(?:new|devis\/new|avoir\/new)$/.test(normalizedPath) || /^\/invoices\/[^/]+\/edit$/.test(normalizedPath)
     ? "invoice:create"
     : currentNav?.permission;
@@ -125,12 +137,24 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
     ? allowed("settings:update") || allowed("settings:manage_team")
     : allowed(routePermission);
   const featureAllowed = entitled(currentFeature);
-  const pageAllowed = permissionAllowed && featureAllowed;
+  const routeAvailable = isRouteAvailableForPlan(entitlements.plan, effectivePathname);
+  const pageAllowed = permissionAllowed && featureAllowed && routeAvailable;
+  const freePlan = isFreePlan(entitlements.plan);
+  const visibleOnPlan = (href: string) => isRouteAvailableForPlan(entitlements.plan, href);
   const topBarItems = ALL_NAV
-    .filter((item: any) => !item.soon && allowed(item.permission) && entitled(item.feature))
+    .filter((item: any) => !item.soon && visibleOnPlan(item.href) && allowed(item.permission) && entitled(item.feature))
     .map(({ href, label, icon }: any) => ({ href, label, icon, keywords: `${label} navigation page` }));
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  useEffect(() => { setSidebarTheme(initialSidebarTheme); }, [initialSidebarTheme]);
+  useEffect(() => {
+    const updateSidebarTheme = (event: Event) => {
+      const theme = (event as CustomEvent<"dark" | "cream">).detail;
+      if (theme === "dark" || theme === "cream") setSidebarTheme(theme);
+    };
+    window.addEventListener("mohasib:sidebar-theme", updateSidebarTheme);
+    return () => window.removeEventListener("mohasib:sidebar-theme", updateSidebarTheme);
+  }, []);
   useEffect(() => {
     if (!searchParams.get("dossier_id")) {
       document.cookie = "active_dossier_id=; path=/; max-age=0";
@@ -158,7 +182,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
       "/export-fiduciaire": "/export",
       "/parametres": "/settings",
     };
-    const currentPath = frenchToEnglish[pathname] ?? pathname;
+    const currentPath = frenchToEnglish[effectivePathname] ?? effectivePathname;
     if (href === "/invoices") {
       return currentPath === "/invoices" || currentPath.startsWith("/invoices/");
     }
@@ -179,6 +203,8 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
     entries: Number(accountState.trial_accounting_entries_used ?? 0),
     rapprochement: Number(accountState.trial_rapprochement_sessions_used ?? 0),
   } : null;
+  const lightSidebar = sidebarTheme === "cream";
+  const sidebarBackground = lightSidebar ? "#F8F6ED" : SIDEBAR_BACKGROUND;
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -191,19 +217,19 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   const SidebarContent = () => (
     <>
       {/* Header */}
-      <div className={`pt-4 pb-[15px] border-b border-white/[0.07] flex items-center ${sidebarCollapsed ? "justify-center px-0" : "px-[18px]"}`}>
+      <div className={`pt-4 pb-[15px] border-b flex items-center ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"} ${sidebarCollapsed ? "justify-center px-0" : "px-[18px]"}`}>
         {sidebarCollapsed ? (
           <Image src="/favicon.png" alt="Mohasib" width={28} height={28} className="object-contain" />
         ) : (
           <div>
-            <Image src="/logo.png" alt="Mohasib" width={120} height={40} style={{ height: "auto" }} className="object-contain" />
-            <div className="text-[10.5px] text-white/[0.28] mt-1.5">AI accounting for Moroccan SMEs</div>
+            <Image src={lightSidebar ? "/logo2.png" : "/logo.png"} alt="Mohasib" width={120} height={40} style={{ height: "auto" }} className="object-contain" />
+            <div className={`text-[10.5px] mt-1.5 ${lightSidebar ? "text-[#817A6D]" : "text-white/[0.28]"}`}>AI accounting for Moroccan SMEs</div>
           </div>
         )}
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {NAV_MAIN.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => {
+        {NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => {
           const locked = !allowed(permission);
           return (
           <Link key={href} href={href} title={sidebarCollapsed ? label : undefined}
@@ -213,8 +239,12 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
               isActive(href)
                 ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
                 : locked
-                  ? "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
-                  : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                  ? lightSidebar
+                    ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
+                    : "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                  : lightSidebar
+                    ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
+                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
             }`}>
             <Icon size={sidebarCollapsed ? 18 : 15} />
             {!sidebarCollapsed && label}
@@ -223,13 +253,15 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
           );
         })}
 
-        {isFiduciaire && accessScope !== "business_only" && (
+        {!freePlan && isFiduciaire && accessScope !== "business_only" && (
           sidebarCollapsed ? (
             <Link href="/comptable-pro" title="Mon Cabinet"
               className={`flex items-center justify-center py-[12px] text-[13px] transition-all border-r-2 ${
                 pathname.startsWith("/comptable-pro")
                   ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                  : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                  : lightSidebar
+                    ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
+                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
               }`}>
               <Briefcase size={18} />
             </Link>
@@ -239,7 +271,9 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                 className={`w-full flex items-center gap-2.5 px-[18px] py-[12px] text-[13px] transition-all border-r-2 ${
                   pathname.startsWith("/comptable-pro")
                     ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                    : lightSidebar
+                      ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
+                      : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
                 }`}>
                 <Briefcase size={15} />
                 <span className="flex-1 text-left">Mon Cabinet</span>
@@ -257,8 +291,12 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                           active
                             ? "text-[#C8924A] bg-[rgba(200,146,74,0.08)] border-[#C8924A]"
                             : locked
-                              ? "text-white/20 hover:text-white/40 hover:bg-white/5 border-transparent"
-                              : "text-white/40 hover:text-white/75 hover:bg-white/5 border-transparent"
+                              ? lightSidebar
+                                ? "text-[#1A1A2E]/20 hover:text-[#1A1A2E]/40 hover:bg-black/[0.04] border-transparent"
+                                : "text-white/20 hover:text-white/40 hover:bg-white/5 border-transparent"
+                              : lightSidebar
+                                ? "text-[#6F695D] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
+                                : "text-white/40 hover:text-white/75 hover:bg-white/5 border-transparent"
                         }`}>
                         <Icon size={13} className="flex-shrink-0" />
                         <span className="flex-1 min-w-0 truncate">{label}</span>
@@ -285,30 +323,38 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
       <div className="mohasib-app flex h-screen overflow-hidden bg-[#FAFAF6]">
 
         {/* Desktop sidebar */}
-        <aside
+        {!freePlan && <aside
           className="hidden md:flex fixed top-0 left-0 h-full flex-col z-20 transition-[width] duration-200 overflow-visible"
-          style={{ width: sidebarCollapsed ? 56 : 210, background: SIDEBAR_BACKGROUND }}
+          style={{ width: sidebarCollapsed ? 56 : 210, background: sidebarBackground }}
         >
           <SidebarContent />
           <SidebarToggleButton
             collapsed={sidebarCollapsed}
             onToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            light={lightSidebar}
           />
-        </aside>
+        </aside>}
 
         {/* Main */}
         <div
           className={`flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-[margin] duration-200 ${
-            sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[210px]"
+            freePlan ? "md:ml-0" : sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[210px]"
           }`}
         >
           <AppTopBar
             key={pathname}
             items={topBarItems}
+            primaryNav={freePlan ? [
+              { href: "/invoices", label: "Factures", active: isActive("/invoices") },
+              { href: "/clients", label: "Clients", active: isActive("/clients") },
+            ] : undefined}
             userName={userName}
             userEmail={userEmail}
             userId={userId}
             avatarUrl={userAvatar}
+            invoicingOnly={freePlan}
+            showBrand={freePlan}
+            guestMode={guestMode}
             onSignOut={signOut}
           />
 
@@ -326,7 +372,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                 <Link href="/tarifs" className="underline">Passer à un plan payant</Link>
               </div>
             )}
-            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted reason="suspended" /> : pageAllowed ? children : <AccessRestricted reason={featureAllowed ? "permission" : "plan"} />}</div>
+            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted reason="suspended" /> : pageAllowed ? children : <AccessRestricted reason={featureAllowed && routeAvailable ? "permission" : "plan"} />}</div>
           </main>
         </div>
 
@@ -340,43 +386,54 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             borderTop: "1px solid rgba(255,255,255,0.1)",
           }}
         >
-          {/* Accueil */}
-          <Link href="/dashboard" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-            style={{ color: isActive("/dashboard") ? "#C8924A" : allowed("report:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
-            <LayoutDashboard size={19} />
-            <span style={{ fontSize: 10, fontWeight: 500 }}>Accueil</span>
-            {!allowed("report:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
-          </Link>
+          {freePlan ? (
+            <>
+              <Link href="/invoices" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+                style={{ color: isActive("/invoices") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+                <FileText size={19} />
+                <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
+              </Link>
+              <Link href="/clients" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+                style={{ color: isActive("/clients") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+                <Users size={19} />
+                <span style={{ fontSize: 10, fontWeight: 500 }}>Clients</span>
+              </Link>
+            </>
+          ) : <>
+            <Link href="/dashboard" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+              style={{ color: isActive("/dashboard") ? "#C8924A" : allowed("report:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              <LayoutDashboard size={19} />
+              <span style={{ fontSize: 10, fontWeight: 500 }}>Accueil</span>
+              {!allowed("report:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
+            </Link>
 
-          {/* Factures */}
-          <Link href="/invoices" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-            style={{ color: isActive("/invoices") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
-            <FileText size={19} />
-            <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
-            {!allowed("invoice:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
-          </Link>
+            <Link href="/invoices" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+              style={{ color: isActive("/invoices") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              <FileText size={19} />
+              <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
+              {!allowed("invoice:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
+            </Link>
 
-          {/* Archive */}
-          <Link href="/archive" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-            style={{ color: isActive("/archive") ? "#C8924A" : allowed("document:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
-            <Download size={19} />
-            <span style={{ fontSize: 10, fontWeight: 500 }}>Archive</span>
-            {!allowed("document:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
-          </Link>
+            <Link href="/archive" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+              style={{ color: isActive("/archive") ? "#C8924A" : allowed("document:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              <Download size={19} />
+              <span style={{ fontSize: 10, fontWeight: 500 }}>Archive</span>
+              {!allowed("document:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
+            </Link>
 
-          {/* Menu */}
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-            style={{ background: "none", border: "none", color: drawerOpen ? "#C8924A" : "rgba(255,255,255,0.45)" }}
-          >
-            <Menu size={19} />
-            <span style={{ fontSize: 10, fontWeight: 500 }}>Menu</span>
-          </button>
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+              style={{ background: "none", border: "none", color: drawerOpen ? "#C8924A" : "rgba(255,255,255,0.45)" }}
+            >
+              <Menu size={19} />
+              <span style={{ fontSize: 10, fontWeight: 500 }}>Menu</span>
+            </button>
+          </>}
         </nav>
 
         {/* ── MENU DRAWER ────────────────────────────────────────────────────── */}
-        {drawerOpen && (
+        {!freePlan && drawerOpen && (
           <>
             {/* Overlay */}
             <div
@@ -402,7 +459,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
 
               {/* Nav items */}
               <div className="overflow-y-auto">
-                {NAV_MAIN.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => (
+                {NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => (
                   <Link
                     key={href}
                     href={href}
@@ -417,7 +474,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                 ))}
 
                 {/* Cabinet */}
-                {isFiduciaire && accessScope !== "business_only" && (
+                {!freePlan && isFiduciaire && accessScope !== "business_only" && (
                   <>
                     <div className="flex items-center gap-3 px-[20px] py-[12px]"
                       style={{ color: pathname.startsWith("/comptable-pro") ? "#C8924A" : "rgba(255,255,255,0.7)" }}>

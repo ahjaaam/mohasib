@@ -9,6 +9,7 @@ import {
   TrendingUp, TrendingDown, AlertCircle, X, Loader2,
   Send, Mail, ChevronDown, ChevronUp, CheckCircle,
   MoreHorizontal, Eye, Download, Search,
+  Circle, MessageCircle,
 } from "lucide-react";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 
@@ -118,7 +119,7 @@ function DaysCell({ dueDate, isPaid }: { dueDate: string | null; isPaid: boolean
 
 function StatusBadge({ status, dueDate }: { status: string; dueDate: string | null }) {
   if (status === "paid") return <span className="badge-pill bg-[#D1FAE5] text-[#065F46]">Payée</span>;
-  if (status === "partiellement_payee") return <span className="badge-pill bg-[#FEF3C7] text-[#92400E]">🟠 Partiel</span>;
+  if (status === "partiellement_payee") return <span className="badge-pill bg-[#FEF3C7] text-[#92400E] inline-flex items-center gap-1"><Circle size={7} fill="currentColor" /> Partiel</span>;
   const d = daysFromNow(dueDate);
   if (d !== null && d < 0) {
     return (
@@ -129,7 +130,7 @@ function StatusBadge({ status, dueDate }: { status: string; dueDate: string | nu
     );
   }
   if (d !== null && d <= 7) return <span className="badge-pill bg-[#FEF3C7] text-[#92400E]">Échéance proche</span>;
-  return <span className="badge-pill bg-[#EFF6FF] text-[#1D4ED8]">🔵 En attente</span>;
+  return <span className="badge-pill bg-[#EFF6FF] text-[#1D4ED8] inline-flex items-center gap-1"><Circle size={7} fill="currentColor" /> En attente</span>;
 }
 
 // ── KPICard ────────────────────────────────────────────────────────────────────
@@ -524,7 +525,7 @@ function RelanceModal({
               className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
                 activeTab === t ? "bg-[#1A1A2E] text-white" : "text-[#6B7280] hover:bg-[#F3F4F6]"
               }`}>
-              {t === "whatsapp" ? "📱 WhatsApp" : "📧 Email"}
+              {t === "whatsapp" ? <><MessageCircle size={13} /> WhatsApp</> : <><Mail size={13} /> Email</>}
             </button>
           ))}
         </div>

@@ -43,3 +43,8 @@ next-env.d.ts
 
 # generated local document archives
 /imports/onebox/
+
+# generated local deliverables and previews
+/output/
+/outputs/
+/tmp/

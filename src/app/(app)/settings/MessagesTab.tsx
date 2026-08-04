@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import { Mail, MessageCircle } from "lucide-react";
 
 const WA_DEFAULT = `Bonjour {{nom_client}},
 
@@ -89,7 +90,7 @@ export default function MessagesTab({ userId, companyId, company }: Props) {
       {/* WhatsApp template */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-[13px] font-semibold text-[#1A1A2E]">📲 Message WhatsApp</label>
+          <label className="text-[13px] font-semibold text-[#1A1A2E] inline-flex items-center gap-1.5"><MessageCircle size={14} /> Message WhatsApp</label>
           <button
             type="button"
             onClick={() => setWaTpl("")}
@@ -112,7 +113,7 @@ export default function MessagesTab({ userId, companyId, company }: Props) {
       {/* Email template */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-[13px] font-semibold text-[#1A1A2E]">📧 Corps de l'email</label>
+          <label className="text-[13px] font-semibold text-[#1A1A2E] inline-flex items-center gap-1.5"><Mail size={14} /> Corps de l&apos;email</label>
           <button
             type="button"
             onClick={() => setEmailTpl("")}

@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Receipt, CheckCircle, Download,
   AlertTriangle, Info,
+  CreditCard, FilePenLine, FileText, Landmark, Lightbulb, Lock, Smartphone,
 } from "lucide-react";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
@@ -435,7 +436,7 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
     : statut === "validé" ? "bg-[#FEF3C7] text-[#92400E]"
     : "bg-[#F3F4F6] text-[#6B7280]";
   const statutLabel = isFiled ? "Déposée"
-    : statut === "validé" ? "🔒 Validée" : "📝 Brouillon";
+    : statut === "validé" ? "Validée" : "Brouillon";
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -460,6 +461,8 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
         <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
           <span className={`inline-flex items-center gap-1 text-[10.5px] font-semibold px-2.5 py-1 rounded-lg ${statutBadge}`}>
             {isFiled && <CheckCircle size={11} aria-hidden="true" />}
+            {statut === "validé" && <Lock size={11} aria-hidden="true" />}
+            {statut === "brouillon" && <FilePenLine size={11} aria-hidden="true" />}
             {statutLabel}
           </span>
           <button onClick={prevPeriod}
@@ -728,8 +731,8 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
               </div>
 
               {creditTVA > 0 && (
-                <div className="bg-[#EFF6FF] border border-[rgba(37,99,235,0.2)] rounded-lg px-4 py-3 text-[12px] text-[#1E40AF] mb-4">
-                  💡 Crédit de TVA de <strong>{fmtMAD(creditTVA)}</strong> — sera reporté sur la prochaine déclaration.
+                <div className="bg-[#EFF6FF] border border-[rgba(37,99,235,0.2)] rounded-lg px-4 py-3 text-[12px] text-[#1E40AF] mb-4 flex items-center gap-1.5">
+                  <Lightbulb size={14} /> Crédit de TVA de <strong>{fmtMAD(creditTVA)}</strong> — sera reporté sur la prochaine déclaration.
                 </div>
               )}
 
@@ -745,9 +748,9 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
                     </p>
                   </div>
                   <div className="bg-[#FAFAF6] rounded-lg p-3 space-y-1.5">
-                    <p className="text-[11.5px] text-[#374151]">💳 Paiement par carte bancaire sur SIMPL-TVA</p>
-                    <p className="text-[11.5px] text-[#374151]">🏦 Paiement par prélèvement bancaire (RIB requis)</p>
-                    <p className="text-[11.5px] text-[#374151]">📱 Paiement Multicanal (référence à télécharger)</p>
+                    <p className="text-[11.5px] text-[#374151] flex items-center gap-1.5"><CreditCard size={13} /> Paiement par carte bancaire sur SIMPL-TVA</p>
+                    <p className="text-[11.5px] text-[#374151] flex items-center gap-1.5"><Landmark size={13} /> Paiement par prélèvement bancaire (RIB requis)</p>
+                    <p className="text-[11.5px] text-[#374151] flex items-center gap-1.5"><Smartphone size={13} /> Paiement Multicanal (référence à télécharger)</p>
                   </div>
                 </div>
               )}
@@ -793,8 +796,8 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
           <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl overflow-hidden mb-4">
             <button onClick={() => setShowInvoices(v => !v)}
               className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#FAFAF6] transition-colors">
-              <span className="text-[12.5px] font-medium text-[#1A1A2E]">
-                📄 Factures incluses ({calc.invoices.length})
+              <span className="text-[12.5px] font-medium text-[#1A1A2E] inline-flex items-center gap-1.5">
+                <FileText size={14} /> Factures incluses ({calc.invoices.length})
               </span>
               {showInvoices ? <ChevronUp size={14} className="text-[#9CA3AF]" /> : <ChevronDown size={14} className="text-[#9CA3AF]" />}
             </button>
@@ -857,8 +860,8 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
                         {h.statut === "deposee"
                           ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#065F46] bg-[#D1FAE5] px-1.5 py-0.5 whitespace-nowrap"><CheckCircle size={10} aria-hidden="true" /> Déposée</span>
                           : h.statut === "validé"
-                            ? <span className="text-[10px] font-semibold text-[#92400E] bg-[#FEF3C7] px-1.5 py-0.5 whitespace-nowrap">🔒 Validée</span>
-                            : <span className="text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 whitespace-nowrap">📝 Brouillon</span>}
+                            ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#92400E] bg-[#FEF3C7] px-1.5 py-0.5 whitespace-nowrap"><Lock size={10} /> Validée</span>
+                            : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 whitespace-nowrap"><FilePenLine size={10} /> Brouillon</span>}
                       </td>
                     </tr>
                   ))}

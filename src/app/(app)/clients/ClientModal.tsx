@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
-import { X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import type { Client } from "@/types";
 
 interface Props {
@@ -146,7 +146,7 @@ export default function ClientModal({ userId, dossierId, client, open, onClose, 
           <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl"
             style={{ backgroundColor: "rgba(255,255,255,0.95)" }}>
             <div className="p-6 text-center max-w-xs">
-              <div className="text-[22px] mb-2">⚠️</div>
+              <AlertTriangle size={24} className="mx-auto mb-2 text-[#D97706]" aria-hidden="true" />
               <p className="text-[13px] font-semibold text-[#1A1A2E] mb-1">
                 Supprimer {client?.name} ?
               </p>

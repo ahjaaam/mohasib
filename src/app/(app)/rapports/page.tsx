@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { BarChart2, ChevronLeft, ChevronRight, Loader2, BookOpen, Scale } from "lucide-react";
+import { BarChart2, ChevronLeft, ChevronRight, FileText, Loader2, BookOpen, Scale } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { FEATURES } from "@/lib/features";
@@ -153,7 +153,7 @@ export default function RapportsPage() {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,0,0,0.08)]">
           <div>
-            <h2 className="text-[14px] font-semibold text-[#1A1A2E]">📊 Résumé du mois</h2>
+            <h2 className="text-[14px] font-semibold text-[#1A1A2E] flex items-center gap-1.5"><BarChart2 size={15} /> Résumé du mois</h2>
             <p className="text-[12px] text-[#6B7280] capitalize">{monthLabel(year, month)}</p>
           </div>
           {/* Month selector */}
@@ -269,10 +269,10 @@ export default function RapportsPage() {
             {/* Export */}
             <div className="border-t border-[rgba(0,0,0,0.07)] pt-4 flex justify-end">
               <button
-                onClick={() => toast("Export PDF — disponible prochainement", { icon: "📄" })}
+                onClick={() => toast("Export PDF — disponible prochainement", { icon: <FileText size={16} /> })}
                 className="btn btn-outline text-[12.5px]"
               >
-                📄 Export en PDF
+                <FileText size={14} /> Export en PDF
               </button>
             </div>
           </div>

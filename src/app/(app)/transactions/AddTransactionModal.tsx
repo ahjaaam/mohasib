@@ -62,6 +62,7 @@ export default function AddTransactionModal({ userId, clients }: Props) {
       reference: form.reference || null,
       notes: form.notes || null,
       currency: "MAD",
+      source: "manual",
       // Supplier fields (only meaningful for expenses)
       ...(isExpense && {
         fournisseur: form.fournisseur || null,

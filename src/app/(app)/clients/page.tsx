@@ -13,6 +13,7 @@ import { compareValues, nextSort, type SortDirection } from "@/components/Sortab
 
 type InvoiceRow = {
   id: string;
+  invoice_number: string;
   total: number;
   status: string;
   issue_date: string;
@@ -209,12 +210,16 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setClients([]);
+      setLoading(false);
+      return;
+    }
     setUserId(ownerId);
 
     const query = supabase
       .from("clients")
-      .select(`*, invoices(id, total, status, issue_date, due_date, updated_at)`);
+      .select(`*, invoices(id, invoice_number, total, status, issue_date, due_date, updated_at)`);
     const { data } = await (dossierId
       ? query.eq("dossier_id", dossierId)
       : query.eq("user_id", ownerId).is("dossier_id", null))
@@ -322,6 +327,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
             </div>
           </div>
           <button
+            data-auth-required="import clients"
             onClick={() => importInputRef.current?.click()}
             className="btn btn-outline flex items-center gap-1.5"
           >
@@ -356,7 +362,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
         />
         {header}
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="text-4xl mb-3">👥</div>
+          <Users size={36} className="mb-3 text-[#9CA3AF]" aria-hidden="true" />
           <p className="text-[#6B7280] font-medium text-[13px] mb-1">
             Aucun client pour l&apos;instant
           </p>
@@ -561,6 +567,28 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
                 Délai moyen
               </div>
             </div>
+
+            {c._invoices.length > 0 && (
+              <div className="mt-2.5 border-t border-[rgba(0,0,0,0.06)] pt-2.5">
+                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.45px] text-[#9CA3AF]">Factures récentes</div>
+                <div className="space-y-1">
+                  {[...c._invoices]
+                    .sort((a, b) => b.issue_date.localeCompare(a.issue_date))
+                    .slice(0, 2)
+                    .map((invoice) => (
+                      <Link
+                        key={invoice.id}
+                        href={`/invoices/${invoice.id}`}
+                        onClick={(event) => event.stopPropagation()}
+                        className="flex items-center justify-between text-[11px] text-[#6B7280] hover:text-[#C8924A]"
+                      >
+                        <span className="font-medium">{invoice.invoice_number}</span>
+                        <span>{Number(invoice.total).toLocaleString("fr-MA", { maximumFractionDigits: 2 })} MAD</span>
+                      </Link>
+                    ))}
+                </div>
+              </div>
+            )}
 
             {/* Footer row */}
             <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-[rgba(0,0,0,0.06)]">

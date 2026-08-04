@@ -144,6 +144,7 @@ export default function InvoiceItemsImport({ userId, dossierId, existingNames, o
         </button>
         <button
           type="button"
+          data-auth-required="import articles"
           onClick={() => inputRef.current?.click()}
           className="btn btn-gold inline-flex items-center gap-1.5"
         >

@@ -14,6 +14,10 @@ const marketingHost = hostFromUrl(
   "https://mohasibai.com",
 );
 const appHost = hostFromUrl(process.env.NEXT_PUBLIC_APP_URL, "https://app.mohasibai.com");
+const invoicingHost = hostFromUrl(
+  process.env.NEXT_PUBLIC_INVOICING_URL,
+  "https://facturation.mohasibai.com",
+);
 const bareMarketingHost = marketingHost.replace(/^www\./, "");
 const marketingHosts = new Set([marketingHost, bareMarketingHost, `www.${bareMarketingHost}`]);
 
@@ -29,6 +33,7 @@ const marketingRoutes = [
 ];
 
 const appPublicRoutes = [
+  "/facturation",
   "/connexion",
   "/inscription",
   "/mot-de-passe-oublie",
@@ -55,7 +60,8 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   const path = request.nextUrl.pathname;
   const host = request.headers.get("host") || "";
-  const isAppHost = host === appHost;
+  const isInvoicingHost = host === invoicingHost;
+  const isAppHost = host === appHost || isInvoicingHost;
   const isMarketingHost = marketingHosts.has(host);
   const isAuthPage = path.startsWith("/auth");
   const isApiRoute = path.startsWith("/api");
@@ -64,11 +70,30 @@ export async function updateSession(request: NextRequest) {
   const isSharedPublicRoute = matchesRoute(path, sharedPublicRoutes);
   const isPublic = isMarketingRoute || isAppPublicRoute || isSharedPublicRoute;
 
+  if (isInvoicingHost && (path === "/robots.txt" || path === "/sitemap.xml")) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/facturation${path}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // Authentication lives on the main application domain. Sending invoicing
+  // visitors there before the login page renders keeps the Supabase session on
+  // app.mohasibai.com and guarantees that a successful login opens the app.
+  if (isInvoicingHost && (path === "/connexion" || path === "/auth/login")) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = appHost;
+    url.pathname = "/connexion";
+    return NextResponse.redirect(url);
+  }
+
   // Domain-only routing should not pay the Supabase auth round-trip.
   if (isMarketingHost && isAppPublicRoute) {
     const url = request.nextUrl.clone();
     url.protocol = "https:";
-    url.host = appHost;
+    url.host = path === "/inscription" && url.searchParams.get("mode") === "invoicing"
+      ? invoicingHost
+      : appHost;
     return NextResponse.redirect(url);
   }
 
@@ -79,7 +104,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isAppHost && isMarketingRoute) {
+  if (isAppHost && isMarketingRoute && !(isInvoicingHost && path === "/")) {
     if (path === "/") {
       const url = request.nextUrl.clone();
       url.pathname = "/connexion";
@@ -119,6 +144,57 @@ export async function updateSession(request: NextRequest) {
   // The founder back office must remain undiscoverable to unauthenticated users.
   if (!user && (path === "/admin" || path.startsWith("/admin/"))) {
     return new NextResponse(null, { status: 404 });
+  }
+
+  if (isInvoicingHost && path === "/") {
+    const url = request.nextUrl.clone();
+    if (user) {
+      url.pathname = "/invoices";
+      return NextResponse.redirect(url);
+    }
+    url.pathname = "/facturation/invoices";
+    return NextResponse.rewrite(url);
+  }
+
+  // Signed-in users who follow a guest navigation URL enter the matching real section.
+  if (user && isInvoicingHost && ["/devis", "/avoirs", "/articles"].includes(path)) {
+    const url = request.nextUrl.clone();
+    if (path === "/articles") {
+      url.pathname = "/settings";
+      url.searchParams.set("tab", "articles");
+    } else {
+      url.pathname = "/invoices";
+      url.searchParams.set("mode", path.slice(1));
+    }
+    return NextResponse.redirect(url);
+  }
+
+  // Guests can navigate the invoicing application in read-only mode. The
+  // requested path remains visible while the internal guest shell is rendered.
+  if (!user && isInvoicingHost && !isAuthPage && !isApiRoute && !isPublic) {
+    const url = request.nextUrl.clone();
+    const intent = path.includes("devis")
+      ? "devis"
+      : path.includes("avoir")
+        ? "avoir"
+        : path.startsWith("/clients")
+          ? "client"
+          : path.startsWith("/articles")
+            ? "article"
+            : "facture";
+    const isCreationPath = path.includes("/new") || path.includes("/nouvelle");
+    url.pathname = isCreationPath
+      ? `/facturation/create/${intent}`
+      : path.startsWith("/clients")
+        ? "/facturation/clients"
+        : path.startsWith("/devis")
+          ? "/facturation/devis"
+          : path.startsWith("/avoirs")
+            ? "/facturation/avoirs"
+            : path.startsWith("/articles")
+              ? "/facturation/articles"
+              : "/facturation/invoices";
+    return NextResponse.rewrite(url);
   }
 
   // API routes handle their own auth — never redirect them

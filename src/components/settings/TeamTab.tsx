@@ -11,6 +11,7 @@ type Member = {
   user_email: string;
   first_name?: string | null;
   last_name?: string | null;
+  avatar_url?: string | null;
   role_name: string;
   role_label: string;
   access_scope?: AccessScope | null;
@@ -26,7 +27,7 @@ type TeamData = {
   context: { track: "business" | "comptable"; accountName: string };
   plan: { allowed: boolean; limit: number };
   count: number;
-  owner: { id: string; email: string; full_name: string; role_label: string };
+  owner: { id: string; email: string; full_name: string; avatar_url?: string | null; role_label: string };
   members: Member[];
 };
 
@@ -127,7 +128,7 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
           <thead className="bg-[#FAFAF6] text-[#6B7280]"><tr>{["Membre", "Rôle", "Accès", "Statut", "Depuis", "Actions"].map(x => <th key={x} className="px-4 py-3 font-semibold">{x}</th>)}</tr></thead>
           <tbody className="divide-y divide-black/[0.06]">
             <tr>
-              <td className="px-4 py-3"><MemberIdentity name={data.owner.full_name} email={data.owner.email} /></td>
+              <td className="px-4 py-3"><MemberIdentity name={data.owner.full_name} email={data.owner.email} avatarUrl={data.owner.avatar_url} /></td>
               <td className="px-4 py-3"><Badge label={data.owner.role_label} tone="gold" /></td>
               <td className="px-4 py-3 text-[#6B7280]">Tout</td>
               <td className="px-4 py-3"><Status status="active" /></td>
@@ -136,7 +137,7 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
             </tr>
             {data.members.map(member => (
               <tr key={member.id}>
-                <td className="px-4 py-3"><MemberIdentity name={`${member.first_name ?? ""} ${member.last_name ?? ""}`.trim()} email={member.user_email} /></td>
+                <td className="px-4 py-3"><MemberIdentity name={`${member.first_name ?? ""} ${member.last_name ?? ""}`.trim()} email={member.user_email} avatarUrl={member.avatar_url} /></td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge label="Collaborateur" tone="gray" />
@@ -257,9 +258,10 @@ function MemberModal({
   );
 }
 
-function MemberIdentity({ name, email }: { name: string; email: string }) {
+function MemberIdentity({ name, email, avatarUrl }: { name: string; email: string; avatarUrl?: string | null }) {
   const label = name || email;
-  return <div className="flex items-center gap-2.5"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0D1526] text-[10px] font-bold text-white">{label.split(/\s|@/).slice(0, 2).map(x => x[0]).join("").toUpperCase()}</span><span><strong className="block text-[12px] text-[#0D1526]">{name || email}</strong>{name && <span className="text-[10px] text-[#9CA3AF]">{email}</span>}</span></div>;
+  const initials = label.split(/\s|@/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase();
+  return <div className="flex items-center gap-2.5"><span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0D1526] text-[10px] font-bold text-white">{avatarUrl ? <span className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${avatarUrl}")` }} aria-hidden="true" /> : initials}</span><span><strong className="block text-[12px] text-[#0D1526]">{name || email}</strong>{name && <span className="text-[10px] text-[#9CA3AF]">{email}</span>}</span></div>;
 }
 function Badge({ label, tone }: { label: string; tone: "gold" | "blue" | "gray" }) {
   const classes = tone === "gold" ? "bg-[#C8924A]/10 text-[#A66F27]" : tone === "blue" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600";

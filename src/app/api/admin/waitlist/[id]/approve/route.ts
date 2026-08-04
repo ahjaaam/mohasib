@@ -17,6 +17,11 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   if (authResult.error || !owner) {
     return NextResponse.json({ message: authResult.error?.message || "Compte Auth introuvable." }, { status: 400 });
   }
+  if (!owner.email_confirmed_at) {
+    return NextResponse.json({
+      message: "L'utilisateur doit confirmer son adresse e-mail avant l'activation du compte.",
+    }, { status: 409 });
+  }
 
   const userType = entry.track === "comptable" ? "fiduciaire" : "entrepreneur";
   const accountName = entry.entreprise || owner.user_metadata?.company || entry.nom || "Mon entreprise";
@@ -39,6 +44,17 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       return NextResponse.json({ message: created.error?.message || "Création de l'entreprise impossible." }, { status: 400 });
     }
     company = created.data;
+  } else {
+    const refreshed = await admin!.from("companies").update({
+      plan: "trial",
+      trial_ends_at: trialEnd,
+      subscription_status: "trial",
+      is_suspended: false,
+    }).eq("id", company.id).select().single();
+    if (refreshed.error || !refreshed.data) {
+      return NextResponse.json({ message: refreshed.error?.message || "Activation de l'entreprise impossible." }, { status: 400 });
+    }
+    company = refreshed.data;
   }
 
   const { data: existingMembership } = await admin!.from("user_memberships")
@@ -46,11 +62,6 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     .eq("user_id", owner.id)
     .eq("company_id", company.id)
     .maybeSingle();
-
-  const authUpdate = await admin!.auth.admin.updateUserById(owner.id, { email_confirm: true });
-  if (authUpdate.error) {
-    return NextResponse.json({ message: authUpdate.error.message }, { status: 400 });
-  }
 
   const profileUpdate = await admin!.from("users").upsert({
     id: owner.id,

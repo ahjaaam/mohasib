@@ -35,7 +35,7 @@ export default async function DossierLayout({
     .eq("statut", "actif");
   if (access.permissions !== null && access.dossierScope?.length) dossiersQuery = dossiersQuery.in("id", access.dossierScope);
 
-  const [dossierRes, dossiersRes, profileRes, entitlements] = await Promise.all([
+  const [dossierRes, dossiersRes, profileRes, preferencesRes, entitlements] = await Promise.all([
     db
       .from("dossiers")
       .select("id, raison_sociale, ice, regime_tva")
@@ -45,6 +45,7 @@ export default async function DossierLayout({
       .single(),
     dossiersQuery.order("raison_sociale"),
     supabase.from("users").select("full_name, avatar_url").eq("id", user.id).single(),
+    supabase.from("user_preferences").select("sidebar_theme").eq("user_id", ownerId).maybeSingle(),
     getPlanEntitlements(user.id),
   ]);
 
@@ -63,6 +64,7 @@ export default async function DossierLayout({
       isClientPortal={access.roleName === "client_portal"}
       entitlements={entitlements}
       ownerId={ownerId}
+      sidebarTheme={preferencesRes.data?.sidebar_theme === "dark" ? "dark" : "cream"}
     >
       {children}
     </DossierShell>

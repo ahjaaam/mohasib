@@ -41,8 +41,8 @@ export type EmailSyncResult = {
   errors?: string[];
 };
 
-const MAX_MESSAGES = 20;
-const MAX_IMPORTS = 20;
+const EMAIL_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+const EMAIL_PAGE_SIZE = 100;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -129,17 +129,28 @@ function gmailParts(parts: any[] | undefined): any[] {
 }
 
 async function fetchGmailAttachments(accessToken: string): Promise<{ messagesScanned: number; messagesFound: number; attachments: EmailAttachment[] }> {
-  const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
-  listUrl.searchParams.set("maxResults", String(MAX_MESSAGES));
-  listUrl.searchParams.set("q", "has:attachment");
-  const listResponse = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!listResponse.ok) throw new Error("Impossible de lire les emails Gmail.");
-  const list = await listResponse.json() as { messages?: Array<{ id: string }> };
+  const receivedAfter = Math.floor((Date.now() - EMAIL_LOOKBACK_MS) / 1000);
+  const messages: Array<{ id: string }> = [];
+  let pageToken: string | undefined;
+  do {
+    const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+    listUrl.searchParams.set("maxResults", String(EMAIL_PAGE_SIZE));
+    listUrl.searchParams.set("q", `has:attachment after:${receivedAfter}`);
+    if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
+
+    const listResponse = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!listResponse.ok) throw new Error("Impossible de lire les emails Gmail.");
+    const page = await listResponse.json() as {
+      messages?: Array<{ id: string }>;
+      nextPageToken?: string;
+    };
+    messages.push(...(page.messages ?? []));
+    pageToken = page.nextPageToken;
+  } while (pageToken);
 
   const attachments: EmailAttachment[] = [];
   let messagesFound = 0;
-  for (const item of list.messages ?? []) {
-    if (attachments.length >= MAX_IMPORTS) break;
+  for (const item of messages) {
     const response = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}?format=full`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -155,7 +166,6 @@ async function fetchGmailAttachments(accessToken: string): Promise<{ messagesSca
     if (candidates.length) messagesFound++;
 
     for (const part of candidates) {
-      if (attachments.length >= MAX_IMPORTS) break;
       const attachmentResponse = await fetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}/attachments/${encodeURIComponent(part.body.attachmentId)}`,
         { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -176,22 +186,31 @@ async function fetchGmailAttachments(accessToken: string): Promise<{ messagesSca
       });
     }
   }
-  return { messagesScanned: list.messages?.length ?? 0, messagesFound, attachments };
+  return { messagesScanned: messages.length, messagesFound, attachments };
 }
 
 async function fetchOutlookAttachments(accessToken: string): Promise<{ messagesScanned: number; messagesFound: number; attachments: EmailAttachment[] }> {
-  const url = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages");
-  url.searchParams.set("$top", String(MAX_MESSAGES));
-  url.searchParams.set("$orderby", "receivedDateTime desc");
-  url.searchParams.set("$select", "id,subject,from,receivedDateTime,hasAttachments");
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!response.ok) throw new Error("Impossible de lire les emails Outlook.");
-  const list = await response.json() as { value?: any[] };
+  const receivedAfter = new Date(Date.now() - EMAIL_LOOKBACK_MS).toISOString();
+  const messages: any[] = [];
+  let nextUrl: string | undefined;
+  const firstUrl = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages");
+  firstUrl.searchParams.set("$top", String(EMAIL_PAGE_SIZE));
+  firstUrl.searchParams.set("$filter", `receivedDateTime ge ${receivedAfter}`);
+  firstUrl.searchParams.set("$orderby", "receivedDateTime desc");
+  firstUrl.searchParams.set("$select", "id,subject,from,receivedDateTime,hasAttachments");
+  nextUrl = firstUrl.toString();
+
+  while (nextUrl) {
+    const response = await fetch(nextUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!response.ok) throw new Error("Impossible de lire les emails Outlook.");
+    const page = await response.json() as { value?: any[]; "@odata.nextLink"?: string };
+    messages.push(...(page.value ?? []));
+    nextUrl = page["@odata.nextLink"];
+  }
 
   const attachments: EmailAttachment[] = [];
   let messagesFound = 0;
-  for (const message of list.value ?? []) {
-    if (attachments.length >= MAX_IMPORTS) break;
+  for (const message of messages) {
     if (!message.hasAttachments) continue;
     const attachmentResponse = await fetch(
       `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(message.id)}/attachments?$select=id,name,contentType,size,contentBytes,isInline`,
@@ -208,7 +227,6 @@ async function fetchOutlookAttachments(accessToken: string): Promise<{ messagesS
     if (candidates.length) messagesFound++;
 
     for (const attachment of candidates) {
-      if (attachments.length >= MAX_IMPORTS) break;
       attachments.push({
         provider: "outlook",
         messageId: message.id,
@@ -222,7 +240,7 @@ async function fetchOutlookAttachments(accessToken: string): Promise<{ messagesS
       });
     }
   }
-  return { messagesScanned: list.value?.length ?? 0, messagesFound, attachments };
+  return { messagesScanned: messages.length, messagesFound, attachments };
 }
 
 export async function syncCompanyEmail(
@@ -255,7 +273,9 @@ export async function syncCompanyEmail(
         : "La limite mensuelle d'import de documents est atteinte.",
     );
   }
-  const importLimit = usage.remaining < 0 ? MAX_IMPORTS : Math.min(MAX_IMPORTS, usage.remaining);
+  const importLimit = usage.remaining < 0
+    ? fetched.attachments.length
+    : Math.min(fetched.attachments.length, usage.remaining);
 
   let imported = 0;
   let skipped = 0;
@@ -264,15 +284,23 @@ export async function syncCompanyEmail(
   for (const attachment of fetched.attachments) {
     if (imported >= importLimit) break;
     const dedupeId = `${companyId}:${provider}:${attachment.messageId}:${attachment.attachmentId}`;
-    const { data: existing, error: dedupeError } = await admin
+    const { data: existingByKey, error: keyDedupeError } = await admin
       .from("receipts")
       .select("id")
-      .contains("ocr_data", { email_import_id: dedupeId })
+      .eq("email_message_id", dedupeId)
       .maybeSingle();
+    const { data: existingLegacy, error: legacyDedupeError } = existingByKey
+      ? { data: null, error: null }
+      : await admin
+        .from("receipts")
+        .select("id")
+        .contains("ocr_data", { email_import_id: dedupeId })
+        .maybeSingle();
+    const dedupeError = keyDedupeError ?? legacyDedupeError;
     if (dedupeError) {
       errors.push(`Vérification doublon: ${dedupeError.message}`);
     }
-    if (existing) {
+    if (existingByKey || existingLegacy) {
       skipped++;
       continue;
     }
@@ -317,6 +345,7 @@ export async function syncCompanyEmail(
       file_name: attachment.fileName,
       mime_type: attachment.mimeType,
       status: "pending",
+      email_message_id: dedupeId,
       ocr_data: ocrData,
     });
     if (insertError) {
@@ -383,7 +412,7 @@ export async function syncDossierEmail(
     .maybeSingle();
   const usage = company
     ? await getMonthlyUsage(company.id)
-    : { allowed: true, used: 0, limit: MAX_IMPORTS, remaining: MAX_IMPORTS, resetDate: "", isTrial: false };
+    : { allowed: true, used: 0, limit: -1, remaining: -1, resetDate: "", isTrial: false };
   if (!usage.allowed) {
     throw new Error(
       usage.isTrial
@@ -391,7 +420,9 @@ export async function syncDossierEmail(
         : "La limite mensuelle d'import de documents est atteinte.",
     );
   }
-  const importLimit = usage.remaining < 0 ? MAX_IMPORTS : Math.min(MAX_IMPORTS, usage.remaining);
+  const importLimit = usage.remaining < 0
+    ? fetched.attachments.length
+    : Math.min(fetched.attachments.length, usage.remaining);
 
   let imported = 0;
   let skipped = 0;
@@ -400,15 +431,23 @@ export async function syncDossierEmail(
   for (const attachment of fetched.attachments) {
     if (imported >= importLimit) break;
     const dedupeId = `${dossierId}:${provider}:${attachment.messageId}:${attachment.attachmentId}`;
-    const { data: existing, error: dedupeError } = await admin
+    const { data: existingByKey, error: keyDedupeError } = await admin
       .from("receipts")
       .select("id")
-      .contains("ocr_data", { email_import_id: dedupeId })
+      .eq("email_message_id", dedupeId)
       .maybeSingle();
+    const { data: existingLegacy, error: legacyDedupeError } = existingByKey
+      ? { data: null, error: null }
+      : await admin
+        .from("receipts")
+        .select("id")
+        .contains("ocr_data", { email_import_id: dedupeId })
+        .maybeSingle();
+    const dedupeError = keyDedupeError ?? legacyDedupeError;
     if (dedupeError) {
       errors.push(`Vérification doublon: ${dedupeError.message}`);
     }
-    if (existing) {
+    if (existingByKey || existingLegacy) {
       skipped++;
       continue;
     }
@@ -454,6 +493,7 @@ export async function syncDossierEmail(
       file_name: attachment.fileName,
       mime_type: attachment.mimeType,
       status: "pending",
+      email_message_id: dedupeId,
       ocr_data: ocrData,
     });
     if (insertError) {

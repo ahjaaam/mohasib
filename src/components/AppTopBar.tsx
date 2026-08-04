@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeftRight,
@@ -25,6 +26,7 @@ import NotificationBell from "@/components/NotificationBell";
 import SupportTicketButton from "@/components/SupportTicketButton";
 import ChatInterface from "@/app/(app)/chat/ChatInterface";
 import type { GlobalSearchKind, GlobalSearchResult } from "@/lib/global-search";
+import { appUrl } from "@/lib/public-urls";
 
 export type TopBarSearchItem = {
   href: string;
@@ -35,12 +37,16 @@ export type TopBarSearchItem = {
 
 type Props = {
   items: TopBarSearchItem[];
+  primaryNav?: Array<{ href: string; label: string; active?: boolean }>;
   userName?: string | null;
   userEmail?: string | null;
   userId?: string | null;
   avatarUrl?: string | null;
   settingsHref?: string;
   dossierId?: string;
+  invoicingOnly?: boolean;
+  showBrand?: boolean;
+  guestMode?: boolean;
   onOpenMobileMenu?: () => void;
   onSignOut: () => void | Promise<void>;
 };
@@ -65,12 +71,16 @@ const SEARCH_KIND_META: Record<GlobalSearchKind, { label: string; icon: LucideIc
 
 export default function AppTopBar({
   items,
+  primaryNav = [],
   userName,
   userEmail,
   userId,
   avatarUrl,
   settingsHref = "/settings",
   dossierId,
+  invoicingOnly = false,
+  showBrand = false,
+  guestMode = false,
   onOpenMobileMenu,
   onSignOut,
 }: Props) {
@@ -188,6 +198,28 @@ export default function AppTopBar({
         className="relative z-40 flex h-16 flex-shrink-0 items-center justify-between gap-2 border-b border-[#E5E5E1] bg-[#FCFCFA] px-2 sm:gap-4 sm:px-4 md:px-6"
       >
       <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
+        {showBrand && (
+          <Link href="/invoices" className="hidden flex-shrink-0 items-center pr-2 sm:flex" aria-label="Mohasib Gratuit">
+            <Image src="/logo2.png" alt="Mohasib" width={112} height={34} className="h-auto object-contain" priority />
+          </Link>
+        )}
+        {primaryNav.length > 0 && (
+          <nav className="hidden h-16 flex-shrink-0 items-center md:flex" aria-label="Navigation principale">
+            {primaryNav.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex h-full items-center border-b-2 px-4 text-[13px] font-semibold transition-colors ${
+                  item.active
+                    ? "border-[#C8924A] text-[#0D1526]"
+                    : "border-transparent text-[#777E8B] hover:text-[#0D1526]"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
         {onOpenMobileMenu && (
           <button
             type="button"
@@ -199,7 +231,7 @@ export default function AppTopBar({
             <Menu size={18} />
           </button>
         )}
-        <div className="group relative min-w-0 flex-1 md:max-w-[520px]">
+        <div className={`group relative min-w-0 flex-1 ${showBrand ? "md:ml-auto md:max-w-[380px]" : "md:max-w-[520px]"}`}>
           <label htmlFor="app-global-search" className="sr-only">
             Rechercher dans Mohasib
           </label>
@@ -343,15 +375,15 @@ export default function AppTopBar({
 
         {userId && <SupportTicketButton dossierId={dossierId} />}
 
-        <button
+        {!invoicingOnly && <button
           type="button"
           onClick={() => {
             setChatOpen((open) => !open);
             setSearchOpen(false);
             setProfileOpen(false);
           }}
-          title="Mohasib Chat"
-          aria-label="Ouvrir Mohasib Chat"
+          title="Mohasib Agent"
+          aria-label="Ouvrir Mohasib Agent"
           aria-expanded={chatOpen}
           aria-controls="mohasib-chat-dock"
           className={`hidden h-10 w-10 items-center justify-center border text-[#C8924A] transition-colors sm:flex ${
@@ -361,9 +393,13 @@ export default function AppTopBar({
           }`}
         >
           <Sparkles size={16} />
-        </button>
+        </button>}
 
-        <div className="relative ml-0.5 flex-shrink-0 border-l border-[#E6E6E1] pl-1.5 sm:ml-2 sm:pl-3">
+        {guestMode ? (
+          <Link href={appUrl("/connexion")} className="ml-1 inline-flex h-10 items-center justify-center border border-[#D7DADF] bg-[#F1F2F3] px-3 text-[11.5px] font-bold text-[#4B5563] transition-colors hover:border-[#C7CBD1] hover:bg-[#E5E7EB] hover:text-[#374151] sm:ml-2 sm:px-4 sm:text-[12px]">
+            Se connecter
+          </Link>
+        ) : <div className="relative ml-0.5 flex-shrink-0 border-l border-[#E6E6E1] pl-1.5 sm:ml-2 sm:pl-3">
           <button
             type="button"
             onClick={() => {
@@ -445,18 +481,24 @@ export default function AppTopBar({
               </button>
             </div>
           )}
-        </div>
+        </div>}
       </div>
       </header>
 
-      {chatOpen && (
+      {!invoicingOnly && chatOpen && (
         <div
           id="mohasib-chat-dock"
           role="dialog"
-          aria-label="Mohasib Chat"
+          aria-label="Mohasib Agent"
           className="fixed bottom-[68px] right-3 z-[80] h-[calc(100vh-148px)] w-[calc(100vw-24px)] overflow-hidden border border-[#D5D4CE] border-t-2 border-t-[#C8924A] bg-white shadow-[0_20px_55px_rgba(13,21,38,0.22)] md:bottom-5 md:right-5 md:h-[560px] md:max-h-[calc(100vh-88px)] md:min-h-[380px] md:w-[390px]"
         >
-          <ChatInterface mode="dock" onClose={() => setChatOpen(false)} dossierId={dossierId} />
+          <ChatInterface
+            mode="dock"
+            onClose={() => setChatOpen(false)}
+            dossierId={dossierId}
+            userName={userName}
+            avatarUrl={avatarUrl}
+          />
         </div>
       )}
     </>

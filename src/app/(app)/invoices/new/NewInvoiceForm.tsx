@@ -6,8 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
-import { Check, Trash2, Plus, Loader2, Send, Mail, Download, Save, LayoutTemplate } from "lucide-react";
+import { Check, Trash2, Plus, Loader2, Send, Mail, Download, Save, LayoutTemplate, PartyPopper, XCircle, Lightbulb } from "lucide-react";
 import type { Client } from "@/types";
+import AddClientModal from "@/app/(app)/clients/AddClientModal";
 
 interface LineItem {
   desc: string;
@@ -62,6 +63,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
   const [templateName, setTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [availableClients, setAvailableClients] = useState(clients);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -325,7 +327,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
       const { whatsappUrl } = await res.json();
       window.open(whatsappUrl, "_blank");
       setWaState("success");
-      toast.success("WhatsApp ouvert avec la facture 📲");
+      toast.success("WhatsApp ouvert avec la facture");
       setTimeout(() => { router.push(backHref ?? "/invoices"); router.refresh(); }, 1500);
     } catch (e: any) {
       setWaState("error");
@@ -381,7 +383,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   if (created) {
     return (
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-8 flex flex-col items-center text-center gap-4">
-        <div className="text-4xl">🎉</div>
+        <PartyPopper size={36} className="text-[#C8924A]" aria-hidden="true" />
         <div>
           <p className="text-[15px] font-semibold text-[#1A1A2E]">Facture créée !</p>
           <p className="text-[12.5px] text-[#6B7280] mt-0.5">
@@ -403,7 +405,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
           >
             {waState === "loading" && <><Loader2 size={13} className="animate-spin" /> Préparation...</>}
             {waState === "success" && <><Check size={13} /> WhatsApp ouvert</>}
-            {waState === "error" && <>❌ Réessayer</>}
+            {waState === "error" && <><XCircle size={13} /> Réessayer</>}
             {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
           </button>
           <button
@@ -458,7 +460,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
     <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px]">
       <div className="alert-blue">
-        💡 ICE, IF, RC, CNSS et mentions légales marocaines inclus automatiquement dans le PDF généré.
+        <Lightbulb size={14} className="inline mr-1.5 -mt-0.5" />ICE, IF, RC, CNSS et mentions légales marocaines inclus automatiquement dans le PDF généré.
       </div>
 
       {/* Header fields */}
@@ -476,10 +478,22 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-medium text-[#6B7280]">Client</label>
-          <select className="input" value={form.client_id} onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}>
-            <option value="">Sélectionner un client...</option>
-            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div className="flex items-center gap-2">
+            <select className="input min-w-0 flex-1" value={form.client_id} onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}>
+              <option value="">Sélectionner un client...</option>
+              {availableClients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <AddClientModal
+              userId={userId}
+              dossierId={dossierId}
+              variant="outline"
+              className="flex-shrink-0 whitespace-nowrap"
+              onCreated={(client) => {
+                setAvailableClients((current) => [...current, client].sort((a, b) => a.name.localeCompare(b.name, "fr")));
+                setForm((current) => ({ ...current, client_id: client.id }));
+              }}
+            />
+          </div>
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-medium text-[#6B7280]">Date d&apos;échéance</label>

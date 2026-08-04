@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
-import { Check, Trash2, Plus, Loader2, Send, Mail, Download, Save } from "lucide-react";
+import { Check, Trash2, Plus, Loader2, Send, Mail, Download, Save, PartyPopper, XCircle, Lightbulb } from "lucide-react";
 import type { Client } from "@/types";
 
 interface LineItem {
@@ -261,7 +261,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
       const { whatsappUrl } = await res.json();
       window.open(whatsappUrl, "_blank");
       setWaState("success");
-      toast.success("WhatsApp ouvert avec le devis 📲");
+      toast.success("WhatsApp ouvert avec le devis");
       setTimeout(() => { router.push("/invoices?mode=devis"); router.refresh(); }, 1500);
     } catch (e: any) {
       setWaState("error");
@@ -277,7 +277,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.message || json.error || `HTTP ${res.status}`);
       setEmailState("success");
-      toast.success("Email envoyé avec succès 📧");
+      toast.success("Email envoyé avec succès");
       setTimeout(() => { router.push("/invoices?mode=devis"); router.refresh(); }, 1500);
     } catch (e: any) {
       setEmailState("error");
@@ -314,7 +314,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
   if (created) {
     return (
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-8 flex flex-col items-center text-center gap-4">
-        <div className="text-4xl">🎉</div>
+        <PartyPopper size={36} className="text-[#C8924A]" aria-hidden="true" />
         <div>
           <p className="text-[15px] font-semibold text-[#1A1A2E]">Devis créé !</p>
           <p className="text-[12.5px] text-[#6B7280] mt-0.5">
@@ -334,7 +334,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
           >
             {waState === "loading" && <><Loader2 size={13} className="animate-spin" /> Préparation...</>}
             {waState === "success" && <><Check size={13} /> WhatsApp ouvert</>}
-            {waState === "error" && <>❌ Réessayer</>}
+            {waState === "error" && <><XCircle size={13} /> Réessayer</>}
             {waState === "idle" && <><Send size={13} /> Envoyer par WhatsApp</>}
           </button>
           <button
@@ -378,7 +378,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
   return (
     <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px]">
       <div className="alert-blue">
-        💡 Le devis ne génère aucune écriture comptable. Une fois accepté, vous pourrez le convertir en facture.
+        <Lightbulb size={14} className="inline mr-1.5 -mt-0.5" />Le devis ne génère aucune écriture comptable. Une fois accepté, vous pourrez le convertir en facture.
       </div>
 
       {/* Header fields */}

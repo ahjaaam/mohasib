@@ -19,7 +19,7 @@ const PROFILE_OPTIONS = [
 
 const NEED_OPTIONS = [
   ["vue-ensemble", "Une vue d’ensemble de Mohasib"],
-  ["facturation", "Facturation et suivi des paiements"],
+  ["facturation", "Facturation et suivi des échéances"],
   ["documents", "Documents, e-mails et OCR"],
   ["comptabilite", "Comptabilité et rapprochement"],
   ["declarations", "TVA, paie et déclarations"],

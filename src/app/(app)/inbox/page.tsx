@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Receipt, OcrData } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
@@ -236,7 +236,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         toast.success(`${json.imported} document(s) importé(s)`);
         await load();
       } else if (json.not_connected) {
-        toast("Connectez votre email dans Paramètres → Intégrations", { icon: "📧" });
+        toast("Connectez votre email dans Paramètres → Intégrations", { icon: <Mail size={16} aria-hidden="true" /> });
         router.push("/settings?tab=integrations");
       } else if (json.errors?.length) {
         toast.error(json.errors.join(" "), { duration: 5000 });
@@ -502,14 +502,14 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                   <div className="flex-1 min-w-0">
                     <div className="text-[12.5px] font-medium text-[#1A1A2E] truncate">{f.name}</div>
                     <div className={`text-[11px] mt-0.5 ${f.state === "error" ? "text-[#DC2626]" : f.state === "done" ? "text-[#059669]" : "text-[#C8924A]"}`}>
-                      {f.state === "uploading" && "📤 Envoi en cours..."}
-                      {f.state === "processing" && "🔍 Extraction IA..."}
+                      {f.state === "uploading" && <span className="inline-flex items-center gap-1"><Upload size={11} /> Envoi en cours...</span>}
+                      {f.state === "processing" && <span className="inline-flex items-center gap-1"><Search size={11} /> Extraction IA...</span>}
                       {f.state === "done" && (
                         <span className="inline-flex items-center gap-1">
                           <CheckCircle size={11} aria-hidden="true" /> Extrait !
                         </span>
                       )}
-                      {f.state === "error" && `❌ ${f.error ?? "Erreur"}`}
+                      {f.state === "error" && <span className="inline-flex items-center gap-1"><AlertCircle size={11} /> {f.error ?? "Erreur"}</span>}
                     </div>
                   </div>
                   {f.state === "processing" && (
@@ -540,7 +540,9 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       {/* ─── Pending / Ignored: empty state ─────────────────────────────── */}
       {!loading && tab !== "matched" && tabItems.length === 0 && (
         <div className="empty-state">
-          <div className="text-4xl mb-3">{tab === "pending" ? (dossierId && inboxEmail ? "📧" : "📥") : "🗂️"}</div>
+          <div className="mb-3 flex justify-center text-[#9CA3AF]">
+            {tab === "pending" ? (dossierId && inboxEmail ? <Mail size={36} /> : <Inbox size={36} />) : <FolderOpen size={36} />}
+          </div>
           <p className="text-[13px] font-medium text-[#6B7280]">
             {tab === "pending" ? "Aucune facture reçue" : "Aucune facture ignorée"}
           </p>
@@ -555,7 +557,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                   onClick={() => { navigator.clipboard.writeText(inboxEmail); import("react-hot-toast").then(m => m.default.success("Adresse copiée !")); }}
                   className="flex-shrink-0 text-[11px] font-medium text-[#C8924A] hover:text-[#A87040] transition-colors"
                 >
-                  📋 Copier
+                  <span className="inline-flex items-center gap-1"><Clipboard size={12} /> Copier</span>
                 </button>
               </div>
               <button onClick={() => fileInputRef.current?.click()} className="btn btn-outline text-[12px]">
@@ -835,7 +837,7 @@ function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClos
               {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Document"}
             </div>
             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[#9CA3AF] flex-wrap">
-              {ocr.date && <span>📅 {fmtDate(ocr.date)}</span>}
+              {ocr.date && <span className="inline-flex items-center gap-1"><CalendarDays size={11} /> {fmtDate(ocr.date)}</span>}
               {ocr.receipt_number && <span>#{ocr.receipt_number}</span>}
               {r.file_name && <span className="truncate max-w-[180px]">{r.file_name}</span>}
             </div>

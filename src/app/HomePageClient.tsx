@@ -10,12 +10,11 @@ import { appUrl } from "@/lib/public-urls";
 const FONT = "var(--font-jakarta), sans-serif";
 
 const PRODUCT_TABS = [
-  "Facturation",
   "Boîte de réception",
   "TVA & Déclarations",
-  "Suivi des paiements",
+  "Suivi des échéances",
   "La paie",
-  "L’Assistant Mohasib",
+  "Mohasib Agent",
   "Archive",
 ];
 
@@ -46,52 +45,45 @@ export default function HomePageClient() {
   const productPreview =
     activeProductTab === 0
       ? {
-          src: "/images/mohasib-invoicing-demo.mp4",
-          alt: "Démonstration animée de la facturation Mohasib avec le suivi des factures clients",
-          width: 1780,
+          src: "/images/mohasib-inbox-demo.mp4",
+          alt: "Démonstration animée de la boîte de réception Mohasib pour importer et traiter les factures fournisseurs",
+          width: 1784,
           height: 1080,
         }
       : activeProductTab === 1
         ? {
-            src: "/images/mohasib-inbox-demo.mp4",
-            alt: "Démonstration animée de la boîte de réception Mohasib pour importer et traiter les factures fournisseurs",
+            src: "/images/mohasib-vat-demo.mp4",
+            alt: "Démonstration animée de la déclaration de TVA Mohasib avec les lignes DGI et l’historique des déclarations",
             width: 1784,
             height: 1080,
           }
         : activeProductTab === 2
           ? {
-              src: "/images/mohasib-vat-demo.mp4",
-              alt: "Démonstration animée de la déclaration de TVA Mohasib avec les lignes DGI et l’historique des déclarations",
-              width: 1784,
+              src: "/images/mohasib-payment-tracking-demo.mp4",
+              alt: "Démonstration animée du suivi des échéances Mohasib avec encaissements clients et paiements fournisseurs",
+              width: 1780,
               height: 1080,
             }
           : activeProductTab === 3
             ? {
-                src: "/images/mohasib-payment-tracking-demo.mp4",
-                alt: "Démonstration animée du suivi des paiements Mohasib avec encaissements clients et paiements fournisseurs",
-                width: 1780,
+                src: "/images/mohasib-payroll-demo.mp4",
+                alt: "Démonstration animée de la gestion de la paie Mohasib avec les employés, congés, heures, bulletins et CNSS",
+                width: 1784,
                 height: 1080,
               }
             : activeProductTab === 4
               ? {
-                  src: "/images/mohasib-payroll-demo.mp4",
-                  alt: "Démonstration animée de la gestion de la paie Mohasib avec les employés, congés, heures, bulletins et CNSS",
+                  src: "/images/mohasib-assistant-demo.mp4",
+                  alt: "Démonstration animée de l’assistant Mohasib répondant aux questions comptables dans le contexte de l’entreprise",
                   width: 1784,
                   height: 1080,
                 }
-              : activeProductTab === 5
-                ? {
-                    src: "/images/mohasib-assistant-demo.mp4",
-                    alt: "Démonstration animée de l’assistant Mohasib répondant aux questions comptables dans le contexte de l’entreprise",
-                    width: 1784,
-                    height: 1080,
-                  }
-                : {
-                    src: "/images/mohasib-archive-demo.mp4",
-                    alt: "Démonstration animée de l’archive Mohasib pour rechercher, classer et prévisualiser les documents et pièces justificatives",
-                    width: 1788,
-                    height: 1080,
-                  };
+              : {
+                  src: "/images/mohasib-archive-demo.mp4",
+                  alt: "Démonstration animée de l’archive Mohasib pour rechercher, classer et prévisualiser les documents et pièces justificatives",
+                  width: 1788,
+                  height: 1080,
+                };
 
   return (
     <div className="public-site" style={{ fontFamily: FONT }}>
@@ -151,7 +143,7 @@ export default function HomePageClient() {
         }
         .home-demo-action:hover {
           border-color: #7A6668;
-          background: #F8F5F5;
+          background: #d7d7d7;
           color: #0D1526;
         }
         .home-receipt-field {
@@ -338,18 +330,39 @@ export default function HomePageClient() {
           top: 55%;
           left: 2%;
         }
+        .home-hero-examples-intro {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          width: fit-content;
+          max-width: calc(100% - 24px);
+          margin: 72px auto 0;
+          font-family: var(--font-inter), sans-serif;
+          font-size: 12px;
+          font-weight: 400;
+          line-height: 1.5;
+          color: #464646;
+        }
+        .home-hero-examples-arrow {
+          flex: 0 0 auto;
+          width: 15px;
+          height: 15px;
+          color: #5f5f5f;
+        }
         .home-hero-tabs {
           position: relative;
           z-index: 2;
           display: inline-flex;
           align-items: stretch;
           max-width: 100%;
-          margin: 88px auto 0;
+          margin: 18px auto 0;
           background: #FFFFFF;
-          border: 1px solid #c8c3b8;
+          border: 1px solid #e7e4de;
           border-bottom: none;
           border-radius: 12px 12px 0 0;
-          box-shadow: 10px 10px 20px 24px rgba(13, 21, 38, 0.08);
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
@@ -366,7 +379,7 @@ export default function HomePageClient() {
           color: #6B7280;
           background: transparent;
           border: none;
-          border-right: 1px solid #c8c3b8;
+          border-right: 1px solid #fffefc;
           cursor: pointer;
           white-space: nowrap;
           transition: color 0.15s ease;
@@ -378,8 +391,8 @@ export default function HomePageClient() {
           color: #0c1526;
         }
         .home-hero-tab.is-active {
-          background: rgba(178, 166, 149, 0.12);
-          color: #0c1526;
+          background: #ffffff;
+          color: #c8924a;
           font-weight: 500;
         }
         .home-hero-preview {
@@ -537,8 +550,13 @@ export default function HomePageClient() {
             height: 500px;
           }
           .home-hero-tabs {
-            margin: 56px auto 0;
+            margin: 16px auto 0;
             max-width: calc(100% - 8px);
+          }
+          .home-hero-examples-intro {
+            max-width: calc(100% - 24px);
+            margin-top: 48px;
+            font-size: 11px;
           }
           .home-hero-tab {
             padding: 10px 14px;
@@ -575,7 +593,7 @@ export default function HomePageClient() {
                 href={appUrl("/inscription")}
                 style={{ minHeight: 50, padding: "0 30px", fontSize: 16, fontFamily: FONT }}
               >
-                Créer un compte gratuit
+                Essayer gratuitement
               </a>
               <button
                 type="button"
@@ -586,6 +604,22 @@ export default function HomePageClient() {
                 Recevoir la vidéo démo
               </button>
             </div>
+
+            <p className="home-hero-examples-intro">
+              <span>Voici quelques fonctionnalités de Mohasib</span>
+              <svg
+                className="home-hero-examples-arrow"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 5v14M6 13l6 6 6-6" />
+              </svg>
+            </p>
 
             <div className="home-hero-tabs" role="tablist" aria-label="Fonctionnalités Mohasib">
               {PRODUCT_TABS.map((tab, index) => (

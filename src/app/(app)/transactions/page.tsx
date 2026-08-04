@@ -5,8 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Transaction } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
-import { ArrowLeftRight, Plus, Filter } from "lucide-react";
+import { ArrowLeftRight, Plus, Filter, Link2 } from "lucide-react";
 import BankImportModal from "./BankImportModal";
+import AllocateTransactionModal from "./AllocateTransactionModal";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
@@ -17,7 +18,11 @@ function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
 const today = new Date().toISOString().split("T")[0];
 
 const ALL_CATS = ["Toutes", ...TRANSACTION_CATEGORIES.income, ...TRANSACTION_CATEGORIES.expense];
-type TransactionSortKey = "date" | "description" | "category" | "amount";
+type TransactionSortKey = "date" | "description" | "category" | "source" | "debit" | "credit";
+
+function sourceLabel(source: Transaction["source"] | null | undefined) {
+  return source === "bank_import" ? "Relevé bancaire" : "Manuelle";
+}
 
 export default function TransactionsPage({ dossierId: propDossierId }: { dossierId?: string } = {}) {
   const ownerId = useAccountOwnerId();
@@ -30,6 +35,8 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bankImportOpen, setBankImportOpen] = useState(false);
+  const [allocationTransaction, setAllocationTransaction] = useState<Transaction | null>(null);
+  const [allocationCounts, setAllocationCounts] = useState<Record<string, number>>({});
 
   // Filters
   const [filterDescState, setFilterDescState] = useState({ source: requestedSearch, value: requestedSearch });
@@ -53,7 +60,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     piece: "",
   });
 
-  async function load() {
+  async function load(runAutoMatch = true) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(ownerId);
@@ -62,8 +69,40 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       ? query.eq("dossier_id", dossierId)
       : query.eq("user_id", ownerId).is("dossier_id", null))
       .order("date", { ascending: false });
-    setTransactions(data ?? []);
-    setLoading(false);
+    const rows = (data ?? []) as Transaction[];
+    setTransactions(rows);
+    if (rows.length) {
+      const { data: allocations } = await supabase
+        .from("invoice_payments")
+        .select("transaction_id")
+        .in("transaction_id", rows.map(row => row.id))
+        .eq("allocation_status", "confirmed");
+      const counts: Record<string, number> = {};
+      for (const allocation of allocations ?? []) {
+        if (!allocation.transaction_id) continue;
+        counts[allocation.transaction_id] = (counts[allocation.transaction_id] ?? 0) + 1;
+      }
+      setAllocationCounts(counts);
+      setLoading(false);
+      const unmatchedIds = rows.filter(row => !counts[row.id]).slice(0, 25).map(row => row.id);
+      if (runAutoMatch && unmatchedIds.length) {
+        const response = await fetch("/api/payment-allocations/auto-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transaction_ids: unmatchedIds }),
+        });
+        if (response.ok) {
+          const result = await response.json();
+          if (Number(result.matched ?? 0) > 0) {
+            await load(false);
+            return;
+          }
+        }
+      }
+    } else {
+      setAllocationCounts({});
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -100,6 +139,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       category: form.cat || null,
       reference: form.piece || null,
       currency: "MAD",
+      source: "manual",
       ...(dossierId ? { dossier_id: dossierId } : {}),
     });
     setSaving(false);
@@ -153,7 +193,9 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
         case "date": return tx.date;
         case "description": return tx.description ?? "";
         case "category": return tx.category ?? tx.type ?? "";
-        case "amount": return Number(tx.amount ?? 0);
+        case "source": return sourceLabel(tx.source);
+        case "debit": return tx.type === "expense" ? Number(tx.amount ?? 0) : null;
+        case "credit": return tx.type === "income" ? Number(tx.amount ?? 0) : null;
         default: return "";
       }
     };
@@ -171,6 +213,13 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
         dossierId={dossierId}
         onImported={load}
       />}
+      {allocationTransaction && (
+        <AllocateTransactionModal
+          transaction={allocationTransaction}
+          onClose={() => setAllocationTransaction(null)}
+          onSaved={load}
+        />
+      )}
 
       {/* ─── Page header ──────────────────────────────────────────────────── */}
       <div className="mb-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
@@ -328,31 +377,56 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
           <thead>
             <tr>
               <SortableTh sortKey="date" label="Date" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
-              <SortableTh sortKey="description" label="Description" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              <SortableTh sortKey="description" label="Description" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="w-[290px] max-w-[290px]" />
               <SortableTh sortKey="category" label="Catégorie" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
-              <SortableTh sortKey="amount" label="Montant" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              <SortableTh sortKey="source" label="Source" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+              <th>Affectation</th>
+              <SortableTh sortKey="debit" label="Débit" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="left" />
+              <SortableTh sortKey="credit" label="Crédit" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="left" />
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={4} className="loading-cell">Chargement...</td></tr>
+              <tr><td colSpan={7} className="loading-cell">Chargement...</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={4} className="text-center py-10 text-[#6B7280] text-[12px]">
+              <tr><td colSpan={7} className="text-center py-10 text-[#6B7280] text-[12px]">
                 {hasFilter ? "Aucun résultat" : "Aucune transaction"}
               </td></tr>
             )}
             {sorted.map((tx) => (
               <tr key={tx.id}>
                 <td className="text-[#6B7280]">{fmtDate(tx.date)}</td>
-                <td>{tx.description}</td>
+                <td className="w-[290px] max-w-[290px]">
+                  <span className="block truncate" title={tx.description}>{tx.description}</span>
+                </td>
                 <td>
                   <span className={`badge ${tx.type === "income" ? "b-paid" : "b-draft"}`}>
                     {tx.category ?? tx.type}
                   </span>
                 </td>
-                <td className={`font-semibold ${tx.type === "income" ? "text-[#059669]" : "text-[#DC2626]"}`}>
-                  {tx.type === "income" ? "+" : "-"}{fmt(Math.abs(Number(tx.amount)))}
+                <td>
+                  <span className={`badge ${tx.source === "bank_import" ? "b-paid" : "b-draft"}`}>
+                    {sourceLabel(tx.source)}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    data-permission="accounting:create"
+                    onClick={() => setAllocationTransaction(tx)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-black/10 px-2 py-1 text-[10.5px] font-semibold text-[#374151] transition-colors hover:border-[#C8924A]/50 hover:bg-[#FFF9EF] hover:text-[#8A5D20]"
+                  >
+                    <Link2 size={11} />
+                    {allocationCounts[tx.id]
+                      ? `${allocationCounts[tx.id]} document${allocationCounts[tx.id] > 1 ? "s" : ""}`
+                      : "Non affectée"}
+                  </button>
+                </td>
+                <td className={`text-left font-semibold ${tx.type === "expense" ? "text-[#DC2626]" : "text-[#9CA3AF]"}`}>
+                  {tx.type === "expense" ? fmt(Math.abs(Number(tx.amount))) : "—"}
+                </td>
+                <td className={`text-left font-semibold ${tx.type === "income" ? "text-[#059669]" : "text-[#9CA3AF]"}`}>
+                  {tx.type === "income" ? fmt(Math.abs(Number(tx.amount))) : "—"}
                 </td>
               </tr>
             ))}

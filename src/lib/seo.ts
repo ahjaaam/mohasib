@@ -5,6 +5,7 @@ const SITE_NAME = "Mohasib AI";
 const DEFAULT_TITLE = "Mohasib AI — Logiciel de comptabilité, facturation et TVA au Maroc";
 const DEFAULT_DESCRIPTION =
   "Mohasib AI aide les entrepreneurs, PME et cabinets comptables marocains à gérer factures, TVA, paie, documents, trésorerie et exports comptables.";
+const DEFAULT_SOCIAL_IMAGE = "/og-image-2026.png";
 
 type SeoMetadataInput = {
   title?: string;
@@ -20,11 +21,12 @@ export function seoMetadata({
   description = DEFAULT_DESCRIPTION,
   path = "/",
   type = "website",
-  image = "/og-image.png",
+  image = DEFAULT_SOCIAL_IMAGE,
   noIndex = false,
 }: SeoMetadataInput = {}): Metadata {
   const url = marketingUrl(path);
   const imageUrl = image.startsWith("http") ? image : marketingUrl(image);
+  const usesDefaultImage = image === DEFAULT_SOCIAL_IMAGE;
 
   return {
     title,
@@ -38,7 +40,12 @@ export function seoMetadata({
       type,
       locale: "fr_MA",
       siteName: SITE_NAME,
-      images: [{ url: imageUrl, width: 1200, height: 630, alt: title }],
+      images: [{
+        url: imageUrl,
+        width: usesDefaultImage ? 1920 : 1200,
+        height: usesDefaultImage ? 1080 : 630,
+        alt: title,
+      }],
     },
     twitter: {
       card: "summary_large_image",

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Lightbulb, Loader2 } from "lucide-react";
 
 const TVA_RATES = [0, 7, 10, 14, 20];
 
@@ -91,7 +91,7 @@ export default function NewAvoirFournisseurForm({ nextNumber, userId, dossierId,
   return (
     <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px]">
       <div className="alert-blue mb-4">
-        💡 Un avoir fournisseur réduit votre TVA déductible du mois. Il est comptabilisé en crédit du compte fournisseur.
+        <Lightbulb size={14} className="inline mr-1.5 -mt-0.5" />Un avoir fournisseur réduit votre TVA déductible du mois. Il est comptabilisé en crédit du compte fournisseur.
       </div>
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

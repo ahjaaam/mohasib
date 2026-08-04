@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
-import { Check, X } from "lucide-react";
+import { AlertTriangle, Ban, Check, X } from "lucide-react";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { TRIAL_LIMITS } from "@/lib/trial-limits";
 
@@ -34,6 +34,7 @@ interface Props {
 }
 
 const PLAN_LABELS: Record<string, string> = {
+  free: "Mohasib Gratuit",
   trial: "Essai",
   starter: "Starter",
   business: "Business",
@@ -45,6 +46,7 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  free: { label: "Gratuit permanent", className: "bg-[#E0F2FE] text-[#075985]" },
   active: { label: "Actif", className: "bg-[#D1FAE5] text-[#065F46]" },
   trial: { label: "Essai", className: "bg-[#FEF3C7] text-[#92400E]" },
   grace: { label: "Délai de grâce", className: "bg-[#FEF3C7] text-[#92400E]" },
@@ -79,7 +81,7 @@ function getUpgradeCta(plan: string, userType?: string | null) {
   const isComptableAccount = userType === "fiduciaire" || plan.startsWith("comptable_");
   if (plan === "business_pro" || plan === "comptable_inf") return null;
   if (isComptableAccount) return { label: "Demander Comptable Illimité", requestedPlan: "comptable_inf" };
-  if (["trial", "starter", "business"].includes(plan)) return { label: "Demander Business Pro", requestedPlan: "business_pro" };
+  if (["free", "trial", "starter", "business"].includes(plan)) return { label: "Demander Business Pro", requestedPlan: "business_pro" };
   return null;
 }
 
@@ -98,7 +100,7 @@ export default function AbonnementTab({ userId: _userId, userEmail: _userEmail, 
     ? { label: "Suspendu", className: "bg-[#FEE2E2] text-[#B91C1C]" }
     : STATUS_LABELS[status] ?? STATUS_LABELS.active;
   const periodEnd = company.subscription_status === "trial" ? company.trial_ends_at : company.subscription_ends_at;
-  const nextRenewal = formatDate(periodEnd);
+  const nextRenewal = plan === "free" ? "Aucune expiration" : formatDate(periodEnd);
   const trialDays = company.trial_ends_at ? Math.max(0, Math.ceil((new Date(company.trial_ends_at).getTime() - Date.now()) / 86400000)) : null;
   const includedFeatures = FEATURE_LABELS.filter(([key]) => entitlements.features[key]);
   const missingFeatures = FEATURE_LABELS.filter(([key]) => !entitlements.features[key]);
@@ -172,8 +174,17 @@ export default function AbonnementTab({ userId: _userId, userEmail: _userEmail, 
           </div>
         )}
 
+        {plan === "free" && (
+          <div className="mb-4 rounded-xl border border-[#BAE6FD] bg-[#F0F9FF] p-4">
+            <div className="text-[13px] font-bold text-[#1A1A2E]">Votre version gratuite</div>
+            <p className="mt-1 text-[11.5px] leading-5 text-[#075985]">
+              Créez et gérez vos factures, devis, avoirs et clients sans limite de durée.
+            </p>
+          </div>
+        )}
+
         {/* Usage */}
-        <div className="mb-4">
+        {plan !== "free" && <div className="mb-4">
           <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-2">Documents importés ce mois</p>
           {usage ? (
             <>
@@ -192,18 +203,18 @@ export default function AbonnementTab({ userId: _userId, userEmail: _userEmail, 
                 />
               </div>}
               {usage.limit >= 0 && usage.used / usage.limit >= 0.8 && usage.used < usage.limit && (
-                <p className="text-[11px] text-[#92400E] mt-1.5">⚠️ Plus que {usage.remaining} document{usage.remaining > 1 ? "s" : ""} disponible{usage.remaining > 1 ? "s" : ""} ce mois.</p>
+                <p className="text-[11px] text-[#92400E] mt-1.5 flex items-center gap-1"><AlertTriangle size={12} /> Plus que {usage.remaining} document{usage.remaining > 1 ? "s" : ""} disponible{usage.remaining > 1 ? "s" : ""} ce mois.</p>
               )}
               {usage.limit >= 0 && usage.used >= usage.limit && (
-                <p className="text-[11px] text-[#DC2626] mt-1.5">⛔ Limite atteinte. Les imports seront de nouveau disponibles le {usage.resetDate}.</p>
+                <p className="text-[11px] text-[#DC2626] mt-1.5 flex items-center gap-1"><Ban size={12} /> Limite atteinte. Les imports seront de nouveau disponibles le {usage.resetDate}.</p>
               )}
             </>
           ) : (
             <div className="h-8 bg-[#F3F4F6] rounded animate-pulse" />
           )}
-        </div>
+        </div>}
 
-        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+        {plan !== "free" && <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
           {[
             ["OCR/mois", formatLimit(entitlements.limits.ocr)],
             ["Stockage", formatLimit(entitlements.limits.storageGb, " Go")],
@@ -216,12 +227,18 @@ export default function AbonnementTab({ userId: _userId, userEmail: _userEmail, 
               <p className="mt-1 text-[13px] font-bold text-[#1A1A2E]">{value}</p>
             </div>
           ))}
-        </div>
+        </div>}
 
         {/* Features */}
         <div className="border-t border-[rgba(0,0,0,0.06)] pt-4">
           <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-2">Fonctionnalités incluses</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+            {plan === "free" && ["Factures, devis et avoirs illimités", "Gestion des clients", "PDF et envoi par e-mail"].map((label) => (
+              <div key={label} className="flex items-center gap-2 text-[12px] text-[#1A1A2E]">
+                <Check size={13} className="text-[#059669] flex-shrink-0" />
+                {label}
+              </div>
+            ))}
             {includedFeatures.map(([, label]) => (
               <div key={label} className="flex items-center gap-2 text-[12px] text-[#1A1A2E]">
                 <Check size={13} className="text-[#059669] flex-shrink-0" />

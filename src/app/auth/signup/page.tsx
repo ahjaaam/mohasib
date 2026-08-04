@@ -5,17 +5,18 @@ import { createClient } from "@/lib/supabase/client";
 import { translateError } from "@/lib/errors";
 import Link from "next/link";
 import Image from "next/image";
-import { Eye, EyeOff, CheckCircle, Building2, Briefcase } from "lucide-react";
+import { Eye, EyeOff, CheckCircle, Building2, Briefcase, ReceiptText } from "lucide-react";
 import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS, validatePassword } from "@/lib/password-policy";
-import { marketingUrl } from "@/lib/public-urls";
+import { INVOICING_URL, appUrl, marketingUrl } from "@/lib/public-urls";
 
 type UserType = "entrepreneur" | "fiduciaire";
+type AccountMode = "full" | "invoicing";
 
 const NEED_OPTIONS = [
   "Facturation et devis",
   "Boîte de réception et OCR",
   "TVA et déclarations",
-  "Suivi des paiements",
+  "Suivi des échéances",
   "Transactions et rapprochement",
   "Écritures automatiques",
   "Paie",
@@ -25,6 +26,7 @@ const NEED_OPTIONS = [
 export default function SignupPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [userType, setUserType] = useState<UserType>("entrepreneur");
+  const [accountMode, setAccountMode] = useState<AccountMode>("full");
   const [form, setForm] = useState({
     full_name: "",
     company: "",
@@ -47,7 +49,23 @@ export default function SignupPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get("invitation");
+    const searchParams = new URLSearchParams(window.location.search);
+    const token = searchParams.get("invitation");
+    const isInvoicingDomain = window.location.host === new URL(INVOICING_URL).host;
+    if (!token && (isInvoicingDomain || searchParams.get("mode") === "invoicing")) {
+      setUserType("entrepreneur");
+      setAccountMode("invoicing");
+      setForm((current) => ({
+        ...current,
+        role: "Entrepreneur / indépendant",
+        organization_size: "1",
+        monthly_volume: "Moins de 20",
+        needs: ["Facturation et devis"],
+        other_need: "",
+      }));
+      setStep(2);
+      return;
+    }
     if (!token) return;
     setInvitationToken(token);
     fetch(`/api/invitations/${token}`)
@@ -55,6 +73,7 @@ export default function SignupPage() {
       .then(data => {
         if (!data.email) return;
         setUserType(data.track === "comptable" ? "fiduciaire" : "entrepreneur");
+        setAccountMode("full");
         setForm(current => ({ ...current, email: data.email, company: "" }));
         setStep(2);
       });
@@ -80,7 +99,7 @@ export default function SignupPage() {
       setError("Le numéro de téléphone est obligatoire.");
       return;
     }
-    if (!invitationToken && (!form.role || !form.organization_size || !form.monthly_volume || form.needs.length === 0)) {
+    if (!invitationToken && accountMode === "full" && (!form.role || !form.organization_size || !form.monthly_volume || form.needs.length === 0)) {
       setLoading(false);
       setError("Complétez les informations sur votre activité et sélectionnez au moins un besoin.");
       return;
@@ -118,11 +137,14 @@ export default function SignupPage() {
       email,
       password: form.password,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           full_name: form.full_name,
           company: form.company,
           phone: form.phone.trim(),
           user_type: userType,
+          account_mode: accountMode,
+          requested_plan: accountMode === "invoicing" ? "free" : "trial",
           role: form.role,
           organization_size: form.organization_size,
           monthly_volume: form.monthly_volume,
@@ -140,7 +162,8 @@ export default function SignupPage() {
       setError("Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou réinitialisez votre mot de passe.");
     } else {
       if (data.session) {
-        window.location.href = userType === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
+        await supabase.auth.signOut();
+        window.location.href = "/en-attente";
         return;
       }
       setSuccess(true);
@@ -156,12 +179,12 @@ export default function SignupPage() {
           </div>
           <h1 className="text-xl font-bold text-navy mb-2">Compte créé !</h1>
           <p className="text-sm text-gray-500 mb-5">
-            Vérifiez votre boîte mail et cliquez sur le lien de confirmation pour accéder à votre compte.
+            Vérifiez votre boîte mail et cliquez sur le lien de confirmation. Nous examinerons ensuite votre demande et vous contacterons très bientôt.
           </p>
-          <Link href="/connexion"
+          <Link href="/"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white"
             style={{ backgroundColor: "#C8924A" }}>
-            Aller à la connexion
+            Retour au site
           </Link>
         </div>
 
@@ -187,13 +210,14 @@ export default function SignupPage() {
             <h1 className="text-2xl font-bold text-navy mb-1">Je suis...</h1>
             <p className="text-sm text-gray-500 mb-7">
               Déjà inscrit ?{" "}
-              <Link href="/connexion" className="text-gold hover:underline font-medium">Se connecter</Link>
+              <Link href={appUrl("/connexion")} className="text-gold hover:underline font-medium">Se connecter</Link>
             </p>
 
             <div className="space-y-3 mb-7">
               <button
                 onClick={() => {
                   setUserType("entrepreneur");
+                  setAccountMode("full");
                   setForm((current) => ({ ...current, role: "", organization_size: "", monthly_volume: "", needs: [], other_need: "" }));
                   setStep(2);
                 }}
@@ -212,7 +236,41 @@ export default function SignupPage() {
                   </div>
                   <div>
                     <div className="font-semibold text-[#1A1A2E] text-[14px]">Un entrepreneur / freelance</div>
-                    <div className="text-[12px] text-[#6B7280] mt-0.5">Gérez votre propre comptabilité</div>
+                    <div className="text-[12px] text-[#6B7280] mt-0.5">Essai complet de 7 jours avec comptabilité et automatisations</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setUserType("entrepreneur");
+                  setAccountMode("invoicing");
+                  setForm((current) => ({
+                    ...current,
+                    role: "Entrepreneur / indépendant",
+                    organization_size: "1",
+                    monthly_volume: "Moins de 20",
+                    needs: ["Facturation et devis"],
+                    other_need: "",
+                  }));
+                  setStep(2);
+                }}
+                className="w-full p-4 rounded-xl border-2 text-left transition-all hover:-translate-y-0.5"
+                style={{
+                  borderColor: "rgba(200,146,74,0.45)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  backgroundColor: "rgba(200,146,74,0.04)",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "#C8924A")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(200,146,74,0.45)")}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
+                    <ReceiptText size={18} className="text-[#C8924A]" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-[#1A1A2E] text-[14px]">Facturation uniquement — Gratuit</div>
+                    <div className="text-[12px] text-[#6B7280] mt-0.5">Factures et clients sans essai ni limite de durée</div>
                   </div>
                 </div>
               </button>
@@ -220,6 +278,7 @@ export default function SignupPage() {
               <button
                 onClick={() => {
                   setUserType("fiduciaire");
+                  setAccountMode("full");
                   setForm((current) => ({ ...current, role: "", organization_size: "", monthly_volume: "", needs: [], other_need: "" }));
                   setStep(2);
                 }}
@@ -267,13 +326,13 @@ export default function SignupPage() {
             onClick={() => setStep(1)}
             className="flex items-center gap-1.5 text-[12px] text-[#6B7280] hover:text-[#1A1A2E] mb-5 transition-colors"
           >
-            ← {userType === "fiduciaire" ? "Comptable Pro" : "Entrepreneur / freelance"}
+            ← {userType === "fiduciaire" ? "Comptable Pro" : accountMode === "invoicing" ? "Facturation uniquement" : "Entrepreneur / freelance"}
           </button>}
 
           <h1 className="text-2xl font-bold text-navy mb-1">Créer un compte</h1>
           <p className="text-sm text-gray-500 mb-7">
             Déjà inscrit ?{" "}
-            <Link href="/connexion" className="text-gold hover:underline font-medium">Se connecter</Link>
+            <Link href={appUrl("/connexion")} className="text-gold hover:underline font-medium">Se connecter</Link>
           </p>
 
           <form onSubmit={handleSignup} className="space-y-4">
@@ -292,7 +351,7 @@ export default function SignupPage() {
                 value={form.company}
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
             </div>}
-            {!invitationToken && <>
+            {!invitationToken && accountMode === "full" && <>
               <div>
                 <label htmlFor="signup-role" className="label">Votre rôle</label>
                 <select id="signup-role" className="input" required value={form.role}
@@ -427,7 +486,7 @@ export default function SignupPage() {
                 <p>{error}</p>
                 {error.startsWith("Un compte existe déjà") && (
                   <div className="flex gap-3 mt-2 font-semibold">
-                    <Link href="/connexion" className="hover:underline">Se connecter</Link>
+                    <Link href={appUrl("/connexion")} className="hover:underline">Se connecter</Link>
                     <Link href="/mot-de-passe-oublie" className="hover:underline">Mot de passe oublié</Link>
                   </div>
                 )}
@@ -437,7 +496,7 @@ export default function SignupPage() {
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-lg font-medium text-sm text-white transition-colors disabled:opacity-60"
               style={{ backgroundColor: "#C8924A" }}>
-              {loading ? "Création en cours..." : invitationToken ? "Créer mon accès Collaborateur" : "Créer mon compte"}
+              {loading ? "Création en cours..." : invitationToken ? "Créer mon accès Collaborateur" : accountMode === "invoicing" ? "Créer mon compte gratuit" : "Créer mon compte"}
             </button>
 
             <p className="text-xs text-gray-400 text-center">

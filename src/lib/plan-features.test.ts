@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PLAN_LIMITS, featureForPath } from "./plan-features";
+import { DEFAULT_PLAN_LIMITS, featureForPath, isRouteAvailableForPlan } from "./plan-features";
 
 describe("plan feature matrix", () => {
   it("keeps Starter limited to the advertised core features", () => {
@@ -9,6 +9,22 @@ describe("plan feature matrix", () => {
     expect(starter.has_bank_import).toBe(false);
     expect(starter.has_tva_edi).toBe(false);
     expect(starter.employee_limit).toBe(0);
+  });
+
+  it("keeps the permanent free plan focused on invoicing and clients", () => {
+    const free = DEFAULT_PLAN_LIMITS.free;
+    expect(free.ocr_limit).toBe(0);
+    expect(free.has_bank_import).toBe(false);
+    expect(free.has_paie).toBe(false);
+    expect(free.has_avoirs).toBe(true);
+
+    expect(isRouteAvailableForPlan("free", "/invoices/new")).toBe(true);
+    expect(isRouteAvailableForPlan("free", "/clients")).toBe(true);
+    expect(isRouteAvailableForPlan("free", "/suivi-paiements")).toBe(false);
+    expect(isRouteAvailableForPlan("free", "/settings")).toBe(true);
+    expect(isRouteAvailableForPlan("free", "/transactions")).toBe(false);
+    expect(isRouteAvailableForPlan("free", "/archive")).toBe(false);
+    expect(isRouteAvailableForPlan("business", "/transactions")).toBe(true);
   });
 
   it("matches Business and Business Pro advertised differences", () => {

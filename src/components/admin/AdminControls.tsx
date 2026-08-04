@@ -91,7 +91,8 @@ export function AccountControls({
         void run(`/api/admin/accounts/${company.id}/access`, Object.fromEntries(new FormData(event.currentTarget)));
       }}>
         <select name="status" defaultValue={company.subscription_status ?? "trial"} className="input text-xs">
-          <option value="trial">Version gratuite limitée</option>
+          <option value="free">Mohasib Gratuit</option>
+          <option value="trial">Essai gratuit limité</option>
           <option value="active">Actif</option>
           <option value="grace">Délai de grâce</option>
           <option value="expired">Expiré</option>

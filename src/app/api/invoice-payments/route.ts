@@ -83,6 +83,11 @@ export async function POST(req: NextRequest) {
         reference: reference ?? null,
         notes: notes ?? null,
         payment_type: payment_type ?? "encaissement",
+        allocation_status: "confirmed",
+        match_confidence: 1,
+        match_method: "manual_payment_entry",
+        confirmed_by: user.id,
+        confirmed_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -148,19 +153,29 @@ export async function POST(req: NextRequest) {
         });
 
         if (payment_type === "encaissement") {
-          const { error: transactionError } = await supabase.from("transactions").insert({
-            user_id: user.id,
-            type: "income",
-            description: `Encaissement — paiement reçu`,
-            amount,
-            date: date_paiement,
-            payment_method: mode_paiement ?? null,
-            reference: reference ?? null,
-            notes: notes ?? null,
-            invoice_id,
-            dossier_id: dossierId,
-          });
+          const { data: transaction, error: transactionError } = await supabase
+            .from("transactions")
+            .insert({
+              user_id: user.id,
+              type: "income",
+              description: `Encaissement — paiement reçu`,
+              amount,
+              date: date_paiement,
+              payment_method: mode_paiement ?? null,
+              reference: reference ?? null,
+              notes: notes ?? null,
+              invoice_id,
+              dossier_id: dossierId,
+              source: "manual",
+            })
+            .select("id")
+            .single();
           if (transactionError) throw transactionError;
+          const { error: linkError } = await supabase
+            .from("invoice_payments")
+            .update({ transaction_id: transaction.id })
+            .eq("id", payment.id);
+          if (linkError) throw linkError;
         }
       }
     }
@@ -213,18 +228,29 @@ export async function POST(req: NextRequest) {
           eventData: { payment, receipt_id: receipt.id, ocr_data: receipt.ocr_data },
         });
 
-        const { error: transactionError } = await supabase.from("transactions").insert({
-          user_id: user.id,
-          type: "expense",
-          description: `Paiement fournisseur${receipt.ocr_data?.vendor_name ? ` — ${receipt.ocr_data.vendor_name}` : ""}`,
-          amount,
-          date: date_paiement,
-          payment_method: mode_paiement ?? null,
-          reference: reference ?? null,
-          notes: notes ?? null,
-          dossier_id: dossierId,
-        });
+        const { data: transaction, error: transactionError } = await supabase
+          .from("transactions")
+          .insert({
+            user_id: user.id,
+            type: "expense",
+            description: `Paiement fournisseur${receipt.ocr_data?.vendor_name ? ` — ${receipt.ocr_data.vendor_name}` : ""}`,
+            amount,
+            date: date_paiement,
+            payment_method: mode_paiement ?? null,
+            reference: reference ?? null,
+            notes: notes ?? null,
+            receipt_id: inbox_item_id,
+            dossier_id: dossierId,
+            source: "manual",
+          })
+          .select("id")
+          .single();
         if (transactionError) throw transactionError;
+        const { error: linkError } = await supabase
+          .from("invoice_payments")
+          .update({ transaction_id: transaction.id })
+          .eq("id", payment.id);
+        if (linkError) throw linkError;
       }
     }
 

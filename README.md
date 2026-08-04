@@ -68,7 +68,20 @@ In the Supabase dashboard:
 - Set **Site URL** to `http://localhost:3000`
 - Add Redirect URL: `http://localhost:3000/auth/callback`
 
-### 5. Run
+### 5. Configure Google Drive archives
+
+In the Google Cloud project used by `GOOGLE_CLIENT_ID`:
+
+- Enable the Google Drive API.
+- Add the `drive.file` scope to the OAuth consent screen.
+- Add `http://localhost:3000/api/oauth/google-drive/callback` as an authorized
+  redirect URI for development.
+- Add `https://your-domain.com/api/oauth/google-drive/callback` for production.
+
+The same Google OAuth client can serve Gmail and Drive. Keep
+`EMAIL_TOKEN_SECRET` stable: changing it invalidates stored OAuth connections.
+
+### 6. Run
 
 ```bash
 npm run dev

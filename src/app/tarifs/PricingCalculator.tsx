@@ -114,7 +114,7 @@ function buildOffer(audience: Audience, configuration: Configuration): FlexOffer
       price: breakdown.reduce((total, line) => total + line.amount, 0),
       features: [
         "Factures et devis illimités",
-        "Comptabilité, TVA et suivi des paiements",
+        "Comptabilité, TVA et suivi des échéances",
         "Import bancaire et saisie comptable",
         "Avoirs, exports, bilan et CPC",
         "Support 7j/7",

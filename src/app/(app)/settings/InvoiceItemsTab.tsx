@@ -50,6 +50,11 @@ export default function InvoiceItemsTab({ userId, dossierId }: Props) {
 
   async function loadItems() {
     setLoading(true);
+    if (!userId) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     const query = supabase
       .from("invoice_items_catalog")
       .select("id, name, description, category, unit, unit_price, tva_rate, is_active")
@@ -163,7 +168,7 @@ export default function InvoiceItemsTab({ userId, dossierId }: Props) {
           </div>
         </div>
 
-        <button onClick={createItem} disabled={saving} className="btn btn-gold mt-4 inline-flex items-center gap-1.5">
+        <button data-auth-required="article" onClick={createItem} disabled={saving} className="btn btn-gold mt-4 inline-flex items-center gap-1.5">
           {saving ? <><Save size={13} /> Enregistrement...</> : <><Plus size={13} /> Ajouter l’article</>}
         </button>
       </div>

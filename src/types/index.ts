@@ -152,6 +152,7 @@ export interface Receipt {
 }
 
 export type TransactionType = "income" | "expense";
+export type TransactionSource = "manual" | "bank_import";
 
 export interface Transaction {
   id: string;
@@ -167,6 +168,8 @@ export interface Transaction {
   payment_method: string | null;
   reference: string | null;
   notes: string | null;
+  source: TransactionSource;
+  bank_reference?: string | null;
   fournisseur?: string | null;
   if_fournisseur?: string | null;
   ice_fournisseur?: string | null;

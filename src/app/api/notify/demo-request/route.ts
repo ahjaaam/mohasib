@@ -15,7 +15,7 @@ const PROFILES: Record<string, string> = {
 
 const NEEDS: Record<string, string> = {
   "vue-ensemble": "Vue d’ensemble de Mohasib",
-  facturation: "Facturation et suivi des paiements",
+  facturation: "Facturation et suivi des échéances",
   documents: "Documents, e-mails et OCR",
   comptabilite: "Comptabilité et rapprochement",
   declarations: "TVA, paie et déclarations",

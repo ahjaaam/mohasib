@@ -53,10 +53,10 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: 'https://www.mohasibai.com/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Mohasib AI Dashboard',
+        url: "/og-image-2026.png",
+        width: 1920,
+        height: 1080,
+        alt: "Mohasib AI",
       }
     ],
     locale: "fr_MA",
@@ -67,6 +67,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Mohasib — Comptabilité IA pour entrepreneurs marocains",
     description: "Factures, TVA, Paie et comptable dédié. Conçu pour les PME marocaines.",
+    images: ["/og-image-2026.png"],
   },
 };
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { logAdminAudit, requireAdminApi } from "@/lib/admin-api";
 
-const STATUSES = ["trial", "active", "grace", "expired"] as const;
+const STATUSES = ["free", "trial", "active", "grace", "expired"] as const;
 
 function validIsoDate(value: unknown) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -34,10 +34,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ message: "Le montant doit être un nombre positif ou nul" }, { status: 400 });
   }
   const updateValues = {
-    plan: body.status === "trial" ? "trial" : "custom",
+    plan: body.status === "free" ? "free" : body.status === "trial" ? "trial" : "custom",
     subscription_status: body.status,
-    subscription_ends_at: body.status === "trial" ? company.subscription_ends_at : endDate,
-    trial_ends_at: body.status === "trial" && endDate ? `${endDate}T23:59:59.999Z` : company.trial_ends_at,
+    subscription_ends_at: body.status === "free" ? null : body.status === "trial" ? company.subscription_ends_at : endDate,
+    trial_ends_at: body.status === "free" ? null : body.status === "trial" && endDate ? `${endDate}T23:59:59.999Z` : company.trial_ends_at,
     scheduled_plan: null,
     scheduled_plan_date: null,
   };

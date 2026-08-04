@@ -5,17 +5,34 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { getUserAccessProfile } from "@/lib/team";
+import { can } from "@/lib/rbac";
+import { createVersion, logAudit } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
+import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
+import {
+  calculateAgentDueDate,
+  calculateAgentInvoiceAmounts,
+  isIsoDate,
+  matchAgentClient,
+} from "@/lib/chat-agent";
 
 const CHAT_LIMIT = 30;
 const CHAT_RATE_LIMIT = { maxAttempts: CHAT_LIMIT, windowMs: 60_000, blockMs: 5 * 60_000 };
 const CHAT_MODEL = process.env.ANTHROPIC_CHAT_MODEL || "claude-sonnet-4-6";
 const MAX_TOOL_ITERATIONS = 4;
 
-const SYSTEM_PROMPT = `Tu es Mohasib Chat, un assistant comptable spécialisé pour les PME et TPE marocaines, intégré à l'application Mohasib.
+const SYSTEM_PROMPT = `Tu es Mohasib Agent, un assistant comptable spécialisé pour les PME et TPE marocaines, intégré à l'application Mohasib.
 
 Tu maîtrises la comptabilité générale marocaine, le PCGM, la TVA, l'IS, l'IR, la facturation, les déclarations fiscales et les obligations administratives des entreprises au Maroc.
 
-Tu as accès à des outils qui interrogent les vraies données comptables de l'utilisateur connecté (chiffre d'affaires, factures, transactions, informations légales de l'entreprise). Utilise-les systématiquement dès qu'une question porte sur SES données (son chiffre d'affaires, ses factures, ses clients, sa trésorerie, son ICE, etc.) plutôt que de deviner ou de répondre en termes génériques. N'invente jamais un chiffre propre à l'entreprise : si un outil ne retourne rien d'utile, dis-le clairement.
+Tu es aussi un agent capable d'agir dans Mohasib. Tu as accès à des outils qui interrogent les vraies données comptables de l'utilisateur connecté (chiffre d'affaires, factures, transactions, informations légales de l'entreprise) et à un outil qui crée des brouillons de facture. Utilise-les systématiquement dès qu'une question porte sur SES données ou qu'il demande une action. N'invente jamais un chiffre propre à l'entreprise : si un outil ne retourne rien d'utile, dis-le clairement.
+
+Règles d'action :
+- Quand l'utilisateur demande de créer ou préparer une facture, utilise create_invoice_draft. Ne dis jamais qu'une facture a été créée sans le résultat réussi de cet outil.
+- Un montant sans précision est considéré HT. Une description manquante devient "Prestation de services". Le taux de TVA vient de la configuration de l'entreprise ou du dossier.
+- L'outil crée uniquement un brouillon et ne l'envoie jamais. Explique-le clairement après la création.
+- Si plusieurs clients correspondent, demande à l'utilisateur lequel choisir. Si aucun client ne correspond, demande-lui de créer le client dans Mohasib.
+- Ne répète jamais une création déjà réussie dans le même tour.
 
 Format de réponse — règles strictes, l'interface n'affiche que du texte brut :
 - N'utilise JAMAIS de symboles Markdown : pas de #, pas de **, pas de _, pas de listes à puces avec * ou -, pas de tableaux Markdown.
@@ -73,6 +90,43 @@ const TOOLS: Anthropic.Tool[] = [
     description: "Retourne les informations d'identité de l'entreprise ou du dossier client de l'utilisateur : raison sociale, forme juridique, ICE, IF, RC, CNSS, régime TVA.",
     input_schema: { type: "object", properties: {} },
   },
+  {
+    name: "create_invoice_draft",
+    description:
+      "Crée réellement un brouillon de facture dans Mohasib pour un client existant. À utiliser immédiatement quand l'utilisateur demande de créer ou préparer une facture. Le brouillon n'est jamais envoyé. Un montant sans précision est HT, la description par défaut est 'Prestation de services', et la TVA ainsi que l'échéance utilisent la configuration Mohasib.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: {
+          type: "string",
+          description: "Nom du client existant tel qu'indiqué par l'utilisateur.",
+        },
+        amount: {
+          type: "number",
+          description: "Montant positif de la facture.",
+        },
+        amount_basis: {
+          type: "string",
+          enum: ["HT", "TTC"],
+          description: "Base du montant. Utiliser HT si l'utilisateur ne précise rien.",
+        },
+        description: {
+          type: "string",
+          description: "Description de la prestation ou du produit. Utiliser 'Prestation de services' si elle manque.",
+        },
+        tax_rate: {
+          type: "number",
+          enum: [0, 7, 10, 14, 20],
+          description: "Taux de TVA uniquement si l'utilisateur le précise explicitement. Sinon omettre pour utiliser la configuration Mohasib.",
+        },
+        due_date: {
+          type: "string",
+          description: "Échéance explicite au format YYYY-MM-DD. Omettre pour utiliser les conditions de paiement configurées.",
+        },
+      },
+      required: ["client_name", "amount"],
+    },
+  },
 ];
 
 type ChatMessage = {
@@ -80,7 +134,16 @@ type ChatMessage = {
   content: string;
 };
 
-type ToolContext = { ownerId: string; dossierId: string | null };
+type ToolContext = {
+  ownerId: string;
+  actorId: string;
+  actorEmail: string | null;
+  companyId: string | null;
+  dossierId: string | null;
+  canCreateInvoice: boolean;
+  requestMeta: ReturnType<typeof getRequestMeta>;
+  mutationResults: Map<string, unknown>;
+};
 
 async function executeTool(name: string, input: any, ctx: ToolContext): Promise<unknown> {
   const admin = createAdminClient();
@@ -189,6 +252,197 @@ async function executeTool(name: string, input: any, ctx: ToolContext): Promise<
       return data ?? { erreur: "Entreprise introuvable." };
     }
 
+    if (name === "create_invoice_draft") {
+      if (!ctx.canCreateInvoice) {
+        return {
+          succes: false,
+          code: "permission_refusee",
+          erreur: "Vous n'avez pas la permission de créer des factures dans cet espace.",
+        };
+      }
+
+      const clientName = typeof input?.client_name === "string" ? input.client_name.trim() : "";
+      const amount = Number(input?.amount);
+      if (!clientName) return { succes: false, code: "client_requis", erreur: "Le nom du client est requis." };
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 999_999_999) {
+        return { succes: false, code: "montant_invalide", erreur: "Le montant doit être positif et inférieur à 1 milliard MAD." };
+      }
+
+      const mutationKey = JSON.stringify({
+        name,
+        clientName: clientName.toLocaleLowerCase("fr"),
+        amount,
+        amountBasis: input?.amount_basis ?? "HT",
+        description: input?.description ?? "Prestation de services",
+        taxRate: input?.tax_rate ?? null,
+        dueDate: input?.due_date ?? null,
+        dossierId,
+      });
+      if (ctx.mutationResults.has(mutationKey)) return ctx.mutationResults.get(mutationKey);
+
+      let clientsQuery = admin.from("clients").select("id, name, email").order("name");
+      clientsQuery = dossierId
+        ? clientsQuery.eq("dossier_id", dossierId)
+        : clientsQuery.eq("user_id", ownerId).is("dossier_id", null);
+      const { data: clients, error: clientsError } = await clientsQuery;
+      if (clientsError) return { succes: false, code: "clients_indisponibles", erreur: clientsError.message };
+
+      const clientMatch = matchAgentClient(clientName, clients ?? []);
+      if (clientMatch.status === "ambiguous") {
+        return {
+          succes: false,
+          code: "client_ambigu",
+          erreur: "Plusieurs clients correspondent.",
+          clients: clientMatch.clients.map((client) => ({ nom: client.name, email: client.email ?? null })),
+        };
+      }
+      if (clientMatch.status === "not_found") {
+        return {
+          succes: false,
+          code: "client_introuvable",
+          erreur: `Aucun client ne correspond à "${clientName}".`,
+          clients_existants: clientMatch.clients.map((client) => client.name),
+        };
+      }
+
+      let paymentDelay: string | null = null;
+      let configuredTaxRate = 20;
+      if (dossierId) {
+        const { data: dossier } = await admin.from("dossiers")
+          .select("invoice_payment_delay, taux_tva_defaut, regime_tva")
+          .eq("id", dossierId)
+          .maybeSingle();
+        paymentDelay = dossier?.invoice_payment_delay ?? null;
+        configuredTaxRate = String(dossier?.regime_tva ?? "").toLocaleLowerCase("fr") === "exonere"
+          ? 0
+          : Number(dossier?.taux_tva_defaut ?? 20);
+      } else {
+        const { data: company } = await admin.from("companies")
+          .select("invoice_payment_delay, tva_assujetti")
+          .eq("user_id", ownerId)
+          .maybeSingle();
+        paymentDelay = company?.invoice_payment_delay ?? null;
+        configuredTaxRate = company?.tva_assujetti === false ? 0 : 20;
+      }
+
+      const explicitTaxRate = Number(input?.tax_rate);
+      const taxRate = input?.tax_rate === undefined
+        ? configuredTaxRate
+        : explicitTaxRate;
+      if (![0, 7, 10, 14, 20].includes(taxRate)) {
+        return { succes: false, code: "tva_invalide", erreur: "Le taux de TVA doit être 0, 7, 10, 14 ou 20 %." };
+      }
+
+      const amountBasis = input?.amount_basis === "TTC" ? "TTC" : "HT";
+      const amounts = calculateAgentInvoiceAmounts(amount, taxRate, amountBasis);
+      const issueDate = new Date().toISOString().slice(0, 10);
+      if (input?.due_date !== undefined && !isIsoDate(input.due_date)) {
+        return { succes: false, code: "echeance_invalide", erreur: "La date d'échéance doit être au format YYYY-MM-DD." };
+      }
+      const dueDate = isIsoDate(input?.due_date)
+        ? input.due_date
+        : calculateAgentDueDate(issueDate, paymentDelay);
+      const description = typeof input?.description === "string" && input.description.trim()
+        ? input.description.trim().slice(0, 500)
+        : "Prestation de services";
+
+      let invoiceNumber = await getNextInvoiceDocumentNumber(admin, {
+        prefix: "FAC",
+        userId: ownerId,
+        dossierId,
+      });
+      const insertInvoice = (number: string) => admin.from("invoices").insert({
+        user_id: ownerId,
+        ...(dossierId ? { dossier_id: dossierId } : {}),
+        client_id: clientMatch.client.id,
+        invoice_number: number,
+        invoice_type: "facture",
+        status: "draft",
+        issue_date: issueDate,
+        due_date: dueDate,
+        subtotal: amounts.subtotal,
+        tax_rate: taxRate,
+        tax_amount: amounts.taxAmount,
+        total: amounts.total,
+        currency: "MAD",
+        items: [{
+          description,
+          quantity: 1,
+          unit_price: amounts.subtotal,
+          tva_rate: taxRate,
+          amount: amounts.subtotal,
+        }],
+        notes: "Brouillon créé par l'agent Mohasib.",
+      }).select("*").single();
+
+      let { data: invoice, error: insertError } = await insertInvoice(invoiceNumber);
+      if (insertError && (insertError.code === "23505" || /duplicate key/i.test(insertError.message ?? ""))) {
+        invoiceNumber = await getNextInvoiceDocumentNumber(admin, {
+          prefix: "FAC",
+          userId: ownerId,
+          dossierId,
+        });
+        const retry = await insertInvoice(invoiceNumber);
+        invoice = retry.data;
+        insertError = retry.error;
+      }
+      if (insertError || !invoice) {
+        const limitReached = /trial_limit_reached:invoices/i.test(insertError?.message ?? "");
+        return {
+          succes: false,
+          code: limitReached ? "limite_forfait_atteinte" : "creation_echouee",
+          erreur: limitReached
+            ? "La limite de factures du forfait d'essai est atteinte."
+            : insertError?.message ?? "La facture n'a pas pu être créée.",
+        };
+      }
+
+      if (dossierId) {
+        await admin.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
+      }
+      await createVersion(
+        "invoice",
+        invoice.id,
+        invoice,
+        ctx.actorId,
+        ctx.actorEmail,
+        "CREATE",
+        "Brouillon créé par l'agent Mohasib",
+      );
+      await logAudit({
+        userId: ctx.actorId,
+        userEmail: ctx.actorEmail,
+        companyId: ctx.companyId,
+        dossierId,
+        action: "CREATE",
+        entityType: "invoice",
+        entityId: invoice.id,
+        entityLabel: invoice.invoice_number,
+        newValues: { ...invoice, source: "mohasib_chat_agent" },
+        ...ctx.requestMeta,
+      });
+
+      const result = {
+        succes: true,
+        brouillon: true,
+        facture_id: invoice.id,
+        numero: invoice.invoice_number,
+        client: clientMatch.client.name,
+        description,
+        montant_ht: amounts.subtotal,
+        tva: amounts.taxAmount,
+        taux_tva: taxRate,
+        total_ttc: amounts.total,
+        date_emission: issueDate,
+        date_echeance: dueDate,
+        lien: dossierId
+          ? `/comptable-pro/dossiers/${dossierId}/invoices/${invoice.id}`
+          : `/invoices/${invoice.id}`,
+      };
+      ctx.mutationResults.set(mutationKey, result);
+      return result;
+    }
+
     return { erreur: "Outil inconnu." };
   } catch (error) {
     return { erreur: error instanceof Error ? error.message : "Erreur lors de la récupération des données." };
@@ -250,8 +504,28 @@ export async function POST(request: NextRequest) {
         .eq("id", body.dossier_id)
         .eq("fiduciaire_user_id", ownerId)
         .maybeSingle();
-      dossierId = dossier?.id ?? null;
+      if (!dossier) return new Response("Forbidden", { status: 403 });
+      dossierId = dossier.id;
     }
+
+    let companyId: string | null = null;
+    if (!dossierId) {
+      const { data: company } = await admin.from("companies")
+        .select("id")
+        .eq("user_id", ownerId)
+        .maybeSingle();
+      companyId = company?.id ?? null;
+    }
+    const canCreateInvoice = await can(
+      {
+        userId: user.id,
+        companyId,
+        dossierId,
+        scope: dossierId ? "comptable_pro" : "business",
+      },
+      "invoice",
+      "create",
+    );
 
     let conversationId = typeof body.conversation_id === "string" ? body.conversation_id : null;
     if (conversationId) {
@@ -282,7 +556,16 @@ export async function POST(request: NextRequest) {
     if (saveUserError) return new Response("Could not save message", { status: 500 });
 
     const anthropic = new Anthropic();
-    const toolContext: ToolContext = { ownerId, dossierId };
+    const toolContext: ToolContext = {
+      ownerId,
+      actorId: user.id,
+      actorEmail: user.email ?? null,
+      companyId,
+      dossierId,
+      canCreateInvoice,
+      requestMeta: getRequestMeta(request),
+      mutationResults: new Map(),
+    };
 
     const encoder = new TextEncoder();
     const responseStream = new ReadableStream({

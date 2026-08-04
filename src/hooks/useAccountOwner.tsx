@@ -10,6 +10,6 @@ export function AccountOwnerProvider({ ownerId, children }: { ownerId: string; c
 
 export function useAccountOwnerId() {
   const ownerId = useContext(AccountOwnerContext);
-  if (!ownerId) throw new Error("AccountOwnerProvider is missing");
+  if (ownerId === null) throw new Error("AccountOwnerProvider is missing");
   return ownerId;
 }

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
-import { Check, Trash2, Plus, Loader2, Mail, Download, Send, Save } from "lucide-react";
+import { Check, Trash2, Plus, Loader2, Mail, Download, Send, Save, PartyPopper, Lightbulb } from "lucide-react";
 import type { Client } from "@/types";
 
 interface LineItem {
@@ -331,7 +331,7 @@ export default function NewAvoirForm({
   if (created) {
     return (
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-8 flex flex-col items-center text-center gap-4">
-        <div className="text-4xl">🎉</div>
+        <PartyPopper size={36} className="text-[#C8924A]" aria-hidden="true" />
         <div>
           <p className="text-[15px] font-semibold text-[#1A1A2E]">Avoir créé !</p>
           <p className="text-[12.5px] text-[#6B7280] mt-0.5">
@@ -399,7 +399,7 @@ export default function NewAvoirForm({
   return (
     <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px]">
       <div className="alert-blue mb-4">
-        💡 Un avoir client réduit le chiffre d&apos;affaires et la TVA collectée du mois d&apos;émission.
+        <Lightbulb size={14} className="inline mr-1.5 -mt-0.5" />Un avoir client réduit le chiffre d&apos;affaires et la TVA collectée du mois d&apos;émission.
       </div>
 
       {/* Header fields */}
