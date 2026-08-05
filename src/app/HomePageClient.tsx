@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
@@ -16,27 +15,6 @@ const PRODUCT_TABS = [
   "La paie",
   "Mohasib Agent",
   "Archive",
-];
-
-const FLOATING_ITEMS = [
-  { position: "one", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "two", src: "/images/excel-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
-  { position: "three", src: "/images/gmail-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
-  { position: "four", src: "/images/word-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
-  { position: "five", src: "/images/sage-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
-  { position: "six", src: "/images/outlook-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
-  { position: "seven", src: "/images/google-drive-logo-cropped.png", alt: "", width: 760, height: 760, isMark: true },
-  { position: "eight", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "nine", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "ten", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "eleven", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "twelve", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "thirteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "fourteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "fifteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "sixteen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "seventeen", src: "/images/receipt-hero.png", alt: "", width: 1024, height: 1536, isMark: false },
-  { position: "eighteen", src: "/images/whatsapp-logo-cropped.png", alt: "", width: 239, height: 232, isMark: true },
 ];
 
 export default function HomePageClient() {
@@ -105,6 +83,9 @@ export default function HomePageClient() {
           margin: 0 auto;
           text-align: center;
         }
+        .home-hero .public-eyebrow {
+          color: var(--gold);
+        }
         .home-hero-title {
           max-width: 1160px;
           margin: 0 auto 26px;
@@ -129,22 +110,24 @@ export default function HomePageClient() {
           flex-wrap: wrap;
         }
         .home-hero-cta {
-          background: linear-gradient(160deg, #1e2536 0%, #000000 100%);
+          background: linear-gradient(160deg, #2a3348 0%, #0a0a0a 100%);
           border-color: transparent;
+          font-weight: 500;
         }
         .home-hero-cta:hover {
-          background: linear-gradient(160deg, #2a3348 0%, #0a0a0a 100%);
+          background: linear-gradient(160deg, #1e2536 0%, #000000 100%);
           border-color: transparent;
         }
         .home-demo-action {
           border-color: #B9B6AE;
           color: #0D1526;
           cursor: pointer;
+          font-weight: 500;
         }
         .home-demo-action:hover {
-          border-color: #7A6668;
-          background: #d7d7d7;
-          color: #0D1526;
+          border-color: var(--gold);
+          background: var(--gold);
+          color: #FFFFFF;
         }
         .home-receipt-field {
           position: absolute;
@@ -172,6 +155,7 @@ export default function HomePageClient() {
         }
         .home-scattered-mark {
           opacity: 1;
+          scale: 0.8;
         }
         .home-scattered-mark img {
           filter: grayscale(0.30);
@@ -197,7 +181,7 @@ export default function HomePageClient() {
           --receipt-rotation: -8deg;
           --receipt-duration: 6.5s;
           --receipt-delay: -1.5s;
-          top: -2%;
+          top: 3%;
           left: 24%;
         }
         .home-receipt-four {
@@ -221,7 +205,7 @@ export default function HomePageClient() {
           --receipt-rotation: 9deg;
           --receipt-duration: 6.8s;
           --receipt-delay: -2s;
-          top: -2%;
+          top: 3%;
           right: 23%;
         }
         .home-receipt-seven {
@@ -238,7 +222,7 @@ export default function HomePageClient() {
           --receipt-opacity: 0.34;
           --receipt-duration: 8.7s;
           --receipt-delay: -1.2s;
-          top: -13%;
+          top: 5%;
           left: 12%;
         }
         .home-receipt-nine {
@@ -247,7 +231,7 @@ export default function HomePageClient() {
           --receipt-opacity: 0.3;
           --receipt-duration: 7.9s;
           --receipt-delay: -4.6s;
-          top: -12%;
+          top: 5%;
           right: 12%;
         }
         .home-receipt-ten {
@@ -292,7 +276,7 @@ export default function HomePageClient() {
           --receipt-opacity: 0.18;
           --receipt-duration: 9.5s;
           --receipt-delay: -4.1s;
-          top: -3%;
+          top: 5%;
           left: 42%;
         }
         .home-receipt-fifteen {
@@ -301,7 +285,7 @@ export default function HomePageClient() {
           --receipt-opacity: 0.16;
           --receipt-duration: 8.1s;
           --receipt-delay: -1.8s;
-          top: -2%;
+          top: 5%;
           right: 41%;
         }
         .home-receipt-sixteen {
@@ -567,17 +551,6 @@ export default function HomePageClient() {
       <PublicNavbar />
 
       <section className="home-hero">
-        <div className="home-receipt-field" aria-hidden="true">
-          {FLOATING_ITEMS.map(({ position, src, alt, width, height, isMark }) => (
-            <div
-              className={`home-scattered-receipt home-receipt-${position}${isMark ? " home-scattered-mark" : ""}`}
-              key={position}
-            >
-              <Image src={src} alt={alt} width={width} height={height} sizes="190px" />
-            </div>
-          ))}
-        </div>
-
         <div className="home-hero-content">
             <p className="public-eyebrow mb-4">L&apos;IA pour votre vie professionnelle</p>
             <h1 className="home-hero-title">
@@ -593,7 +566,7 @@ export default function HomePageClient() {
                 href={appUrl("/inscription")}
                 style={{ minHeight: 50, padding: "0 30px", fontSize: 16, fontFamily: FONT }}
               >
-                Essayer gratuitement
+                Créer mon espace
               </a>
               <button
                 type="button"
