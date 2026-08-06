@@ -17,8 +17,10 @@ export default async function ComptableProLayout({ children }: { children: React
   const isFiduciaire = teamContext?.track === "comptable";
   const scopeAllowed = await canEnterScope({ userId: user.id }, "comptable_pro");
 
-  const [profileRes, access, entitlements] = await Promise.all([
+  const ownerId = teamContext?.ownerId ?? user.id;
+  const [profileRes, preferencesRes, access, entitlements] = await Promise.all([
     supabase.from("users").select("full_name, avatar_url").eq("id", user.id).single(),
+    supabase.from("user_preferences").select("sidebar_theme").eq("user_id", ownerId).maybeSingle(),
     getUserAccessProfile(user.id),
     getPlanEntitlements(user.id),
   ]);
@@ -26,7 +28,7 @@ export default async function ComptableProLayout({ children }: { children: React
   return (
     <AppShell
       userId={user.id}
-      ownerId={teamContext?.ownerId ?? user.id}
+      ownerId={ownerId}
       userEmail={user.email}
       userName={profileRes.data?.full_name ?? user.user_metadata?.full_name ?? user.email}
       userAvatar={profileRes.data?.avatar_url}
@@ -35,6 +37,7 @@ export default async function ComptableProLayout({ children }: { children: React
       roleLabel={access.roleLabel}
       accessScope={access.accessScope}
       entitlements={entitlements}
+      sidebarTheme={preferencesRes.data?.sidebar_theme === "dark" ? "dark" : "cream"}
     >
       {isFiduciaire && scopeAllowed ? children : (
         <AccessRestricted backHref="/tableau-de-bord" message="Vous n'avez pas accès à l'espace Comptable Pro." />
