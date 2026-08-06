@@ -217,42 +217,17 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   const SidebarContent = () => (
     <>
       {/* Header */}
-      <div className={`pt-4 pb-[15px] border-b flex items-center ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"} ${sidebarCollapsed ? "justify-center px-0" : "px-[18px]"}`}>
+      <div className={`h-16 flex-shrink-0 border-b flex items-center ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"} ${sidebarCollapsed ? "justify-center px-0" : "px-[18px]"}`}>
         {sidebarCollapsed ? (
           <Image src="/favicon.png" alt="Mohasib" width={28} height={28} className="object-contain" />
         ) : (
           <div>
             <Image src={lightSidebar ? "/logo2.png" : "/logo.png"} alt="Mohasib" width={120} height={40} style={{ height: "auto" }} className="object-contain" />
-            <div className={`text-[10.5px] mt-1.5 ${lightSidebar ? "text-[#817A6D]" : "text-white/[0.28]"}`}>AI accounting for Moroccan SMEs</div>
           </div>
         )}
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => {
-          const locked = !allowed(permission);
-          return (
-          <Link key={href} href={href} title={sidebarCollapsed ? label : undefined}
-            className={`flex items-center py-[12px] text-[13px] transition-all border-r-2 ${
-              sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
-            } ${
-              isActive(href)
-                ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                : locked
-                  ? lightSidebar
-                    ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
-                    : "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
-                  : lightSidebar
-                    ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
-                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
-            }`}>
-            <Icon size={sidebarCollapsed ? 18 : 15} />
-            {!sidebarCollapsed && label}
-            {!sidebarCollapsed && locked && <Lock size={11} className="ml-auto opacity-70" />}
-          </Link>
-          );
-        })}
-
         {!freePlan && isFiduciaire && accessScope !== "business_only" && (
           sidebarCollapsed ? (
             <Link href="/comptable-pro" title="Mon Cabinet"
@@ -309,6 +284,31 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             </div>
           )
         )}
+
+        {NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => {
+          const locked = !allowed(permission);
+          return (
+          <Link key={href} href={href} title={sidebarCollapsed ? label : undefined}
+            className={`flex items-center py-[12px] text-[13px] transition-all border-r-2 ${
+              sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
+            } ${
+              isActive(href)
+                ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
+                : locked
+                  ? lightSidebar
+                    ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
+                    : "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                  : lightSidebar
+                    ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
+                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+            }`}>
+            <Icon size={sidebarCollapsed ? 18 : 15} />
+            {!sidebarCollapsed && label}
+            {!sidebarCollapsed && locked && <Lock size={11} className="ml-auto opacity-70" />}
+          </Link>
+          );
+        })}
+
       </nav>
 
     </>
@@ -459,20 +459,6 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
 
               {/* Nav items */}
               <div className="overflow-y-auto">
-                {NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    onClick={() => setDrawerOpen(false)}
-                    className="flex items-center gap-3 px-[20px] py-[12px] transition-colors"
-                    style={{ color: isActive(href) ? "#C8924A" : allowed(permission) ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.28)" }}
-                  >
-                    <Icon size={16} />
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
-                    {!allowed(permission) && <Lock size={11} className="ml-auto" />}
-                  </Link>
-                ))}
-
                 {/* Cabinet */}
                 {!freePlan && isFiduciaire && accessScope !== "business_only" && (
                   <>
@@ -495,6 +481,20 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                     })}
                   </>
                 )}
+
+                {NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setDrawerOpen(false)}
+                    className="flex items-center gap-3 px-[20px] py-[12px] transition-colors"
+                    style={{ color: isActive(href) ? "#C8924A" : allowed(permission) ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.28)" }}
+                  >
+                    <Icon size={16} />
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
+                    {!allowed(permission) && <Lock size={11} className="ml-auto" />}
+                  </Link>
+                ))}
 
                 {ALL_NAV.filter(item => item.href === "/rapports").map(({ href, icon: Icon, label, soon, permission }: any) => (
                   <Link

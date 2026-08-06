@@ -1,5 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { computePurchaseAmounts } from "./purchase-booking";
+import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "./purchase-booking";
+
+describe("shouldBookConfirmedPurchase", () => {
+  it("books a confirmed justificatif even when it is not classified as an invoice", () => {
+    expect(shouldBookConfirmedPurchase({
+      document_type: "receipt",
+      is_supplier_invoice: false,
+    })).toBe(true);
+  });
+
+  it("books a confirmed supplier invoice", () => {
+    expect(shouldBookConfirmedPurchase({
+      document_type: "invoice",
+      is_supplier_invoice: true,
+    })).toBe(true);
+  });
+
+  it("does not book an outgoing invoice as a purchase", () => {
+    expect(shouldBookConfirmedPurchase({
+      document_type: "invoice",
+      is_supplier_invoice: false,
+    })).toBe(false);
+  });
+});
 
 describe("computePurchaseAmounts", () => {
   it("uses an explicit TVA amount", () => {

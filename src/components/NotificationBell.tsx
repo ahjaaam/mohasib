@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { markRead } from "@/lib/notifications/actions";
+import { ensureAccountingAutomationGuideNotification, markRead } from "@/lib/notifications/actions";
 import toast from "react-hot-toast";
 
 interface NotifRow {
@@ -39,18 +39,25 @@ export default function NotificationBell({ userId, onOpen }: { userId: string; o
 
   useEffect(() => {
     let active = true;
-    void supabase
-      .from("notifications")
-      .select("id, title, message, link, is_read, priority, created_at")
-      .eq("user_id", userId)
-      .eq("is_dismissed", false)
-      .order("created_at", { ascending: false })
-      .limit(5)
-      .then(({ data }) => {
-        if (!active) return;
+    void (async () => {
+      try {
+        await ensureAccountingAutomationGuideNotification();
+      } catch {
+        // The notification feed should still load if onboarding setup fails.
+      }
+      const { data } = await supabase
+        .from("notifications")
+        .select("id, title, message, link, is_read, priority, created_at")
+        .eq("user_id", userId)
+        .eq("is_dismissed", false)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (active) {
         setItems((data ?? []) as NotifRow[]);
         setLoading(false);
-      });
+      }
+    })();
     return () => {
       active = false;
     };

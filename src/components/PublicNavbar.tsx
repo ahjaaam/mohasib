@@ -158,6 +158,10 @@ export default function PublicNavbar() {
           </Link>
 
           <div className="public-nav-right">
+            <Link href="/workflows" className="public-nav-link">
+              Workflows
+            </Link>
+
             <Link href="/ressources" className="public-nav-link">
               Bibliothèque
             </Link>
@@ -192,6 +196,10 @@ export default function PublicNavbar() {
 
         {mobileOpen && (
           <div className="public-mobile-panel">
+            <Link href="/workflows" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
+              Workflows
+            </Link>
+
             <Link href="/ressources" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
               Bibliothèque
             </Link>

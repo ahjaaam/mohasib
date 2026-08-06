@@ -133,6 +133,7 @@ export interface OcrData {
   due_date?: string | null;
   due_date_confidence?: string | null;
   is_supplier_invoice?: boolean | null;
+  document_type?: "invoice" | "receipt" | "purchase_order" | "delivery_note" | "avoir" | "bank_statement" | "other" | null;
   montant_paye?: number | null;
   payment_status?: string | null;
 }

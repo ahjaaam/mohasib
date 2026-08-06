@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createHash } from "node:crypto";
 
 export interface Notification {
   id: string;
@@ -14,6 +16,52 @@ export interface Notification {
   priority: "high" | "normal";
   unique_key: string | null;
   created_at: string;
+}
+
+const ACCOUNTING_AUTOMATION_GUIDE_NOTIFICATION = {
+  type: "accounting_automation_guide",
+  title: "Découvrez les écritures automatiques",
+  message: "Consultez le PDF des écritures générées automatiquement pour les ventes, achats, reçus et mouvements bancaires.",
+  link: "/documents/carte-ecritures-automatiques-mohasib.pdf",
+  priority: "normal" as const,
+  unique_key: "accounting_automation_guide",
+};
+
+function accountingAutomationGuideId(userId: string) {
+  const hash = createHash("sha256")
+    .update(`${userId}:${ACCOUNTING_AUTOMATION_GUIDE_NOTIFICATION.unique_key}`)
+    .digest("hex")
+    .slice(0, 32)
+    .split("");
+
+  hash[12] = "5";
+  hash[16] = ((Number.parseInt(hash[16], 16) & 0x3) | 0x8).toString(16);
+  const value = hash.join("");
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
+}
+
+/**
+ * Ensure the accounting automation guide is available from the notification
+ * bell. The unique key makes this safe to call whenever the app shell mounts.
+ */
+export async function ensureAccountingAutomationGuideNotification() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("notifications")
+    .upsert({
+      id: accountingAutomationGuideId(user.id),
+      user_id: user.id,
+      ...ACCOUNTING_AUTOMATION_GUIDE_NOTIFICATION,
+    }, {
+      onConflict: "id",
+      ignoreDuplicates: true,
+    });
+
+  if (error) throw error;
 }
 
 // ─── Generate + upsert notifications based on current data ────────────────────
@@ -44,6 +92,11 @@ export async function generateNotifications() {
     link: "/settings",
     priority: "normal",
     unique_key: "welcome",
+  });
+
+  upserts.push({
+    user_id: user.id,
+    ...ACCOUNTING_AUTOMATION_GUIDE_NOTIFICATION,
   });
 
   // ── 2. Missing company ICE ─────────────────────────────────────────────────
@@ -187,7 +240,8 @@ export async function generateNotifications() {
 
   // ── Bulk upsert (unique_key guards duplicates) ─────────────────────────────
   if (upserts.length > 0) {
-    await supabase
+    const admin = createAdminClient();
+    await admin
       .from("notifications")
       .upsert(upserts, {
         onConflict: "user_id,unique_key",

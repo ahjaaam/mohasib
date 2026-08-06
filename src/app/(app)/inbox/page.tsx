@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Receipt, OcrData } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
+import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "@/lib/purchase-booking";
 import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
@@ -313,6 +314,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
+    const tvaRate = form.tva_rate ? parseFloat(form.tva_rate) : 0;
+    const confirmedAmounts = computePurchaseAmounts({ amount: amt, tva_rate: tvaRate });
     const confirmedOcr = {
       ...receipt.ocr_data,
       amount: amt,
@@ -322,9 +325,11 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       is_supplier_invoice: receipt.ocr_data.is_supplier_invoice ?? true,
       category: form.category || receipt.ocr_data.category || null,
       description: form.description || receipt.ocr_data.description || null,
-      tva_rate: form.tva_rate ? parseFloat(form.tva_rate) : receipt.ocr_data.tva_rate,
+      tva_rate: tvaRate,
+      tva_amount: confirmedAmounts.tvaAmount,
       compte: form.compte_comptable || (receipt.ocr_data as any).compte || null,
     };
+    const shouldBookPurchase = shouldBookConfirmedPurchase(confirmedOcr);
     const { error: ocrUpdateError } = await supabase
       .from("receipts")
       .update({ ocr_data: confirmedOcr })
@@ -335,7 +340,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       return;
     }
 
-    if (confirmedOcr.is_supplier_invoice !== false) {
+    if (shouldBookPurchase) {
       const bookingResponse = await fetch("/api/accounting/book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -369,7 +374,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     setSaving((s) => { s.delete(id); return new Set(s); });
     if (previewReceipt?.id === id) setPreviewReceipt(null);
     dismissCard(id, "right");
-    if (confirmedOcr.is_supplier_invoice !== false) {
+    if (shouldBookPurchase) {
       toast.success("Justificatif comptabilisé et ajouté au suivi fournisseurs !");
     } else {
       toast.success("Facture confirmée !");
@@ -947,6 +952,13 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
   const isExpense = isNaN(amt) ? true : amt < 0;
   const isAvoir = (ocr as any).document_type === "avoir";
   const emailProvider = (ocr as any).email_provider as string | undefined;
+  const tvaRate = Number(form.tva_rate || 0);
+  const entryPreview = computePurchaseAmounts({
+    amount: Number.isFinite(amt) ? amt : 0,
+    tva_rate: tvaRate,
+  });
+  const expenseAccount = form.compte_comptable || categoryToCompte[form.category] || "6111";
+  const expenseLabel = cgncAccounts.find((account) => account.code === expenseAccount)?.label ?? "Compte de charge";
 
   return (
     <div
@@ -1064,6 +1076,52 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           <CompteSelect value={form.compte_comptable} onChange={(val) => onFormChange("compte_comptable", val)} />
         </div>
       </div>
+
+      {!isAvoir && (
+        <div className="mx-4 mb-4 overflow-hidden rounded-lg border border-[rgba(0,0,0,0.10)]">
+          <div className="flex items-center justify-between border-b border-gray-100 bg-[#FAFAF8] px-3 py-2">
+            <div>
+              <div className="text-[11px] font-bold text-[#1A1A2E]">Aperçu de l’écriture créée</div>
+              <div className="text-[10px] text-[#8A909B]">Journal AC · Achat fournisseur</div>
+            </div>
+            <div className="text-[10px] font-semibold text-[#6B7280]">Débit = Crédit</div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-[11px]">
+              <thead className="bg-white text-[9.5px] uppercase tracking-wide text-[#9CA3AF]">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold">Compte</th>
+                  <th className="px-3 py-2 text-left font-semibold">Libellé</th>
+                  <th className="px-3 py-2 text-right font-semibold">Débit</th>
+                  <th className="px-3 py-2 text-right font-semibold">Crédit</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">{expenseAccount}</td>
+                  <td className="px-3 py-2 text-[#4B5563]">{expenseLabel}</td>
+                  <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.totalHt)} MAD</td>
+                  <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
+                </tr>
+                {entryPreview.tvaAmount > 0 && (
+                  <tr>
+                    <td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">3455</td>
+                    <td className="px-3 py-2 text-[#4B5563]">État TVA récupérable</td>
+                    <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.tvaAmount)} MAD</td>
+                    <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
+                  </tr>
+                )}
+                <tr>
+                  <td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">4411</td>
+                  <td className="px-3 py-2 text-[#4B5563]">Fournisseurs</td>
+                  <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
+                  <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.totalTtc)} MAD</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-end gap-2 px-4 pb-4">
         <button

@@ -155,13 +155,12 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   const SidebarContent = ({ compact = false, showContextBlock = true }: { compact?: boolean; showContextBlock?: boolean } = {}) => (
     <>
       {/* Mohasib branding */}
-      <div className={`pt-4 pb-[15px] border-b flex items-center ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"} ${compact ? "justify-center px-0" : "px-[18px]"}`}>
+      <div className={`h-16 flex-shrink-0 border-b flex items-center ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"} ${compact ? "justify-center px-0" : "px-[18px]"}`}>
         {compact ? (
           <Image src="/favicon.png" alt="Mohasib" width={28} height={28} className="object-contain" />
         ) : (
           <div>
             <Image src={lightSidebar ? "/logo2.png" : "/logo.png"} alt="Mohasib" width={120} height={40} style={{ height: "auto" }} className="object-contain" />
-            <div className={`text-[10.5px] mt-1.5 ${lightSidebar ? "text-[#817A6D]" : "text-white/[0.28]"}`}>AI accounting for Moroccan SMEs</div>
           </div>
         )}
       </div>

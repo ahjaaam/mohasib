@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck, CheckCircle2, Trash2, X } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import {
+  ensureAccountingAutomationGuideNotification,
   markRead,
   markAllRead,
   dismissNotification,
   deleteReadNotifications,
   type Notification,
 } from "@/lib/notifications/actions";
+import toast from "react-hot-toast";
 
 type Filter = "all" | "unread" | "high" | "archived";
 
@@ -34,21 +36,38 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [page, setPage] = useState(1);
   const [, startTransition] = useTransition();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  async function load() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    setAll((data ?? []) as Notification[]);
-    setLoading(false);
-  }
+  useEffect(() => {
+    let active = true;
 
-  useEffect(() => { load(); }, []);
+    void (async () => {
+      try {
+        await ensureAccountingAutomationGuideNotification();
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        if (active) setAll((data ?? []) as Notification[]);
+      } catch (error) {
+        console.error("Unable to load notifications", error);
+        if (active) toast.error("Impossible de charger les notifications pour le moment.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [supabase]);
 
   function handleMarkAllRead() {
     setAll((prev) => prev.map((n) => ({ ...n, is_read: true })));

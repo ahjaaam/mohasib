@@ -4,6 +4,10 @@ export interface PurchaseAmounts {
   tvaAmount: number;
 }
 
+export function shouldBookConfirmedPurchase(ocr: Record<string, unknown>) {
+  return ocr.document_type === "receipt" || ocr.is_supplier_invoice !== false;
+}
+
 function money(value: number) {
   return Math.round(value * 100) / 100;
 }

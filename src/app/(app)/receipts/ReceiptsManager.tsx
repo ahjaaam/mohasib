@@ -2,18 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import {
   ArchiveRestore,
   Camera,
+  CheckCircle,
   Download,
   Eye,
   FileText,
   Loader2,
-  Mail,
-  MailOpen,
   ReceiptText,
-  RefreshCw,
   Search,
   Trash2,
   Upload,
@@ -22,6 +19,9 @@ import {
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
+import { computePurchaseAmounts } from "@/lib/purchase-booking";
+import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import type { Receipt, ReceiptStatus } from "@/types";
 
 interface ReceiptWithUrl extends Receipt {
@@ -29,6 +29,15 @@ interface ReceiptWithUrl extends Receipt {
 }
 
 type StatusFilter = "all" | ReceiptStatus;
+
+interface ConfirmationForm {
+  amount: string;
+  date: string;
+  description: string;
+  category: string;
+  tvaRate: string;
+  account: string;
+}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("fr-MA", {
@@ -73,13 +82,11 @@ const STATUS_META: Record<ReceiptStatus, { label: string; className: string }> =
 export default function ReceiptsManager({ dossierId }: { dossierId?: string } = {}) {
   const ownerId = useAccountOwnerId();
   const supabase = createClient();
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [receipts, setReceipts] = useState<ReceiptWithUrl[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [syncingEmail, setSyncingEmail] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -87,6 +94,9 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [preview, setPreview] = useState<ReceiptWithUrl | null>(null);
+  const [confirming, setConfirming] = useState<ReceiptWithUrl | null>(null);
+  const [confirmationForm, setConfirmationForm] = useState<ConfirmationForm | null>(null);
+  const [booking, setBooking] = useState(false);
   const [mutating, setMutating] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
@@ -150,50 +160,6 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     setUploading(false);
   }
 
-  async function importFromEmails() {
-    setSyncingEmail(true);
-    try {
-      const response = await fetch("/api/email/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "receipts_only",
-          ...(dossierId ? { dossierId } : {}),
-        }),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error ?? "Importation impossible");
-
-      if (result.not_connected) {
-        toast("Connectez votre email dans les paramètres d’intégration.", { icon: <Mail size={16} /> });
-        router.push(
-          dossierId
-            ? `/comptable-pro/dossiers/${dossierId}/settings?tab=integrations`
-            : "/settings?tab=integrations",
-        );
-        return;
-      }
-
-      if (result.imported > 0) {
-        toast.success(
-          `${result.imported} reçu${result.imported > 1 ? "s" : ""} ou bon${result.imported > 1 ? "s" : ""} importé${result.imported > 1 ? "s" : ""}`,
-        );
-        await load();
-      } else if (result.errors?.length) {
-        toast.error(result.errors.join(" "), { duration: 5000 });
-      } else {
-        toast("Aucun nouveau reçu ou bon trouvé. Les factures et avoirs ont été exclus.", {
-          icon: <MailOpen size={16} />,
-          duration: 5000,
-        });
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Importation impossible");
-    } finally {
-      setSyncingEmail(false);
-    }
-  }
-
   async function updateStatus(receipt: ReceiptWithUrl, nextStatus: ReceiptStatus) {
     setMutating((current) => new Set(current).add(receipt.id));
     const response = await fetch(`/api/receipts/${receipt.id}`, {
@@ -235,6 +201,99 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     toast.success("Justificatif supprimé");
   }
 
+  function reviewAndConfirm(receipt: ReceiptWithUrl) {
+    const category = receipt.ocr_data.category ?? "Achats";
+    setConfirmationForm({
+      amount: String(Math.abs(Number(receipt.ocr_data.amount ?? 0)) || ""),
+      date: receipt.ocr_data.date ?? new Date().toISOString().slice(0, 10),
+      description: receipt.ocr_data.description ?? receiptVendor(receipt),
+      category,
+      tvaRate: String(receipt.ocr_data.tva_rate ?? 0),
+      account: receipt.ocr_data.compte ?? categoryToCompte[category] ?? "6111",
+    });
+    setPreview(null);
+    setConfirming(receipt);
+  }
+
+  function updateConfirmationForm(field: keyof ConfirmationForm, value: string) {
+    setConfirmationForm((current) => {
+      if (!current) return current;
+      if (field === "category") {
+        return { ...current, category: value, account: categoryToCompte[value] ?? current.account };
+      }
+      return { ...current, [field]: value };
+    });
+  }
+
+  async function confirmBooking() {
+    if (!confirming || !confirmationForm) return;
+    const amount = Number(confirmationForm.amount);
+    const tvaRate = Number(confirmationForm.tvaRate || 0);
+    if (!Number.isFinite(amount) || amount <= 0 || !confirmationForm.account || !confirmationForm.description) {
+      toast.error("Vérifiez le montant, la description et le compte comptable.");
+      return;
+    }
+
+    setBooking(true);
+    const amounts = computePurchaseAmounts({ amount, tva_rate: tvaRate });
+    const confirmedOcr = {
+      ...confirming.ocr_data,
+      amount: -Math.abs(amount),
+      type: "expense" as const,
+      date: confirmationForm.date,
+      description: confirmationForm.description,
+      category: confirmationForm.category,
+      tva_rate: tvaRate,
+      tva_amount: amounts.tvaAmount,
+      compte: confirmationForm.account,
+      is_supplier_invoice: confirming.ocr_data.is_supplier_invoice ?? true,
+    };
+
+    const { error: updateError } = await supabase
+      .from("receipts")
+      .update({ ocr_data: confirmedOcr })
+      .eq("id", confirming.id);
+    if (updateError) {
+      toast.error("Impossible d’enregistrer les données du justificatif.");
+      setBooking(false);
+      return;
+    }
+
+    const bookingResponse = await fetch("/api/accounting/book", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "purchase", receiptId: confirming.id, dossierId }),
+    });
+    const bookingResult = await bookingResponse.json().catch(() => ({}));
+    if (!bookingResponse.ok) {
+      toast.error(bookingResult.message ?? bookingResult.error ?? "La comptabilisation a échoué.");
+      setBooking(false);
+      return;
+    }
+
+    const statusResponse = await fetch(`/api/receipts/${confirming.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "matched" }),
+    });
+    if (!statusResponse.ok) {
+      toast.error("L’écriture est créée, mais le statut du justificatif n’a pas été mis à jour.");
+      setBooking(false);
+      return;
+    }
+    if (dossierId) {
+      await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
+    }
+
+    setReceipts((current) => current.map((receipt) => receipt.id === confirming.id
+      ? { ...receipt, status: "matched", ocr_data: confirmedOcr }
+      : receipt));
+    setBooking(false);
+    setConfirming(null);
+    setConfirmationForm(null);
+    toast.success("Justificatif comptabilisé dans Écritures.");
+  }
+
   const filtered = useMemo(() => receipts.filter((receipt) => {
     const searchable = [
       receipt.file_name,
@@ -250,6 +309,15 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     if (dateTo && receiptDate > dateTo) return false;
     return true;
   }), [receipts, query, status, source, dateFrom, dateTo]);
+  const confirmationAmounts = confirmationForm
+    ? computePurchaseAmounts({
+        amount: Number(confirmationForm.amount || 0),
+        tva_rate: Number(confirmationForm.tvaRate || 0),
+      })
+    : null;
+  const confirmationAccountLabel = confirmationForm
+    ? cgncAccounts.find((account) => account.code === confirmationForm.account)?.label ?? "Compte de charge"
+    : "";
 
   return (
     <div>
@@ -288,16 +356,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
           <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
             <button
               data-permission="document:create"
-              disabled={uploading || syncingEmail}
-              onClick={importFromEmails}
-              className="flex items-center gap-1.5 whitespace-nowrap border-0 bg-[#0D1526] px-3.5 py-2 text-[12px] font-medium text-white transition-colors hover:bg-[#1A263D] disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={syncingEmail ? "animate-spin" : ""} />
-              {syncingEmail ? "Importation…" : "Importer depuis mes emails"}
-            </button>
-            <button
-              data-permission="document:create"
-              disabled={uploading || syncingEmail}
+              disabled={uploading}
               onClick={() => fileInputRef.current?.click()}
               className="btn btn-outline"
             >
@@ -306,7 +365,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
             </button>
             <button
               data-permission="document:create"
-              disabled={uploading || syncingEmail}
+              disabled={uploading}
               onClick={() => cameraInputRef.current?.click()}
               className="btn btn-outline"
             >
@@ -359,14 +418,14 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-[rgba(0,0,0,0.08)] bg-white">
-          <div className="hidden grid-cols-[minmax(240px,1.5fr)_1fr_130px_130px_140px] gap-3 border-b border-gray-100 bg-[#FAFAF8] px-4 py-2 text-[10.5px] font-semibold uppercase tracking-wide text-[#8A909B] md:grid">
+          <div className="hidden grid-cols-[minmax(240px,1.5fr)_1fr_130px_130px_210px] gap-3 border-b border-gray-100 bg-[#FAFAF8] px-4 py-2 text-[10.5px] font-semibold uppercase tracking-wide text-[#8A909B] md:grid">
             <span>Justificatif</span><span>Fournisseur</span><span>Montant</span><span>Statut</span><span className="text-right">Actions</span>
           </div>
           {filtered.map((receipt) => {
             const meta = STATUS_META[receipt.status];
             const busy = mutating.has(receipt.id);
             return (
-              <div key={receipt.id} className="grid gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 md:grid-cols-[minmax(240px,1.5fr)_1fr_130px_130px_140px] md:items-center">
+              <div key={receipt.id} className="grid gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 md:grid-cols-[minmax(240px,1.5fr)_1fr_130px_130px_210px] md:items-center">
                 <button onClick={() => setPreview(receipt)} className="flex min-w-0 items-center gap-3 text-left">
                   <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#F4F1EA] text-[#C8924A]">
                     <FileText size={17} />
@@ -387,6 +446,17 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
                   <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.className}`}>{meta.label}</span>
                 </div>
                 <div className="flex items-center justify-end gap-1">
+                  {receipt.status === "pending" && (
+                    <button
+                      data-permission="document:create"
+                      disabled={busy}
+                      title="Vérifier les données avant de comptabiliser"
+                      onClick={() => reviewAndConfirm(receipt)}
+                      className="mr-1 inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <CheckCircle size={13} /> Confirmer
+                    </button>
+                  )}
                   <button title="Aperçu" onClick={() => setPreview(receipt)} className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100 hover:text-[#1A1A2E]"><Eye size={14} /></button>
                   {receipt.signedUrl && (
                     <a title="Télécharger" href={receipt.signedUrl} download={receipt.file_name ?? true} className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100 hover:text-[#1A1A2E]"><Download size={14} /></a>
@@ -406,6 +476,107 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
         </div>
       )}
 
+      {confirming && confirmationForm && confirmationAmounts && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4" onClick={() => { if (!booking) setConfirming(null); }}>
+          <div className="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+              <div>
+                <h2 className="text-[16px] font-bold text-[#1A1A2E]">Vérifier et comptabiliser</h2>
+                <p className="mt-0.5 text-[11px] text-[#8A909B]">{confirming.file_name ?? receiptVendor(confirming)} · aucune écriture ne sera créée avant la confirmation finale</p>
+              </div>
+              <button disabled={booking} onClick={() => setConfirming(null)} className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100 disabled:opacity-50"><X size={18} /></button>
+            </div>
+
+            <div className="grid gap-3 p-5 sm:grid-cols-2">
+              <label>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Montant TTC (MAD)</span>
+                <input type="number" min="0" step="0.01" className="input w-full" value={confirmationForm.amount} onChange={(event) => updateConfirmationForm("amount", event.target.value)} />
+              </label>
+              <label>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Date</span>
+                <input type="date" className="input w-full" value={confirmationForm.date} onChange={(event) => updateConfirmationForm("date", event.target.value)} />
+              </label>
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Description</span>
+                <input className="input w-full" value={confirmationForm.description} onChange={(event) => updateConfirmationForm("description", event.target.value)} />
+              </label>
+              <label>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Catégorie</span>
+                <select className="input w-full" value={confirmationForm.category} onChange={(event) => updateConfirmationForm("category", event.target.value)}>
+                  {TRANSACTION_CATEGORIES.expense.map((category) => <option key={category}>{category}</option>)}
+                </select>
+              </label>
+              <label>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">TVA</span>
+                <select className="input w-full" value={confirmationForm.tvaRate} onChange={(event) => updateConfirmationForm("tvaRate", event.target.value)}>
+                  <option value="0">Aucune TVA</option>
+                  <option value="7">7%</option>
+                  <option value="10">10%</option>
+                  <option value="14">14%</option>
+                  <option value="20">20%</option>
+                </select>
+              </label>
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Compte de charge</span>
+                <select className="input w-full" value={confirmationForm.account} onChange={(event) => updateConfirmationForm("account", event.target.value)}>
+                  {cgncAccounts.filter((account) => account.code.startsWith("6") || account.code.startsWith("2")).map((account) => (
+                    <option key={account.code} value={account.code}>{account.code} — {account.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="mx-5 mb-5 overflow-hidden rounded-xl border border-[rgba(0,0,0,0.10)]">
+              <div className="flex items-center justify-between border-b border-gray-100 bg-[#FAFAF8] px-4 py-3">
+                <div>
+                  <div className="text-[12px] font-bold text-[#1A1A2E]">Écriture qui sera créée</div>
+                  <div className="text-[10.5px] text-[#8A909B]">Journal AC · Achat fournisseur</div>
+                </div>
+                <span className="text-[10px] font-semibold text-emerald-700">Équilibrée</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-[11.5px]">
+                  <thead className="bg-white text-[9.5px] uppercase tracking-wide text-[#9CA3AF]">
+                    <tr><th className="px-4 py-2 text-left">Compte</th><th className="px-4 py-2 text-left">Libellé</th><th className="px-4 py-2 text-right">Débit</th><th className="px-4 py-2 text-right">Crédit</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    <tr>
+                      <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">{confirmationForm.account}</td>
+                      <td className="px-4 py-2.5 text-[#4B5563]">{confirmationAccountLabel}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.totalHt)}</td>
+                      <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
+                    </tr>
+                    {confirmationAmounts.tvaAmount > 0 && (
+                      <tr>
+                        <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">3455</td>
+                        <td className="px-4 py-2.5 text-[#4B5563]">État TVA récupérable</td>
+                        <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.tvaAmount)}</td>
+                        <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">4411</td>
+                      <td className="px-4 py-2.5 text-[#4B5563]">Fournisseurs</td>
+                      <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
+                      <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.totalTtc)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
+              <button disabled={booking} onClick={() => setConfirming(null)} className="btn btn-outline">Annuler</button>
+              <button disabled={booking || confirmationAmounts.totalTtc <= 0} onClick={confirmBooking} className="btn btn-gold">
+                {booking ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                {booking ? "Comptabilisation…" : "Confirmer et créer l’écriture"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
       {preview && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={() => setPreview(null)}>
           <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
@@ -415,6 +586,15 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
                 <div className="text-[10.5px] text-[#9CA3AF]">{receiptVendor(preview)} · {formatAmount(preview.ocr_data.amount, preview.ocr_data.currency ?? "MAD")}</div>
               </div>
               <div className="flex items-center gap-1">
+                {preview.status === "pending" && (
+                  <button
+                    data-permission="document:create"
+                    onClick={() => reviewAndConfirm(preview)}
+                    className="btn btn-outline border-emerald-600 text-[12px] text-emerald-700 hover:bg-emerald-50"
+                  >
+                    <CheckCircle size={13} /> Vérifier et confirmer
+                  </button>
+                )}
                 {preview.signedUrl && <a href={preview.signedUrl} download={preview.file_name ?? true} className="btn btn-outline text-[12px]"><Download size={13} /> Télécharger</a>}
                 <button onClick={() => setPreview(null)} className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100"><X size={18} /></button>
               </div>

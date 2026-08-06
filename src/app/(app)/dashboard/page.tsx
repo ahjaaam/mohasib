@@ -67,9 +67,9 @@ export default async function DashboardPage() {
   const [invoicesRes, transactionsRes, chartTransactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes, prefsRes] = await Promise.all([
     supabase.from("invoices").select("*, clients(id,name)").eq("user_id", ownerId).is("dossier_id", null)
       .or("invoice_type.is.null,invoice_type.eq.facture")
-      .order("created_at", { ascending: false }).limit(5),
+      .order("created_at", { ascending: false }).limit(10),
     supabase.from("transactions").select("*").eq("user_id", ownerId).is("dossier_id", null)
-      .order("date", { ascending: false }).limit(6),
+      .order("date", { ascending: false }).limit(10),
     supabase.from("transactions").select("date, type, amount").eq("user_id", ownerId).is("dossier_id", null)
       .gte("date", chartStart).order("date", { ascending: true }),
     supabase.from("clients").select("id", { count: "exact" }).eq("user_id", ownerId).is("dossier_id", null),
@@ -295,9 +295,9 @@ export default async function DashboardPage() {
                   <tr><td colSpan={4} className="text-center py-6 text-[#6B7280] text-[12px]">Aucune facture</td></tr>
                 )}
                 {invoices.map((inv) => (
-                  <tr key={inv.id}>
+                  <tr key={inv.id} className="h-[43px]">
                     <td className="font-medium text-[#6B7280] text-[11.5px]">{inv.invoice_number}</td>
-                    <td>{(inv as any).clients?.name ?? "—"}</td>
+                    <td className="max-w-[180px] truncate">{(inv as any).clients?.name ?? "—"}</td>
                     <td className="font-semibold">{fmt(Number(inv.total))}</td>
                     <td>
                       {(() => {
@@ -337,7 +337,7 @@ export default async function DashboardPage() {
                   <tr><td colSpan={3} className="text-center py-6 text-[#6B7280] text-[12px]">Aucune transaction</td></tr>
                 )}
                 {transactions.map((tx) => (
-                  <tr key={tx.id}>
+                  <tr key={tx.id} className="h-[43px]">
                     <td className="max-w-[120px] truncate">{tx.description}</td>
                     <td className="text-[11px] text-[#6B7280] whitespace-nowrap w-[1%]">
                       {new Date(tx.date).toLocaleDateString("fr-MA", { day: "numeric", month: "short" })}

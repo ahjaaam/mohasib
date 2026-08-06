@@ -168,7 +168,7 @@
   .btn { @apply inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer border-none transition-all duration-100 whitespace-nowrap font-sans; }
   .btn-gold { @apply bg-[#C8924A] text-white hover:bg-[#B8823A]; }
   .btn-gold:not(.btn-sm) { @apply bg-[#0D1526] hover:bg-[#1a2744]; }
-  .btn-outline { @apply bg-[#FAFAF6] px-3.5 py-2 text-[12px] font-medium text-[#374151] border border-[rgba(0,0,0,0.18)] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#F0EDE5] hover:border-[#C8924A] hover:text-[#C8924A]; }
+  .btn-outline { @apply bg-[#F1F2F3] px-3.5 py-2 text-[12px] font-medium text-[#4B5563] border border-[#D7DADF] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:bg-[#E5E7EB] hover:border-[#C7CBD1] hover:text-[#374151]; }
   .btn-sm { @apply px-2.5 py-1 text-[11.5px]; }
 
   /* Public website */
@@ -467,9 +467,9 @@
 }
 
 .mohasib-app .btn.btn-outline {
-  border: 1px solid rgba(0, 0, 0, 0.18) !important;
-  background-color: #FAFAF6 !important;
-  color: #374151 !important;
+  border: 1px solid #D7DADF !important;
+  background-color: #F1F2F3 !important;
+  color: #4B5563 !important;
   box-shadow: 0 1px 2px rgba(13, 21, 38, 0.05) !important;
   font-size: 12px;
   font-weight: 500;
@@ -481,9 +481,9 @@
 }
 
 .mohasib-app .btn.btn-outline:hover {
-  border-color: #C8924A !important;
-  background-color: #F0EDE5 !important;
-  color: #C8924A !important;
+  border-color: #C7CBD1 !important;
+  background-color: #E5E7EB !important;
+  color: #374151 !important;
 }
 
 .mohasib-app :is(.card, .kpi, .tbl, .qa-card, .client-card) {

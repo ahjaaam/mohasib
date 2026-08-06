@@ -290,14 +290,18 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
               </button>
             </div>
 
-            <section className="grid gap-0 overflow-hidden rounded-xl border border-[rgba(0,0,0,0.08)] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:grid-cols-2">
-              <Panel className={mobileTab === "entries" ? "hidden md:block" : ""} title={`Mouvements bancaires — ${selected.periode_debut} → ${selected.periode_fin}`} sub="Lignes de votre relevé réel">
+            <section className="grid overflow-hidden rounded-xl border border-[rgba(0,0,0,0.08)] bg-white md:grid-cols-2">
+              <Panel
+                className={mobileTab === "entries" ? "hidden md:block" : ""}
+                title="Relevé bancaire"
+                meta={`${selected.periode_debut} → ${selected.periode_fin}`}
+              >
                 <Tabs items={["Toutes", "Non rapprochées", "Rapprochées", "Ignorées"]} active={filter} onChange={setFilter} />
-                <div className="mt-3 space-y-2.5">
+                <div className="divide-y divide-[rgba(0,0,0,0.07)]">
                   {filteredLines.map((line) => {
                     const conf = confidenceLabel(Number(line.match_confidence ?? 0));
                     return (
-                      <div key={line.id} className={`border-l-4 ${classForStatus(line.statut)} rounded-lg border-y border-r border-[rgba(0,0,0,0.08)] bg-white p-3.5`}>
+                      <div key={line.id} className={`border-l-[3px] ${classForStatus(line.statut)} px-4 py-3.5`}>
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-[11.5px] font-semibold text-[#6B7280]">{line.bank_date}</span>
                           <span className={`text-[13px] font-bold ${Number(line.bank_amount) >= 0 ? "text-[#059669]" : "text-[#DC2626]"}`}>{mad(line.bank_amount)}</span>
@@ -326,13 +330,17 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
                 </div>
               </Panel>
 
-              <Panel className={mobileTab === "bank" ? "hidden md:block" : ""} title="Écritures comptables — compte Banque (5141)" sub="Mouvements enregistrés dans vos livres" cream>
+              <Panel
+                className={mobileTab === "bank" ? "hidden md:block" : ""}
+                title="Écritures comptables"
+                meta="Banque · 5141"
+              >
                 <Tabs items={["Toutes", "Non rapprochées", "Rapprochées", "Suspens"]} active={entryFilter} onChange={setEntryFilter} />
-                <div className="mt-3 space-y-2.5">
+                <div className="divide-y divide-[rgba(0,0,0,0.07)]">
                   {filteredEcritures.map((entry) => {
                     const matched = matchedEcritureIds.has(entry.id);
                     return (
-                      <div key={entry.id} className={`rounded-lg border border-[rgba(0,0,0,0.08)] bg-white p-3.5 ${matched ? "border-l-4 border-l-[#059669]" : ""}`}>
+                      <div key={entry.id} className={`px-4 py-3.5 ${matched ? "border-l-[3px] border-l-[#059669]" : "border-l-[3px] border-l-transparent"}`}>
                         <div className="flex items-center justify-between gap-3 text-[11.5px] font-semibold text-[#6B7280]">
                           <span>{entry.date_ecriture} · {entry.journal}</span>
                           <span>{mad(Number(entry.debit || 0) - Number(entry.credit || 0))}</span>
@@ -423,11 +431,11 @@ function Metric({ label, value, sub, danger = false }: { label: string; value: s
 
 function Tabs({ items, active, onChange }: { items: string[]; active: string; onChange: (value: string) => void }) {
   return (
-    <div className="flex items-center gap-1 bg-[#F3F4F6] p-1 rounded-xl overflow-x-auto">
+    <div className="flex items-center gap-4 overflow-x-auto border-b border-[rgba(0,0,0,0.07)] px-4">
       {items.map((item) => (
         <button key={item} onClick={() => onChange(item)}
-          className={`flex-shrink-0 whitespace-nowrap px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all ${
-            active === item ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"
+          className={`flex-shrink-0 whitespace-nowrap border-b-2 px-0.5 py-2.5 text-[11.5px] font-medium transition-colors ${
+            active === item ? "border-[#C8924A] text-[#1A1A2E]" : "border-transparent text-[#6B7280] hover:text-[#1A1A2E]"
           }`}>
           {item}
         </button>
@@ -436,11 +444,13 @@ function Tabs({ items, active, onChange }: { items: string[]; active: string; on
   );
 }
 
-function Panel({ title, sub, children, cream = false, className = "" }: { title: string; sub: string; children: React.ReactNode; cream?: boolean; className?: string }) {
+function Panel({ title, meta, children, className = "" }: { title: string; meta: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`${cream ? "bg-[#FAFAF6]" : "bg-white"} p-4 md:border-l md:border-[rgba(0,0,0,0.08)] ${className}`}>
-      <h2 className="text-[13.5px] font-semibold text-[#1A1A2E]">{title}</h2>
-      <p className="mt-0.5 text-[11px] text-[#9CA3AF]">{sub}</p>
+    <div className={`min-w-0 bg-white first:md:border-r first:md:border-[rgba(0,0,0,0.08)] ${className}`}>
+      <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3">
+        <h2 className="text-[13px] font-semibold text-[#1A1A2E]">{title}</h2>
+        <span className="whitespace-nowrap text-[11px] font-medium text-[#9CA3AF]">{meta}</span>
+      </div>
       {children}
     </div>
   );
