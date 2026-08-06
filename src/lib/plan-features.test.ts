@@ -35,6 +35,16 @@ describe("plan feature matrix", () => {
     expect(DEFAULT_PLAN_LIMITS.business_pro.users_limit).toBe(3);
   });
 
+  it("gives newly activated custom accounts full access by default", () => {
+    const custom = DEFAULT_PLAN_LIMITS.custom;
+    expect(custom.has_paie).toBe(true);
+    expect(custom.has_saisie).toBe(true);
+    expect(custom.has_bank_import).toBe(true);
+    expect(custom.has_export_fiduciaire).toBe(true);
+    expect(custom.has_bilan).toBe(true);
+    expect(custom.employee_limit).toBe(-1);
+  });
+
   it("maps protected main-account routes to their required feature", () => {
     expect(featureForPath("/saisie")).toBe("saisie");
     expect(featureForPath("/invoices/avoir/new")).toBe("avoirs");

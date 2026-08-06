@@ -43,7 +43,10 @@ export const DEFAULT_PLAN_LIMITS: Record<string, Record<string, number | boolean
   comptable_s:   { ocr_limit: 100, storage_gb: 25,  dossiers_limit: 5,  users_limit: 1, employee_limit: 5,  has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: true,  has_tva_edi: true,  has_inbox_global: false, has_mass_declarations: false },
   comptable_pro: { ocr_limit: 500, storage_gb: 100, dossiers_limit: 20, users_limit: 2, employee_limit: 10, has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: true,  has_tva_edi: true,  has_inbox_global: true,  has_mass_declarations: true },
   comptable_inf: { ocr_limit: -1,  storage_gb: -1,  dossiers_limit: -1, users_limit: 5, employee_limit: -1, has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: true,  has_tva_edi: true,  has_inbox_global: true,  has_mass_declarations: true },
-  custom:        { ocr_limit: 0,   storage_gb: 0,   dossiers_limit: 0,  users_limit: 1, employee_limit: 0,  has_bank_import: false, has_saisie: false, has_paie: false, has_export_fiduciaire: false, has_avoirs: false, has_bilan: false, has_tva_edi: false, has_inbox_global: false, has_mass_declarations: false },
+  // Activating an account promotes it to `custom`. Custom accounts start with
+  // full access; explicit company overrides remain the source of truth when an
+  // administrator intentionally restricts a module or limit.
+  custom:        { ocr_limit: -1,  storage_gb: -1,  dossiers_limit: -1, users_limit: 5, employee_limit: -1, has_bank_import: true, has_saisie: true, has_paie: true, has_export_fiduciaire: true, has_avoirs: true, has_bilan: true, has_tva_edi: true, has_inbox_global: true, has_mass_declarations: true },
 };
 
 export const MAIN_ROUTE_FEATURES: Record<string, PlanFeature> = {
