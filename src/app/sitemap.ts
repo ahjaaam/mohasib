@@ -25,6 +25,13 @@ function url(path: string) {
   return `${MARKETING_URL}${path}`;
 }
 
+function toValidDate(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const [posts, documents] = await Promise.all([getAllPosts(), getAllGuides()]);
@@ -42,7 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (!slug) return null;
       return {
         url: url(`/ressources/blog/${encodeURIComponent(slug)}`),
-        lastModified: post.publishedAt ? new Date(post.publishedAt) : now,
+        lastModified: toValidDate(post.publishedAt),
         changeFrequency: "monthly" as const,
         priority: 0.75,
       };
@@ -55,7 +62,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (!slug) return null;
       return {
         url: url(`/ressources/documents/${encodeURIComponent(slug)}`),
-        lastModified: document.publishedAt ? new Date(document.publishedAt) : now,
+        lastModified: toValidDate(document.publishedAt),
         changeFrequency: "monthly" as const,
         priority: 0.8,
       };
