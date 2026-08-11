@@ -58,19 +58,18 @@ interface Props {
     category: string | null;
   }>;
   chartData: FinanceChartPoint[];
-  dailyChartData: FinanceChartPoint[];
+  periodLabel: string;
   isClientPortal?: boolean;
 }
 
-export default function DossierDashboard({ dossier, invoices, transactions, chartData, dailyChartData, isClientPortal = false }: Props) {
+export default function DossierDashboard({ dossier, invoices, transactions, chartData, periodLabel, isClientPortal = false }: Props) {
   const base = `/comptable-pro/dossiers/${dossier.id}`;
   const activeInvoices = invoices.filter(i => i.status !== "draft");
   const expenseTx = transactions.filter(t => t.type === "expense" || Number(t.amount) < 0);
 
   const now = new Date();
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   const revenue = transactions
-    .filter(t => t.type === "income" && t.date >= monthStart)
+    .filter(t => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
 
   const pendingInvs = activeInvoices.filter(i => ["sent", "overdue"].includes(i.status));
@@ -93,7 +92,7 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
       <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">
         <div>
           <SectionLabel>Revenus et dépenses</SectionLabel>
-          <RevenueExpenseChart monthlyData={chartData} dailyData={dailyChartData} />
+          <RevenueExpenseChart data={chartData} periodLabel={periodLabel} />
         </div>
         <div>
           <SectionLabel>Prochaines échéances</SectionLabel>
@@ -106,11 +105,9 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
         <SectionLabel>Vue d&apos;ensemble</SectionLabel>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
           <div className="kpi">
-            <div className="kpi-label">CA ce mois</div>
+            <div className="kpi-label">Chiffre d&apos;affaires</div>
             <div className="kpi-value">{fmt(revenue)}</div>
-            <div className="text-[11px] text-[#6B7280]">
-              {activeInvoices.length} facture{activeInvoices.length > 1 ? "s" : ""}
-            </div>
+            <div className="truncate text-[11px] text-[#6B7280]" title={periodLabel}>{periodLabel}</div>
           </div>
           <div className="kpi">
             <div className="kpi-label">Factures en attente</div>

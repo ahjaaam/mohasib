@@ -27,13 +27,6 @@ export default async function SettingsPage() {
     );
   }
 
-  const { data: auditLogs } = await supabase
-    .from("audit_logs")
-    .select("id, created_at, user_email, action, entity_type, entity_label, success, request_path")
-    .eq("company_id", companyRes.data.id)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
   return (
     <SettingsShell
       userId={user!.id}
@@ -43,7 +36,6 @@ export default async function SettingsPage() {
       profile={profileRes.data ?? {}}
       company={companyRes.data}
       prefs={prefsRes.data ?? {}}
-      auditLogs={auditLogs ?? []}
     />
   );
 }

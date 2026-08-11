@@ -87,7 +87,7 @@ export default function ApparenceTab({ userId, company, prefs }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {([
             { value: "dark", label: "Sombre", background: "linear-gradient(160deg, #1e2536 0%, #000000 100%)", foreground: "#FFFFFF" },
-            { value: "cream", label: "Crème", background: "#F8F6ED", foreground: "#1A1A2E" },
+            { value: "cream", label: "Crème", background: "#FFFFFF", foreground: "#1A1A2E" },
           ] as const).map((option) => (
             <button
               key={option.value}
@@ -112,7 +112,7 @@ export default function ApparenceTab({ userId, company, prefs }: Props) {
               <span>
                 <span className="block text-[12.5px] font-medium text-[#1A1A2E]">{option.label}</span>
                 <span className="block text-[10.5px] text-[#9CA3AF] mt-0.5">
-                  {option.value === "cream" ? "#F8F6ED" : "Dégradé actuel"}
+                  {option.value === "cream" ? "Blanc" : "Dégradé actuel"}
                 </span>
               </span>
             </button>

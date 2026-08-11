@@ -19,6 +19,7 @@ import {
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
 import { computePurchaseAmounts } from "@/lib/purchase-booking";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
@@ -81,6 +82,7 @@ const STATUS_META: Record<ReceiptStatus, { label: string; className: string }> =
 
 export default function ReceiptsManager({ dossierId }: { dossierId?: string } = {}) {
   const ownerId = useAccountOwnerId();
+  const { period: globalPeriod } = useGlobalPeriod();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +100,11 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
   const [confirmationForm, setConfirmationForm] = useState<ConfirmationForm | null>(null);
   const [booking, setBooking] = useState(false);
   const [mutating, setMutating] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setDateFrom(globalPeriod.start);
+    setDateTo(globalPeriod.end);
+  }, [globalPeriod.start, globalPeriod.end]);
 
   const load = useCallback(async () => {
     setLoading(true);

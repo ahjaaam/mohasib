@@ -1,240 +1,56 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
-import Link from "next/link";
-import { Bell, CheckCheck, CheckCircle2, Trash2, X } from "lucide-react";
-import PageHeader from "@/components/PageHeader";
-import { createClient } from "@/lib/supabase/client";
-import {
-  ensureAccountingAutomationGuideNotification,
-  markRead,
-  markAllRead,
-  dismissNotification,
-  deleteReadNotifications,
-  type Notification,
-} from "@/lib/notifications/actions";
-import toast from "react-hot-toast";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { getAttentionItems } from "@/lib/attention-center";
+import { GLOBAL_PERIOD_STORAGE_KEY, globalPeriodLabel, parseGlobalPeriod } from "@/lib/global-period";
+import { ensureAccountingAutomationGuideNotification, fetchAllNotifications } from "@/lib/notifications/actions";
+import type { Notification } from "@/lib/notifications/actions";
+import NotificationsInbox from "./NotificationsInbox";
 
-type Filter = "all" | "unread" | "high" | "archived";
+export default async function NotificationsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/connexion");
 
-const PAGE_SIZE = 20;
+  const ownerId = await resolveAccountOwnerId(user.id);
+  const cookieStore = await cookies();
+  const period = parseGlobalPeriod(cookieStore.get(GLOBAL_PERIOD_STORAGE_KEY)?.value);
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (minutes < 60) return `Il y a ${minutes || 1} min`;
-  if (hours < 24) return `Il y a ${hours}h`;
-  if (days < 7) return `Il y a ${days} jour${days > 1 ? "s" : ""}`;
-  return new Date(dateStr).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
-
-export default function NotificationsPage() {
-  const [all, setAll] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [page, setPage] = useState(1);
-  const [, startTransition] = useTransition();
-  const supabase = useMemo(() => createClient(), []);
-
-  useEffect(() => {
-    let active = true;
-
-    void (async () => {
-      try {
-        await ensureAccountingAutomationGuideNotification();
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data, error } = await supabase
-          .from("notifications")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-        if (active) setAll((data ?? []) as Notification[]);
-      } catch (error) {
-        console.error("Unable to load notifications", error);
-        if (active) toast.error("Impossible de charger les notifications pour le moment.");
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [supabase]);
-
-  function handleMarkAllRead() {
-    setAll((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    startTransition(() => { markAllRead(); });
+  try {
+    await ensureAccountingAutomationGuideNotification();
+  } catch {
+    // The inbox remains usable if the optional onboarding message cannot be created.
   }
 
-  function handleDismiss(id: string) {
-    setAll((prev) => prev.map((n) => n.id === id ? { ...n, is_dismissed: true, is_read: true } : n));
-    startTransition(() => { dismissNotification(id); });
-  }
-
-  function handleClick(n: Notification) {
-    setAll((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x));
-    startTransition(() => { markRead(n.id); });
-  }
-
-  async function handleDeleteRead() {
-    setAll((prev) => prev.filter((n) => !n.is_read));
-    await deleteReadNotifications();
-  }
-
-  const filtered = all.filter((n) => {
-    if (filter === "unread") return !n.is_read && !n.is_dismissed;
-    if (filter === "high") return n.priority === "high" && !n.is_dismissed;
-    if (filter === "archived") return n.is_dismissed;
-    return !n.is_dismissed;
-  });
-
-  const paginated = filtered.slice(0, page * PAGE_SIZE);
-  const hasMore = filtered.length > paginated.length;
-  const unreadCount = all.filter((n) => !n.is_read && !n.is_dismissed).length;
-
-  const FILTERS: { key: Filter; label: string }[] = [
-    { key: "all", label: "Toutes" },
-    { key: "unread", label: "Non lues" },
-    { key: "high", label: "Priorité haute" },
-    { key: "archived", label: "Archivées" },
-  ];
+  const [notifications, attentionItems] = await Promise.all([
+    fetchAllNotifications(),
+    getAttentionItems(ownerId, period),
+  ]);
+  const periodLabel = globalPeriodLabel(period);
+  const attentionMessages: Notification[] = attentionItems
+    .filter((item) => item.count > 0)
+    .map((item) => ({
+      id: `attention-${item.id}`,
+      user_id: user.id,
+      type: "attention_action",
+      title: `${item.title} · ${item.count}`,
+      message: `${item.description}\n${item.count} action${item.count > 1 ? "s" : ""} à traiter pour ${periodLabel}.`,
+      link: item.href,
+      is_read: true,
+      is_dismissed: false,
+      priority: item.severity === "critical" ? "high" : "normal",
+      unique_key: `attention-${item.id}`,
+      created_at: new Date().toISOString(),
+    }));
+  const inboxMessages = [...attentionMessages, ...notifications];
 
   return (
-    <div className="max-w-2xl">
-      <PageHeader
-        title="Notifications"
-        subtitle="Suivez les alertes et les activités importantes"
-        icon={<Bell size={18} />}
-      />
-
-      {/* Bulk actions */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="tabs">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              className={`tab ${filter === f.key ? "active" : ""}`}
-              onClick={() => { setFilter(f.key); setPage(1); }}
-            >
-              {f.label}
-              {f.key === "unread" && unreadCount > 0 && (
-                <span className="ml-1.5 text-[10px] bg-[#C8924A] text-white font-bold px-1.5 py-0.5 rounded-full">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              className="flex items-center gap-1 text-[11.5px] text-[#C8924A] hover:text-[#C8924A] transition-colors"
-            >
-              <CheckCheck size={13} />
-              Tout marquer comme lu
-            </button>
-          )}
-          <button
-            onClick={handleDeleteRead}
-            className="flex items-center gap-1 text-[11.5px] text-[#6B7280] hover:text-[#DC2626] transition-colors"
-          >
-            <Trash2 size={12} />
-            Supprimer les lues
-          </button>
-        </div>
-      </div>
-
-      {/* Loading */}
-      {loading && (
-        <div className="loading-state">Chargement des notifications…</div>
-      )}
-
-      {/* Empty state */}
-      {!loading && filtered.length === 0 && (
-        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl px-5 py-12 text-center">
-          <CheckCircle2 size={30} className="mx-auto mb-2 text-[#059669]" aria-hidden="true" />
-          <p className="text-[13px] font-medium text-[#6B7280]">Aucune notification</p>
-          <p className="text-[11.5px] text-[#9CA3AF] mt-1">
-            {filter === "unread" ? "Tout est lu !" : filter === "high" ? "Aucune alerte haute priorité" : "Rien ici pour l'instant"}
-          </p>
-        </div>
-      )}
-
-      {/* List */}
-      {!loading && paginated.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          {paginated.map((n) => {
-            const isHigh = n.priority === "high";
-            const inner = (
-              <div
-                className={`group relative flex items-start gap-3 rounded-xl border px-4 py-3 transition-all ${
-                  !n.is_read && !n.is_dismissed
-                    ? "bg-[#FEFDF9] border-[rgba(200,146,74,0.2)]"
-                    : "bg-white border-[rgba(0,0,0,0.07)]"
-                }`}
-                style={{ borderLeft: `3px solid ${isHigh ? "#DC2626" : "#E5E7EB"}` }}
-              >
-                {!n.is_read && !n.is_dismissed && (
-                  <div className="absolute top-3.5 right-9 w-1.5 h-1.5 rounded-full bg-[#C8924A]" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className={`text-[12.5px] leading-snug ${!n.is_read ? "font-semibold text-[#1A1A2E]" : "font-medium text-[#374151]"}`}>
-                      {n.title}
-                    </p>
-                    <span className="text-[10.5px] text-[#9CA3AF] whitespace-nowrap flex-shrink-0 mt-0.5">
-                      {timeAgo(n.created_at)}
-                    </span>
-                  </div>
-                  <p className="text-[11.5px] text-[#6B7280] mt-0.5 leading-snug">{n.message}</p>
-                  {n.link && !n.is_dismissed && (
-                    <span className="inline-block mt-1 text-[11px] text-[#C8924A] font-medium">Voir →</span>
-                  )}
-                </div>
-                {!n.is_dismissed && (
-                  <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDismiss(n.id); }}
-                    className="flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#9CA3AF] hover:text-[#DC2626]"
-                    title="Archiver"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-            );
-
-            if (n.link && !n.is_dismissed) {
-              return (
-                <Link key={n.id} href={n.link} onClick={() => handleClick(n)} className="block hover:no-underline">
-                  {inner}
-                </Link>
-              );
-            }
-            return <div key={n.id} onClick={() => handleClick(n)}>{inner}</div>;
-          })}
-        </div>
-      )}
-
-      {/* Load more */}
-      {hasMore && (
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            className="btn btn-outline"
-          >
-            Charger plus
-          </button>
-        </div>
-      )}
-    </div>
+    <NotificationsInbox
+      key={`${inboxMessages[0]?.id ?? "empty"}-${inboxMessages.length}-${notifications.filter((item) => !item.is_read).length}`}
+      initialNotifications={inboxMessages}
+    />
   );
 }

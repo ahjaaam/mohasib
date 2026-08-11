@@ -286,12 +286,51 @@ export async function markAllRead() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id);
+  const now = new Date().toISOString();
+  const { data: campaignNotifications } = await supabase
+    .from("notifications")
+    .select("campaign_id")
+    .eq("user_id", user.id)
+    .eq("is_read", false)
+    .not("campaign_id", "is", null);
+  await supabase.from("notifications").update({ is_read: true, read_at: now }).eq("user_id", user.id);
+  const campaignIds = [...new Set((campaignNotifications ?? []).map(item => item.campaign_id).filter(Boolean))];
+  if (campaignIds.length) {
+    const admin = createAdminClient();
+    await admin.from("notification_deliveries").update({ read_at: now })
+      .eq("user_id", user.id).eq("channel", "in_app").in("campaign_id", campaignIds);
+  }
 }
 
 export async function markRead(id: string) {
   const supabase = await createClient();
-  await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+  const now = new Date().toISOString();
+  const { data: notification } = await supabase.from("notifications").select("campaign_id,user_id").eq("id", id).maybeSingle();
+  await supabase.from("notifications").update({ is_read: true, read_at: now }).eq("id", id);
+  if (notification?.campaign_id) {
+    const admin = createAdminClient();
+    await admin.from("notification_deliveries").update({ read_at: now })
+      .eq("campaign_id", notification.campaign_id).eq("user_id", notification.user_id).eq("channel", "in_app");
+  }
+}
+
+export async function markClicked(id: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const now = new Date().toISOString();
+  const { data: notification } = await supabase
+    .from("notifications")
+    .select("campaign_id")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  await supabase.from("notifications").update({ clicked_at: now }).eq("id", id).eq("user_id", user.id);
+  if (notification?.campaign_id) {
+    const admin = createAdminClient();
+    await admin.from("notification_deliveries").update({ clicked_at: now })
+      .eq("campaign_id", notification.campaign_id).eq("user_id", user.id).eq("channel", "in_app");
+  }
 }
 
 export async function dismissNotification(id: string) {

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
@@ -21,6 +20,7 @@ import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 import AppTopBar from "@/components/AppTopBar";
 import SidebarToggleButton from "@/components/SidebarToggleButton";
+import SidebarLogo from "@/components/SidebarLogo";
 
 const SIDEBAR_BACKGROUND = "linear-gradient(160deg, #1e2536 0%, #000000 100%)";
 
@@ -90,7 +90,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
   const entitled = (feature?: PlanFeature) => !feature || entitlements.features[feature];
   const lightSidebar = sidebarTheme === "cream";
-  const sidebarBackground = lightSidebar ? "#F8F6ED" : SIDEBAR_BACKGROUND;
+  const sidebarBackground = lightSidebar ? "#FFFFFF" : SIDEBAR_BACKGROUND;
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
@@ -156,13 +156,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
     <>
       {/* Mohasib branding */}
       <div className={`h-16 flex-shrink-0 border-b flex items-center ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"} ${compact ? "justify-center px-0" : "px-[18px]"}`}>
-        {compact ? (
-          <Image src="/favicon.png" alt="Mohasib" width={28} height={28} className="object-contain" />
-        ) : (
-          <div>
-            <Image src={lightSidebar ? "/logo2.png" : "/logo.png"} alt="Mohasib" width={120} height={40} style={{ height: "auto" }} className="object-contain" />
-          </div>
-        )}
+        <SidebarLogo light={lightSidebar} compact={compact} />
       </div>
 
       {!isClientPortal && showContextBlock && !compact && (

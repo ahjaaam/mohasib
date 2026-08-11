@@ -46,6 +46,21 @@ export function AccountControls({
     try { await post(endpoint, body); } catch (error) { alert(error instanceof Error ? error.message : "Erreur"); setBusy(false); }
   };
   return <div className="space-y-4">
+    <section className="rounded-md border border-black/10 bg-white p-4">
+      <h2 className="text-sm font-bold">Identité du compte</h2>
+      <form className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-6" onSubmit={event => {
+        event.preventDefault();
+        void run(`/api/admin/accounts/${company.id}/identity`, Object.fromEntries(new FormData(event.currentTarget)));
+      }}>
+        <label className="text-[10.5px] font-semibold text-gray-600">Raison sociale<input name="raison_sociale" required defaultValue={company.raison_sociale ?? ""} className="input mt-1 text-xs" /></label>
+        <label className="text-[10.5px] font-semibold text-gray-600">Email de contact<input name="email" type="email" defaultValue={company.email ?? ""} className="input mt-1 text-xs" /></label>
+        <label className="text-[10.5px] font-semibold text-gray-600">Téléphone<input name="phone" defaultValue={company.phone ?? ""} className="input mt-1 text-xs" /></label>
+        <label className="text-[10.5px] font-semibold text-gray-600">ICE<input name="ice" defaultValue={company.ice ?? ""} className="input mt-1 text-xs" /></label>
+        <label className="text-[10.5px] font-semibold text-gray-600">IF<input name="if_number" defaultValue={company.if_number ?? ""} className="input mt-1 text-xs" /></label>
+        <label className="text-[10.5px] font-semibold text-gray-600">Ville<input name="city" defaultValue={company.city ?? ""} className="input mt-1 text-xs" /></label>
+        <button disabled={busy} className="rounded border border-black/15 px-3 py-2 text-xs font-bold sm:col-span-2 xl:col-span-6">Mettre à jour l’identité</button>
+      </form>
+    </section>
     <section className="rounded-md border border-[#C8924A]/30 bg-white p-4 shadow-sm">
       <div>
         <h2 className="text-sm font-bold">Droits et limites du compte</h2>
@@ -121,6 +136,19 @@ export function AccountControls({
       }}>
         {!company.is_suspended && <input name="reason" required placeholder="Motif de suspension" className="input flex-1 text-xs" />}
         <button disabled={busy} className={`rounded px-3 py-2 text-xs font-bold text-white ${company.is_suspended ? "bg-emerald-600" : "bg-red-600"}`}>{company.is_suspended ? "Réactiver le compte" : "Suspendre le compte"}</button>
+      </form>
+    </section>
+    <section className="rounded-md border border-black/10 bg-white p-4">
+      <h2 className="text-sm font-bold">Pilotage interne</h2>
+      <p className="mt-1 text-[11px] text-gray-500">Classez le compte, assignez un responsable et signalez les comptes à risque.</p>
+      <form className="mt-3 grid gap-3 sm:grid-cols-3" onSubmit={event => {
+        event.preventDefault();
+        void run(`/api/admin/accounts/${company.id}/metadata`, Object.fromEntries(new FormData(event.currentTarget)));
+      }}>
+        <label className="text-[10.5px] font-semibold text-gray-600">Étape du cycle<select name="lifecycle_stage" defaultValue={company.lifecycle_stage ?? "active"} className="input mt-1 text-xs"><option value="lead">Lead</option><option value="onboarding">Onboarding</option><option value="active">Actif</option><option value="at_risk">À risque</option><option value="churned">Perdu</option><option value="archived">Archivé</option></select></label>
+        <label className="text-[10.5px] font-semibold text-gray-600">Responsable interne<input name="admin_owner_email" type="email" defaultValue={company.admin_owner_email ?? ""} placeholder="responsable@mohasibai.com" className="input mt-1 text-xs" /></label>
+        <label className="text-[10.5px] font-semibold text-gray-600">Tags (séparés par virgules)<input name="admin_tags" defaultValue={(company.admin_tags ?? []).join(", ")} placeholder="vip, onboarding, paiement" className="input mt-1 text-xs" /></label>
+        <button disabled={busy} className="rounded border border-black/15 px-3 py-2 text-xs font-bold sm:col-span-3">Enregistrer le pilotage</button>
       </form>
     </section>
   </div>;

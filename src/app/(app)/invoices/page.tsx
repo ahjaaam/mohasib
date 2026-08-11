@@ -13,6 +13,7 @@ import {
 import type { Invoice, InvoiceStatus, PartialPayment, DevisStatus } from "@/types";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 import TableBulkActions from "@/components/TableBulkActions";
 import TableSelectionCheckbox from "@/components/TableSelectionCheckbox";
@@ -659,6 +660,7 @@ type PageMode = "factures" | "avoirs" | "devis";
 export default function InvoicesPage({ dossierId: propDossierId, initialMode, facturesTitle = "Factures" }: { dossierId?: string; initialMode?: PageMode; facturesTitle?: string } = {}) {
   const entitlements = usePlanEntitlements();
   const ownerId = useAccountOwnerId();
+  const { period: globalPeriod } = useGlobalPeriod();
   const searchParams = useSearchParams();
   const requestedSearch = searchParams.get("q") ?? "";
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
@@ -678,6 +680,11 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const supabase = createClient();
+
+  useEffect(() => {
+    setDateFrom(globalPeriod.start);
+    setDateTo(globalPeriod.end);
+  }, [globalPeriod.start, globalPeriod.end]);
 
   async function load() {
     if (!ownerId) {

@@ -8,6 +8,46 @@ export async function adminContext() {
   return { user, admin: createAdminClient() };
 }
 
+export type AdminNavigationCounts = Partial<Record<
+  "signups" | "requests" | "support" | "waitlist",
+  number
+>>;
+
+export async function adminNavigationCounts(): Promise<AdminNavigationCounts> {
+  const admin = createAdminClient();
+  const [signups, upgrades, customRequests, support, waitlist] = await Promise.all([
+    admin
+      .from("fiduciaire_waitlist")
+      .select("id", { count: "exact", head: true })
+      .eq("request_kind", "signup")
+      .eq("status", "pending"),
+    admin
+      .from("upgrade_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "nouveau"),
+    admin
+      .from("custom_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "nouveau"),
+    admin
+      .from("support_tickets")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "nouveau"),
+    admin
+      .from("fiduciaire_waitlist")
+      .select("id", { count: "exact", head: true })
+      .eq("request_kind", "demo")
+      .eq("status", "pending"),
+  ]);
+
+  return {
+    signups: signups.count ?? 0,
+    requests: (upgrades.count ?? 0) + (customRequests.count ?? 0),
+    support: support.count ?? 0,
+    waitlist: waitlist.count ?? 0,
+  };
+}
+
 export async function authUserMap() {
   const admin = createAdminClient();
   const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -18,6 +58,7 @@ export async function authUserMap() {
 }
 
 export function accountStatus(company: Record<string, unknown>) {
+  if (company.lifecycle_stage === "archived") return "archived";
   if (company.is_suspended) return "suspended";
   if (company.subscription_status) return String(company.subscription_status);
   const trialEnd = company.trial_ends_at ? new Date(String(company.trial_ends_at)) : null;

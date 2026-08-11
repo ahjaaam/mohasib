@@ -24,6 +24,7 @@ export default function robots(): MetadataRoute.Robots {
           "/ressources/outils/",
           "/dashboard",
           "/settings",
+          "/journal-audit",
           "/inbox",
           "/invoices",
           "/transactions",

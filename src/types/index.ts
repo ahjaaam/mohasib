@@ -136,6 +136,13 @@ export interface OcrData {
   document_type?: "invoice" | "receipt" | "purchase_order" | "delivery_note" | "avoir" | "bank_statement" | "other" | null;
   montant_paye?: number | null;
   payment_status?: string | null;
+  amount_ht?: number | null;
+  amount_ttc?: number | null;
+  invoice_number?: string | null;
+  supplier_ice?: string | null;
+  supplier_if?: string | null;
+  supplier_rib?: string | null;
+  supplier_iban?: string | null;
 }
 
 export interface Receipt {
@@ -150,6 +157,20 @@ export interface Receipt {
   ocr_data: OcrData;
   created_at: string;
   updated_at: string;
+  control_status?: "review" | "recorded" | "paid";
+  approval_status?: "not_requested" | "pending" | "approved" | "rejected";
+  approver_id?: string | null;
+  approval_requested_by?: string | null;
+  approval_requested_at?: string | null;
+  approval_decided_at?: string | null;
+  approval_note?: string | null;
+  control_checks?: Array<{
+    code: string;
+    severity: "info" | "warning" | "critical";
+    title: string;
+    message: string;
+    relatedReceiptId?: string;
+  }>;
 }
 
 export type TransactionType = "income" | "expense";

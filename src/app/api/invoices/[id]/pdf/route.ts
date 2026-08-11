@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
-import sizeOf from "image-size";
+import sharp from "sharp";
 import { requirePlanFeature } from "@/lib/api-plan";
 
 // Invoices created inside a dossier are owned (invoices.user_id) by the
@@ -57,7 +57,7 @@ async function buildInput(inv: any, company: any) {
 
         // Get natural dimensions and scale to fit max bounding box
         try {
-          const dims = sizeOf(buffer);
+          const dims = await sharp(buffer).metadata();
           if (dims.width && dims.height) {
             const MAX_WIDTH = 180;
             const MAX_HEIGHT = 80;

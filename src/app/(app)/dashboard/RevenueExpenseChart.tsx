@@ -1,6 +1,4 @@
 "use client";
-
-import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -30,33 +28,18 @@ function exactMad(value: number) {
   return `${value.toLocaleString("fr-MA", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} MAD`;
 }
 
-type ChartRange = "month" | 6 | 12;
-
 export default function RevenueExpenseChart({
-  monthlyData,
-  dailyData,
+  data,
+  periodLabel,
 }: {
-  monthlyData: FinanceChartPoint[];
-  dailyData: FinanceChartPoint[];
+  data: FinanceChartPoint[];
+  periodLabel: string;
 }) {
-  const [range, setRange] = useState<ChartRange>(6);
-  const isDailyRange = range === "month";
-  const visibleData = isDailyRange ? dailyData : monthlyData.slice(-range);
-  const ranges: { value: ChartRange; label: string }[] = [
-    { value: "month", label: "Ce mois" },
-    { value: 6, label: "6 mois" },
-    { value: 12, label: "12 mois" },
-  ];
-
   return (
     <div
       className="h-[142px] border border-[rgba(0,0,0,0.08)] bg-white p-3"
       role="region"
-      aria-label={
-        isDailyRange
-          ? "Évolution quotidienne des revenus et des dépenses pour le mois en cours"
-          : `Comparaison mensuelle des revenus et des dépenses sur ${range} mois`
-      }
+      aria-label={`Revenus et dépenses pour ${periodLabel}`}
     >
       <div className="mb-2 flex h-5 items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-[10px] font-medium text-[#6B7280]">
@@ -70,29 +53,15 @@ export default function RevenueExpenseChart({
           </span>
         </div>
 
-        <div className="flex h-5 items-center border border-[#E5E7EB] bg-[#F7F7F5] p-px">
-          {ranges.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setRange(value)}
-              className={`h-4 min-h-0 px-2 text-[9px] font-semibold leading-none ${
-                range === value ? "bg-[#0D1526] text-white" : "bg-transparent text-[#6B7280]"
-              }`}
-              aria-pressed={range === value}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <span className="max-w-[130px] truncate text-[9px] font-semibold text-[#8A5E25]">{periodLabel}</span>
       </div>
 
       <div className="h-[90px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={visibleData}
-            barCategoryGap={isDailyRange ? "22%" : "34%"}
-            barGap={isDailyRange ? 1 : 2}
+            data={data}
+            barCategoryGap="28%"
+            barGap={1}
             margin={{ top: 3, right: 4, bottom: 0, left: -13 }}
           >
             <CartesianGrid vertical={false} stroke="#E9E8E3" strokeDasharray="2 4" />
@@ -100,7 +69,7 @@ export default function RevenueExpenseChart({
               dataKey="label"
               axisLine={false}
               tickLine={false}
-              interval={isDailyRange ? 4 : range === 12 ? 1 : 0}
+              interval={data.length > 16 ? 2 : data.length > 9 ? 1 : 0}
               tick={{ fill: "#6B7280", fontSize: 9 }}
             />
             <YAxis
@@ -118,7 +87,7 @@ export default function RevenueExpenseChart({
                 exactMad(Number(value)),
                 name === "revenue" ? "Revenus" : "Dépenses",
               ]}
-              labelFormatter={(label) => (isDailyRange ? `Jour ${label}` : label)}
+              labelFormatter={(label) => label}
               labelStyle={{ color: "#1A1A2E", fontSize: 11, fontWeight: 600 }}
               contentStyle={{
                 border: "1px solid rgba(0,0,0,0.10)",
@@ -128,8 +97,8 @@ export default function RevenueExpenseChart({
                 padding: "7px 9px",
               }}
             />
-            <Bar dataKey="revenue" fill="#C8924A" maxBarSize={isDailyRange ? 8 : 18} />
-            <Bar dataKey="expenses" fill="#0D1526" maxBarSize={isDailyRange ? 8 : 18} />
+            <Bar dataKey="revenue" fill="#C8924A" maxBarSize={14} />
+            <Bar dataKey="expenses" fill="#0D1526" maxBarSize={14} />
           </BarChart>
         </ResponsiveContainer>
       </div>

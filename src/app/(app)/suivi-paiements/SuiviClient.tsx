@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import { createClient } from "@/lib/supabase/client";
 import {
   TrendingUp, TrendingDown, AlertCircle, X, Loader2,
@@ -993,6 +994,7 @@ export default function SuiviClient({
   companyName = null,
 }: SuiviClientProps) {
   const ownerId = useAccountOwnerId();
+  const { period: globalPeriod } = useGlobalPeriod();
   const [clientInvoices, setClientInvoices] = useState(initClients);
   const [supplierItems, setSupplierItems] = useState(initSuppliers);
   const [mainTab, setMainTab] = useState<"clients" | "suppliers">("clients");
@@ -1004,6 +1006,11 @@ export default function SuiviClient({
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  useEffect(() => {
+    setDateFrom(globalPeriod.start);
+    setDateTo(globalPeriod.end);
+  }, [globalPeriod.start, globalPeriod.end]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const weekStr = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);

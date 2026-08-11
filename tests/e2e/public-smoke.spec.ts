@@ -19,9 +19,13 @@ test("public pages and authentication entry points render", async ({ page }) => 
 
 test("workflows page is public and explains the core processes", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Workflows", exact: true })).toBeVisible();
+  const workflowsLink = page.getByRole("link", { name: "Workflows", exact: true });
+  if (!await workflowsLink.isVisible()) {
+    await page.getByRole("button", { name: "Ouvrir le menu" }).click();
+  }
+  await expect(workflowsLink).toBeVisible();
 
-  await page.goto("/workflows");
+  await workflowsLink.click();
   await expect(page).toHaveURL(/\/workflows$/);
   await expect(page.getByRole("heading", { name: /Mohasib exécute/i })).toBeVisible();
   await expect(page.locator("body")).toContainText(/Rapprochement bancaire/i);

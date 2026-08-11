@@ -24,7 +24,7 @@ function formatDate(value: string) {
   });
 }
 
-export default function AuditLogTab({ logs }: { logs: AuditLogRow[] }) {
+export default function AuditLogTab({ logs, hideHeading = false }: { logs: AuditLogRow[]; hideHeading?: boolean }) {
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -64,11 +64,11 @@ export default function AuditLogTab({ logs }: { logs: AuditLogRow[] }) {
 
   return (
     <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.06)] flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <div>
+      <div className={`px-4 py-3 border-b border-[rgba(0,0,0,0.06)] flex flex-col sm:flex-row gap-3 sm:items-center ${hideHeading ? "sm:justify-end" : "sm:justify-between"}`}>
+        {!hideHeading && <div>
           <h2 className="text-[14px] font-semibold text-[#1A1A2E]">Journal d&apos;audit</h2>
           <p className="text-[11.5px] text-[#6B7280] mt-0.5">Dernières actions tracées sur le compte.</p>
-        </div>
+        </div>}
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />

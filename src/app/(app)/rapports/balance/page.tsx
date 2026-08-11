@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AlertTriangle, BarChart2, Check, CheckCircle2, Download } from "lucide-react";
 import { getAccountLabel, getAccountClass, getAccountClassName } from "@/lib/cgnc-mapping";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,11 +45,17 @@ function fmtSolde(n: number) {
 
 export default function BalancePage() {
   const ownerId = useAccountOwnerId();
+  const { period: globalPeriod } = useGlobalPeriod();
   const supabase = createClient();
   const [groups, setGroups]   = useState<ClassGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
+
+  useEffect(() => {
+    setDateFrom(globalPeriod.start);
+    setDateTo(globalPeriod.end);
+  }, [globalPeriod.start, globalPeriod.end]);
 
   const load = useCallback(async () => {
     setLoading(true);

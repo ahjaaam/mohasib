@@ -10,6 +10,7 @@ import BankImportModal from "./BankImportModal";
 import AllocateTransactionModal from "./AllocateTransactionModal";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
@@ -26,6 +27,7 @@ function sourceLabel(source: Transaction["source"] | null | undefined) {
 
 export default function TransactionsPage({ dossierId: propDossierId }: { dossierId?: string } = {}) {
   const ownerId = useAccountOwnerId();
+  const { period: globalPeriod } = useGlobalPeriod();
   const entitlements = usePlanEntitlements();
   const searchParams = useSearchParams();
   const requestedSearch = searchParams.get("search") ?? "";
@@ -48,6 +50,11 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [filterTo, setFilterTo] = useState("");
   const [sortKey, setSortKey] = useState<TransactionSortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  useEffect(() => {
+    setFilterFrom(globalPeriod.start);
+    setFilterTo(globalPeriod.end);
+  }, [globalPeriod.start, globalPeriod.end]);
 
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
   const supabase = createClient();

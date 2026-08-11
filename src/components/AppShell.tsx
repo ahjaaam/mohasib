@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
@@ -23,6 +22,7 @@ import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 import AppTopBar from "@/components/AppTopBar";
 import SidebarToggleButton from "@/components/SidebarToggleButton";
+import SidebarLogo from "@/components/SidebarLogo";
 
 const SIDEBAR_BACKGROUND = "linear-gradient(160deg, #1e2536 0%, #000000 100%)";
 
@@ -204,7 +204,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
     rapprochement: Number(accountState.trial_rapprochement_sessions_used ?? 0),
   } : null;
   const lightSidebar = sidebarTheme === "cream";
-  const sidebarBackground = lightSidebar ? "#F8F6ED" : SIDEBAR_BACKGROUND;
+  const sidebarBackground = lightSidebar ? "#FFFFFF" : SIDEBAR_BACKGROUND;
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -218,13 +218,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
     <>
       {/* Header */}
       <div className={`h-16 flex-shrink-0 border-b flex items-center ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"} ${sidebarCollapsed ? "justify-center px-0" : "px-[18px]"}`}>
-        {sidebarCollapsed ? (
-          <Image src="/favicon.png" alt="Mohasib" width={28} height={28} className="object-contain" />
-        ) : (
-          <div>
-            <Image src={lightSidebar ? "/logo2.png" : "/logo.png"} alt="Mohasib" width={120} height={40} style={{ height: "auto" }} className="object-contain" />
-          </div>
-        )}
+        <SidebarLogo light={lightSidebar} compact={sidebarCollapsed} />
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">

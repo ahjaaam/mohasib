@@ -28,8 +28,8 @@
   --space-card: 24px;
   --space-section: 28px;
   --shadow-surface: none;
-  --shadow-raised: 0 2px 8px rgba(13,21,38,0.08);
-  --shadow-floating: 0 16px 40px rgba(13,21,38,0.16);
+  --shadow-raised: none;
+  --shadow-floating: none;
 }
 
 @layer base {
@@ -652,4 +652,24 @@ select:not([multiple]):not([size]):not(.select-arrow-none) {
 
 select.select-arrow-none {
   background-image: none;
+}
+
+/*
+ * Flat interface: cards, controls, menus, dialogs, and future Tailwind shadow
+ * utilities render without elevation. Focus-visible is excluded so keyboard
+ * focus rings that rely on box-shadow remain accessible.
+ */
+*,
+*::before,
+*::after {
+  --tw-shadow: 0 0 #0000 !important;
+  --tw-shadow-colored: 0 0 #0000 !important;
+}
+
+*:not(:focus-visible),
+*::before,
+*::after,
+input[type="range"]::-webkit-slider-thumb,
+input[type="range"]::-moz-range-thumb {
+  box-shadow: none !important;
 }

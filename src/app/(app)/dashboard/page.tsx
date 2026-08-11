@@ -8,9 +8,16 @@ import type { Invoice, Transaction } from "@/types";
 import DashboardNews from "./DashboardNews";
 import DashboardGreeting from "./DashboardGreeting";
 import { getMonthlyUsage } from "@/lib/usage";
-import RevenueExpenseChart, { type FinanceChartPoint } from "./RevenueExpenseChart";
+import RevenueExpenseChart from "./RevenueExpenseChart";
 import { getPlanEntitlements } from "@/lib/plan-entitlements";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import {
+  GLOBAL_PERIOD_STORAGE_KEY,
+  globalPeriodLabel,
+  parseGlobalPeriod,
+} from "@/lib/global-period";
+import { buildFinanceChartData } from "@/lib/finance-chart";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -48,6 +55,9 @@ function isSupplierPaid(item: any) {
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+  const cookieStore = await cookies();
+  const selectedPeriod = parseGlobalPeriod(cookieStore.get(GLOBAL_PERIOD_STORAGE_KEY)?.value);
+  const selectedPeriodLabel = globalPeriodLabel(selectedPeriod);
   const { data: { user } } = await supabase.auth.getUser();
   const entitlements = await getPlanEntitlements(user!.id);
   if (entitlements.plan === "free") redirect("/invoices");
@@ -61,22 +71,30 @@ export default async function DashboardPage() {
   const companyId = companyRes.data?.id ?? null;
   const company = companyRes.data;
   const now = new Date();
-  const chartStartDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-  const chartStart = `${chartStartDate.getFullYear()}-${String(chartStartDate.getMonth() + 1).padStart(2, "0")}-01`;
 
-  const [invoicesRes, transactionsRes, chartTransactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes, prefsRes] = await Promise.all([
-    supabase.from("invoices").select("*, clients(id,name)").eq("user_id", ownerId).is("dossier_id", null)
-      .or("invoice_type.is.null,invoice_type.eq.facture")
-      .order("created_at", { ascending: false }).limit(10),
-    supabase.from("transactions").select("*").eq("user_id", ownerId).is("dossier_id", null)
-      .order("date", { ascending: false }).limit(10),
-    supabase.from("transactions").select("date, type, amount").eq("user_id", ownerId).is("dossier_id", null)
-      .gte("date", chartStart).order("date", { ascending: true }),
+  let invoiceQuery = supabase.from("invoices").select("*, clients(id,name)").eq("user_id", ownerId).is("dossier_id", null)
+    .or("invoice_type.is.null,invoice_type.eq.facture");
+  let transactionQuery = supabase.from("transactions").select("*").eq("user_id", ownerId).is("dossier_id", null);
+  let pendingQuery = supabase.from("invoices").select("total, status, due_date, montant_recu").eq("user_id", ownerId).is("dossier_id", null).in("status", ["sent", "overdue"]);
+  let tvaQuery = supabase.from("invoices").select("tax_amount").eq("user_id", ownerId).is("dossier_id", null).in("status", ["paid", "sent"]);
+  let supplierQuery = supabase.from("receipts").select("id, status, ocr_data, created_at").eq("user_id", ownerId).is("dossier_id", null).eq("status", "matched");
+
+  if (selectedPeriod.start && selectedPeriod.end) {
+    invoiceQuery = invoiceQuery.gte("issue_date", selectedPeriod.start).lte("issue_date", selectedPeriod.end);
+    transactionQuery = transactionQuery.gte("date", selectedPeriod.start).lte("date", selectedPeriod.end);
+    pendingQuery = pendingQuery.gte("issue_date", selectedPeriod.start).lte("issue_date", selectedPeriod.end);
+    tvaQuery = tvaQuery.gte("issue_date", selectedPeriod.start).lte("issue_date", selectedPeriod.end);
+    supplierQuery = supplierQuery.gte("created_at", `${selectedPeriod.start}T00:00:00`).lte("created_at", `${selectedPeriod.end}T23:59:59.999Z`);
+  }
+
+  const [invoicesRes, periodTransactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes, prefsRes] = await Promise.all([
+    invoiceQuery.order("issue_date", { ascending: false }).limit(10),
+    transactionQuery.order("date", { ascending: true }),
     supabase.from("clients").select("id", { count: "exact" }).eq("user_id", ownerId).is("dossier_id", null),
     supabase.from("users").select("full_name").eq("id", user!.id).single(),
-    supabase.from("invoices").select("total, status, due_date, montant_recu").eq("user_id", ownerId).is("dossier_id", null).in("status", ["sent", "overdue"]),
-    supabase.from("invoices").select("tax_amount").eq("user_id", ownerId).is("dossier_id", null).in("status", ["paid", "sent"]),
-    supabase.from("receipts").select("id, status, ocr_data").eq("user_id", ownerId).is("dossier_id", null).eq("status", "matched"),
+    pendingQuery,
+    tvaQuery,
+    supplierQuery,
     supabase.from("user_preferences").select("dashboard_deadlines").eq("user_id", ownerId).maybeSingle(),
   ]);
 
@@ -84,13 +102,12 @@ export default async function DashboardPage() {
   const showUsageWarning = usageData && usageData.used / usageData.limit >= 0.8;
 
   const invoices: Invoice[] = invoicesRes.data ?? [];
-  const transactions: Transaction[] = transactionsRes.data ?? [];
+  const periodTransactions: Transaction[] = periodTransactionsRes.data ?? [];
+  const transactions = [...periodTransactions].reverse().slice(0, 10);
   const clientCount = clientCountRes.count ?? 0;
   const firstName = profileRes.data?.full_name?.split(" ")[0] ?? "vous";
 
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-
-  const revenue = transactions.filter((t) => t.type === "income" && t.date >= monthStart)
+  const revenue = periodTransactions.filter((t) => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
   const pendingInvs = pendingRes.data ?? [];
   const pendingTotal = pendingInvs.reduce((s, i) => s + Number(i.total), 0);
@@ -115,45 +132,7 @@ export default async function DashboardPage() {
     const dueDate = item.ocr_data?.due_date;
     return dueDate && dueDate < todayStr;
   });
-
-  const chartData: FinanceChartPoint[] = Array.from({ length: 12 }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - 11 + index, 1);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const monthTransactions = (chartTransactionsRes.data ?? []).filter((transaction) => transaction.date.slice(0, 7) === key);
-    const monthRevenue = monthTransactions
-      .filter((transaction) => transaction.type === "income")
-      .reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount)), 0);
-    const monthExpenses = monthTransactions
-      .filter((transaction) => transaction.type === "expense")
-      .reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount)), 0);
-    return {
-      key,
-      label: date.toLocaleDateString("fr-MA", { month: "short" }).replace(".", ""),
-      revenue: monthRevenue,
-      expenses: monthExpenses,
-      net: monthRevenue - monthExpenses,
-    };
-  });
-  const dailyChartData: FinanceChartPoint[] = Array.from({ length: now.getDate() }, (_, index) => {
-    const day = index + 1;
-    const key = `${monthStart.slice(0, 8)}${String(day).padStart(2, "0")}`;
-    const dayTransactions = (chartTransactionsRes.data ?? []).filter(
-      (transaction) => transaction.date.slice(0, 10) === key,
-    );
-    const dayRevenue = dayTransactions
-      .filter((transaction) => transaction.type === "income")
-      .reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount)), 0);
-    const dayExpenses = dayTransactions
-      .filter((transaction) => transaction.type === "expense")
-      .reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount)), 0);
-    return {
-      key,
-      label: String(day),
-      revenue: dayRevenue,
-      expenses: dayExpenses,
-      net: dayRevenue - dayExpenses,
-    };
-  });
+  const chartData = buildFinanceChartData(periodTransactions, selectedPeriod);
 
   return (
     <div>
@@ -181,7 +160,7 @@ export default async function DashboardPage() {
         {/* Revenus et dépenses */}
         <div>
           <SectionLabel>Revenus et dépenses</SectionLabel>
-          <RevenueExpenseChart monthlyData={chartData} dailyData={dailyChartData} />
+          <RevenueExpenseChart data={chartData} periodLabel={selectedPeriodLabel} />
         </div>
 
         {/* Prochaines échéances */}
@@ -200,11 +179,9 @@ export default async function DashboardPage() {
         <SectionLabel>Vue d&apos;ensemble</SectionLabel>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
           <div className="kpi">
-            <div className="kpi-label">CA ce mois</div>
+            <div className="kpi-label">Chiffre d&apos;affaires</div>
             <div className="kpi-value">{fmt(revenue)}</div>
-            <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
-              <span className="tag tag-up">+12%</span> vs mois préc.
-            </div>
+            <div className="truncate text-[11px] text-[#6B7280]" title={selectedPeriodLabel}>{selectedPeriodLabel}</div>
           </div>
           <div className="kpi">
             <div className="kpi-label">Factures en attente</div>
@@ -271,7 +248,7 @@ export default async function DashboardPage() {
 
       {/* Two-column tables */}
       <div>
-        <SectionLabel>Factures récentes</SectionLabel>
+        <SectionLabel>Activité · {selectedPeriodLabel}</SectionLabel>
         <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-3">
           {/* Invoices */}
           <div className="tbl">

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
 import { Resend } from "resend";
-import sizeOf from "image-size";
+import sharp from "sharp";
 import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
 import { authorizePermission } from "@/lib/api-permissions";
 import { createVersion, getDiff, logAccountingEvent, logAudit } from "@/lib/audit";
@@ -108,7 +108,7 @@ export async function POST(
           logoBase64 = buffer.toString("base64");
           logoMimeType = res.headers.get("content-type") ?? "image/png";
           try {
-            const dims = sizeOf(buffer);
+            const dims = await sharp(buffer).metadata();
             if (dims.width && dims.height) {
               const ratio = Math.min(180 / dims.width, 80 / dims.height, 1);
               logoWidthPx = Math.round(dims.width * ratio);

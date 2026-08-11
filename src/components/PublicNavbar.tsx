@@ -167,7 +167,7 @@ export default function PublicNavbar() {
             </Link>
 
             <Link href={invoicingUrl("/")} className="public-nav-link">
-              Outil de facturation
+              Facturation
             </Link>
 
             <a href={ROADMAP_URL} className="public-nav-link" target="_blank" rel="noreferrer">
@@ -205,7 +205,7 @@ export default function PublicNavbar() {
             </Link>
 
             <Link href={invoicingUrl("/")} className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
-              Outil de facturation
+              Facturation
             </Link>
 
             <a

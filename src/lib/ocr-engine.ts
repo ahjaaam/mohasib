@@ -127,6 +127,8 @@ Extract:
 11. document_type: Classify as "invoice", "receipt" (including ticket/reçu), "purchase_order" (bon de commande), "delivery_note" (bon de livraison), "avoir", "bank_statement", or "other". Use "avoir" for a credit note / avoir fournisseur (keywords: AVOIR, Note de crédit, Credit Note, Avoir N°, rectificatif).
 12. due_date: Payment due date — look for: "Date d'échéance", "Payable avant", "À régler avant", "Due date", "Net 30/60", "Échéance", "Paiement à X jours" (add X days to invoice date). Format: DD/MM/YYYY. If no due date/payment term is found, default to invoice date + 60 days.
 13. is_supplier_invoice: true if this document was issued BY a supplier TO you (you are the buyer/recipient — check the "À:" section). true for receipts/tickets. false if your company is in the "De:" section (it's your own invoice). Default: true.
+14. supplier_ice and supplier_if: Moroccan supplier tax identifiers when visible.
+15. supplier_rib and supplier_iban: Supplier payment details when printed on the document. Never infer or invent them.
 
 IMPORTANT RULES:
 - If you can only read SOME fields, return what you can
@@ -166,6 +168,10 @@ Return ONLY this JSON, nothing else:
   "category": {"value": "...", "confidence": "high|medium|low"},
   "due_date": {"value": "DD/MM/YYYY or null", "confidence": "high|medium|low"},
   "is_supplier_invoice": {"value": true, "confidence": "high|medium|low"},
+  "supplier_ice": {"value": "... or null", "confidence": "high|medium|low"},
+  "supplier_if": {"value": "... or null", "confidence": "high|medium|low"},
+  "supplier_rib": {"value": "... or null", "confidence": "high|medium|low"},
+  "supplier_iban": {"value": "... or null", "confidence": "high|medium|low"},
   "document_type": "invoice|receipt|purchase_order|delivery_note|avoir|bank_statement|other",
   "overall_confidence": "high|medium|low",
   "extraction_notes": "Any issues noticed with the document"
@@ -182,6 +188,7 @@ Extract the invoice/receipt data from this text. Follow the same rules as for vi
 For TVA, search for labels like "TVA", "Taux TVA", "Montant TVA", "Taxe", "VAT", "Total TVA". If HT and TTC are visible, infer the rate. If no rate is visible or inferable, default tva_rate to 20.
 For due_date, search for "Échéance", "Date d'échéance", "Payable avant", "Net 30/60", "Paiement à X jours". If missing, default to invoice date + 60 days.
 For description, generate a clean French bookkeeping label. Do not copy the raw "Désignation" line. Examples: "Achat fournitures de bureau — Facture F2026-018", "Prestation télécom internet — juillet 2026", "Loyer professionnel — Quittance juillet 2026".
+Extract the supplier ICE, IF, RIB and IBAN when explicitly present. Never infer banking details.
 
 Return ONLY this JSON, nothing else:
 {
@@ -197,6 +204,10 @@ Return ONLY this JSON, nothing else:
   "category": {"value": "Achats|Salaires|Loyer|Fournitures|Transport|Communication|Fiscalité|Autre dépense", "confidence": "high|medium|low"},
   "due_date": {"value": "DD/MM/YYYY or null", "confidence": "high|medium|low"},
   "is_supplier_invoice": {"value": true, "confidence": "high|medium|low"},
+  "supplier_ice": {"value": "... or null", "confidence": "high|medium|low"},
+  "supplier_if": {"value": "... or null", "confidence": "high|medium|low"},
+  "supplier_rib": {"value": "... or null", "confidence": "high|medium|low"},
+  "supplier_iban": {"value": "... or null", "confidence": "high|medium|low"},
   "document_type": "invoice|receipt|purchase_order|delivery_note|avoir|bank_statement|other",
   "overall_confidence": "high|medium|low",
   "extraction_notes": "..."
@@ -224,7 +235,7 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
   function conf(f: any): string | undefined { return (typeof f === "object" && f !== null) ? f.confidence : undefined; }
 
   const fieldConf: Record<string, string> = {};
-  for (const k of ["vendor_name", "date", "amount_ttc", "tva_rate", "tva_amount", "amount_ht", "description", "category", "payment_method", "invoice_number", "due_date", "is_supplier_invoice"]) {
+  for (const k of ["vendor_name", "date", "amount_ttc", "tva_rate", "tva_amount", "amount_ht", "description", "category", "payment_method", "invoice_number", "due_date", "is_supplier_invoice", "supplier_ice", "supplier_if", "supplier_rib", "supplier_iban"]) {
     const c = conf(raw[k]);
     if (c) fieldConf[k] = c;
   }
@@ -259,6 +270,7 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
     vendor:      vendorName,
     date:        invoiceDate,
     amount:      amountTtc != null ? -amountTtc : null,
+    amount_ttc:  amountTtc,
     tva_rate:    tvaRate,
     tva_amount:  tvaAmount,
     amount_ht:   amountHt,
@@ -269,6 +281,10 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
     due_date:       dueDate,
     due_date_confidence: dueDateConfidence,
     is_supplier_invoice: val(raw.is_supplier_invoice) ?? true,
+    supplier_ice: val(raw.supplier_ice) ?? null,
+    supplier_if: val(raw.supplier_if) ?? null,
+    supplier_rib: val(raw.supplier_rib) ?? null,
+    supplier_iban: val(raw.supplier_iban) ?? null,
     document_type:  raw.document_type ?? null,
     overall_confidence: overall,
     confidence: overall === "high" ? 0.9 : overall === "medium" ? 0.6 : 0.3,
@@ -295,7 +311,11 @@ async function extractPDFText(buffer: Buffer): Promise<string> {
     const getDocument = pdfjsLib.getDocument ?? pdfjsLib.default?.getDocument;
     if (!getDocument) return "";
 
-    const pdf = await getDocument({ data: new Uint8Array(buffer), useWorkerFetch: false }).promise;
+    const pdf = await getDocument({
+      data: new Uint8Array(buffer),
+      useWorkerFetch: false,
+      isEvalSupported: false,
+    }).promise;
     let text = "";
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);

@@ -16,6 +16,7 @@ import {
   LogOut,
   Menu,
   Search,
+  ScrollText,
   Settings,
   Sparkles,
   Truck,
@@ -24,9 +25,12 @@ import {
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import SupportTicketButton from "@/components/SupportTicketButton";
+import GlobalPeriodSelector from "@/components/GlobalPeriodSelector";
 import ChatInterface from "@/app/(app)/chat/ChatInterface";
 import type { GlobalSearchKind, GlobalSearchResult } from "@/lib/global-search";
 import { appUrl } from "@/lib/public-urls";
+import { usePermissions } from "@/hooks/usePermissions";
+import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 
 export type TopBarSearchItem = {
   href: string;
@@ -85,6 +89,8 @@ export default function AppTopBar({
   onSignOut,
 }: Props) {
   const router = useRouter();
+  const { isOwner } = usePermissions();
+  const entitlements = usePlanEntitlements();
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -375,6 +381,14 @@ export default function AppTopBar({
 
         {userId && <SupportTicketButton dossierId={dossierId} />}
 
+        {!guestMode && (
+          <GlobalPeriodSelector onOpen={() => {
+            setSearchOpen(false);
+            setProfileOpen(false);
+            setChatOpen(false);
+          }} />
+        )}
+
         {!invoicingOnly && <button
           type="button"
           onClick={() => {
@@ -445,6 +459,7 @@ export default function AppTopBar({
               </div>
               <Link
                 href={settingsHref}
+                onClick={() => setProfileOpen(false)}
                 className="mt-1.5 flex items-center gap-2.5 px-2 py-2 text-[12.5px] text-[#303644] transition-colors hover:bg-[#F4F3ED]"
               >
                 <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
@@ -455,6 +470,19 @@ export default function AppTopBar({
                   <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Profil, entreprise et préférences</span>
                 </span>
               </Link>
+              {isOwner && entitlements.plan !== "free" && <Link
+                href="/journal-audit"
+                onClick={() => setProfileOpen(false)}
+                className="flex items-center gap-2.5 px-2 py-2 text-[12.5px] text-[#303644] transition-colors hover:bg-[#F4F3ED]"
+              >
+                <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
+                  <ScrollText size={13} />
+                </span>
+                <span>
+                  <span className="block font-semibold">Journal d&apos;audit</span>
+                  <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Activité et traçabilité du compte</span>
+                </span>
+              </Link>}
               <Link
                 href="/centre-aide"
                 onClick={() => setProfileOpen(false)}

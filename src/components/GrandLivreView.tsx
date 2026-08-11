@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BookOpen, Filter, Download } from "lucide-react";
 import { getAccountLabel, getAccountClass, getAccountClassName } from "@/lib/cgnc-mapping";
+import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ interface Props {
 
 export default function GrandLivreView({ companyId, dossierId, title }: Props) {
   const supabase = createClient();
+  const { period: globalPeriod } = useGlobalPeriod();
 
   const [accounts, setAccounts]     = useState<string[]>([]);
   const [account, setAccount]       = useState<string>("");
@@ -56,6 +58,11 @@ export default function GrandLivreView({ companyId, dossierId, title }: Props) {
   const [dateFrom, setDateFrom]           = useState("");
   const [dateTo, setDateTo]               = useState("");
   const [journal, setJournal]             = useState("Tous");
+
+  useEffect(() => {
+    setDateFrom(globalPeriod.start);
+    setDateTo(globalPeriod.end);
+  }, [globalPeriod.start, globalPeriod.end]);
 
   // ── Fetch distinct accounts ─────────────────────────────────────────────────
 

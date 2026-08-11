@@ -8,7 +8,8 @@ import type { Receipt, OcrData } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
 import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "@/lib/purchase-booking";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle } from "lucide-react";
+import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceControlCheck } from "@/lib/invoice-controls";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, CircleDollarSign } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
@@ -130,6 +131,28 @@ function SourceBadge({ provider }: { provider?: string }) {
   return null;
 }
 
+function ControlBadge({ checks }: { checks?: InvoiceControlCheck[] }) {
+  const severity = highestInvoiceControlSeverity(checks ?? []);
+  if (severity === "critical") {
+    return <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[9.5px] font-bold text-red-700"><AlertCircle size={10} /> Anomalie</span>;
+  }
+  if (severity === "warning") {
+    return <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[9.5px] font-bold text-amber-700"><AlertCircle size={10} /> À vérifier</span>;
+  }
+  return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[9.5px] font-bold text-emerald-700"><ShieldCheck size={10} /> Contrôlé</span>;
+}
+
+function ApprovalBadge({ status }: { status?: Receipt["approval_status"] }) {
+  if (!status || status === "not_requested") return null;
+  const style = status === "approved"
+    ? "bg-emerald-50 text-emerald-700"
+    : status === "rejected"
+      ? "bg-red-50 text-red-700"
+      : "bg-blue-50 text-blue-700";
+  const label = status === "approved" ? "Validée" : status === "rejected" ? "Refusée" : "Validation en attente";
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] font-bold ${style}`}><UserCheck size={10} /> {label}</span>;
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: string; inboxEmail?: string | null } = {}) {
@@ -166,7 +189,16 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
           .from("receipts").getPublicUrl(r.storage_path);
         signedUrl = urlData?.publicUrl ?? undefined;
       }
-      return { ...r, signedUrl: signedUrl ?? sessionLocalUrls[r.id] };
+      return {
+        ...r,
+        control_status: r.control_status ?? (r.status === "matched" ? "recorded" : "review"),
+        approval_status: r.approval_status ?? "not_requested",
+        control_checks: evaluateInvoiceControls(
+          r.ocr_data,
+          list.filter(item => item.id !== r.id && String(item.created_at ?? "") < String(r.created_at ?? "")),
+        ),
+        signedUrl: signedUrl ?? sessionLocalUrls[r.id],
+      };
     }));
     setReceipts(withUrls);
     setForms((prev) => {
@@ -261,6 +293,14 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     const receipt = receipts.find((r) => r.id === id);
     const form = forms[id];
     if (!form || !receipt) return;
+    if (receipt.approval_status === "pending") {
+      toast.error("Cette facture attend encore la validation de la personne désignée.");
+      return;
+    }
+    if (receipt.approval_status === "rejected") {
+      toast.error("Cette facture a été refusée. Corrigez-la ou demandez une nouvelle validation.");
+      return;
+    }
     setSaving((s) => new Set([...s, id]));
 
     const isAvoir = (receipt.ocr_data as any).document_type === "avoir";
@@ -303,7 +343,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       await supabase.from("receipts").update({ status: "matched" }).eq("id", id);
       setSaving((s) => { s.delete(id); return new Set(s); });
       if (previewReceipt?.id === id) setPreviewReceipt(null);
-      dismissCard(id, "right");
+      dismissCard(id);
       toast.success(`Avoir fournisseur ${numero} enregistré !`);
       return;
     }
@@ -373,7 +413,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     }
     setSaving((s) => { s.delete(id); return new Set(s); });
     if (previewReceipt?.id === id) setPreviewReceipt(null);
-    dismissCard(id, "right");
+    dismissCard(id);
     if (shouldBookPurchase) {
       toast.success("Justificatif comptabilisé et ajouté au suivi fournisseurs !");
     } else {
@@ -384,7 +424,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   async function ignoreReceipt(id: string) {
     await supabase.from("receipts").update({ status: "ignored" }).eq("id", id);
     if (previewReceipt?.id === id) setPreviewReceipt(null);
-    dismissCard(id, "left");
+    dismissCard(id);
   }
 
   async function recoverReceipt(id: string) {
@@ -393,7 +433,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     setTab("pending");
   }
 
-  function dismissCard(id: string, _dir: "left" | "right") {
+  function dismissCard(id: string) {
     setDismissing((s) => new Set([...s, id]));
     setTimeout(async () => {
       setDismissing((s) => { s.delete(id); return new Set(s); });
@@ -539,7 +579,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
       {/* ─── Traités: accounting ledger ──────────────────────────────────── */}
       {!loading && tab === "matched" && (
-        <LedgerView receipts={matched} />
+        <LedgerView receipts={matched} onPreview={setPreviewReceipt} />
       )}
 
       {/* ─── Pending / Ignored: empty state ─────────────────────────────── */}
@@ -619,8 +659,10 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       {/* ─── Preview panel ───────────────────────────────────────────────── */}
       {previewReceipt && (
         <PreviewPanel
+          key={previewReceipt.id}
           receipt={previewReceipt}
           onClose={() => setPreviewReceipt(null)}
+          onChanged={load}
         />
       )}
     </div>
@@ -629,7 +671,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
 // ─── Accounting Ledger View ───────────────────────────────────────────────────
 
-function LedgerView({ receipts }: { receipts: ReceiptWithUrl[] }) {
+function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPreview: (receipt: ReceiptWithUrl) => void }) {
   const rows = receipts.map((r) => {
     const ocr = r.ocr_data;
     const { ht, tva, ttc } = computeAmounts(ocr);
@@ -648,6 +690,8 @@ function LedgerView({ receipts }: { receipts: ReceiptWithUrl[] }) {
       category: (ocr.category as string | null) ?? "",
       compte: (ocr as any).compte ?? "",
       paymentMethod: (ocr.payment_method as string | null) ?? "",
+      receipt: r,
+      controlStatus: r.control_status ?? "recorded",
     };
   });
 
@@ -766,6 +810,7 @@ function LedgerView({ receipts }: { receipts: ReceiptWithUrl[] }) {
                   ["Compte comptable", "text-left"],
                   ["Mode de paiement", "text-left"],
                   ["Statut", "text-left"],
+                  ["Contrôle", "text-right"],
                 ].map(([label, align]) => (
                   <th key={label} className={`${align} px-3 py-2.5 font-semibold text-[#6B7280] whitespace-nowrap text-[10.5px] uppercase tracking-[0.4px]`}>
                     {label}
@@ -812,8 +857,13 @@ function LedgerView({ receipts }: { receipts: ReceiptWithUrl[] }) {
                   <td className="px-3 py-2.5">
                     <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-[#059669] whitespace-nowrap">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#059669] flex-shrink-0" />
-                      Confirmé
+                      {row.controlStatus === "paid" ? "Payé" : "Comptabilisé"}
                     </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <button onClick={() => onPreview(row.receipt)} className="inline-flex items-center gap-1 rounded-md border border-black/10 px-2 py-1 text-[10px] font-semibold text-[#6B7280] hover:border-[#C8924A] hover:text-[#C8924A]">
+                      <ShieldCheck size={11} /> Ouvrir
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -827,7 +877,7 @@ function LedgerView({ receipts }: { receipts: ReceiptWithUrl[] }) {
 
 // ─── Preview panel (fixed right) ──────────────────────────────────────────────
 
-function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClose: () => void }) {
+function PreviewPanel({ receipt: r, onClose, onChanged }: { receipt: ReceiptWithUrl; onClose: () => void; onChanged: () => Promise<void> }) {
   const ocr = r.ocr_data;
   const isPdf = r.mime_type === "application/pdf";
 
@@ -851,7 +901,8 @@ function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClos
             <X size={14} />
           </button>
         </div>
-        <div className="flex-1 overflow-auto bg-[#F3F4F6] flex items-start justify-center">
+        <ReceiptControlPanel receipt={r} onChanged={onChanged} />
+        <div className="min-h-0 flex-1 overflow-auto bg-[#F3F4F6] flex items-start justify-center">
           {!r.signedUrl ? (
             <div className="flex flex-col items-center justify-center h-full w-full text-center p-8">
               <FileText size={40} className="text-[#D1D5DB] mb-3" />
@@ -868,6 +919,139 @@ function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClos
         </div>
       </div>
     </>
+  );
+}
+
+type ReceiptControlPayload = {
+  current_user_id: string;
+  receipt: Receipt;
+  checks: InvoiceControlCheck[];
+  approvers: Array<{ id: string; label: string; email?: string | null }>;
+  events: Array<{ id: string; event_type: string; message: string; created_at: string; actor_label?: string | null }>;
+};
+
+function ReceiptControlPanel({ receipt, onChanged }: { receipt: ReceiptWithUrl; onChanged: () => Promise<void> }) {
+  const [payload, setPayload] = useState<ReceiptControlPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [approverId, setApproverId] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`/api/receipts/${receipt.id}/control`)
+      .then(async response => ({ response, result: await response.json().catch(() => ({})) }))
+      .then(({ response, result }) => {
+        if (cancelled) return;
+        setLoading(false);
+        if (!response.ok) {
+          toast.error(result.error || "Impossible de charger les contrôles.");
+          return;
+        }
+        setPayload(result);
+        const firstApprover = result.approvers?.find((approver: { id: string }) => approver.id !== result.current_user_id);
+        setApproverId(firstApprover?.id || "");
+      });
+    return () => { cancelled = true; };
+  }, [receipt.id]);
+
+  async function act(action: string, extra: Record<string, unknown> = {}) {
+    setBusy(true);
+    const response = await fetch(`/api/receipts/${receipt.id}/control`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...extra }),
+    });
+    const result = await response.json().catch(() => ({}));
+    setBusy(false);
+    if (!response.ok) {
+      toast.error(result.error || "Action impossible.");
+      return;
+    }
+    setPayload(result);
+    await onChanged();
+    toast.success(
+      action === "request_approval" ? "Demande de validation envoyée."
+        : action === "approve" ? "Facture validée."
+          : action === "reject" ? "Facture refusée."
+            : action === "mark_paid" ? "Facture marquée comme payée."
+              : "Contrôle mis à jour.",
+    );
+  }
+
+  if (loading) {
+    return <div className="flex items-center gap-2 border-b border-black/10 px-4 py-3 text-[11px] text-[#9CA3AF]"><Loader2 size={13} className="animate-spin" /> Vérification de la facture…</div>;
+  }
+  if (!payload) return null;
+
+  const current = payload.receipt;
+  const alternateApprovers = payload.approvers.filter(approver => approver.id !== payload.current_user_id);
+  const isAssignedApprover = current.approver_id === payload.current_user_id;
+  const stateLabel = current.control_status === "paid" ? "Payée" : current.control_status === "recorded" ? "Comptabilisée" : "À vérifier";
+
+  return (
+    <div className="max-h-[46%] flex-shrink-0 overflow-y-auto border-b border-black/10 bg-white px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={15} className="text-[#C8924A]" />
+          <span className="text-[11.5px] font-bold text-[#0D1526]">Contrôle fournisseur</span>
+        </div>
+        <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[9.5px] font-bold text-[#4B5563]">{stateLabel}</span>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {payload.checks.map(check => (
+          <div key={`${check.code}-${check.relatedReceiptId ?? ""}`} className={`rounded-lg border px-3 py-2 ${check.severity === "critical" ? "border-red-200 bg-red-50" : check.severity === "warning" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
+            <div className={`text-[10.5px] font-bold ${check.severity === "critical" ? "text-red-800" : check.severity === "warning" ? "text-amber-800" : "text-emerald-800"}`}>{check.title}</div>
+            <div className="mt-0.5 text-[10px] leading-4 text-[#626874]">{check.message}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 rounded-lg border border-black/10 bg-[#FAFAF6] p-3">
+        <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-[#0D1526]"><UserCheck size={12} /> Validation simple</div>
+        {current.approval_status === "pending" ? (
+          <div className="mt-2">
+            <p className="text-[10px] text-[#6B7280]">En attente du validateur désigné.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {isAssignedApprover && <button disabled={busy} onClick={() => act("approve")} className="rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">Valider</button>}
+              {isAssignedApprover && <button disabled={busy} onClick={() => act("reject")} className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-[10px] font-bold text-red-700 disabled:opacity-50">Refuser</button>}
+              {!isAssignedApprover && <button disabled={busy} onClick={() => act("cancel_approval")} className="rounded-md border border-black/10 bg-white px-3 py-1.5 text-[10px] font-bold text-[#6B7280] disabled:opacity-50">Annuler la demande</button>}
+            </div>
+          </div>
+        ) : current.approval_status === "approved" ? (
+          <p className="mt-2 text-[10px] font-semibold text-emerald-700">Cette facture a été validée.</p>
+        ) : (
+          <div className="mt-2">
+            {alternateApprovers.length > 0 ? (
+              <div className="flex gap-2">
+                <select value={approverId} onChange={event => setApproverId(event.target.value)} className="min-w-0 flex-1 rounded-md border border-black/10 bg-white px-2 py-1.5 text-[10px]">
+                  {alternateApprovers.map(approver => <option key={approver.id} value={approver.id}>{approver.label}</option>)}
+                </select>
+                <button disabled={busy || !approverId} onClick={() => act("request_approval", { approverId })} className="rounded-md bg-[#0D1526] px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">Demander</button>
+              </div>
+            ) : (
+              <p className="text-[10px] leading-4 text-[#8A909B]">Ajoutez un collaborateur dans Paramètres → Équipe pour demander une validation.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {current.control_status === "recorded" && (
+        <button disabled={busy} onClick={() => act("mark_paid")} className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-[10px] font-bold text-emerald-700 disabled:opacity-50"><CircleDollarSign size={12} /> Marquer payée</button>
+      )}
+
+      <div className="mt-4">
+        <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-[#0D1526]"><Clock3 size={12} /> Activité</div>
+        <div className="mt-2 space-y-2 border-l border-[#D8DADF] pl-3">
+          {payload.events.length === 0 ? <p className="text-[10px] text-[#9CA3AF]">Aucune activité enregistrée.</p> : payload.events.map(event => (
+            <div key={event.id}>
+              <p className="text-[10px] font-semibold text-[#4B5563]">{event.message}</p>
+              <p className="text-[9px] text-[#9CA3AF]">{new Date(event.created_at).toLocaleString("fr-MA")}{event.actor_label ? ` · ${event.actor_label}` : ""}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -947,6 +1131,7 @@ interface CardProps {
 }
 
 function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormChange, onConfirm, onIgnore, onPreview }: CardProps) {
+  const [referenceTime] = useState(() => Date.now());
   const ocr = r.ocr_data;
   const amt = parseFloat(form.amount);
   const isExpense = isNaN(amt) ? true : amt < 0;
@@ -1000,6 +1185,8 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
             </span>
             <ConfidenceBadge confidence={ocr.confidence} overallConfidence={(ocr as any).overall_confidence} />
             <SourceBadge provider={emailProvider} />
+            <ControlBadge checks={r.control_checks} />
+            <ApprovalBadge status={r.approval_status} />
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {ocr.date && <span className="text-[11px] text-[#9CA3AF]">{fmtDate(ocr.date)}</span>}
@@ -1038,7 +1225,7 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block flex items-center gap-1">
             Échéance
             {form.due_date && (() => {
-              const days = Math.ceil((new Date(form.due_date).getTime() - Date.now()) / 86400000);
+              const days = Math.ceil((new Date(form.due_date).getTime() - referenceTime) / 86400000);
               if (days < 0) return <span className="text-[9px] font-bold text-[#DC2626]">En retard</span>;
               if (days <= 7) return <span className="text-[9px] font-bold text-[#D97706]">{days}j</span>;
               return null;
@@ -1046,7 +1233,7 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           </label>
           <input
             type="date"
-            className={`input ${form.due_date && Math.ceil((new Date(form.due_date).getTime() - Date.now()) / 86400000) < 0 ? "border-[#FCA5A5] bg-[#FEF2F2]" : form.due_date && Math.ceil((new Date(form.due_date).getTime() - Date.now()) / 86400000) <= 7 ? "border-[#FDE68A] bg-[#FFFBEB]" : ""}`}
+            className={`input ${form.due_date && Math.ceil((new Date(form.due_date).getTime() - referenceTime) / 86400000) < 0 ? "border-[#FCA5A5] bg-[#FEF2F2]" : form.due_date && Math.ceil((new Date(form.due_date).getTime() - referenceTime) / 86400000) <= 7 ? "border-[#FDE68A] bg-[#FFFBEB]" : ""}`}
             value={form.due_date}
             onChange={(e) => onFormChange("due_date", e.target.value)}
           />
@@ -1178,6 +1365,8 @@ function ProcessedCard({
             {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Facture"}
           </span>
           <SourceBadge provider={emailProvider} />
+          <ControlBadge checks={r.control_checks} />
+          <ApprovalBadge status={r.approval_status} />
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           {ocr.date && <span className="text-[10.5px] text-[#9CA3AF]">{fmtDate(ocr.date)}</span>}

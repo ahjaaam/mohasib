@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { AccountControls, DeleteAccountControl, MemberAccessScopeSelect, MemberToggle, WorkspaceControls } from "@/components/admin/AdminControls";
-import { StatusBadge } from "@/components/admin/AdminUI";
+import { AdminAction, StatusBadge } from "@/components/admin/AdminUI";
 import { accountStatus, adminContext, authUserMap, formatDate, formatMoney } from "@/lib/admin-data";
 import { TRIAL_LIMITS } from "@/lib/trial-limits";
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { admin } = await adminContext();
+  const now = new Date();
   const [companyRes, subscriptions, override, members, audits, limits, users] = await Promise.all([
     admin.from("companies").select("*").eq("id", id).maybeSingle(),
     admin.from("subscriptions").select("*").eq("company_id", id).order("created_at", { ascending: false }),
@@ -39,8 +41,31 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     (rows ?? []).filter(row => row.dossier_id === dossierId).length;
   const staffMembers = (members.data ?? []).filter(member => member.role_name !== "client_portal");
   const portalMembers = (members.data ?? []).filter(member => member.role_name === "client_portal");
+  const userIds = [...new Set([company.user_id, ...(members.data ?? []).map(member => member.user_id)].filter(Boolean))];
+  const [accountInvoices, accountDocuments, accountReceipts, accountTickets, notificationDeliveries] = await Promise.all([
+    admin.from("invoices").select("id,invoice_number,created_at,user_id").in("user_id", userIds).order("created_at", { ascending: false }).limit(500),
+    admin.from("company_documents").select("id,name,created_at,user_id").in("user_id", userIds).order("created_at", { ascending: false }).limit(500),
+    admin.from("receipts").select("id,file_name,created_at,user_id").in("user_id", userIds).order("created_at", { ascending: false }).limit(500),
+    admin.from("support_tickets").select("id,subject,status,created_at,user_id").eq("company_id", id).order("created_at", { ascending: false }).limit(100),
+    admin.from("notification_deliveries").select("id,status,channel,sent_at,read_at,clicked_at,campaign_id,notification_campaigns(title)").eq("company_id", id).order("created_at", { ascending: false }).limit(100),
+  ]);
+  const usageEvents = [
+    ...(accountInvoices.data ?? []).map(item => ({ date: item.created_at, type: "Facture", label: item.invoice_number || "Facture créée" })),
+    ...(accountDocuments.data ?? []).map(item => ({ date: item.created_at, type: "Document", label: item.name || "Document ajouté" })),
+    ...(accountReceipts.data ?? []).map(item => ({ date: item.created_at, type: "Reçu", label: item.file_name || "Reçu ajouté" })),
+    ...(accountTickets.data ?? []).map(item => ({ date: item.created_at, type: "Support", label: `${item.subject} · ${item.status}` })),
+    ...(notificationDeliveries.data ?? []).map(item => ({ date: item.sent_at, type: "Notification", label: `${(item.notification_campaigns as { title?: string } | null)?.title || "Notification"} · ${item.status}/${item.channel}` })),
+  ].filter(item => item.date).sort((a, b) => new Date(String(b.date)).getTime() - new Date(String(a.date)).getTime());
+  const lastActivity = usageEvents[0]?.date || owner?.last_sign_in_at || company.created_at;
+  const activity30 = usageEvents.filter(item => new Date(String(item.date)).getTime() >= now.getTime() - 30 * 86_400_000).length;
+  const openTickets = (accountTickets.data ?? []).filter(item => !["finalisé", "cancelled"].includes(item.status)).length;
+  const healthScore = Math.max(0, Math.min(100,
+    (company.ice ? 15 : 0) + (owner?.last_sign_in_at ? 20 : 0) + Math.min(45, activity30 * 3) + (openTickets ? 0 : 20)
+  ));
+  const firstInvoice = [...(accountInvoices.data ?? [])].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0]?.created_at;
+  const firstDocument = [...(accountDocuments.data ?? [])].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0]?.created_at;
   return <div>
-    <div className="mb-5"><div className="flex items-center gap-2"><h1 className="text-xl font-bold">{company.raison_sociale || "Compte sans nom"}</h1><StatusBadge status={accountStatus(company)} /></div><p className="mt-1 text-xs text-gray-500">{owner?.email || "—"} · {company.user_type || "—"} · créé {formatDate(company.created_at)}</p></div>
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h1 className="text-xl font-bold">{company.raison_sociale || "Compte sans nom"}</h1><StatusBadge status={accountStatus(company)} /></div><p className="mt-1 text-xs text-gray-500">{owner?.email || "—"} · {company.user_type || "—"} · créé {formatDate(company.created_at)}</p></div><div className="flex flex-wrap gap-2"><a href={`/api/admin/accounts/${company.id}/export`} className="rounded border border-black/15 px-3 py-2 text-xs font-semibold">Exporter les données</a><AdminAction endpoint={`/api/admin/accounts/${company.id}/reset-usage`} label="Réinitialiser l’usage" danger /><Link href={`/admin/notifications?company=${company.id}`} className="rounded bg-[#C8924A] px-3 py-2 text-xs font-bold text-white">Envoyer une notification</Link></div></div>
     <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[
       ["Accès", company.subscription_status === "trial" ? "Version gratuite" : "Sur mesure"],
       ["Fin abonnement", formatDate(company.subscription_ends_at || company.trial_ends_at)],
@@ -49,6 +74,13 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
       ["Revenu cumulé", formatMoney((subscriptions.data ?? []).reduce((sum, item) => sum + Number(item.amount_mad ?? 0), 0))],
     ].map(([label, value]) => <div key={label} className="rounded-md border border-black/10 bg-white p-4"><div className="text-[10px] text-gray-500">{label}</div><div className="mt-2 text-sm font-bold">{value}</div></div>)}</div>
     <section className="mb-5 rounded-md border border-black/10 bg-white p-4"><h2 className="text-sm font-bold">Identité</h2><div className="mt-3 grid gap-3 text-[11px] sm:grid-cols-3 xl:grid-cols-7">{[["Email", owner?.email], ["Téléphone", company.phone || owner?.user_metadata?.phone], ["ICE", company.ice], ["IF", company.if_number], ["Ville", company.city], ["Type", company.user_type], ["Dernière connexion", formatDate(owner?.last_sign_in_at)]].map(([label, value]) => <div key={label}><div className="text-gray-400">{label}</div><div className="mt-1 font-semibold">{value || "—"}</div></div>)}</div></section>
+    <section className="mb-5 rounded-md border border-black/10 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-bold">Santé et activation du compte</h2><p className="mt-1 text-[10.5px] text-gray-500">Synthèse fondée sur la configuration, l’activité récente et le support.</p></div><div className={`rounded-full px-3 py-1.5 text-xs font-bold ${healthScore >= 70 ? "bg-emerald-50 text-emerald-700" : healthScore >= 40 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>Santé {healthScore}/100</div></div>
+      <div className="mt-4 grid gap-3 text-[11px] sm:grid-cols-2 xl:grid-cols-6">{[
+        ["Inscription", formatDate(company.created_at)], ["Première connexion", formatDate(owner?.last_sign_in_at)], ["Première facture", formatDate(firstInvoice)], ["Premier document", formatDate(firstDocument)], ["Dernière activité", formatDate(lastActivity)], ["Activité 30 jours", `${activity30} événement(s)`],
+      ].map(([label, value]) => <div key={label} className="rounded bg-[#F8F8F5] p-3"><div className="text-gray-400">{label}</div><div className="mt-1 font-semibold">{value}</div></div>)}</div>
+      <div className="mt-4"><div className="mb-2 flex items-center justify-between"><h3 className="text-[11px] font-bold">Chronologie récente</h3>{openTickets > 0 && <Link href="/admin/support" className="text-[10px] font-semibold text-amber-700">{openTickets} ticket(s) ouvert(s)</Link>}</div><div className="max-h-64 divide-y divide-black/5 overflow-y-auto rounded border border-black/5">{usageEvents.slice(0, 30).map((event, index) => <div key={`${event.type}-${event.date}-${index}`} className="grid gap-1 px-3 py-2 text-[10.5px] sm:grid-cols-[100px_1fr_120px]"><b>{event.type}</b><span>{event.label}</span><span className="text-gray-400 sm:text-right">{formatDate(String(event.date))}</span></div>)}{usageEvents.length === 0 && <p className="px-3 py-6 text-center text-[11px] text-gray-400">Aucune activité enregistrée.</p>}</div></div>
+    </section>
     {(qualification.role || qualification.organization_size || qualification.monthly_volume || needs) && (
       <section className="mb-5 rounded-md border border-[#C8924A]/30 bg-[#FFF9F0] p-4">
         <h2 className="text-sm font-bold">Profil et besoins déclarés à l’inscription</h2>

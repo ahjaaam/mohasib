@@ -2,22 +2,47 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CreditCard, FileText, Gauge, Inbox, LifeBuoy, ListChecks, UserCheck, UserCog, Users } from "lucide-react";
+import { BarChart3, Bell, CreditCard, FileText, Gauge, Inbox, LifeBuoy, ListChecks, UserCheck, UserCog, Users } from "lucide-react";
+import type { AdminNavigationCounts } from "@/lib/admin-data";
 
 const NAV = [
   { href: "/admin", label: "Tableau de bord", icon: BarChart3 },
   { href: "/admin/kpis", label: "KPIs", icon: Gauge },
   { href: "/admin/comptes", label: "Comptes", icon: Users },
-  { href: "/admin/inscriptions", label: "Inscriptions", icon: UserCheck },
+  { href: "/admin/utilisateurs", label: "Utilisateurs", icon: UserCog },
+  { href: "/admin/inscriptions", label: "Inscriptions", icon: UserCheck, countKey: "signups" },
   { href: "/admin/responsables", label: "Collaborateurs", icon: UserCog },
   { href: "/admin/abonnements", label: "Abonnements", icon: CreditCard },
-  { href: "/admin/demandes", label: "Demandes", icon: Inbox },
-  { href: "/admin/support", label: "Support rapide", icon: LifeBuoy },
-  { href: "/admin/liste-attente", label: "Liste d'attente", icon: ListChecks },
+  { href: "/admin/demandes", label: "Demandes", icon: Inbox, countKey: "requests" },
+  { href: "/admin/support", label: "Support rapide", icon: LifeBuoy, countKey: "support" },
+  { href: "/admin/liste-attente", label: "Liste d'attente", icon: ListChecks, countKey: "waitlist" },
   { href: "/admin/leads", label: "Leads documents", icon: FileText },
-];
+  { href: "/admin/notifications", label: "Notifications", icon: Bell },
+] satisfies ReadonlyArray<{
+  href: string;
+  label: string;
+  icon: typeof BarChart3;
+  countKey?: keyof AdminNavigationCounts;
+}>;
 
-export default function AdminShell({ children, email }: { children: React.ReactNode; email: string }) {
+function CountBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-auto min-w-5 rounded-full bg-[#C8924A] px-1.5 py-0.5 text-center text-[10px] font-bold leading-4 text-[#0D1526]">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+export default function AdminShell({
+  children,
+  email,
+  navigationCounts,
+}: {
+  children: React.ReactNode;
+  email: string;
+  navigationCounts: AdminNavigationCounts;
+}) {
   const pathname = usePathname();
   return (
     <div className="min-h-screen bg-[#F4F5F7] text-[#0D1526]">
@@ -27,16 +52,20 @@ export default function AdminShell({ children, email }: { children: React.ReactN
           <div className="mt-1 text-[10px] text-white/35">Back office fondateur</div>
         </div>
         <nav className="flex-1 py-3">
-          {NAV.map(({ href, label, icon: Icon }) => {
+          {NAV.map(({ href, label, icon: Icon, countKey }) => {
             const active = href === "/admin" ? pathname === href : pathname.startsWith(href);
-            return <Link key={href} href={href} className={`flex items-center gap-2.5 border-r-2 px-5 py-3 text-[12.5px] ${active ? "border-[#C8924A] bg-[#C8924A]/10 text-[#C8924A]" : "border-transparent text-white/50 hover:bg-white/5 hover:text-white"}`}><Icon size={15} />{label}</Link>;
+            const count = countKey ? navigationCounts[countKey] ?? 0 : 0;
+            return <Link key={href} href={href} className={`flex items-center gap-2.5 border-r-2 px-5 py-3 text-[12.5px] ${active ? "border-[#C8924A] bg-[#C8924A]/10 text-[#C8924A]" : "border-transparent text-white/50 hover:bg-white/5 hover:text-white"}`}><Icon size={15} />{label}<CountBadge count={count} /></Link>;
           })}
         </nav>
         <div className="border-t border-white/10 px-5 py-4 text-[10px] text-white/35">{email}</div>
       </aside>
       <div className="md:ml-[220px]">
         <nav className="flex gap-1 overflow-x-auto bg-[#0D1526] p-2 md:hidden">
-          {NAV.map(({ href, label }) => <Link key={href} href={href} className="whitespace-nowrap rounded px-3 py-2 text-[11px] text-white/70">{label}</Link>)}
+          {NAV.map(({ href, label, countKey }) => {
+            const count = countKey ? navigationCounts[countKey] ?? 0 : 0;
+            return <Link key={href} href={href} className="flex items-center gap-1.5 whitespace-nowrap rounded px-3 py-2 text-[11px] text-white/70">{label}<CountBadge count={count} /></Link>;
+          })}
         </nav>
         <main className="mx-auto max-w-[1500px] p-4 md:p-6">{children}</main>
       </div>

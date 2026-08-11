@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
-import sizeOf from "image-size";
+import sharp from "sharp";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,7 +54,7 @@ export async function GET(
           logoBase64 = buffer.toString("base64");
           logoMimeType = res.headers.get("content-type") ?? "image/png";
           try {
-            const dims = sizeOf(buffer);
+            const dims = await sharp(buffer).metadata();
             if (dims.width && dims.height) {
               const ratio = Math.min(180 / dims.width, 80 / dims.height, 1);
               logoWidthPx = Math.round(dims.width * ratio);
