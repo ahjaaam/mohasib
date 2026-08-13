@@ -32,11 +32,14 @@ const STATUS_BADGE: Record<string, [string, string, string]> = {
   partiellement_payee: ["#FEF3C7", "#92400E",  "Partiel"],
 };
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 mb-3">
-      <div className="w-[3px] h-4 bg-[#C8924A] rounded-full flex-shrink-0" />
-      <span className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[1px]">{children}</span>
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <div className="h-4 w-[3px] flex-shrink-0 rounded-full bg-[#C8924A]" />
+        <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#6B7280]">{children}</span>
+      </div>
+      {action}
     </div>
   );
 }
@@ -159,13 +162,21 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">
         {/* Revenus et dépenses */}
         <div>
-          <SectionLabel>Revenus et dépenses</SectionLabel>
+          <SectionLabel action={(
+            <Link href="/transactions" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+              <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
+            </Link>
+          )}>Revenus et dépenses</SectionLabel>
           <RevenueExpenseChart data={chartData} periodLabel={selectedPeriodLabel} />
         </div>
 
         {/* Prochaines échéances */}
         <div>
-          <SectionLabel>Prochaines échéances</SectionLabel>
+          <SectionLabel action={(
+            <Link href="/settings?tab=echeances" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+              <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
+            </Link>
+          )}>Prochaines échéances</SectionLabel>
           <DashboardNews
             deadlines={prefsRes.data?.dashboard_deadlines ?? null}
             tvaRegime={company?.tva_regime ?? null}
@@ -184,17 +195,17 @@ export default async function DashboardPage() {
             <div className="truncate text-[11px] text-[#6B7280]" title={selectedPeriodLabel}>{selectedPeriodLabel}</div>
           </div>
           <div className="kpi">
-            <div className="kpi-label">Factures en attente</div>
-            <div className="kpi-value">{pendingInvs.length}</div>
-            <div className="text-[11px] text-[#6B7280]">
-              {pendingInvs.length > 0 ? fmt(pendingTotal) : "Aucune en attente"}
-            </div>
-          </div>
-          <div className="kpi">
             <div className="kpi-label">TVA à déclarer</div>
             <div className="kpi-value">{fmt(Math.round(tvaEstimate))}</div>
             <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
               Échéance <span className="tag tag-warn">20 {nextMonth.toLocaleDateString("fr-MA", { month: "short" })}</span>
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-label">Factures en attente</div>
+            <div className="kpi-value">{pendingInvs.length}</div>
+            <div className="text-[11px] text-[#6B7280]">
+              {pendingInvs.length > 0 ? fmt(pendingTotal) : "Aucune en attente"}
             </div>
           </div>
           <div className="kpi">
@@ -240,8 +251,8 @@ export default async function DashboardPage() {
               <div className="text-[11px] text-[#059669] mt-0.5">Aucun paiement fournisseur</div>
             )}
           </div>
-          <Link href="/suivi-paiements" className="btn btn-gold flex-shrink-0 flex items-center gap-1.5">
-            Voir le suivi complet <ArrowRight size={12} />
+          <Link href="/suivi-paiements" className="inline-flex flex-shrink-0 items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+            <span className="underline underline-offset-4">Voir le suivi complet</span> <ArrowRight size={12} />
           </Link>
         </div>
       </div>
@@ -254,8 +265,8 @@ export default async function DashboardPage() {
           <div className="tbl">
             <div className="tbl-header">
               <span className="tbl-title">Factures récentes</span>
-              <Link href="/invoices" className="btn btn-outline btn-sm flex items-center gap-1">
-                Voir tout <ArrowRight size={11} />
+              <Link href="/invoices" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+                <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
               </Link>
             </div>
             <table>
@@ -297,8 +308,8 @@ export default async function DashboardPage() {
           <div className="tbl">
             <div className="tbl-header">
               <span className="tbl-title">Transactions</span>
-              <Link href="/transactions" className="btn btn-outline btn-sm flex items-center gap-1">
-                Voir tout <ArrowRight size={11} />
+              <Link href="/transactions" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+                <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
               </Link>
             </div>
             <table>

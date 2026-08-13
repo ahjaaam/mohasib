@@ -86,7 +86,7 @@ export default function ApparenceTab({ userId, company, prefs }: Props) {
         <p className="text-[11.5px] text-[#9CA3AF] mb-4">Choisissez l’apparence de la navigation principale</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {([
-            { value: "dark", label: "Sombre", background: "linear-gradient(160deg, #1e2536 0%, #000000 100%)", foreground: "#FFFFFF" },
+            { value: "dark", label: "Sombre", background: "#111621", foreground: "#FFFFFF" },
             { value: "cream", label: "Crème", background: "#FFFFFF", foreground: "#1A1A2E" },
           ] as const).map((option) => (
             <button
@@ -112,7 +112,7 @@ export default function ApparenceTab({ userId, company, prefs }: Props) {
               <span>
                 <span className="block text-[12.5px] font-medium text-[#1A1A2E]">{option.label}</span>
                 <span className="block text-[10.5px] text-[#9CA3AF] mt-0.5">
-                  {option.value === "cream" ? "Blanc" : "Dégradé actuel"}
+                  {option.value === "cream" ? "Blanc" : "Uni #111621"}
                 </span>
               </span>
             </button>

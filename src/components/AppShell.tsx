@@ -6,10 +6,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
-  LayoutDashboard, FileText, Users, ArrowLeftRight,
+  LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeftRight,
   LogOut, Menu, Inbox, Download,
-  Settings, Calculator, FolderOpen, BarChart2, Banknote, Briefcase, CreditCard, PenLine, LayoutTemplate,
-  GitMerge, Lock, Calendar, ChevronDown, ReceiptText,
+  Settings, Calculator, FolderOpen, BarChart2, UserRoundCog, Building2, CreditCard, PenLine, LayoutTemplate,
+  GitMerge, Lock, ReceiptText,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -23,12 +23,13 @@ import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 import AppTopBar from "@/components/AppTopBar";
 import SidebarToggleButton from "@/components/SidebarToggleButton";
 import SidebarLogo from "@/components/SidebarLogo";
+import SidebarItemTooltip from "@/components/SidebarItemTooltip";
 
-const SIDEBAR_BACKGROUND = "linear-gradient(160deg, #1e2536 0%, #000000 100%)";
+const SIDEBAR_BACKGROUND = "#111621";
 
 const NAV_MAIN = [
-  { href: "/dashboard",    icon: LayoutDashboard, label: "Tableau de bord",    key: "dashboard", permission: "report:read" },
-  { href: "/inbox",        icon: Inbox,           label: "Boîte de réception", key: "inbox", permission: "document:read" },
+  { href: "/dashboard",    icon: ChartNoAxesCombined, label: "Tableau de bord", key: "dashboard", permission: "report:read" },
+  { href: "/inbox",        icon: Inbox,           label: "Achats",             key: "inbox", permission: "document:read" },
   { href: "/receipts",     icon: ReceiptText,     label: "Justificatifs",      key: "receipts", permission: "document:read" },
   { href: "/invoices",          icon: FileText,   label: "Factures",            key: "invoices", permission: "invoice:read" },
   { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des échéances", key: "suivi-paiements", permission: "invoice:read" },
@@ -39,16 +40,9 @@ const NAV_MAIN = [
     ? { href: "/saisie", icon: PenLine, label: "Saisie comptable", key: "saisie", permission: "accounting:read", feature: "saisie" as PlanFeature }
     : { href: "/ecritures", icon: LayoutTemplate, label: "Écritures", key: "ecritures", permission: "accounting:read" },
   { href: "/tva",          icon: Calculator,      label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
-  { href: "/paie",         icon: Banknote,        label: "La Paie",            key: "paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
+  { href: "/paie",         icon: UserRoundCog,    label: "La Paie",            key: "paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
   { href: "/export",       icon: Download,        label: "Exports",            key: "export", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
   { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive", permission: "document:read" },
-];
-
-const CABINET_NAV = [
-  { href: "/comptable-pro", icon: LayoutDashboard, label: "Vue d'ensemble", exact: true, permission: "dossier:read" },
-  { href: "/comptable-pro/calendrier", icon: Calendar, label: "Calendrier", exact: false, permission: "dossier:read" },
-  { href: "/comptable-pro/exports", icon: Download, label: "Exports CGNC", exact: false, permission: "report:export", feature: "mass_declarations" as PlanFeature },
-  { href: "/comptable-pro/settings", icon: Settings, label: "Mon cabinet", exact: false, permission: "settings:update" },
 ];
 
 const NAV_SOON: typeof NAV_MAIN = [];
@@ -67,6 +61,7 @@ interface Props {
   userEmail?: string | null;
   userName?: string | null;
   userCompany?: string | null;
+  cabinetCompanies?: Array<{ id: string; name: string }>;
   userAvatar?: string | null;
   isFiduciaire?: boolean;
   permissions?: string[] | null;
@@ -96,16 +91,12 @@ interface Props {
   sidebarTheme?: "dark" | "cream";
 }
 
-export default function AppShell({ children, userId, ownerId, userEmail, userName, userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements, guestMode = false, sidebarTheme: initialSidebarTheme = "cream" }: Props) {
+export default function AppShell({ children, userId, ownerId, userEmail, userName, userCompany, cabinetCompanies = [], userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements, guestMode = false, sidebarTheme: initialSidebarTheme = "cream" }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarTheme, setSidebarTheme] = useState(initialSidebarTheme);
   const [referenceTime] = useState(() => Date.now());
   const pathname = usePathname();
-  const [cabinetOpen, setCabinetOpen] = useState(pathname.startsWith("/comptable-pro"));
-  useEffect(() => {
-    if (pathname.startsWith("/comptable-pro")) setCabinetOpen(true);
-  }, [pathname]);
   const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
@@ -140,6 +131,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   const routeAvailable = isRouteAvailableForPlan(entitlements.plan, effectivePathname);
   const pageAllowed = permissionAllowed && featureAllowed && routeAvailable;
   const freePlan = isFreePlan(entitlements.plan);
+  const businessWorkspaceLabel = userCompany?.trim() || "Mon entreprise";
   const visibleOnPlan = (href: string) => isRouteAvailableForPlan(entitlements.plan, href);
   const topBarItems = ALL_NAV
     .filter((item: any) => !item.soon && visibleOnPlan(item.href) && allowed(item.permission) && entitled(item.feature))
@@ -204,7 +196,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
     rapprochement: Number(accountState.trial_rapprochement_sessions_used ?? 0),
   } : null;
   const lightSidebar = sidebarTheme === "cream";
-  const sidebarBackground = lightSidebar ? "#FFFFFF" : SIDEBAR_BACKGROUND;
+  const sidebarBackground = lightSidebar ? "#FFF" : SIDEBAR_BACKGROUND;
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -222,84 +214,29 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {!freePlan && isFiduciaire && accessScope !== "business_only" && (
-          sidebarCollapsed ? (
-            <Link href="/comptable-pro" title="Mon Cabinet"
-              className={`flex items-center justify-center py-[12px] text-[13px] transition-all border-r-2 ${
-                pathname.startsWith("/comptable-pro")
-                  ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                  : lightSidebar
-                    ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
-                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
-              }`}>
-              <Briefcase size={18} />
-            </Link>
-          ) : (
-            <div>
-              <button type="button" onClick={() => setCabinetOpen(v => !v)}
-                className={`w-full flex items-center gap-2.5 px-[18px] py-[12px] text-[13px] transition-all border-r-2 ${
-                  pathname.startsWith("/comptable-pro")
-                    ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                    : lightSidebar
-                      ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
-                      : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
-                }`}>
-                <Briefcase size={15} />
-                <span className="flex-1 text-left">Mon Cabinet</span>
-                <ChevronDown size={13} className={`transition-transform ${cabinetOpen ? "rotate-180" : ""}`} />
-              </button>
-
-              {cabinetOpen && (
-                <div className="pb-1">
-                  {CABINET_NAV.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, permission, exact }) => {
-                    const locked = !allowed(permission);
-                    const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-                    return (
-                      <Link key={href} href={href}
-                        className={`flex items-center gap-2 px-[18px] py-[9px] text-[12.5px] transition-all border-r-2 ${
-                          active
-                            ? "text-[#C8924A] bg-[rgba(200,146,74,0.08)] border-[#C8924A]"
-                            : locked
-                              ? lightSidebar
-                                ? "text-[#1A1A2E]/20 hover:text-[#1A1A2E]/40 hover:bg-black/[0.04] border-transparent"
-                                : "text-white/20 hover:text-white/40 hover:bg-white/5 border-transparent"
-                              : lightSidebar
-                                ? "text-[#6F695D] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
-                                : "text-white/40 hover:text-white/75 hover:bg-white/5 border-transparent"
-                        }`}>
-                        <Icon size={13} className="flex-shrink-0" />
-                        <span className="flex-1 min-w-0 truncate">{label}</span>
-                        {locked && <Lock size={10} className="ml-auto flex-shrink-0 opacity-70" />}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        )}
-
         {NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => {
           const locked = !allowed(permission);
           return (
-          <Link key={href} href={href} title={sidebarCollapsed ? label : undefined}
-            className={`flex items-center py-[12px] text-[13px] transition-all border-r-2 ${
-              sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
-            } ${
-              isActive(href)
-                ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
-                : locked
-                  ? lightSidebar
-                    ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
-                    : "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
-                  : lightSidebar
-                    ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
-                    : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
-            }`}>
-            <Icon size={sidebarCollapsed ? 18 : 15} />
-            {!sidebarCollapsed && label}
-            {!sidebarCollapsed && locked && <Lock size={11} className="ml-auto opacity-70" />}
-          </Link>
+          <SidebarItemTooltip key={href} enabled={sidebarCollapsed} label={label}>
+            <Link href={href} aria-label={sidebarCollapsed ? label : undefined}
+              className={`flex items-center py-[12px] text-[13px] transition-all border-r-2 ${
+                sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
+              } ${
+                isActive(href)
+                  ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
+                  : locked
+                    ? lightSidebar
+                      ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
+                      : "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                    : lightSidebar
+                      ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
+                      : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+              }`}>
+              <Icon size={sidebarCollapsed ? 18 : 15} />
+              {!sidebarCollapsed && label}
+              {!sidebarCollapsed && locked && <Lock size={11} className="ml-auto opacity-70" />}
+            </Link>
+          </SidebarItemTooltip>
           );
         })}
 
@@ -314,7 +251,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
       <TrialLimitModal />
       <PermissionBoundary permissions={permissions}>
-      <div className="mohasib-app flex h-screen overflow-hidden bg-[#FAFAF6]">
+      <div className="mohasib-app flex h-screen overflow-hidden bg-[#FAFAF6]" data-sidebar-theme={sidebarTheme}>
 
         {/* Desktop sidebar */}
         {!freePlan && <aside
@@ -331,7 +268,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
 
         {/* Main */}
         <div
-          className={`flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-[margin] duration-200 ${
+          className={`mohasib-main-column flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-[margin] duration-200 ${
             freePlan ? "md:ml-0" : sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[210px]"
           }`}
         >
@@ -347,10 +284,29 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             userId={userId}
             avatarUrl={userAvatar}
             invoicingOnly={freePlan}
-            showBrand={freePlan}
+            showBrand
+            topBarTheme={sidebarTheme}
+            workspaceLabel={pathname.startsWith("/comptable-pro") ? "Mon Cabinet" : businessWorkspaceLabel}
+            cabinetMenuItems={!freePlan && isFiduciaire && accessScope !== "business_only"
+              ? [
+                  {
+                    href: "/dashboard",
+                    label: businessWorkspaceLabel,
+                    icon: LayoutDashboard,
+                    active: !pathname.startsWith("/comptable-pro"),
+                  },
+                  ...cabinetCompanies.map((company) => ({
+                    href: `/comptable-pro/dossiers/${company.id}/dashboard`,
+                    label: company.name,
+                    icon: Building2,
+                    active: pathname.startsWith(`/comptable-pro/dossiers/${company.id}`),
+                  })),
+                ]
+              : undefined}
             guestMode={guestMode}
             onSignOut={signOut}
           />
+          <div className="h-16 flex-shrink-0" aria-hidden="true" />
 
           {/* Page content */}
           <main className="flex-1 overflow-hidden flex flex-col">
@@ -396,7 +352,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
           ) : <>
             <Link href="/dashboard" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
               style={{ color: isActive("/dashboard") ? "#C8924A" : allowed("report:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
-              <LayoutDashboard size={19} />
+              <ChartNoAxesCombined size={19} />
               <span style={{ fontSize: 10, fontWeight: 500 }}>Accueil</span>
               {!allowed("report:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
             </Link>
@@ -453,29 +409,6 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
 
               {/* Nav items */}
               <div className="overflow-y-auto">
-                {/* Cabinet */}
-                {!freePlan && isFiduciaire && accessScope !== "business_only" && (
-                  <>
-                    <div className="flex items-center gap-3 px-[20px] py-[12px]"
-                      style={{ color: pathname.startsWith("/comptable-pro") ? "#C8924A" : "rgba(255,255,255,0.7)" }}>
-                      <Briefcase size={16} />
-                      <span style={{ fontSize: 14, fontWeight: 500 }}>Mon Cabinet</span>
-                    </div>
-                    {CABINET_NAV.filter(item => entitled(item.feature)).map(({ href, icon: Icon, label, permission, exact }) => {
-                      const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-                      return (
-                        <Link key={href} href={href} onClick={() => setDrawerOpen(false)}
-                          className="flex items-center gap-3 px-[20px] py-[10px] transition-colors"
-                          style={{ color: active ? "#C8924A" : allowed(permission) ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.25)" }}>
-                          <Icon size={14} />
-                          <span style={{ fontSize: 13 }}>{label}</span>
-                          {!allowed(permission) && <Lock size={10} className="ml-auto" />}
-                        </Link>
-                      );
-                    })}
-                  </>
-                )}
-
                 {NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => (
                   <Link
                     key={href}

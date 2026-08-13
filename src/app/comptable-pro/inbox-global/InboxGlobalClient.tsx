@@ -127,7 +127,7 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
           <Inbox size={18} className="text-[#C8924A]" />
         </div>
         <div>
-          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Boîte de réception globale</h1>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Achats — vue globale</h1>
           <p className="text-[11px] text-[#9CA3AF] mt-0.5">Emails reçus non assignés automatiquement</p>
         </div>
         {unassignedCount > 0 && (

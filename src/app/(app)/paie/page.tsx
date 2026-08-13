@@ -7,8 +7,8 @@ import { calculateSalary, formatMAD } from "@/lib/payroll";
 import {
   Users, ChevronLeft, ChevronRight, Plus, Edit2, Trash2,
   FileText, CheckCircle, DollarSign, Download, ExternalLink,
-  Loader2, X, ChevronDown, ChevronUp, Banknote,
-  CalendarDays, Clock, Briefcase, FolderOpen, Eye, EyeOff,
+  Loader2, X, ChevronDown, ChevronUp, UserRoundCog,
+  CalendarDays, Briefcase, FolderOpen, Eye, EyeOff,
   Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -765,16 +765,27 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       <PageHeader
         title="La Paie"
         subtitle="Gestion de la paie marocaine"
-        icon={<Banknote size={18} />}
+        icon={<UserRoundCog size={18} />}
         action={
           tab === "employes" ? (
             <button data-permission="bulletin_paie:validate" onClick={openAddModal} className="btn btn-gold min-h-10">
               <Plus size={14} /> Ajouter un employé
             </button>
           ) : tab === "conges" ? (
-            <button data-permission="bulletin_paie:validate" onClick={openLeaveModal} className="btn btn-gold min-h-10">
-              <Plus size={14} /> Nouvelle absence
-            </button>
+            <>
+              <div className="ui-control flex h-10 items-center gap-1 border border-[#D7DADF] bg-[#F1F2F3] px-1">
+                <button aria-label="Mois précédent" onClick={prevMonth} className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-compact)] text-[#6B7280] transition-colors hover:bg-[#E5E7EB] hover:text-[#1A1A2E]">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="min-w-[132px] text-center text-[13px] font-semibold capitalize text-[#1A1A2E]">{periodLabel}</span>
+                <button aria-label="Mois suivant" onClick={nextMonth} className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-compact)] text-[#6B7280] transition-colors hover:bg-[#E5E7EB] hover:text-[#1A1A2E]">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <button data-permission="bulletin_paie:validate" onClick={openLeaveModal} className="btn btn-gold min-h-10">
+                <Plus size={14} /> Nouvelle absence
+              </button>
+            </>
           ) : null
         }
       />
@@ -782,15 +793,15 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       {/* Section tabs */}
       <div className="tabs mb-5 overflow-x-auto">
         {([
-          ["employes","Employés", Users],
-          ["conges","Congés & Absences", CalendarDays],
-          ["heures","Heures", Clock],
-          ["bulletins","Bulletins", FileText],
-          ["cnss","CNSS", FileText],
-        ] as const).map(([key, label, Icon]) => (
+          ["employes","Employés"],
+          ["conges","Congés & Absences"],
+          ["heures","Heures"],
+          ["bulletins","Bulletins"],
+          ["cnss","CNSS"],
+        ] as const).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`tab flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap ${tab === key ? "active" : ""}`}>
-            <Icon size={13} /> {label}
+            className={`tab flex flex-shrink-0 items-center whitespace-nowrap ${tab === key ? "active" : ""}`}>
+            {label}
           </button>
         ))}
       </div>
@@ -830,11 +841,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           holidays={holidays}
           holidayRows={holidayRows}
           loading={leavesLoading}
-          periodLabel={periodLabel}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
-          onPrev={prevMonth}
-          onNext={nextMonth}
         />
       )}
 
@@ -1053,7 +1061,7 @@ function EmployesTab({ employees, hasEmployees, search, loading, deletingId, onA
 
 // ─── Congés & Absences Tab ───────────────────────────────────────────────────
 
-function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loading, periodLabel, selectedMonth, selectedYear, onPrev, onNext }: any) {
+function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loading, selectedMonth, selectedYear }: any) {
   const weekDays = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
   const monthPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`;
   const leavesByEmployee = new Map<string, EmployeeLeave[]>();
@@ -1090,22 +1098,6 @@ function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loadi
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 rounded-2xl border border-[rgba(0,0,0,0.07)] bg-gradient-to-r from-white to-[#FBF8F2] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.8px] text-[#C8924A]">Suivi mensuel</p>
-          <h2 className="mt-0.5 text-[15px] font-bold text-[#1A1A2E]">Congés & absences</h2>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-1 shadow-sm">
-          <button aria-label="Mois précédent" onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A2E] transition-colors">
-            <ChevronLeft size={16} />
-          </button>
-          <span className="min-w-[142px] text-center text-[13px] font-semibold capitalize text-[#1A1A2E]">{periodLabel}</span>
-          <button aria-label="Mois suivant" onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#1A1A2E] transition-colors">
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Absences du mois", value: leaves.length },

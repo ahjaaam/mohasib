@@ -9,7 +9,7 @@ import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
 import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "@/lib/purchase-booking";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceControlCheck } from "@/lib/invoice-controls";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, CircleDollarSign } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, CircleDollarSign, Building2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
@@ -55,7 +55,7 @@ const TVA_OPTIONS = [
   { label: "20%", value: "20" },
 ];
 
-type Tab = "pending" | "matched" | "ignored";
+type Tab = "pending" | "matched" | "suppliers" | "ignored";
 
 interface ReceiptWithUrl extends Receipt { signedUrl?: string; }
 
@@ -74,6 +74,66 @@ interface UploadingFile {
   name: string;
   state: "uploading" | "processing" | "done" | "error";
   error?: string;
+}
+
+interface SupplierSummary {
+  key: string;
+  name: string;
+  ice: string | null;
+  fiscalId: string | null;
+  rib: string | null;
+  iban: string | null;
+  invoiceCount: number;
+  totalTtc: number;
+  latestDate: string;
+}
+
+function supplierSummaries(receipts: ReceiptWithUrl[]): SupplierSummary[] {
+  const suppliers = new Map<string, SupplierSummary>();
+
+  for (const receipt of receipts) {
+    if (receipt.status === "ignored" || receipt.ocr_data.is_supplier_invoice === false) continue;
+    const name = (receipt.ocr_data.vendor_name ?? receipt.ocr_data.vendor ?? "").trim();
+    if (!name) continue;
+
+    const normalizedName = name.toLocaleLowerCase("fr").replace(/\s+/g, " ");
+    const ice = receipt.ocr_data.supplier_ice?.trim() || null;
+    const existingEntry = [...suppliers.entries()].find(([, supplier]) =>
+      supplier.key === normalizedName || Boolean(ice && supplier.ice === ice),
+    );
+    const key = existingEntry?.[0] ?? normalizedName;
+    const date = receipt.ocr_data.date ?? receipt.created_at?.slice(0, 10) ?? "";
+    const amount = Math.abs(Number(receipt.ocr_data.amount_ttc ?? receipt.ocr_data.amount ?? 0));
+    const current = existingEntry?.[1];
+
+    if (!current) {
+      suppliers.set(key, {
+        key,
+        name,
+        ice,
+        fiscalId: receipt.ocr_data.supplier_if?.trim() || null,
+        rib: receipt.ocr_data.supplier_rib?.trim() || null,
+        iban: receipt.ocr_data.supplier_iban?.trim() || null,
+        invoiceCount: 1,
+        totalTtc: amount,
+        latestDate: date,
+      });
+      continue;
+    }
+
+    current.invoiceCount += 1;
+    current.totalTtc += amount;
+    current.ice ||= ice;
+    current.fiscalId ||= receipt.ocr_data.supplier_if?.trim() || null;
+    current.rib ||= receipt.ocr_data.supplier_rib?.trim() || null;
+    current.iban ||= receipt.ocr_data.supplier_iban?.trim() || null;
+    if (date > current.latestDate) {
+      current.latestDate = date;
+      current.name = name;
+    }
+  }
+
+  return [...suppliers.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
 }
 
 
@@ -456,7 +516,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   const pending = receipts.filter((r) => r.status === "pending");
   const matched = receipts.filter((r) => r.status === "matched");
   const ignored = receipts.filter((r) => r.status === "ignored");
-  const tabItems = tab === "pending" ? pending : tab === "matched" ? matched : ignored;
+  const suppliers = supplierSummaries(receipts);
+  const tabItems = tab === "pending" ? pending : tab === "ignored" ? ignored : [];
 
   return (
     <div>
@@ -467,7 +528,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
           <Inbox size={18} className="text-[#C8924A]" />
         </div>
         <div>
-          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Boîte de réception</h1>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Achats</h1>
           <p className="text-[11px] text-[#9CA3AF] mt-0.5">Factures fournisseurs — importez, vérifiez et confirmez</p>
         </div>
       </div>
@@ -477,6 +538,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         {([
           ["pending", "À traiter", pending.length],
           ["matched", "Traités", matched.length],
+          ["suppliers", "Fournisseurs", suppliers.length],
           ["ignored", "Ignorés", ignored.length],
         ] as const).map(([key, label, count]) => (
           <button key={key} onClick={() => setTab(key)}
@@ -582,8 +644,13 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         <LedgerView receipts={matched} onPreview={setPreviewReceipt} />
       )}
 
+      {/* ─── Suppliers: consolidated purchase directory ─────────────────── */}
+      {!loading && tab === "suppliers" && (
+        <SuppliersView suppliers={suppliers} />
+      )}
+
       {/* ─── Pending / Ignored: empty state ─────────────────────────────── */}
-      {!loading && tab !== "matched" && tabItems.length === 0 && (
+      {!loading && (tab === "pending" || tab === "ignored") && tabItems.length === 0 && (
         <div className="empty-state">
           <div className="mb-3 flex justify-center text-[#9CA3AF]">
             {tab === "pending" ? (dossierId && inboxEmail ? <Mail size={36} /> : <Inbox size={36} />) : <FolderOpen size={36} />}
@@ -627,7 +694,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       )}
 
       {/* ─── Cards (pending / ignored) ───────────────────────────────────── */}
-      {!loading && tab !== "matched" && tabItems.length > 0 && (
+      {!loading && (tab === "pending" || tab === "ignored") && tabItems.length > 0 && (
         <div className="flex flex-col gap-3">
           {tabItems.map((r) =>
             tab === "pending" ? (
@@ -664,6 +731,78 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
           onClose={() => setPreviewReceipt(null)}
           onChanged={load}
         />
+      )}
+    </div>
+  );
+}
+
+// ─── Suppliers View ──────────────────────────────────────────────────────────
+
+function SuppliersView({ suppliers }: { suppliers: SupplierSummary[] }) {
+  const [search, setSearch] = useState("");
+  const normalizedSearch = search.trim().toLocaleLowerCase("fr");
+  const filtered = normalizedSearch
+    ? suppliers.filter((supplier) => `${supplier.name} ${supplier.ice ?? ""} ${supplier.fiscalId ?? ""} ${supplier.rib ?? ""} ${supplier.iban ?? ""}`.toLocaleLowerCase("fr").includes(normalizedSearch))
+    : suppliers;
+
+  if (suppliers.length === 0) {
+    return (
+      <div className="empty-state">
+        <Building2 size={34} className="mb-3 text-[#9CA3AF]" aria-hidden="true" />
+        <p className="text-[13px] font-medium text-[#6B7280]">Aucun fournisseur identifié</p>
+        <p className="mt-1 text-[11.5px] text-[#9CA3AF]">Les fournisseurs apparaîtront ici dès qu’une facture d’achat sera reçue.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="relative max-w-[390px]">
+        <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A909B]" />
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="input w-full pl-9"
+          placeholder="Rechercher un fournisseur, ICE, IF ou RIB…"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-state">Aucun fournisseur ne correspond à « {search.trim()} ».</div>
+      ) : (
+        <div className="overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white">
+          <div className="hidden grid-cols-[minmax(200px,1fr)_minmax(180px,1fr)_90px_130px_120px] gap-3 border-b border-[rgba(0,0,0,0.08)] bg-[#F9F9F6] px-4 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.4px] text-[#6B7280] md:grid">
+            <span className="text-left">Fournisseur</span>
+            <span className="text-left">Coordonnées du fournisseur</span>
+            <span className="text-left">Factures</span>
+            <span className="text-left">Total TTC</span>
+            <span className="text-left">Dernière facture</span>
+          </div>
+          {filtered.map((supplier) => (
+            <div
+              key={supplier.key}
+              className="grid w-full gap-3 border-b border-[rgba(0,0,0,0.06)] px-4 py-3 text-left last:border-b-0 md:grid-cols-[minmax(200px,1fr)_minmax(180px,1fr)_90px_130px_120px] md:items-center"
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center bg-[#F0EDE5] text-[#C8924A]">
+                  <Building2 size={14} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[12.5px] font-semibold text-[#1A1A2E]">{supplier.name}</span>
+                  <span className="mt-0.5 block text-[10.5px] text-[#9CA3AF] md:hidden">{supplier.invoiceCount} facture{supplier.invoiceCount > 1 ? "s" : ""}</span>
+                </span>
+              </span>
+              <span className="space-y-0.5 text-[10.5px] text-[#6B7280]">
+                <span className="block"><strong className="font-semibold text-[#4B5260]">ICE</strong> {supplier.ice || "—"}</span>
+                <span className="block"><strong className="font-semibold text-[#4B5260]">IF</strong> {supplier.fiscalId || "—"}</span>
+                {(supplier.iban || supplier.rib) && <span className="block truncate" title={supplier.iban || supplier.rib || undefined}><strong className="font-semibold text-[#4B5260]">RIB/IBAN</strong> {supplier.iban || supplier.rib}</span>}
+              </span>
+              <span className="hidden text-[11.5px] font-semibold text-[#1A1A2E] md:block">{supplier.invoiceCount}</span>
+              <span className="text-[12px] font-semibold text-[#1A1A2E] md:block">{fmt(supplier.totalTtc)} MAD</span>
+              <span className="text-[11.5px] text-[#6B7280]">{supplier.latestDate ? fmtDate(supplier.latestDate) : "—"}</span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -1200,8 +1339,8 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
         </div>
       </div>
 
-      <div className="px-4 pb-4 grid grid-cols-2 gap-2">
-        <div>
+      <div className="grid grid-cols-2 gap-2 px-4 pb-4 lg:grid-cols-6">
+        <div className="lg:col-span-3">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant (MAD)</label>
           <div className="relative">
             <input
@@ -1216,12 +1355,12 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           </div>
         </div>
 
-        <div>
+        <div className="lg:col-span-3">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Date</label>
           <input type="date" className="input" value={form.date} onChange={(e) => onFormChange("date", e.target.value)} />
         </div>
 
-        <div>
+        <div className="lg:col-span-3">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block flex items-center gap-1">
             Échéance
             {form.due_date && (() => {
@@ -1239,26 +1378,26 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           />
         </div>
 
-        <div>
+        <div className="lg:col-span-3">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Description</label>
           <input className="input" value={form.description} onChange={(e) => onFormChange("description", e.target.value)} placeholder="Description de la dépense" />
         </div>
 
-        <div>
+        <div className="lg:col-span-2">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Catégorie</label>
           <select className="input" value={form.category} onChange={(e) => onFormChange("category", e.target.value)}>
             {ALL_CATS.map((c) => <option key={c}>{c}</option>)}
           </select>
         </div>
 
-        <div>
+        <div className="lg:col-span-2">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">TVA</label>
           <select className="input" value={form.tva_rate} onChange={(e) => onFormChange("tva_rate", e.target.value)}>
             {TVA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
 
-        <div className="col-span-2">
+        <div className="col-span-2 lg:col-span-2">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Compte comptable</label>
           <CompteSelect value={form.compte_comptable} onChange={(val) => onFormChange("compte_comptable", val)} />
         </div>

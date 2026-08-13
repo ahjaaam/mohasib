@@ -1268,7 +1268,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
                       {expiryDate ? fmtDate(expiryDate) : "—"}
                     </td>
                     <td>
-                      <span className="inline-block px-2 py-0.5 text-[11px] font-semibold"
+                      <span className="table-status-badge"
                         style={{ backgroundColor: bg, color }}>
                         {label}
                       </span>
@@ -1346,7 +1346,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
                     </td>
                   )}
                   <td>
-                    <span className="inline-block px-2 py-0.5 text-[11px] font-semibold"
+                    <span className="table-status-badge"
                       style={{ backgroundColor: bg, color }}>
                       {label}
                     </span>

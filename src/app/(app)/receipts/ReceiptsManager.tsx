@@ -74,10 +74,10 @@ function receiptSource(receipt: Receipt) {
         : "Import manuel";
 }
 
-const STATUS_META: Record<ReceiptStatus, { label: string; className: string }> = {
-  pending: { label: "À traiter", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  matched: { label: "Traité", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  ignored: { label: "Archivé", className: "bg-gray-100 text-gray-600 border-gray-200" },
+const STATUS_META: Record<ReceiptStatus, { label: string; backgroundColor: string; color: string }> = {
+  pending: { label: "À traiter", backgroundColor: "#FEF3C7", color: "#92400E" },
+  matched: { label: "Traité", backgroundColor: "#D1FAE5", color: "#065F46" },
+  ignored: { label: "Archivé", backgroundColor: "#F3F4F6", color: "#6B7280" },
 };
 
 export default function ReceiptsManager({ dossierId }: { dossierId?: string } = {}) {
@@ -450,7 +450,12 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
                   {formatAmount(receipt.ocr_data.amount, receipt.ocr_data.currency ?? "MAD")}
                 </div>
                 <div>
-                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.className}`}>{meta.label}</span>
+                  <span
+                    className="table-status-badge"
+                    style={{ backgroundColor: meta.backgroundColor, color: meta.color }}
+                  >
+                    {meta.label}
+                  </span>
                 </div>
                 <div className="flex items-center justify-end gap-1">
                   {receipt.status === "pending" && (

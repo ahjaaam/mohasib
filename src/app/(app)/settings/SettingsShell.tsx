@@ -97,10 +97,16 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
           </div>
 
           {/* Desktop: vertical nav */}
-          <div className="hidden md:flex flex-col bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
+          <div
+            role="tablist"
+            aria-label="Sections des paramètres"
+            className="hidden md:flex flex-col bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden"
+          >
             {visibleTabs.map((t, i) => (
               <button
                 key={t.id}
+                role="tab"
+                aria-selected={tab === t.id}
                 onClick={() => setTab(t.id)}
                 className={`flex items-center gap-2.5 px-4 py-3 text-[12.5px] text-left transition-all border-l-2 ${
                   i < visibleTabs.length - 1 ? "border-b border-[rgba(0,0,0,0.06)]" : ""

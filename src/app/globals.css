@@ -20,8 +20,8 @@
   --amber: #D97706;
   /* Mohasib geometry: sharp structure, restrained controls, clear status cues. */
   --radius-interface: 0px;
-  --radius-control: 2px;
-  --radius-compact: 4px;
+  --radius-control: 6px;
+  --radius-compact: 6px;
   --radius-pill: 9999px;
   --control-height: 40px;
   --control-height-compact: 32px;
@@ -89,6 +89,11 @@
     border-radius: var(--radius-pill) !important;
   }
 
+  /* Section and tab selectors are structural navigation, not rounded actions. */
+  .mohasib-app :is(button.tab, .tabs > button, [role="tab"]) {
+    border-radius: var(--radius-interface) !important;
+  }
+
   input[type="color"]::-webkit-color-swatch,
   input[type="color"]::-moz-color-swatch {
     border-radius: var(--radius-pill) !important;
@@ -99,6 +104,88 @@
   html,
   body {
     overscroll-behavior-y: none;
+  }
+}
+
+.chat-message-bubble {
+  border-radius: 18px !important;
+}
+
+.chat-composer {
+  border-radius: 16px !important;
+}
+
+.chat-send-button {
+  border-radius: 12px !important;
+}
+
+.table-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 0 !important;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.revenue-expense-chart {
+  --revenue-chart-color: #C8924A;
+  --expense-chart-color: #0D1526;
+}
+
+[data-sidebar-theme="cream"] .revenue-expense-chart {
+  --revenue-chart-color: #7FA58A;
+  --expense-chart-color: #C58B78;
+}
+
+/* Keep the fixed application header in sync with the Sombre appearance. */
+.app-topbar--dark #app-global-search {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: #1B202B !important;
+  color: #F4F5F7 !important;
+}
+
+.app-topbar--dark #app-global-search::placeholder {
+  color: #8F96A3;
+}
+
+.app-topbar--dark #app-global-search + span {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: #202632 !important;
+  color: #A9B0BC !important;
+}
+
+.app-topbar--dark > div > a,
+.app-topbar--dark > div > button,
+.app-topbar--dark > div > div > button {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: #AAB1BD !important;
+}
+
+.app-topbar--dark > div > a:hover,
+.app-topbar--dark > div > button:hover,
+.app-topbar--dark > div > div > button:hover {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: #1B202B !important;
+  color: #FFFFFF !important;
+}
+
+.app-topbar--dark > div:last-child > div {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.app-topbar--dark .app-topbar-workspace,
+.app-topbar--dark .app-topbar-period {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: #1B202B !important;
+}
+
+@media (min-width: 1024px) {
+  html.mohasib-chat-open .mohasib-main-column {
+    margin-right: 400px;
   }
 }
 
@@ -329,7 +416,7 @@
 
   /* KPI */
   .kpi { @apply bg-white border border-[rgba(0,0,0,0.08)] rounded-xl; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-  .kpi-label { @apply text-[10.5px] text-[#6B7280] uppercase tracking-[0.5px] mb-2.5; }
+  .kpi-label { @apply text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-2.5; }
   .kpi-value { @apply font-bold text-[#1A1A2E] mb-1 leading-none; font-size: 26px; letter-spacing: -0.5px; font-weight: 700; }
 
   /* Table container */

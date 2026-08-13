@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Users, Plus, FileText, Upload, Download, X, Loader2, CheckCircle, AlertCircle, Info, ArrowDown, ArrowUp, Search } from "lucide-react";
+import { Users, Plus, FileText, Upload, Download, X, Loader2, CheckCircle, AlertCircle, Info, ArrowDown, ArrowUp, Search, LayoutGrid, Rows3 } from "lucide-react";
 import type { Client } from "@/types";
 import ClientModal from "./ClientModal";
 import * as XLSX from "xlsx";
@@ -30,6 +30,7 @@ type ClientWithStats = Client & {
 };
 
 type ClientSortKey = "name" | "city" | "ca" | "count" | "delay" | "overdue";
+type ClientViewMode = "cards" | "rows";
 
 function initials(name: string) {
   return name
@@ -135,6 +136,11 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
   const [userId, setUserId] = useState<string>("");
   const [sortKey, setSortKey] = useState<ClientSortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [viewMode, setViewMode] = useState<ClientViewMode>("rows");
+
+  function selectViewMode(mode: ClientViewMode) {
+    setViewMode(mode);
+  }
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -329,12 +335,12 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
           <button
             data-auth-required="import clients"
             onClick={() => importInputRef.current?.click()}
-            className="btn btn-outline flex items-center gap-1.5"
+            className="btn btn-outline h-10 min-h-10 min-w-[140px] justify-center px-4 text-[12.5px]"
           >
             <Upload size={13} /> Importer Excel
           </button>
         </div>
-        <button data-permission="invoice:create" onClick={openAdd} className="btn btn-gold flex items-center gap-1.5">
+        <button data-permission="invoice:create" onClick={openAdd} className="btn btn-gold h-10 min-h-10 min-w-[140px] justify-center px-4 text-[12.5px]">
           <Plus size={13} /> Nouveau client
         </button>
       </div>
@@ -510,6 +516,28 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
             </button>
           );
         })}
+        <div className="ui-control ml-auto flex h-8 items-center border border-[rgba(0,0,0,0.16)] bg-[#F1F2F3] p-0.5" aria-label="Mode d’affichage">
+          <button
+            type="button"
+            onClick={() => selectViewMode("cards")}
+            aria-label="Afficher en cartes"
+            aria-pressed={viewMode === "cards"}
+            title="Vue cartes"
+            className={`flex h-7 w-8 items-center justify-center transition-colors ${viewMode === "cards" ? "bg-white text-[#C8924A] shadow-sm" : "text-[#777E8B] hover:text-[#1A1A2E]"}`}
+          >
+            <LayoutGrid size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => selectViewMode("rows")}
+            aria-label="Afficher horizontalement"
+            aria-pressed={viewMode === "rows"}
+            title="Vue horizontale"
+            className={`flex h-7 w-8 items-center justify-center transition-colors ${viewMode === "rows" ? "bg-white text-[#C8924A] shadow-sm" : "text-[#777E8B] hover:text-[#1A1A2E]"}`}
+          >
+            <Rows3 size={14} />
+          </button>
+        </div>
       </div>
 
       {sortedClients.length === 0 ? (
@@ -517,33 +545,37 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
           Aucun client ne correspond à « {search.trim()} ».
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        <div className={`grid grid-cols-1 gap-2.5 ${viewMode === "cards" ? "sm:grid-cols-2 lg:grid-cols-3" : ""}`}>
           {sortedClients.map((c) => (
           <div
             key={c.id}
             onClick={() => openEdit(c)}
-            className="client-card group relative cursor-pointer hover:border-[#C8924A]/40 transition-all"
+            className={`client-card group relative flex cursor-pointer flex-col overflow-hidden !p-0 transition-all hover:border-[#C8924A]/40 ${viewMode === "rows" ? "md:flex-row md:items-stretch" : ""}`}
           >
-            {/* Overdue badge */}
-            {c._overdueCount > 0 && (
-              <span className="absolute top-3 right-3 text-[10px] font-semibold bg-[#FEE2E2] text-[#DC2626] px-1.5 py-0.5 rounded-full">
-                {c._overdueCount} en retard
-              </span>
-            )}
-
-            {/* Avatar */}
-            <div className="w-9 h-9 rounded-lg bg-[#0D1526] text-[#C8924A] flex items-center justify-center font-bold text-[13px] mb-2.5 flex-shrink-0">
-              {initials(c.name)}
+            {/* Identity and contact */}
+            <div className={`flex min-w-0 gap-3 p-4 ${viewMode === "rows" ? "md:w-[300px] md:flex-shrink-0" : ""}`}>
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center bg-[#0D1526] text-[13px] font-bold text-[#C8924A]">
+                {initials(c.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <div className="truncate text-[13px] font-semibold text-[#1A1A2E]">{c.name}</div>
+                  {c._overdueCount > 0 && (
+                    <span className="badge-pill flex-shrink-0 bg-[#FEE2E2] px-1.5 py-0.5 text-[10px] font-semibold text-[#DC2626]">
+                      {c._overdueCount} en retard
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  {c.ice && <div className="truncate text-[11px] text-[#6B7280]">ICE: {c.ice}</div>}
+                  {(c.city || c.phone) && <div className="truncate text-[11px] text-[#6B7280]">{[c.city, c.phone].filter(Boolean).join(" · ")}</div>}
+                  {c.email && <div className="truncate text-[11px] text-[#6B7280]">{c.email}</div>}
+                </div>
+              </div>
             </div>
 
-            <div className="text-[13px] font-semibold text-[#1A1A2E] mb-0.5 pr-16">{c.name}</div>
-            {c.ice && <div className="text-[11px] text-[#6B7280]">ICE: {c.ice}</div>}
-            {c.city && <div className="text-[11px] text-[#6B7280]">{c.city}</div>}
-            {c.email && <div className="text-[11px] text-[#6B7280]">{c.email}</div>}
-            {c.phone && <div className="text-[11px] text-[#6B7280]">{c.phone}</div>}
-
             {/* Stats */}
-            <div className="flex gap-4 mt-2.5 pt-2.5 border-t border-[rgba(0,0,0,0.08)]">
+            <div className={`grid grid-cols-3 gap-4 border-t border-[rgba(0,0,0,0.08)] px-4 py-3 ${viewMode === "rows" ? "md:w-[310px] md:flex-shrink-0 md:border-l md:border-t-0 md:items-center" : ""}`}>
               <div className="text-[11px] text-[#6B7280]">
                 <strong className="block text-[12px] text-[#1A1A2E] font-semibold">
                   {fmtCA(c._ca)}
@@ -568,8 +600,9 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
               </div>
             </div>
 
-            {c._invoices.length > 0 && (
-              <div className="mt-2.5 border-t border-[rgba(0,0,0,0.06)] pt-2.5">
+            <div className={`min-w-0 flex-1 border-t border-[rgba(0,0,0,0.06)] px-4 py-3 ${viewMode === "rows" ? "md:border-l md:border-t-0" : ""}`}>
+              {c._invoices.length > 0 ? (
+                <>
                 <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.45px] text-[#9CA3AF]">Factures récentes</div>
                 <div className="space-y-1">
                   {[...c._invoices]
@@ -587,11 +620,14 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
                       </Link>
                     ))}
                 </div>
-              </div>
-            )}
+                </>
+              ) : (
+                <div className="flex h-full items-center text-[11px] text-[#9CA3AF]">Aucune facture récente</div>
+              )}
+            </div>
 
-            {/* Footer row */}
-            <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-[rgba(0,0,0,0.06)]">
+            {/* Actions */}
+            <div className={`flex items-center justify-between gap-3 border-t border-[rgba(0,0,0,0.06)] px-4 py-3 ${viewMode === "rows" ? "md:w-[170px] md:flex-shrink-0 md:flex-col md:items-start md:justify-center md:border-l md:border-t-0" : ""}`}>
               <Link
                 href={`/invoices?q=${encodeURIComponent(c.name)}`}
                 onClick={(e) => e.stopPropagation()}
@@ -600,7 +636,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
                 <FileText size={12} />
                 Voir les factures {c._count > 0 ? `(${c._count})` : ""}
               </Link>
-              <span className="text-[10.5px] text-[#C8924A] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-[10.5px] font-medium text-[#C8924A] opacity-70 transition-opacity group-hover:opacity-100">
                 Modifier →
               </span>
             </div>

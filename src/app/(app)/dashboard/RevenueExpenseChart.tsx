@@ -37,18 +37,18 @@ export default function RevenueExpenseChart({
 }) {
   return (
     <div
-      className="h-[142px] border border-[rgba(0,0,0,0.08)] bg-white p-3"
+      className="revenue-expense-chart h-[210px] border border-[rgba(0,0,0,0.08)] bg-white p-3"
       role="region"
       aria-label={`Revenus et dépenses pour ${periodLabel}`}
     >
       <div className="mb-2 flex h-5 items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-[10px] font-medium text-[#6B7280]">
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 bg-[#C8924A]" aria-hidden="true" />
+            <span className="h-2 w-2 bg-[var(--revenue-chart-color)]" aria-hidden="true" />
             Revenus
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 bg-[#0D1526]" aria-hidden="true" />
+            <span className="h-2 w-2 bg-[var(--expense-chart-color)]" aria-hidden="true" />
             Dépenses
           </span>
         </div>
@@ -56,7 +56,7 @@ export default function RevenueExpenseChart({
         <span className="max-w-[130px] truncate text-[9px] font-semibold text-[#8A5E25]">{periodLabel}</span>
       </div>
 
-      <div className="h-[90px] w-full">
+      <div className="h-[158px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
@@ -97,8 +97,8 @@ export default function RevenueExpenseChart({
                 padding: "7px 9px",
               }}
             />
-            <Bar dataKey="revenue" fill="#C8924A" maxBarSize={14} />
-            <Bar dataKey="expenses" fill="#0D1526" maxBarSize={14} />
+            <Bar dataKey="revenue" fill="var(--revenue-chart-color)" maxBarSize={14} />
+            <Bar dataKey="expenses" fill="var(--expense-chart-color)" maxBarSize={14} />
           </BarChart>
         </ResponsiveContainer>
       </div>

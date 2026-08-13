@@ -14,7 +14,7 @@ const PRESETS: Array<{ value: Exclude<GlobalPeriodPreset, "custom">; label: stri
   { value: "all", label: "Toutes les dates" },
 ];
 
-export default function GlobalPeriodSelector({ onOpen }: { onOpen?: () => void }) {
+export default function GlobalPeriodSelector({ onOpen, align = "right" }: { onOpen?: () => void; align?: "left" | "right" }) {
   const router = useRouter();
   const { period, setPeriod } = useGlobalPeriod();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -57,7 +57,7 @@ export default function GlobalPeriodSelector({ onOpen }: { onOpen?: () => void }
           if (!open) onOpen?.();
           setOpen((value) => !value);
         }}
-        className={`flex h-10 items-center gap-2 border px-2.5 text-[12px] font-semibold transition-colors sm:px-3 ${
+        className={`app-topbar-period flex h-10 items-center gap-2 border px-2.5 text-[12px] font-semibold transition-colors sm:px-3 ${
           open ? "border-[#C8924A] bg-[#F7F7F3] text-[#8A5E25]" : "border-transparent bg-[#F7F7F3] text-[#4B5260] hover:text-[#8A5E25]"
         }`}
         aria-label={`Période de travail : ${globalPeriodLabel(period)}`}
@@ -69,7 +69,7 @@ export default function GlobalPeriodSelector({ onOpen }: { onOpen?: () => void }
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+9px)] z-50 w-[310px] border border-[#DADAD5] border-t-2 border-t-[#C8924A] bg-white p-2 shadow-[0_18px_42px_rgba(13,21,38,0.15)]">
+        <div className={`absolute top-[calc(100%+9px)] z-50 w-[310px] border border-[#DADAD5] border-t-2 border-t-[#C8924A] bg-white p-2 shadow-[0_18px_42px_rgba(13,21,38,0.15)] ${align === "left" ? "left-0" : "right-0"}`}>
           <div className="px-2 pb-1.5 pt-1 text-[9px] font-bold uppercase tracking-[0.9px] text-[#9A9FA8]">Période de travail</div>
           {PRESETS.map((item) => (
             <button

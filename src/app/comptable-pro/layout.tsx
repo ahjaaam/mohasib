@@ -18,8 +18,10 @@ export default async function ComptableProLayout({ children }: { children: React
   const scopeAllowed = await canEnterScope({ userId: user.id }, "comptable_pro");
 
   const ownerId = teamContext?.ownerId ?? user.id;
-  const [profileRes, preferencesRes, access, entitlements] = await Promise.all([
+  const [profileRes, dossiersRes, preferencesRes, access, entitlements] = await Promise.all([
     supabase.from("users").select("full_name, avatar_url").eq("id", user.id).single(),
+    supabase.from("dossiers").select("id, raison_sociale")
+      .eq("fiduciaire_user_id", ownerId).eq("statut", "actif").order("raison_sociale"),
     supabase.from("user_preferences").select("sidebar_theme").eq("user_id", ownerId).maybeSingle(),
     getUserAccessProfile(user.id),
     getPlanEntitlements(user.id),
@@ -31,6 +33,10 @@ export default async function ComptableProLayout({ children }: { children: React
       ownerId={ownerId}
       userEmail={user.email}
       userName={profileRes.data?.full_name ?? user.user_metadata?.full_name ?? user.email}
+      userCompany={teamContext?.accountName}
+      cabinetCompanies={(dossiersRes.data ?? [])
+        .filter((item) => !access.dossierScope?.length || access.dossierScope.includes(item.id))
+        .map((item) => ({ id: item.id, name: item.raison_sociale }))}
       userAvatar={profileRes.data?.avatar_url}
       isFiduciaire={isFiduciaire}
       permissions={access.permissions}

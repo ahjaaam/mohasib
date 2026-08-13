@@ -14,7 +14,7 @@ type AccountMode = "full" | "invoicing";
 
 const NEED_OPTIONS = [
   "Facturation et devis",
-  "Boîte de réception et OCR",
+  "Achats et OCR",
   "TVA et déclarations",
   "Suivi des échéances",
   "Transactions et rapprochement",

@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Check, Download, FilePlus2, GitMerge, Search, SkipForward } from "lucide-react";
+import { Check, Download, FilePlus2, GitMerge, History, Search, SkipForward } from "lucide-react";
 
 type Session = {
   id: string;
@@ -71,7 +72,6 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [selected, setSelected] = useState<Session | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [ecritures, setEcritures] = useState<Ecriture[]>([]);
@@ -95,7 +95,6 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
       .order("created_at", { ascending: false });
     const { data } = await (dossierId ? query.eq("dossier_id", dossierId) : query.is("dossier_id", null));
     const list = (data ?? []) as Session[];
-    setSessions(list);
     const target = list.find((item) => item.id === sessionId) ?? list[0] ?? null;
     setSelected(target);
     setLoading(false);
@@ -226,16 +225,26 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
             <p className="text-[11px] text-[#9CA3AF] mt-0.5">Comparez vos mouvements bancaires avec vos écritures comptables.</p>
           </div>
         </div>
-        {selected && (
-          <a href={`/api/rapprochement/${selected.id}/report`} className="btn btn-outline btn-sm flex items-center gap-1.5">
-            <Download size={13} /> Rapport PDF
-          </a>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={dossierId ? `/comptable-pro/dossiers/${dossierId}/rapprochement/historique` : "/rapprochement/historique"} className="btn btn-outline btn-sm flex items-center gap-1.5">
+            <History size={13} /> Historique
+          </Link>
+          {selected && (
+            <a href={`/api/rapprochement/${selected.id}/report`} className="btn btn-outline btn-sm flex items-center gap-1.5">
+              <Download size={13} /> Rapport PDF
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="space-y-5">
-        <section className="card p-5">
-          <h2 className="text-[13.5px] font-semibold text-[#1A1A2E] mb-4">Nouveau rapprochement</h2>
+        <section className="border-y border-[rgba(0,0,0,0.08)] py-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-[13.5px] font-semibold text-[#1A1A2E]">Nouveau rapprochement</h2>
+              <p className="mt-0.5 text-[11px] text-[#9CA3AF]">Saisissez les soldes figurant sur votre relevé bancaire.</p>
+            </div>
+          </div>
           <div className="grid gap-3 md:grid-cols-4">
             <label className="text-[11px] font-semibold text-[#6B7280]">Date début
               <input type="date" value={form.periodeDebut} onChange={(e) => setForm({ ...form, periodeDebut: e.target.value })} className="input mt-1 w-full" />
@@ -260,26 +269,25 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
               {starting ? "Démarrage..." : "Démarrer le rapprochement →"}
             </button>
           </div>
-          <p className="mt-3 text-[11px] text-[#9CA3AF]">Ces montants sont sur votre relevé bancaire.</p>
         </section>
 
         {selected && (
           <>
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+            <section className="grid grid-cols-2 border-y border-[rgba(0,0,0,0.08)] bg-white md:grid-cols-4">
               <Metric label="Solde bancaire" value={mad(selected.solde_final_banque)} sub="selon votre relevé" />
               <Metric label="Solde comptable" value={mad(selected.solde_final_comptable)} sub="selon vos écritures" />
               <Metric label="Écart" value={mad(selected.ecart)} sub="doit être égal à 0" danger={Math.abs(Number(selected.ecart)) >= 0.01} />
               <Metric label="Lignes rapprochées" value={`${lineStats.matched} / ${lineStats.total}`} sub={`${lineStats.pct}%`} />
             </section>
 
-            <div className={`rounded-xl border px-4 py-3 text-[12.5px] font-semibold flex items-center flex-wrap gap-3 ${selected.is_balanced ? "border-[#BBF7D0] bg-[#ECFDF5] text-[#047857]" : "border-[#FED7AA] bg-[#FFF7ED] text-[#B45309]"}`}>
+            <div className={`flex flex-wrap items-center gap-3 border-l-[3px] px-4 py-2.5 text-[12px] font-semibold ${selected.is_balanced ? "border-l-[#059669] bg-[#F3FAF6] text-[#047857]" : "border-l-[#D97706] bg-[#FCF8F1] text-[#B45309]"}`}>
               <span>{selected.is_balanced ? "Rapprochement équilibré — prêt à valider" : `Écart de ${mad(selected.ecart)} — vérifiez les lignes en rouge`}</span>
               {selected.is_balanced && selected.statut !== "validé" && (
                 <button onClick={() => postAction("validate")} className="btn btn-gold btn-sm">Valider le rapprochement</button>
               )}
             </div>
 
-            <div className="md:hidden flex items-center gap-1 bg-[#F3F4F6] p-1 rounded-xl">
+            <div className="ui-control flex items-center gap-1 bg-[#F3F4F6] p-1 md:hidden">
               <button onClick={() => setMobileTab("bank")}
                 className={`flex-1 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${mobileTab === "bank" ? "bg-white text-[#1A1A2E] shadow-sm" : "text-[#6B7280] hover:text-[#1A1A2E]"}`}>
                 Relevé bancaire
@@ -290,7 +298,7 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
               </button>
             </div>
 
-            <section className="grid overflow-hidden rounded-xl border border-[rgba(0,0,0,0.08)] bg-white md:grid-cols-2">
+            <section className="grid overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white md:grid-cols-2">
               <Panel
                 className={mobileTab === "entries" ? "hidden md:block" : ""}
                 title="Relevé bancaire"
@@ -356,14 +364,22 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
             </section>
 
             {lines.some((line) => line.statut === "non_rapproché") && (
-              <section className="card p-5">
-                <h2 className="text-[13.5px] font-semibold text-[#1A1A2E] mb-3">Lignes bancaires sans écriture</h2>
-                <div className="grid gap-2.5 md:grid-cols-2">
+              <section className="border-y border-[rgba(0,0,0,0.08)] bg-white">
+                <div className="border-b border-[rgba(0,0,0,0.08)] px-4 py-3">
+                  <h2 className="text-[13.5px] font-semibold text-[#1A1A2E]">Lignes bancaires sans écriture</h2>
+                  <p className="mt-0.5 text-[11px] text-[#9CA3AF]">Créez uniquement les transactions réellement absentes de la comptabilité.</p>
+                </div>
+                <div className="divide-y divide-[rgba(0,0,0,0.07)]">
                   {lines.filter((line) => line.statut === "non_rapproché").map((line) => (
-                    <div key={line.id} className="rounded-lg border border-[rgba(0,0,0,0.08)] p-3.5">
-                      <div className="flex justify-between text-[12.5px] font-bold text-[#1A1A2E]"><span>{line.bank_date}</span><span>{mad(line.bank_amount)}</span></div>
-                      <p className="mt-1.5 text-[12.5px] text-[#374151]">{line.bank_description}</p>
-                      <button onClick={() => postAction("create-transaction", { bankLineId: line.id, category: Number(line.bank_amount) < 0 ? "Télécom" : "Revenu", compte: "5141", description: line.bank_description })} className="btn btn-gold btn-sm mt-2.5 flex items-center gap-1.5">
+                    <div key={line.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+                          <span className="font-semibold text-[#6B7280]">{line.bank_date}</span>
+                          <span className="font-bold text-[#1A1A2E]">{mad(line.bank_amount)}</span>
+                        </div>
+                        <p className="mt-1 truncate text-[12.5px] text-[#374151]">{line.bank_description}</p>
+                      </div>
+                      <button onClick={() => postAction("create-transaction", { bankLineId: line.id, category: Number(line.bank_amount) < 0 ? "Télécom" : "Revenu", compte: "5141", description: line.bank_description })} className="btn btn-gold btn-sm flex flex-shrink-0 items-center gap-1.5">
                         <FilePlus2 size={13} /> Créer la transaction
                       </button>
                     </div>
@@ -374,46 +390,6 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
           </>
         )}
 
-        <div className="tbl">
-          <div className="tbl-header">
-            <span className="tbl-title">Historique</span>
-            {sessions.length > 0 && (
-              <select value={selected?.id ?? ""} onChange={(e) => setSelected(sessions.find((item) => item.id === e.target.value) ?? null)} className="input max-w-[260px] text-[12px]">
-                {sessions.map((session) => <option key={session.id} value={session.id}>{session.periode_debut} → {session.periode_fin} · {session.statut}</option>)}
-              </select>
-            )}
-          </div>
-          {sessions.length > 0 ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>Période</th>
-                  <th>Solde bancaire</th>
-                  <th>Solde comptable</th>
-                  <th>Écart</th>
-                  <th>Statut</th>
-                  <th>Validation</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((session) => (
-                  <tr key={session.id} className="cursor-pointer" onClick={() => setSelected(session)}>
-                    <td>{session.periode_debut} → {session.periode_fin}</td>
-                    <td>{mad(session.solde_final_banque)}</td>
-                    <td>{mad(session.solde_final_comptable)}</td>
-                    <td className={Math.abs(Number(session.ecart)) < 0.01 ? "text-[#059669]" : "text-[#DC2626]"}>{mad(session.ecart)}</td>
-                    <td>{session.statut}</td>
-                    <td>{session.validated_at ? new Date(session.validated_at).toLocaleDateString("fr-FR") : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="empty-state">
-              Aucun rapprochement enregistré. Importez un relevé bancaire pour commencer.
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -421,19 +397,19 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
 
 function Metric({ label, value, sub, danger = false }: { label: string; value: string; sub: string; danger?: boolean }) {
   return (
-    <div className="kpi">
-      <div className="kpi-label">{label}</div>
-      <div className={`kpi-value text-[20px] ${danger ? "text-[#DC2626]" : ""}`}>{value}</div>
-      <div className="text-[11px] text-[#6B7280]">{sub}</div>
+    <div className="min-w-0 border-b border-r border-[rgba(0,0,0,0.08)] px-4 py-3 last:border-r-0 md:border-b-0">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.5px] text-[#6B7280]">{label}</div>
+      <div className={`mt-1 truncate text-[18px] font-bold leading-tight ${danger ? "text-[#DC2626]" : "text-[#1A1A2E]"}`} title={value}>{value}</div>
+      <div className="mt-0.5 text-[10.5px] text-[#9CA3AF]">{sub}</div>
     </div>
   );
 }
 
 function Tabs({ items, active, onChange }: { items: string[]; active: string; onChange: (value: string) => void }) {
   return (
-    <div className="flex items-center gap-4 overflow-x-auto border-b border-[rgba(0,0,0,0.07)] px-4">
+    <div role="tablist" className="flex items-center gap-4 overflow-x-auto border-b border-[rgba(0,0,0,0.07)] px-4">
       {items.map((item) => (
-        <button key={item} onClick={() => onChange(item)}
+        <button key={item} role="tab" aria-selected={active === item} onClick={() => onChange(item)}
           className={`flex-shrink-0 whitespace-nowrap border-b-2 px-0.5 py-2.5 text-[11.5px] font-medium transition-colors ${
             active === item ? "border-[#C8924A] text-[#1A1A2E]" : "border-transparent text-[#6B7280] hover:text-[#1A1A2E]"
           }`}>

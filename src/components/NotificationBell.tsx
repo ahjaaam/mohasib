@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ensureAccountingAutomationGuideNotification } from "@/lib/notifications/actions";
-import { GLOBAL_PERIOD_EVENT } from "@/lib/global-period";
 
 export default function NotificationBell({ userId, onOpen }: { userId: string; onOpen?: () => void }) {
   const [messageCount, setMessageCount] = useState(0);
@@ -34,11 +33,9 @@ export default function NotificationBell({ userId, onOpen }: { userId: string; o
         () => { void loadCount(); },
       )
       .subscribe();
-    window.addEventListener(GLOBAL_PERIOD_EVENT, loadCount);
 
     return () => {
       active = false;
-      window.removeEventListener(GLOBAL_PERIOD_EVENT, loadCount);
       void supabase.removeChannel(channel);
     };
   }, [supabase, userId]);
@@ -47,13 +44,13 @@ export default function NotificationBell({ userId, onOpen }: { userId: string; o
     <Link
       href="/notifications"
       onClick={onOpen}
-      className="relative flex h-10 w-10 items-center justify-center border border-transparent text-[#777E8B] transition-colors hover:border-[#E1E0DA] hover:bg-[#F5F4EF] hover:text-[#1A1A2E]"
+      className="ui-control relative flex h-10 w-10 items-center justify-center border border-transparent text-[#777E8B] transition-colors hover:border-[#E1E0DA] hover:bg-[#F5F4EF] hover:text-[#1A1A2E]"
       title="Boîte de réception"
       aria-label={`Ouvrir la boîte de réception${messageCount ? `, ${messageCount} message${messageCount > 1 ? "s" : ""} à traiter` : ""}`}
     >
       <Mail size={16} />
       {messageCount > 0 && (
-        <span className="absolute -right-0.5 top-0 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[#FCFCFA] bg-[#DC2626] px-1 text-[9px] font-bold leading-none text-white">
+        <span className="absolute -right-0.5 bottom-0 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[#FCFCFA] bg-[#DC2626] px-1 text-[9px] font-bold leading-none text-white">
           {messageCount > 99 ? "99+" : messageCount}
         </span>
       )}

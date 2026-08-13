@@ -9,7 +9,7 @@ import { appUrl } from "@/lib/public-urls";
 const FONT = "var(--font-jakarta), sans-serif";
 
 const PRODUCT_TABS = [
-  "Boîte de réception",
+  "Achats",
   "TVA & Déclarations",
   "Suivi des échéances",
   "La paie",
@@ -24,7 +24,7 @@ export default function HomePageClient() {
     activeProductTab === 0
       ? {
           src: "/images/mohasib-inbox-demo.mp4",
-          alt: "Démonstration animée de la boîte de réception Mohasib pour importer et traiter les factures fournisseurs",
+          alt: "Démonstration animée des achats Mohasib pour importer et traiter les factures fournisseurs",
           width: 1784,
           height: 1080,
         }

@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import {
   ChevronLeft, Save, Plus, Trash2, Download, FileText,
-  BarChart2, Calculator, Banknote, FolderOpen, Package,
+  BarChart2, Calculator, UserRoundCog, FolderOpen, Package,
   TrendingUp, CheckCircle, AlertTriangle,
 } from "lucide-react";
 import type { Dossier, DossierEcriture, DossierTva, JournalCode } from "@/types/fiduciaire";
@@ -25,7 +25,7 @@ const TABS = [
   { key: "factures", label: "Factures clients", icon: FileText },
   { key: "achats", label: "Achats fournisseurs", icon: FileText },
   { key: "tva", label: "Déclaration TVA", icon: Calculator },
-  { key: "paie", label: "Paie", icon: Banknote },
+  { key: "paie", label: "Paie", icon: UserRoundCog },
   { key: "bilan", label: "Bilan / CPC", icon: BarChart2 },
   { key: "documents", label: "Archive", icon: FolderOpen },
   { key: "export", label: "Export CGNC", icon: Package },
@@ -474,7 +474,7 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
           <FileText size={36} className="text-[#D1D5DB] mx-auto mb-3" />
           <p className="text-[13px] font-medium text-[#6B7280] mb-1">Achats fournisseurs de {dossier.raison_sociale}</p>
           <p className="text-[12px] text-[#9CA3AF] mb-4">
-            Importez et gérez les factures fournisseurs dans la Boîte de réception — les écritures se créent automatiquement.
+            Importez et gérez les factures fournisseurs dans Achats — les écritures se créent automatiquement.
           </p>
           <button onClick={() => switchTab("saisie")} className="btn btn-gold btn-sm">
             Saisir manuellement →
@@ -552,7 +552,7 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
       {/* ─── TAB: PAIE ─── */}
       {activeTab === "paie" && (
         <div className="text-center py-16 card">
-          <Banknote size={36} className="text-[#D1D5DB] mx-auto mb-3" />
+          <UserRoundCog size={36} className="text-[#D1D5DB] mx-auto mb-3" />
           <p className="text-[13px] font-medium text-[#6B7280] mb-1">Paie de {dossier.raison_sociale}</p>
           <p className="text-[12px] text-[#9CA3AF] mb-4">
             Gérez les employés et bulletins de paie depuis le module La Paie.
@@ -663,7 +663,7 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
           <FolderOpen size={36} className="text-[#D1D5DB] mx-auto mb-3" />
           <p className="text-[13px] font-medium text-[#6B7280] mb-1">Archive de {dossier.raison_sociale}</p>
           <p className="text-[12px] text-[#9CA3AF]">
-            Les documents importés dans la Boîte de réception apparaîtront ici.
+            Les documents importés dans Achats apparaîtront ici.
           </p>
         </div>
       )}

@@ -58,6 +58,7 @@ export default async function DossierLayout({
       userId={user.id}
       userName={profileRes.data?.full_name}
       userEmail={user.email}
+      userCompany={teamContext.accountName}
       userAvatar={profileRes.data?.avatar_url}
       permissions={access.permissions}
       roleLabel={access.roleLabel}

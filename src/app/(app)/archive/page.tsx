@@ -560,7 +560,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         />
       )}
 
-      <div className="flex h-full min-h-0 -m-4 overflow-hidden md:-mx-[22px] md:-mt-[24px] md:-mb-[18px]">
+      <div className="flex h-[calc(100%+32px)] w-[calc(100%+32px)] min-h-0 -m-4 overflow-hidden md:h-[calc(100%+42px)] md:w-[calc(100%+44px)] md:-mx-[22px] md:-mt-[24px] md:-mb-[18px] md:border-l md:border-[#E5E5E1]">
 
         {/* ── Left Panel ──────────────────────────────────────────────────── */}
         <div className={`${selected ? "hidden md:flex" : "flex"} w-full min-w-0 flex-shrink-0 flex-col overflow-hidden bg-white md:w-[38%] md:min-w-[280px] md:border-r md:border-[rgba(0,0,0,0.08)]`}>

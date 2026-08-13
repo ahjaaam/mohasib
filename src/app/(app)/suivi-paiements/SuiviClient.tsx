@@ -137,19 +137,16 @@ function StatusBadge({ status, dueDate }: { status: string; dueDate: string | nu
 // ── KPICard ────────────────────────────────────────────────────────────────────
 
 function KPICard({
-  label, value, sub, borderColor, icon, iconColor, pulse,
+  label, value, sub, icon,
 }: {
   label: string; value: string; sub: string;
-  borderColor: string; icon: React.ReactNode; iconColor: string; pulse?: boolean;
+  icon: React.ReactNode;
 }) {
   return (
-    <div
-      className="bg-white rounded-xl p-4 border border-[rgba(0,0,0,0.08)] flex-1 min-w-0"
-      style={{ borderLeft: `3px solid ${borderColor}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
-    >
+    <div className="flex-1 min-w-0 border border-[rgba(0,0,0,0.08)] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
       <div className="flex items-start justify-between gap-2 mb-2">
         <span className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] leading-tight">{label}</span>
-        <span className={`flex-shrink-0 ${pulse ? "animate-pulse" : ""}`} style={{ color: iconColor }}>{icon}</span>
+        <span className="flex-shrink-0 text-[#777E8B]">{icon}</span>
       </div>
       <div className="text-[18px] font-bold text-[#1A1A2E] leading-tight mb-1">{value}</div>
       <div className="text-[10.5px] text-[#9CA3AF]">{sub}</div>
@@ -898,7 +895,7 @@ function SuppliersSection({
         <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-10 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <p className="text-[13px] font-medium text-[#6B7280]">Aucune facture fournisseur dans cet onglet</p>
           <p className="text-[11.5px] text-[#9CA3AF] mt-1">
-            Les factures fournisseurs confirmées dans la Boîte de réception apparaissent ici.
+            Les factures fournisseurs confirmées dans Achats apparaissent ici.
           </p>
         </div>
       ) : (
@@ -1134,35 +1131,25 @@ export default function SuiviClient({
           label="À encaisser"
           value={fmt(totalAEncaisser)}
           sub={`${unpaidClients.length} facture${unpaidClients.length !== 1 ? "s" : ""} client${unpaidClients.length !== 1 ? "s" : ""}`}
-          borderColor="#059669"
           icon={<TrendingUp size={16} />}
-          iconColor="#059669"
         />
         <KPICard
           label="Clients en retard"
           value={fmt(totalEnRetardClients)}
           sub={`${overdueClients.length} facture${overdueClients.length !== 1 ? "s" : ""}`}
-          borderColor="#DC2626"
           icon={<AlertCircle size={16} />}
-          iconColor="#DC2626"
-          pulse={overdueClients.length > 0}
         />
         <KPICard
           label="À payer fournisseurs"
           value={fmt(totalAPayer)}
           sub={`${unpaidSuppliers.length} facture${unpaidSuppliers.length !== 1 ? "s" : ""} fournisseur${unpaidSuppliers.length !== 1 ? "s" : ""}`}
-          borderColor="#D97706"
           icon={<TrendingDown size={16} />}
-          iconColor="#DC2626"
         />
         <KPICard
           label="Fournisseurs en retard"
           value={fmt(totalEnRetardSuppliers)}
           sub={`${overdueSuppliers.length} facture${overdueSuppliers.length !== 1 ? "s" : ""}`}
-          borderColor="#DC2626"
           icon={<AlertCircle size={16} />}
-          iconColor="#DC2626"
-          pulse={overdueSuppliers.length > 0}
         />
       </div>
 

@@ -18,11 +18,14 @@ const STATUS_BADGE: Record<string, [string, string, string]> = {
   partiellement_payee: ["#FEF3C7", "#92400E",  "Partiel"],
 };
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="mb-3 flex items-center gap-2">
-      <div className="h-4 w-[3px] flex-shrink-0 rounded-full bg-[#C8924A]" />
-      <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#6B7280]">{children}</span>
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <div className="h-4 w-[3px] flex-shrink-0 rounded-full bg-[#C8924A]" />
+        <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#6B7280]">{children}</span>
+      </div>
+      {action}
     </div>
   );
 }
@@ -91,11 +94,19 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
       {/* Revenus/dépenses + Prochaines échéances side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">
         <div>
-          <SectionLabel>Revenus et dépenses</SectionLabel>
+          <SectionLabel action={(
+            <Link href={`${base}/transactions`} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+              <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
+            </Link>
+          )}>Revenus et dépenses</SectionLabel>
           <RevenueExpenseChart data={chartData} periodLabel={periodLabel} />
         </div>
         <div>
-          <SectionLabel>Prochaines échéances</SectionLabel>
+          <SectionLabel action={(
+            <Link href={`${base}/tva`} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+              <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
+            </Link>
+          )}>Prochaines échéances</SectionLabel>
           <DashboardNews deadlines={null} tvaRegime={dossier.regime_tva} tvaAssujetti={true} />
         </div>
       </div>
@@ -177,8 +188,8 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
           <div className="tbl">
             <div className="tbl-header">
               <span className="tbl-title">Factures récentes</span>
-              <Link href={`${base}/invoices`} className="btn btn-outline btn-sm flex items-center gap-1">
-                Voir tout <ArrowRight size={11} />
+              <Link href={`${base}/invoices`} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+                <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
               </Link>
             </div>
             <table>
@@ -220,8 +231,8 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
           <div className="tbl">
             <div className="tbl-header">
               <span className="tbl-title">Transactions</span>
-              <Link href={`${base}/transactions`} className="btn btn-outline btn-sm flex items-center gap-1">
-                Voir tout <ArrowRight size={11} />
+              <Link href={`${base}/transactions`} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+                <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
               </Link>
             </div>
             <table>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Banknote, FolderOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { UserRoundCog, FolderOpen, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
 const MONTHS_FR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -103,7 +103,7 @@ export default function FiduciairePaiePage() {
       <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
-            <Banknote size={18} className="text-[#C8924A]" />
+            <UserRoundCog size={18} className="text-[#C8924A]" />
           </div>
           <div>
             <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Bulletins de paie</h1>
