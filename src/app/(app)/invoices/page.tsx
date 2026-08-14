@@ -1167,8 +1167,62 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
         </button>
       </TableBulkActions>
 
+      {/* Phone-native record list. Desktop keeps the information-dense table below. */}
+      <div className="mobile-record-list md:hidden">
+        {loading ? [0, 1, 2].map((item) => <div key={item} className="h-[148px] animate-pulse border border-[#E2E2DD] bg-white" />) : null}
+        {!loading && sorted.length === 0 ? (
+          <div className="border border-[#E2E2DD] bg-white px-5 py-10 text-center">
+            <FileText size={28} className="mx-auto mb-3 text-[#B7BBC2]" />
+            <p className="text-[13px] font-semibold text-[#4B5260]">Aucun document dans cette vue</p>
+            <Link href={mode === "devis" ? "/invoices/devis/new" : mode === "avoirs" ? `${basePath}/avoir/new` : `${basePath}/new`} className="btn btn-gold mt-4 justify-center">
+              <Plus size={14} /> Créer maintenant
+            </Link>
+          </div>
+        ) : null}
+        {!loading && sorted.map((inv) => {
+          const isDevis = mode === "devis";
+          const status = isDevis ? ((inv as any).devis_status as string ?? "brouillon") : inv.status as string;
+          const badgeMap = isDevis ? DEVIS_BADGE : mode === "avoirs" ? AVOIR_BADGE : BADGE;
+          const [bg, color, label] = badgeMap[status] ?? ["#F3F4F6", "#6B7280", status];
+          const tone = status === "overdue" || status === "refusé" ? "danger" : status === "partiellement_payee" || status === "expiré" ? "warning" : status === "paid" || status === "accepté" ? "success" : "neutral";
+          const dueDate = isDevis ? (inv as any).devis_expiry_date : inv.due_date;
+          return (
+            <article key={inv.id} className="mobile-record-card" data-tone={tone}>
+              <div className="flex items-start justify-between gap-3">
+                <Link href={isDevis ? `/devis/${inv.id}` : `${basePath}/${inv.id}`} className="min-w-0 flex-1">
+                  <div className="mobile-record-card__eyebrow">{inv.invoice_number}</div>
+                  <div className="mobile-record-card__title truncate">{(inv as any).clients?.name ?? "Sans client"}</div>
+                </Link>
+                <div className="text-right">
+                  <div className="mobile-record-card__amount">{mode === "avoirs" ? "− " : ""}{fmt(Number(inv.total))}</div>
+                  <span className="mt-1 inline-block px-2 py-0.5 text-[9.5px] font-bold" style={{ backgroundColor: bg, color }}>{label}</span>
+                </div>
+              </div>
+              <div className="mobile-record-card__meta">
+                <span>Émise le {fmtDate(inv.issue_date)}</span>
+                {dueDate ? <span>{isDevis ? "Expire" : "Échéance"} {fmtDate(dueDate)}</span> : null}
+                {status === "partiellement_payee" ? <span className="font-semibold text-[#A16207]">Reçu {fmt(Number(inv.montant_paye ?? 0))}</span> : null}
+              </div>
+              <div className="mobile-record-card__actions">
+                <Link href={isDevis ? `/devis/${inv.id}` : `${basePath}/${inv.id}`}><FileText size={14} /> Ouvrir</Link>
+                {!isDevis && mode !== "avoirs" && status !== "paid" ? (
+                  <button type="button" onClick={() => setPaymentModal(inv)} className="text-[#8A5E25]"><CheckCircle2 size={14} /> Paiement</button>
+                ) : null}
+                <div className="relative flex-none !max-w-[54px]">
+                  {isDevis ? (
+                    <DevisMenu inv={inv} onDelete={deleteInvoice} onAccept={acceptDevis} onRefuse={refuseDevis} onConvert={convertDevis} />
+                  ) : (
+                    <InvoiceMenu inv={inv} onMarkPaid={markPaid} onDelete={deleteInvoice} onAddPayment={setPaymentModal} basePath={basePath} isAvoir={mode === "avoirs"} canCreateAvoir={entitlements.features.avoirs} />
+                  )}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
       {/* ─── Table ────────────────────────────────────────────────────────── */}
-      <div className="tbl">
+      <div className="tbl hidden md:block">
         <table>
           <thead>
             <tr>

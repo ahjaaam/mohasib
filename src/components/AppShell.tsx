@@ -10,6 +10,7 @@ import {
   LogOut, Menu, Inbox, Download,
   Settings, Calculator, FolderOpen, BarChart2, UserRoundCog, Building2, CreditCard, PenLine, LayoutTemplate,
   GitMerge, Lock, ReceiptText,
+  Camera, Plus, ArrowUpRight,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -24,6 +25,7 @@ import AppTopBar from "@/components/AppTopBar";
 import SidebarToggleButton from "@/components/SidebarToggleButton";
 import SidebarLogo from "@/components/SidebarLogo";
 import SidebarItemTooltip from "@/components/SidebarItemTooltip";
+import MobileActionSheet from "@/components/mobile/MobileActionSheet";
 
 const SIDEBAR_BACKGROUND = "#111621";
 
@@ -93,6 +95,7 @@ interface Props {
 
 export default function AppShell({ children, userId, ownerId, userEmail, userName, userCompany, cabinetCompanies = [], userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements, guestMode = false, sidebarTheme: initialSidebarTheme = "cream" }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarTheme, setSidebarTheme] = useState(initialSidebarTheme);
   const [referenceTime] = useState(() => Date.now());
@@ -304,6 +307,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                 ]
               : undefined}
             guestMode={guestMode}
+            mobileTitle={currentNav?.label ?? (pathname.startsWith("/comptable-pro") ? "Mon Cabinet" : "Mohasib")}
             onSignOut={signOut}
           />
           <div className="h-16 flex-shrink-0" aria-hidden="true" />
@@ -348,6 +352,9 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                 <Users size={19} />
                 <span style={{ fontSize: 10, fontWeight: 500 }}>Clients</span>
               </Link>
+              <Link href="/invoices/new" className="mobile-bottom-create" aria-label="Créer une facture">
+                <Plus size={21} strokeWidth={2.4} />
+              </Link>
             </>
           ) : <>
             <Link href="/dashboard" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
@@ -357,18 +364,23 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
               {!allowed("report:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
             </Link>
 
-            <Link href="/invoices" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-              style={{ color: isActive("/invoices") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
-              <FileText size={19} />
-              <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
-              {!allowed("invoice:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
+            <Link href="/inbox" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+              style={{ color: isActive("/inbox") ? "#C8924A" : allowed("document:read") ? "rgba(255,255,255,0.54)" : "rgba(255,255,255,0.22)" }}>
+              <Inbox size={19} />
+              <span style={{ fontSize: 10, fontWeight: 600 }}>Achats</span>
+              {!allowed("document:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
             </Link>
 
-            <Link href="/archive" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-              style={{ color: isActive("/archive") ? "#C8924A" : allowed("document:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
-              <Download size={19} />
-              <span style={{ fontSize: 10, fontWeight: 500 }}>Archive</span>
-              {!allowed("document:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
+            <button type="button" onClick={() => setCaptureOpen(true)} className="mobile-bottom-capture" aria-label="Ouvrir les actions rapides">
+              <span className="mobile-bottom-capture__button"><Plus size={24} strokeWidth={2.4} /></span>
+              <span>Ajouter</span>
+            </button>
+
+            <Link href="/invoices" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+              style={{ color: isActive("/invoices") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.54)" : "rgba(255,255,255,0.22)" }}>
+              <FileText size={19} />
+              <span style={{ fontSize: 10, fontWeight: 600 }}>Factures</span>
+              {!allowed("invoice:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
             </Link>
 
             <button
@@ -377,10 +389,38 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
               style={{ background: "none", border: "none", color: drawerOpen ? "#C8924A" : "rgba(255,255,255,0.45)" }}
             >
               <Menu size={19} />
-              <span style={{ fontSize: 10, fontWeight: 500 }}>Menu</span>
+              <span style={{ fontSize: 10, fontWeight: 600 }}>Plus</span>
             </button>
           </>}
         </nav>
+
+        {!freePlan && (
+          <MobileActionSheet
+            open={captureOpen}
+            onClose={() => setCaptureOpen(false)}
+            title="Que voulez-vous faire ?"
+            description="Les actions les plus utiles sur votre téléphone."
+          >
+            <div className="grid grid-cols-2 gap-2.5">
+              <Link href="/inbox?capture=camera" onClick={() => setCaptureOpen(false)} className="mobile-quick-action mobile-quick-action--primary">
+                <span className="mobile-quick-action__icon"><Camera size={22} /></span>
+                <span><strong>Scanner un achat</strong><small>Photo et extraction IA</small></span>
+              </Link>
+              <Link href="/invoices/new" onClick={() => setCaptureOpen(false)} className="mobile-quick-action">
+                <span className="mobile-quick-action__icon"><FileText size={21} /></span>
+                <span><strong>Créer une facture</strong><small>Client et prestations</small></span>
+              </Link>
+              <Link href="/transactions?create=1" onClick={() => setCaptureOpen(false)} className="mobile-quick-action">
+                <span className="mobile-quick-action__icon"><ArrowLeftRight size={21} /></span>
+                <span><strong>Ajouter une opération</strong><small>Recette ou dépense</small></span>
+              </Link>
+              <Link href="/inbox?capture=file" onClick={() => setCaptureOpen(false)} className="mobile-quick-action">
+                <span className="mobile-quick-action__icon"><ArrowUpRight size={21} /></span>
+                <span><strong>Importer un document</strong><small>PDF ou image</small></span>
+              </Link>
+            </div>
+          </MobileActionSheet>
+        )}
 
         {/* ── MENU DRAWER ────────────────────────────────────────────────────── */}
         {!freePlan && drawerOpen && (
