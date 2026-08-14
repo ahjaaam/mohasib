@@ -234,10 +234,14 @@ export default function AppTopBar({
         {showBrand && (
           <Link
             href="/dashboard"
-            className={`hidden flex-shrink-0 items-center sm:flex ${cabinetMenuItems.length > 0 ? "w-7" : "w-20"}`}
+            className={`flex-shrink-0 items-center ${
+              guestMode
+                ? "flex w-[120px]"
+                : `hidden sm:flex ${cabinetMenuItems.length > 0 ? "w-7" : "w-20"}`
+            }`}
             aria-label="Mohasib"
           >
-            <SidebarLogo light={!darkTopBar} compact color="#C8924A" />
+            <SidebarLogo light={!darkTopBar} compact={!guestMode} color="#C8924A" />
           </Link>
         )}
         {cabinetMenuItems.length > 0 && (

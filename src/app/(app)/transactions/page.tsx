@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Transaction } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
-import { ArrowLeftRight, Plus, Filter, Link2 } from "lucide-react";
+import { ArrowLeftRight, Plus, Filter, Link2, X } from "lucide-react";
 import BankImportModal from "./BankImportModal";
 import AllocateTransactionModal from "./AllocateTransactionModal";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
+import RevenueExpenseChart from "@/app/(app)/dashboard/RevenueExpenseChart";
+import { buildFinanceChartData } from "@/lib/finance-chart";
+import { periodForPreset } from "@/lib/global-period";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
@@ -36,6 +39,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addTransactionOpen, setAddTransactionOpen] = useState(false);
   const [bankImportOpen, setBankImportOpen] = useState(false);
   const [allocationTransaction, setAllocationTransaction] = useState<Transaction | null>(null);
   const [allocationCounts, setAllocationCounts] = useState<Record<string, number>>({});
@@ -114,10 +118,9 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
 
   useEffect(() => { load(); }, []);
 
-  // Focus form when topbar "+ Transaction" clicked
-  const amtRef = useRef<HTMLInputElement>(null);
+  // Open the modal when the topbar "+ Transaction" action is clicked.
   useEffect(() => {
-    const handler = () => amtRef.current?.focus();
+    const handler = () => setAddTransactionOpen(true);
     document.addEventListener("focus-tx-form", handler);
     return () => document.removeEventListener("focus-tx-form", handler);
   }, []);
@@ -153,8 +156,15 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     if (err) { setError(err.message); }
     else {
       setForm({ date: today, desc: "", cat: "Revenu", amount: "", piece: "" });
+      setAddTransactionOpen(false);
       load();
     }
+  }
+
+  function closeAddTransactionModal() {
+    if (saving) return;
+    setAddTransactionOpen(false);
+    setError(null);
   }
 
   const currentMonth = today.slice(0, 7); // "YYYY-MM"
@@ -162,6 +172,12 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const income  = monthlyTx.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
   const expense = monthlyTx.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
   const balance = income - expense;
+  const currentMonthPeriod = periodForPreset("this_month");
+  const currentMonthLabel = new Date(`${currentMonthPeriod.start}T00:00:00`).toLocaleDateString("fr-MA", {
+    month: "long",
+    year: "numeric",
+  });
+  const chartData = buildFinanceChartData(monthlyTx, currentMonthPeriod);
 
   const allFormCats = [...TRANSACTION_CATEGORIES.income, ...TRANSACTION_CATEGORIES.expense];
 
@@ -223,9 +239,96 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       {allocationTransaction && (
         <AllocateTransactionModal
           transaction={allocationTransaction}
+          dossierId={dossierId}
           onClose={() => setAllocationTransaction(null)}
           onSaved={load}
         />
+      )}
+      {addTransactionOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(13,21,38,0.5)", backdropFilter: "blur(4px)" }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeAddTransactionModal();
+          }}
+        >
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div>
+                <h2 className="font-semibold text-[#1A1A2E]">Nouvelle transaction</h2>
+                <p className="mt-0.5 text-[11px] text-[#9CA3AF]">Enregistrez un nouveau mouvement financier</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAddTransactionModal}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Fermer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              className="space-y-4 p-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                addTransaction();
+              }}
+            >
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <label className="label">Date</label>
+                  <input type="date" className="input" value={form.date}
+                    onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="label">N° de pièce</label>
+                  <input className="input" placeholder="Virement, chèque..." value={form.piece}
+                    onChange={(e) => setForm((f) => ({ ...f, piece: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="label">Description</label>
+                <input autoFocus className="input" placeholder="ex: Loyer bureau..." value={form.desc}
+                  onChange={(e) => setForm((f) => ({ ...f, desc: e.target.value }))} />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <label className="label">Catégorie</label>
+                  <select className="input" value={form.cat}
+                    onChange={(e) => setForm((f) => ({ ...f, cat: e.target.value }))}>
+                    {allFormCats.map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="label">Montant (MAD)</label>
+                  <input type="number" step="0.01" className="input" placeholder="-500 ou 5000"
+                    value={form.amount}
+                    onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
+                  <p className="text-[10.5px] text-[#9CA3AF]">Utilisez un montant négatif pour une dépense.</p>
+                </div>
+              </div>
+
+              {error && <p className="rounded-lg bg-[#FEE2E2] px-3 py-2 text-[12px] text-[#DC2626]">{error}</p>}
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button type="button" onClick={closeAddTransactionModal} className="btn btn-outline">
+                  Annuler
+                </button>
+                <button
+                  data-permission="accounting:create"
+                  type="submit"
+                  disabled={saving}
+                  className="btn bg-[#1A1A2E] text-white hover:bg-[#292941]"
+                >
+                  {saving ? "Enregistrement..." : "Ajouter la transaction"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* ─── Page header ──────────────────────────────────────────────────── */}
@@ -240,35 +343,69 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
             <p className="text-[11px] text-[#9CA3AF] mt-0.5">Enregistrez et suivez vos mouvements financiers</p>
           </div>
         </div>
-        {entitlements.features.bank_import && <div className="relative group">
-          <button data-permission="accounting:create" className="btn btn-gold flex items-center gap-1.5" onClick={() => setBankImportOpen(true)}>
-            <Plus size={13} /> Importer un relevé
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            data-permission="accounting:create"
+            className="btn btn-outline h-10 min-h-10 min-w-[140px] justify-center px-4 text-[12.5px]"
+            onClick={() => {
+              setError(null);
+              setAddTransactionOpen(true);
+            }}
+          >
+            <Plus size={13} /> Nouvelle transaction
           </button>
-          <div className="absolute right-0 top-full mt-1.5 bg-[#0D1526] text-white text-[11px] rounded-md px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-            PDF max 8 pages · CSV max 200 lignes
-          </div>
-        </div>}
+          {entitlements.features.bank_import && <div className="relative group">
+            <button data-permission="accounting:create" className="btn btn-gold flex items-center gap-1.5" onClick={() => setBankImportOpen(true)}>
+              <Plus size={13} /> Importer un relevé
+            </button>
+            <div className="absolute right-0 top-full mt-1.5 bg-[#0D1526] text-white text-[11px] rounded-md px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+              PDF max 8 pages · CSV max 200 lignes
+            </div>
+          </div>}
+        </div>
       </div>
 
-      {/* KPIs — current month */}
-      <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <div className="kpi">
-          <div className="kpi-label">Encaissé <span className="text-[10px] font-normal text-[#9CA3AF] ml-1">ce mois</span></div>
-          <div className="kpi-value text-[#059669]">{fmt(income)}</div>
+      {/* KPIs + chart — current month */}
+      <div className="mb-4 grid grid-cols-1 items-stretch gap-2.5 lg:h-[210px] lg:grid-cols-[minmax(220px,0.65fr)_minmax(0,2fr)]">
+        <div className="grid h-[210px] min-h-0 grid-rows-[repeat(3,minmax(0,1fr))] gap-2.5 overflow-hidden">
+          <div className="kpi flex min-h-0 flex-col justify-center !px-4 !py-2">
+            <div className="kpi-label !mb-1">Encaissé <span className="ml-1 text-[10px] font-normal text-[#9CA3AF]">ce mois</span></div>
+            <div className="kpi-value !mb-0 !text-[20px] text-[#059669]">{fmt(income)}</div>
+          </div>
+          <div className="kpi flex min-h-0 flex-col justify-center !px-4 !py-2">
+            <div className="kpi-label !mb-1">Dépensé <span className="ml-1 text-[10px] font-normal text-[#9CA3AF]">ce mois</span></div>
+            <div className="kpi-value !mb-0 !text-[20px] text-[#DC2626]">{fmt(expense)}</div>
+          </div>
+          <div className="kpi flex min-h-0 flex-col justify-center !px-4 !py-2">
+            <div className="kpi-label !mb-1">Solde net <span className="ml-1 text-[10px] font-normal text-[#9CA3AF]">ce mois</span></div>
+            <div className={`kpi-value !mb-0 !text-[20px] ${balance >= 0 ? "text-[#1A1A2E]" : "text-[#DC2626]"}`}>{fmt(balance)}</div>
+          </div>
         </div>
-        <div className="kpi">
-          <div className="kpi-label">Dépensé <span className="text-[10px] font-normal text-[#9CA3AF] ml-1">ce mois</span></div>
-          <div className="kpi-value text-[#DC2626]">{fmt(expense)}</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">Solde net <span className="text-[10px] font-normal text-[#9CA3AF] ml-1">ce mois</span></div>
-          <div className={`kpi-value ${balance >= 0 ? "text-[#1A1A2E]" : "text-[#DC2626]"}`}>{fmt(balance)}</div>
+        <div className="h-[210px] min-h-0 [&_.revenue-expense-chart]:h-full">
+          <RevenueExpenseChart data={chartData} periodLabel={currentMonthLabel} />
         </div>
       </div>
 
       {/* ─── Filters ─────────────────────────────────────────────────────── */}
-      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 mb-3"
+      <div className="relative mb-3 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-4 pr-12"
         style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        {hasFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setFilterDesc("");
+              setFilterCat("Toutes");
+              setFilterAmount("");
+              setFilterFrom("");
+              setFilterTo("");
+            }}
+            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-md text-[#9CA3AF] transition-colors hover:bg-[#F3F4F6] hover:text-[#374151]"
+            aria-label="Effacer les filtres"
+            title="Effacer les filtres"
+          >
+            <X size={15} />
+          </button>
+        )}
         <div className="flex flex-wrap items-end gap-3">
           {/* Description */}
           <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
@@ -306,15 +443,6 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
               onChange={(e) => setFilterTo(e.target.value)} />
           </div>
 
-          {hasFilter && (
-            <button
-              onClick={() => { setFilterDesc(""); setFilterCat("Toutes"); setFilterAmount(""); setFilterFrom(""); setFilterTo(""); }}
-              className="btn btn-outline text-[12px] pb-[9px]"
-            >
-              Réinitialiser
-            </button>
-          )}
-
           <div className="flex items-center gap-1.5 pb-[9px] ml-auto">
             <Filter size={12} className="text-[#9CA3AF]" />
             <span className="text-[11.5px] text-[#9CA3AF]">
@@ -323,60 +451,6 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
           </div>
         </div>
       </div>
-
-      {/* ─── Add transaction ──────────────────────────────────────────────── */}
-      <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-2">
-        Nouvelle transaction
-      </p>
-      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-3.5 mb-4">
-        <div className="grid gap-2 items-end" style={{ gridTemplateColumns: "120px 120px 1fr 140px 130px auto" }}>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10.5px] font-medium text-[#6B7280]">Date</label>
-            <input type="date" className="input" value={form.date}
-              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10.5px] font-medium text-[#6B7280]">N° de pièce</label>
-            <input className="input" placeholder="Virement, chèque..." value={form.piece}
-              onChange={(e) => setForm((f) => ({ ...f, piece: e.target.value }))}
-              onKeyDown={(e) => e.key === "Enter" && addTransaction()} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10.5px] font-medium text-[#6B7280]">Description</label>
-            <input className="input" placeholder="ex: Loyer bureau..." value={form.desc}
-              onChange={(e) => setForm((f) => ({ ...f, desc: e.target.value }))}
-              onKeyDown={(e) => e.key === "Enter" && addTransaction()} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10.5px] font-medium text-[#6B7280]">Catégorie</label>
-            <select className="input" value={form.cat}
-              onChange={(e) => setForm((f) => ({ ...f, cat: e.target.value }))}>
-              {allFormCats.map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10.5px] font-medium text-[#6B7280]">Montant (MAD)</label>
-            <input ref={amtRef} type="number" step="0.01" className="input" placeholder="-500 ou 5000"
-              value={form.amount}
-              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-              onKeyDown={(e) => e.key === "Enter" && addTransaction()} />
-          </div>
-          <button
-            data-permission="accounting:create"
-            onClick={addTransaction}
-            disabled={saving}
-            className="btn whitespace-nowrap"
-            style={{
-              height: 36, padding: "0 20px", borderRadius: 8, alignSelf: "flex-end",
-              background: "#1A1A2E", color: "#fff",
-            }}
-          >
-            {saving ? "..." : "Ajouter"}
-          </button>
-        </div>
-      </div>
-
-      {error && <p className="text-[12px] text-[#DC2626] bg-[#FEE2E2] rounded-lg px-3 py-2 mb-3">{error}</p>}
 
       {/* Table */}
       <div className="tbl">

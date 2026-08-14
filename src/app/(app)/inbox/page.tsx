@@ -230,6 +230,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [previewReceipt, setPreviewReceipt] = useState<ReceiptWithUrl | null>(null);
+  const autoOpenedDocumentRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -274,6 +275,26 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   }, [dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (loading || previewReceipt) return;
+    const documentId = new URLSearchParams(window.location.search).get("document_id");
+    if (!documentId || autoOpenedDocumentRef.current === documentId) return;
+    const receipt = receipts.find(item => item.id === documentId);
+    if (!receipt) return;
+    autoOpenedDocumentRef.current = documentId;
+    setTab(receipt.status === "matched" ? "matched" : receipt.status === "ignored" ? "ignored" : "pending");
+    setPreviewReceipt(receipt);
+  }, [loading, previewReceipt, receipts]);
+
+  function closePreview() {
+    setPreviewReceipt(null);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("document_id")) {
+      url.searchParams.delete("document_id");
+      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
 
   useEffect(() => {
     const handler = () => fileInputRef.current?.click();
@@ -728,7 +749,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         <PreviewPanel
           key={previewReceipt.id}
           receipt={previewReceipt}
-          onClose={() => setPreviewReceipt(null)}
+          onClose={closePreview}
           onChanged={load}
         />
       )}
@@ -1023,7 +1044,7 @@ function PreviewPanel({ receipt: r, onClose, onChanged }: { receipt: ReceiptWith
   return (
     <>
       <div className="fixed inset-0 bg-black/30 z-30 md:hidden" onClick={onClose} />
-      <div className="fixed top-[52px] right-0 bottom-0 z-40 w-full md:w-[420px] lg:w-[480px] bg-white border-l border-[rgba(0,0,0,0.09)] flex flex-col"
+      <div className="fixed top-16 right-0 bottom-0 z-40 w-full md:w-[420px] lg:w-[480px] bg-white border-l border-[rgba(0,0,0,0.09)] flex flex-col"
         style={{ boxShadow: "-4px 0 24px rgba(0,0,0,0.08)" }}>
         <div className="flex items-start gap-3 px-4 py-3.5 border-b border-[rgba(0,0,0,0.08)] flex-shrink-0">
           <div className="flex-1 min-w-0">

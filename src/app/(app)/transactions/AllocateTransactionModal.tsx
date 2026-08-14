@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Link2, Loader2, X } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, ExternalLink, Link2, Loader2, X } from "lucide-react";
 import type { Transaction } from "@/types";
 
 type Candidate = {
@@ -49,10 +50,12 @@ function dateLabel(value: string | null | undefined) {
 
 export default function AllocateTransactionModal({
   transaction,
+  dossierId,
   onClose,
   onSaved,
 }: {
   transaction: Transaction;
+  dossierId?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -222,7 +225,19 @@ export default function AllocateTransactionModal({
                   <div key={allocation.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
                     <div className="flex min-w-0 items-center gap-2 text-[12px] font-medium text-[#1A1A2E]">
                       <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
-                      <span className="truncate">{allocation.label}</span>
+                      <Link
+                        href={allocation.document_type === "client_invoice"
+                          ? dossierId
+                            ? `/comptable-pro/dossiers/${dossierId}/invoices/${allocation.document_id}`
+                            : `/invoices/${allocation.document_id}`
+                          : dossierId
+                            ? `/comptable-pro/dossiers/${dossierId}/inbox?document_id=${allocation.document_id}`
+                            : `/inbox?document_id=${allocation.document_id}`}
+                        className="flex min-w-0 items-center gap-1.5 font-semibold underline decoration-emerald-300 underline-offset-2 transition-colors hover:text-[#047857]"
+                      >
+                        <span className="truncate">{allocation.label}</span>
+                        <ExternalLink size={11} className="shrink-0" />
+                      </Link>
                     </div>
                     <span className="shrink-0 text-[12px] font-bold text-emerald-700">{mad(allocation.amount)}</span>
                   </div>

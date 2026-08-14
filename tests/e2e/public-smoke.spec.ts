@@ -13,8 +13,15 @@ test("public pages and authentication entry points render", async ({ page }) => 
   await expect(page.getByRole("textbox", { name: "Mot de passe", exact: true })).toBeVisible();
 
   await page.goto("/auth/signup");
-  await page.getByRole("button", { name: /entrepreneur/i }).click();
+  await expect(page.getByRole("button", { name: /^TPME/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Cabinet comptable/i })).toBeVisible();
+  await page.getByRole("button", { name: /^TPME/i }).click();
   await expect(page.getByRole("textbox", { name: /e-?mail/i })).toBeVisible();
+
+  await page.goto("/facturation");
+  const facturationBrand = page.getByRole("link", { name: "Mohasib", exact: true });
+  await expect(facturationBrand).toBeVisible();
+  await expect(facturationBrand.getByRole("img", { name: "Mohasib" })).toHaveCSS("mask-image", /\/logo\.png/);
 });
 
 test("workflows page is public and explains the core processes", async ({ page }) => {

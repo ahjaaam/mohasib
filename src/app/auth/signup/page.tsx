@@ -202,109 +202,94 @@ export default function SignupPage() {
   if (step === 1) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 sm:p-8" style={{ backgroundColor: "#FAFAF6" }}>
-          <div className="w-full max-w-sm sm:rounded-2xl sm:border sm:border-black/10 sm:bg-white sm:p-10 sm:shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <div className="w-full max-w-xl sm:rounded-2xl sm:border sm:border-black/10 sm:bg-white sm:p-10 sm:shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
             <a href={marketingUrl("/")} className="mb-8 inline-block">
               <Image src="/logo2.png" alt="Mohasib" width={140} height={42} style={{ objectFit: "contain", height: "auto" }} />
             </a>
 
-            <h1 className="text-2xl font-bold text-navy mb-1">Je suis...</h1>
+            <h1 className="text-2xl font-bold text-navy mb-1">Choisissez votre type de compte</h1>
             <p className="text-sm text-gray-500 mb-7">
               Déjà inscrit ?{" "}
               <Link href={appUrl("/connexion")} className="text-gold hover:underline font-medium">Se connecter</Link>
             </p>
 
-            <div className="space-y-3 mb-7">
-              <button
-                onClick={() => {
-                  setUserType("entrepreneur");
-                  setAccountMode("full");
-                  setForm((current) => ({ ...current, role: "", organization_size: "", monthly_volume: "", needs: [], other_need: "" }));
-                  setStep(2);
-                }}
-                className="w-full p-4 rounded-xl border-2 text-left transition-all hover:-translate-y-0.5"
-                style={{
-                  borderColor: "rgba(0,0,0,0.1)",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                  backgroundColor: "white",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = "#C8924A")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(0,0,0,0.1)")}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
-                    <Briefcase size={18} className="text-[#C8924A]" />
+            <div className="mb-7">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#6B7280]">Comptes principaux</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => {
+                    setUserType("entrepreneur");
+                    setAccountMode("full");
+                    setForm((current) => ({ ...current, role: "", organization_size: "", monthly_volume: "", needs: [], other_need: "" }));
+                    setStep(2);
+                  }}
+                  className="h-full w-full rounded-xl border-2 border-black/10 bg-white p-4 text-left shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-all hover:-translate-y-0.5 hover:border-[#C8924A]"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[rgba(200,146,74,0.12)]">
+                      <Briefcase size={18} className="text-[#C8924A]" />
+                    </div>
+                    <div>
+                      <div className="text-[14px] font-semibold text-[#1A1A2E]">TPME</div>
+                      <div className="mt-0.5 text-[12px] text-[#6B7280]">Comptabilité, TVA, paie et automatisations pour votre entreprise</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-semibold text-[#1A1A2E] text-[14px]">Un entrepreneur / freelance</div>
-                    <div className="text-[12px] text-[#6B7280] mt-0.5">Essai complet de 7 jours avec comptabilité et automatisations</div>
-                  </div>
-                </div>
-              </button>
+                </button>
 
-              <button
-                onClick={() => {
-                  setUserType("entrepreneur");
-                  setAccountMode("invoicing");
-                  setForm((current) => ({
-                    ...current,
-                    role: "Entrepreneur / indépendant",
-                    organization_size: "1",
-                    monthly_volume: "Moins de 20",
-                    needs: ["Facturation et devis"],
-                    other_need: "",
-                  }));
-                  setStep(2);
-                }}
-                className="w-full p-4 rounded-xl border-2 text-left transition-all hover:-translate-y-0.5"
-                style={{
-                  borderColor: "rgba(200,146,74,0.45)",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                  backgroundColor: "rgba(200,146,74,0.04)",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = "#C8924A")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(200,146,74,0.45)")}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[rgba(200,146,74,0.12)] flex items-center justify-center flex-shrink-0">
-                    <ReceiptText size={18} className="text-[#C8924A]" />
+                <button
+                  onClick={() => {
+                    setUserType("fiduciaire");
+                    setAccountMode("full");
+                    setForm((current) => ({ ...current, role: "", organization_size: "", monthly_volume: "", needs: [], other_need: "" }));
+                    setStep(2);
+                  }}
+                  className="h-full w-full rounded-xl border-2 border-black/10 bg-white p-4 text-left shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-all hover:-translate-y-0.5 hover:border-[#C8924A]"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[rgba(13,21,38,0.06)]">
+                      <Building2 size={18} className="text-[#0D1526]" />
+                    </div>
+                    <div>
+                      <div className="text-[14px] font-semibold text-[#1A1A2E]">Cabinet comptable</div>
+                      <div className="mt-0.5 text-[12px] text-[#6B7280]">Pilotez votre cabinet et gérez plusieurs dossiers clients</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-semibold text-[#1A1A2E] text-[14px]">Facturation uniquement — Gratuit</div>
-                    <div className="text-[12px] text-[#6B7280] mt-0.5">Factures et clients sans essai ni limite de durée</div>
-                  </div>
-                </div>
-              </button>
+                </button>
+              </div>
 
-              <button
-                onClick={() => {
-                  setUserType("fiduciaire");
-                  setAccountMode("full");
-                  setForm((current) => ({ ...current, role: "", organization_size: "", monthly_volume: "", needs: [], other_need: "" }));
-                  setStep(2);
-                }}
-                className="w-full p-4 rounded-xl border-2 text-left transition-all hover:-translate-y-0.5"
-                style={{
-                  borderColor: "rgba(0,0,0,0.1)",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                  backgroundColor: "white",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = "#C8924A")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(0,0,0,0.1)")}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[rgba(13,21,38,0.06)] flex items-center justify-center flex-shrink-0">
-                    <Building2 size={18} className="text-[#0D1526]" />
+              <div className="mt-5 border-t border-black/10 pt-5">
+                <p className="mb-2 text-[12px] text-[#6B7280]">Vous avez seulement besoin de créer des factures ?</p>
+                <button
+                  onClick={() => {
+                    setUserType("entrepreneur");
+                    setAccountMode("invoicing");
+                    setForm((current) => ({
+                      ...current,
+                      role: "Entrepreneur / indépendant",
+                      organization_size: "1",
+                      monthly_volume: "Moins de 20",
+                      needs: ["Facturation et devis"],
+                      other_need: "",
+                    }));
+                    setStep(2);
+                  }}
+                  className="w-full rounded-lg border border-black/10 bg-[#FAFAF6] p-3 text-left transition-colors hover:border-black/20 hover:bg-white"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-black/[0.04]">
+                      <ReceiptText size={17} className="text-[#6B7280]" />
+                    </div>
+                    <div>
+                      <div className="text-[13px] font-semibold text-[#374151]">Facturation gratuite</div>
+                      <div className="text-[11px] text-[#6B7280]">Factures et clients, sans limite de durée</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-semibold text-[#1A1A2E] text-[14px]">Un comptable / Expert-comptable</div>
-                    <div className="text-[12px] text-[#6B7280] mt-0.5">Gérez plusieurs dossiers clients</div>
-                  </div>
-                </div>
-              </button>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 w-full max-w-sm text-center">
+          <div className="mt-6 w-full max-w-xl text-center">
             <div className="flex justify-center gap-4 text-xs text-gray-400">
               <Link href="/cgu" className="hover:underline">CGU</Link>
               <Link href="/confidentialite" className="hover:underline">Confidentialité</Link>
@@ -326,7 +311,7 @@ export default function SignupPage() {
             onClick={() => setStep(1)}
             className="flex items-center gap-1.5 text-[12px] text-[#6B7280] hover:text-[#1A1A2E] mb-5 transition-colors"
           >
-            ← {userType === "fiduciaire" ? "Comptable Pro" : accountMode === "invoicing" ? "Facturation uniquement" : "Entrepreneur / freelance"}
+            ← {userType === "fiduciaire" ? "Cabinet comptable" : accountMode === "invoicing" ? "Facturation gratuite" : "TPME"}
           </button>}
 
           <h1 className="text-2xl font-bold text-navy mb-1">Créer un compte</h1>
