@@ -737,40 +737,7 @@ function ClientsSection({
           <p className="text-[13px] font-medium text-[#6B7280]">Aucune facture dans cet onglet</p>
         </div>
       ) : (
-        <>
-        <div className="mobile-record-list md:hidden">
-          {sorted.map((inv) => {
-            const received = Number(inv.montant_recu ?? 0);
-            const balance = Math.max(Number(inv.total) - received, 0);
-            const isPaid = inv.status === "paid";
-            const days = daysFromNow(inv.due_date);
-            return (
-              <article key={inv.id} className="mobile-record-card" data-tone={isPaid ? "success" : days !== null && days < 0 ? "danger" : "neutral"}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="mobile-record-card__eyebrow">{inv.invoice_number}</div>
-                    <div className="mobile-record-card__title truncate">{inv.clients?.name ?? "Client inconnu"}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="mobile-record-card__amount">{fmt(balance)}</div>
-                    <div className="mt-0.5 text-[9.5px] font-semibold text-[#8A909B]">reste à encaisser</div>
-                  </div>
-                </div>
-                <div className="mobile-record-card__meta">
-                  <span>Échéance {fmtDate(inv.due_date)}</span>
-                  <DaysCell dueDate={inv.due_date} isPaid={isPaid} />
-                  {received > 0 ? <span className="text-[#047857]">Reçu {fmt(received)}</span> : null}
-                </div>
-                <div className="mobile-record-card__actions">
-                  {!isPaid ? <button type="button" onClick={() => onRelance(inv)}><Send size={14} /> Relancer</button> : <Link href={`/invoices/${inv.id}`}><Eye size={14} /> Voir</Link>}
-                  {!isPaid ? <button type="button" onClick={() => onMarkPaid(inv)} className="text-[#8A5E25]"><CheckCircle size={14} /> Encaisser</button> : null}
-                  <div className="relative flex-none !max-w-[54px]"><ActionsMenu invoice={inv} onMarkPaid={() => onMarkPaid(inv)} onRelance={() => onRelance(inv)} /></div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-        <div className="hidden overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white md:block" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div className="overflow-x-auto">
             <table className="w-full text-[12px] min-w-[900px]">
               <thead>
@@ -828,7 +795,6 @@ function ClientsSection({
             </table>
           </div>
         </div>
-        </>
       )}
 
       {/* Aging */}
@@ -933,41 +899,7 @@ function SuppliersSection({
           </p>
         </div>
       ) : (
-        <>
-        <div className="mobile-record-list md:hidden">
-          {sorted.map((item) => {
-            const total = supplierTotal(item);
-            const paid = supplierPaid(item);
-            const balance = Math.max(total - paid, 0);
-            const isPaid = isSupplierPaid(item);
-            const dueDate = item.ocr_data?.due_date ?? null;
-            const days = daysFromNow(dueDate);
-            return (
-              <article key={item.id} className="mobile-record-card" data-tone={isPaid ? "success" : days !== null && days < 0 ? "danger" : "neutral"}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="mobile-record-card__eyebrow">{item.ocr_data?.receipt_number ?? "FACTURE FOURNISSEUR"}</div>
-                    <div className="mobile-record-card__title truncate">{supplierName(item)}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="mobile-record-card__amount">{fmt(balance)}</div>
-                    <div className="mt-0.5 text-[9.5px] font-semibold text-[#8A909B]">reste à payer</div>
-                  </div>
-                </div>
-                <div className="mobile-record-card__meta">
-                  <span>Échéance {fmtDate(dueDate)}</span>
-                  <DaysCell dueDate={dueDate} isPaid={isPaid} />
-                  {paid > 0 ? <span className="text-[#047857]">Payé {fmt(paid)}</span> : null}
-                </div>
-                <div className="mobile-record-card__actions">
-                  <Link href={`/inbox?document_id=${item.id}`}><Eye size={14} /> Voir l&apos;achat</Link>
-                  {!isPaid ? <button type="button" onClick={() => onMarkPaid(item)} className="text-[#8A5E25]"><CheckCircle size={14} /> Décaisser</button> : null}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-        <div className="hidden overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white md:block" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+        <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div className="overflow-x-auto">
             <table className="w-full text-[12px] min-w-[900px]">
               <thead>
@@ -1024,7 +956,6 @@ function SuppliersSection({
             </table>
           </div>
         </div>
-        </>
       )}
 
       {/* Aging */}

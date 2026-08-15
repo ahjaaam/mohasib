@@ -63,7 +63,6 @@ type Props = {
     locked?: boolean;
   }>;
   guestMode?: boolean;
-  mobileTitle?: string;
   onOpenMobileMenu?: () => void;
   onSignOut: () => void | Promise<void>;
 };
@@ -101,7 +100,6 @@ export default function AppTopBar({
   workspaceLabel = "Mon Cabinet",
   cabinetMenuItems = [],
   guestMode = false,
-  mobileTitle = "Mohasib",
   onOpenMobileMenu,
   onSignOut,
 }: Props) {
@@ -233,11 +231,6 @@ export default function AppTopBar({
         }`}
       >
       <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
-        {!guestMode && (
-          <div className="min-w-0 flex-1 sm:hidden">
-            <span className={`block truncate text-[16px] font-bold ${darkTopBar ? "text-white" : "text-[#111827]"}`}>{mobileTitle}</span>
-          </div>
-        )}
         {showBrand && (
           <Link
             href="/dashboard"
@@ -363,28 +356,7 @@ export default function AppTopBar({
             <Menu size={18} />
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => {
-            setSearchOpen(true);
-            window.setTimeout(() => inputRef.current?.focus(), 0);
-          }}
-          className="mobile-icon-button sm:hidden"
-          aria-label="Rechercher"
-        >
-          <Search size={18} />
-        </button>
-        <div className={`group min-w-0 flex-1 md:max-w-[560px] ${searchOpen ? "mobile-search-open" : "hidden sm:block"}`}>
-          {searchOpen && (
-            <button
-              type="button"
-              onClick={() => { setSearchOpen(false); setQuery(""); }}
-              className="mobile-search-close sm:hidden"
-              aria-label="Fermer la recherche"
-            >
-              Fermer
-            </button>
-          )}
+        <div className="group relative min-w-0 flex-1 md:max-w-[560px]">
           <label htmlFor="app-global-search" className="sr-only">
             Rechercher dans Mohasib
           </label>
@@ -528,15 +500,15 @@ export default function AppTopBar({
           />
         )}
 
-        {userId && <div className="hidden sm:block"><SupportTicketButton dossierId={dossierId} /></div>}
+        {userId && <SupportTicketButton dossierId={dossierId} />}
 
         {!guestMode && cabinetMenuItems.length === 0 && (
-          <div className="hidden sm:block"><GlobalPeriodSelector onOpen={() => {
+          <GlobalPeriodSelector onOpen={() => {
             setSearchOpen(false);
             setCabinetMenuOpen(false);
             setProfileOpen(false);
             setChatOpen(false);
-          }} /></div>
+          }} />
         )}
 
         {!invoicingOnly && <button

@@ -277,19 +277,6 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    const capture = new URLSearchParams(window.location.search).get("capture");
-    if (capture !== "camera" && capture !== "file") return;
-    const timer = window.setTimeout(() => {
-      if (capture === "camera") cameraInputRef.current?.click();
-      else fileInputRef.current?.click();
-      const url = new URL(window.location.href);
-      url.searchParams.delete("capture");
-      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     if (loading || previewReceipt) return;
     const documentId = new URLSearchParams(window.location.search).get("document_id");
     if (!documentId || autoOpenedDocumentRef.current === documentId) return;
@@ -603,27 +590,27 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
               onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }} />
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="hidden min-w-0 text-left sm:block">
+              <div className="min-w-0 text-left">
                 <div className="mb-0.5 text-[13.5px] font-semibold text-[#1A1A2E]">Importez vos factures fournisseurs</div>
                 <div className="text-[11.5px] text-[#8A909B]">L&apos;IA extrait automatiquement le fournisseur, le montant, la TVA et la date.</div>
                 <div className="mt-1 text-[10px] text-[#A1A6B0]">JPG · PNG · PDF · WebP · 10 Mo max · Import multiple</div>
               </div>
 
-              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap lg:flex-shrink-0 lg:justify-end">
+              <div className="flex flex-wrap gap-2 lg:flex-shrink-0 lg:justify-end">
                 {!dossierId && (
                   <button data-permission="document:create" onClick={handleEmailSync} disabled={syncing}
-                    className="hidden items-center gap-1.5 whitespace-nowrap px-3.5 py-2 text-[12px] font-medium transition-colors disabled:opacity-50 sm:flex"
+                    className="flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2 text-[12px] font-medium transition-colors disabled:opacity-50"
                     style={{ backgroundColor: "#0D1526", color: "#fff", border: "none" }}>
                     <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
                     {syncing ? "Importation…" : "Importer depuis mes emails"}
                   </button>
                 )}
                 <button data-permission="document:create" onClick={() => fileInputRef.current?.click()}
-                  className="btn btn-outline order-2 justify-center sm:order-none">
+                  className="btn btn-outline">
                   <Upload size={13} /> Importer des documents
                 </button>
                 <button data-permission="document:create" onClick={() => cameraInputRef.current?.click()}
-                  className="btn btn-gold order-1 justify-center sm:order-none">
+                  className="btn btn-outline">
                   <Camera size={13} /> Prendre une photo
                 </button>
               </div>

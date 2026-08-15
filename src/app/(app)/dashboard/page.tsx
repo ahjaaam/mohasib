@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/server";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import Link from "next/link";
-import { ArrowRight, Camera, CircleDollarSign, FileWarning, ReceiptText } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { Invoice, Transaction } from "@/types";
 import DashboardNews from "./DashboardNews";
 import DashboardGreeting from "./DashboardGreeting";
@@ -141,60 +141,6 @@ export default async function DashboardPage() {
     <div>
       {/* Greeting */}
       <DashboardGreeting firstName={firstName} />
-
-      {/* Phone command center: action first, analysis second. */}
-      <section className="mb-6 md:hidden" aria-labelledby="mobile-priority-title">
-        <div className="mb-3 flex items-end justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#A16F30]">Aujourd&apos;hui</p>
-            <h2 id="mobile-priority-title" className="mt-1 text-[20px] font-bold leading-tight text-[#111827]">Votre activité en un coup d&apos;œil</h2>
-          </div>
-          <Link href="/inbox?capture=camera" className="flex h-11 w-11 flex-none items-center justify-center bg-[#0D1526] text-white" aria-label="Scanner une facture d'achat">
-            <Camera size={19} />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 overflow-hidden border border-[#DEE0DC] bg-white">
-          <div className="border-b border-r border-[#E8E9E5] p-4">
-            <span className="text-[10px] font-semibold text-[#777E8B]">À encaisser</span>
-            <strong className="mt-1 block text-[17px] text-[#111827]">{fmt(totalAEncaisser)}</strong>
-          </div>
-          <div className="border-b border-[#E8E9E5] p-4">
-            <span className="text-[10px] font-semibold text-[#777E8B]">À payer</span>
-            <strong className="mt-1 block text-[17px] text-[#111827]">{fmt(totalAPayer)}</strong>
-          </div>
-          <div className="border-r border-[#E8E9E5] p-4">
-            <span className="text-[10px] font-semibold text-[#777E8B]">Factures clients</span>
-            <strong className={`mt-1 block text-[17px] ${overdueCount > 0 ? "text-[#B42318]" : "text-[#047857]"}`}>{overdueCount} en retard</strong>
-          </div>
-          <div className="p-4">
-            <span className="text-[10px] font-semibold text-[#777E8B]">TVA estimée</span>
-            <strong className="mt-1 block text-[17px] text-[#111827]">{fmt(Math.round(tvaEstimate))}</strong>
-          </div>
-        </div>
-
-        <div className="mt-3 grid gap-2">
-          {overdueCount > 0 ? (
-            <Link href="/suivi-paiements" className="mobile-attention-row" data-tone="danger">
-              <span className="mobile-attention-row__icon"><FileWarning size={18} /></span>
-              <span className="min-w-0 flex-1"><strong>{overdueCount} facture{overdueCount > 1 ? "s" : ""} client en retard</strong><small>Relancez les clients concernés</small></span>
-              <ArrowRight size={16} />
-            </Link>
-          ) : null}
-          {unpaidSuppliers.length > 0 ? (
-            <Link href="/suivi-paiements" className="mobile-attention-row">
-              <span className="mobile-attention-row__icon"><CircleDollarSign size={18} /></span>
-              <span className="min-w-0 flex-1"><strong>{unpaidSuppliers.length} paiement{unpaidSuppliers.length > 1 ? "s" : ""} fournisseur</strong><small>{fmt(totalAPayer)} restant à régler</small></span>
-              <ArrowRight size={16} />
-            </Link>
-          ) : null}
-          <Link href="/inbox" className="mobile-attention-row">
-            <span className="mobile-attention-row__icon"><ReceiptText size={18} /></span>
-            <span className="min-w-0 flex-1"><strong>Traiter mes achats</strong><small>Photographier, vérifier et comptabiliser</small></span>
-            <ArrowRight size={16} />
-          </Link>
-        </div>
-      </section>
 
       {/* Usage warning banner */}
       {showUsageWarning && usageData && (

@@ -64,7 +64,6 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   const [templateName, setTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [availableClients, setAvailableClients] = useState(clients);
-  const [mobileStep, setMobileStep] = useState<1 | 2 | 3>(1);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -458,24 +457,14 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start" data-mobile-invoice-step={mobileStep}>
-    <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px] max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
-      <div className="mobile-invoice-progress mb-5 md:hidden" aria-label={`Étape ${mobileStep} sur 3`}>
-        {["Client", "Prestations", "Vérification"].map((label, index) => {
-          const step = (index + 1) as 1 | 2 | 3;
-          return (
-            <button key={label} type="button" onClick={() => setMobileStep(step)} className={mobileStep === step ? "active" : mobileStep > step ? "complete" : ""}>
-              <span>{mobileStep > step ? <Check size={12} /> : step}</span>{label}
-            </button>
-          );
-        })}
-      </div>
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
+    <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px]">
       <div className="alert-blue">
         <Lightbulb size={14} className="inline mr-1.5 -mt-0.5" />ICE, IF, RC, CNSS et mentions légales marocaines inclus automatiquement dans le PDF généré.
       </div>
 
       {/* Header fields */}
-      <div className="mobile-invoice-step mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2" data-step="1">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="col-span-2 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.6px] pb-2 border-b border-[rgba(0,0,0,0.08)]">
           Informations de la facture
         </div>
@@ -513,7 +502,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
       </div>
 
       {/* Line items */}
-      <div className="mobile-invoice-step mt-4" data-step="2">
+      <div className="mt-4">
         {catalogItems.length > 0 && (
           <div className="mb-3 rounded-lg border border-[rgba(200,146,74,0.18)] bg-[#FFF7ED] p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -541,7 +530,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
           </div>
         )}
 
-        <div className="invoice-line-head grid gap-1.5 mb-1.5" style={{ gridTemplateColumns: "2fr 58px 90px 76px 28px" }}>
+        <div className="grid gap-1.5 mb-1.5" style={{ gridTemplateColumns: "2fr 58px 90px 76px 28px" }}>
           {["Description", "Qté", "P.U. HT", "TVA %", ""].map((h) => (
             <span key={h} className="text-[10.5px] text-[#6B7280] font-semibold uppercase tracking-[0.5px]">{h}</span>
           ))}
@@ -549,7 +538,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
 
         {lines.map((line, i) => (
           <div key={i} className="mb-2">
-            <div className="invoice-line-fields grid gap-1.5 items-center" style={{ gridTemplateColumns: "2fr 58px 90px 76px 28px" }}>
+            <div className="grid gap-1.5 items-center" style={{ gridTemplateColumns: "2fr 58px 90px 76px 28px" }}>
               <input className="input" placeholder="Description de la prestation..." value={line.desc}
                 onChange={(e) => updateLine(i, "desc", e.target.value)} />
               <input type="number" min={1} className="input text-right" value={line.qty}
@@ -583,12 +572,6 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
         </button>
       </div>
 
-      <div className="mobile-invoice-step" data-step="3">
-      <div className="mb-3 border border-[#E1E2DE] bg-[#FAFAF7] p-4 md:hidden">
-        <p className="text-[10px] font-bold uppercase tracking-[.08em] text-[#8A909B]">Récapitulatif</p>
-        <p className="mt-1 text-[13px] font-semibold text-[#202631]">{availableClients.find(client => client.id === form.client_id)?.name ?? "Aucun client sélectionné"}</p>
-        <p className="mt-1 text-[11px] text-[#777E8B]">{lines.filter(line => line.desc.trim()).length} prestation(s) · échéance {new Date(form.due).toLocaleDateString("fr-MA")}</p>
-      </div>
       {/* Totals */}
       <div className="totals-box">
         <div className="total-row"><span>Total HT</span><span>{fmt(totalHT)}</span></div>
@@ -607,24 +590,9 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
           {saving ? "..." : "Créer et envoyer"}
         </button>
       </div>
-      </div>
-
-      <div className="mobile-invoice-nav md:hidden">
-        {mobileStep > 1 ? <button type="button" onClick={() => setMobileStep((mobileStep - 1) as 1 | 2)} className="btn btn-outline justify-center">Retour</button> : <span />}
-        {mobileStep < 3 ? (
-          <button
-            type="button"
-            onClick={() => setMobileStep((mobileStep + 1) as 2 | 3)}
-            disabled={mobileStep === 1 && !form.client_id}
-            className="btn btn-gold justify-center"
-          >
-            Continuer <span aria-hidden="true">→</span>
-          </button>
-        ) : null}
-      </div>
     </div>
 
-    <aside className="hidden bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 lg:block">
+    <aside className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4">
       <div className="flex items-center gap-1.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.6px] pb-2 mb-3 border-b border-[rgba(0,0,0,0.08)]">
         <LayoutTemplate size={13} /> Modèles de facture
       </div>
