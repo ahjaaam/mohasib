@@ -1,0 +1,41 @@
+@keyframes progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes panelIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+.frame { position: relative; isolation: isolate; width: 100%; margin-top: 66px; overflow: hidden; border: 1px solid #22201c; border-radius: 12px !important; background: #eef1f6 url("/images/workflow-card-background.jpg") 30% 45% / cover no-repeat; text-align: left; }
+.frame::before { position: absolute; z-index: -1; inset: 0; background: rgba(9, 8, 7, 0.12); content: ""; }
+.topbar, .footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; background: rgba(9, 8, 7, 0.72); color: #fff; }
+.topbar { border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+.topbar > div { display: flex; align-items: center; gap: 10px; }
+.topbar strong { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+.topbar > span, .footer span { color: #b9c0cc; font-family: Inter, sans-serif; font-size: 11px; }
+.brandIcon { width: 14px; height: 14px; flex: 0 0 auto; object-fit: contain; }
+.tabs { display: flex; overflow-x: auto; padding: 0 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.12); background: rgba(9, 8, 7, 0.62); scrollbar-width: thin; }
+.tabs button { position: relative; display: inline-flex; flex: 1 0 auto; min-height: 48px; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; border: 0; border-radius: 0 !important; background: transparent; color: rgba(255, 255, 255, 0.6); font-family: var(--font-jakarta), sans-serif; font-size: 13px; cursor: pointer; }
+.tabs button:hover, .tabs button:focus-visible, .tabs .activeTab { color: #fff; }
+.tabs .activeTab { font-weight: 600; }
+.progress, .staticProgress { position: absolute; right: 12px; bottom: 0; left: 12px; height: 2px; background: #c8924a; transform-origin: left center; }
+.progress { animation: progress 7s linear forwards; }
+.panel { display: grid; padding: 26px 22px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; animation: panelIn 220ms ease both; }
+.stage { display: flex; min-width: 0; min-height: 312px; flex-direction: column; gap: 13px; padding: 18px; border: 1px solid #e4e1d9; background: #fff; color: #0d1526; }
+.stageStep { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #a36d2c; }
+.stageStep span:first-child { font-family: Inter, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.stage h3 { margin: 0; font-size: 15.5px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.3; }
+.rows { border-top: 1px solid #efede6; }
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #efede6; font-family: Inter, sans-serif; }
+.row span { color: #6b7280; font-size: 11px; }
+.row strong { color: #0d1526; font-size: 11.5px; font-weight: 600; text-align: right; }
+.row .gold { color: #9a6e2e; }
+.row .alert { color: #b3402f; }
+.note { margin: 0; color: #6b7280; font-family: Inter, sans-serif; font-size: 11px; line-height: 1.55; }
+.status { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 9px 11px; border: 1px solid rgba(200, 146, 74, 0.42); background: #fbf4e9; color: #8a6129; }
+.status strong { font-family: Inter, sans-serif; font-size: 11px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions span { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; padding: 0 14px; font-family: Inter, sans-serif; font-size: 11px; font-weight: 600; }
+.actions span:first-child { background: #0d1526; color: #fff; }
+.actions span:last-child { border: 1px solid #d8d5cc; color: #4b5563; }
+.footer { border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.footer strong { font-size: 14px; font-weight: 500; }
+
+@media (max-width: 900px) { .panel { grid-template-columns: 1fr; } .stage { min-height: 0; } .tabs button { flex: 0 0 auto; } }
+@media (max-width: 700px) { .frame { margin-top: 48px; } .topbar { align-items: flex-start; flex-direction: column; gap: 6px; padding: 13px 15px; } .tabs { justify-content: flex-start; } .tabs button { min-height: 46px; padding: 0 14px; font-size: 12px; } .panel { padding: 15px; gap: 12px; } .stage { padding: 15px; } .footer { align-items: flex-start; flex-direction: column; padding: 13px 15px; } .footer strong { font-size: 13px; } }
+@media (prefers-reduced-motion: reduce) { .panel, .progress { animation: none; } }

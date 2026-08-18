@@ -160,7 +160,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
   const [searchState, setSearchState] = useState({ source: requestedSearch, value: requestedSearch });
   const search = searchState.source === requestedSearch ? searchState.value : requestedSearch;
   const setSearch = (value: string) => setSearchState({ source: requestedSearch, value });
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   async function handleImportFile(file: File) {
     setImportFile(file);
@@ -213,6 +213,8 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
   }
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setClients([]);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -239,7 +241,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
 
     setClients(rows);
     setLoading(false);
-  }, []);
+  }, [dossierId, ownerId, supabase]);
 
   useEffect(() => {
     load();

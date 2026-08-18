@@ -26,6 +26,7 @@ export const ROUTES = {
   RAPPORTS: "/rapports",
   PARAMETRES: "/parametres",
   SUIVI_PAIEMENTS: "/suivi-paiements",
+  TRESORERIE: "/tresorerie",
   RAPPROCHEMENT: "/rapprochement",
   SAISIE: "/saisie",
   ECRITURES: "/ecritures",

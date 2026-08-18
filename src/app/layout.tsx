@@ -1,31 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Plus_Jakarta_Sans, Instrument_Serif, Inter } from "next/font/google";
 import { MARKETING_URL } from "@/lib/public-urls";
 import { organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import PWARegistration from "@/components/PWARegistration";
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-jakarta",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-const serif = Instrument_Serif({
-  subsets: ["latin"],
-  variable: "--font-serif",
-  weight: "400",
-  display: "swap",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  weight: ["600", "700"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(MARKETING_URL),
@@ -80,7 +58,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" style={{ scrollBehavior: "smooth" }} className={`${jakarta.variable} ${serif.variable} ${inter.variable}`}>
+    <html lang="fr" style={{ scrollBehavior: "smooth" }}>
       <body suppressHydrationWarning style={{ fontFamily: "var(--font-jakarta), sans-serif" }}>
         <script
           type="application/ld+json"

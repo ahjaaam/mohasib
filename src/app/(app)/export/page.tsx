@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/client";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
 import { taxIncludedInAmount } from "@/lib/tax";
+import {
+  PAYMENT_DEADLINE_HEADERS,
+  buildClientPaymentDeadlineRows,
+  buildSupplierPaymentDeadlineRows,
+} from "@/lib/payment-deadlines-export";
 import { Download, Package, CheckCircle, AlertCircle, RefreshCw, BookMarked, FileSpreadsheet, FileText, CalendarDays, History } from "lucide-react";
 
 function fmt(n: number) {
@@ -46,6 +51,7 @@ const STEPS = [
   "Balance Comptable (Excel)",
   "Récap TVA (PDF)",
   "Synthèse Financière (PDF)",
+  "Suivi des délais de paiement (Excel)",
 ];
 
 const EXPORT_DOCUMENTS = [
@@ -56,6 +62,7 @@ const EXPORT_DOCUMENTS = [
   { id: "balance-xlsx", label: "Balance Comptable", format: "Excel", icon: FileSpreadsheet },
   { id: "tva-pdf", label: "Récapitulatif TVA", format: "PDF", icon: FileText },
   { id: "summary-pdf", label: "Synthèse Financière", format: "PDF", icon: FileText },
+  { id: "payment-deadlines-xlsx", label: "Délais de paiement — DGI", format: "Excel", icon: FileSpreadsheet },
 ] as const;
 
 type ExportDocumentId = typeof EXPORT_DOCUMENTS[number]["id"];
@@ -170,18 +177,28 @@ export default function ExportPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Non authentifié");
 
-      const [invRes, txRes] = await Promise.all([
-        supabase.from("invoices").select("*, clients(id,name,ice,address)")
+      const [invRes, txRes, receiptRes] = await Promise.all([
+        supabase.from("invoices").select("*, clients(id,name,ice,address), invoice_payments(montant,date_paiement,mode_paiement,reference,allocation_status)")
           .eq("user_id", ownerId).is("dossier_id", null).gte("issue_date", period.start).lte("issue_date", period.end)
           .order("issue_date", { ascending: true }),
         supabase.from("transactions").select("*")
           .eq("user_id", ownerId).is("dossier_id", null).gte("date", period.start).lte("date", period.end)
           .order("date", { ascending: true }),
+        supabase.from("receipts")
+          .select("id,file_name,status,created_at,ocr_data,invoice_payments(montant,date_paiement,mode_paiement,reference,allocation_status)")
+          .eq("user_id", ownerId).is("dossier_id", null).eq("status", "matched"),
       ]);
+
+      if (invRes.error) throw invRes.error;
+      if (txRes.error) throw txRes.error;
+      if (receiptRes.error) throw receiptRes.error;
 
       const invoices: any[] = (invRes.data ?? []).filter((i: any) => i.status !== "draft" && i.status !== "cancelled");
       const allTx: any[]    = txRes.data ?? [];
       const expenses        = allTx.filter(t => t.type === "expense");
+      const supplierInvoices = (receiptRes.data ?? []).filter((receipt: any) =>
+        receipt.ocr_data?.document_type !== "avoir" && receipt.ocr_data?.is_supplier_invoice !== false
+      );
 
       // Lazy-load heavy libraries
       const XLSX              = await import("xlsx");
@@ -519,6 +536,30 @@ export default function ExportPage() {
 
         addFooter(doc);
         zip.file(`07_Synthese_Financiere_${safePeriod}.pdf`, doc.output("arraybuffer"));
+      }
+
+      // ── 8. Délais de paiement — Excel ───────────────────────────────────────
+      if (selectedDocuments.has("payment-deadlines-xlsx")) {
+        setCurrentStep(7);
+        const workbook = XLSX.utils.book_new();
+        const clientRows = buildClientPaymentDeadlineRows(invoices, period);
+        const supplierRows = buildSupplierPaymentDeadlineRows(supplierInvoices, period);
+        const metaRows = [
+          [profile?.company ?? "Mohasib"],
+          [`SUIVI DES DÉLAIS DE PAIEMENT — ${periodLabel}`],
+          ["Une ligne par paiement. Les factures non réglées restent présentes sans date de paiement."],
+          [],
+        ];
+        const widths = [15, 28, 18, 20, 16, 16, 20, 18, 25, 20, 22, 18, 22, 20, 16, 22].map((wch) => ({ wch }));
+        const clientSheet = XLSX.utils.aoa_to_sheet([...metaRows, [...PAYMENT_DEADLINE_HEADERS], ...clientRows]);
+        const supplierSheet = XLSX.utils.aoa_to_sheet([...metaRows, [...PAYMENT_DEADLINE_HEADERS], ...supplierRows]);
+        clientSheet["!cols"] = widths;
+        supplierSheet["!cols"] = widths;
+        clientSheet["!freeze"] = { xSplit: 0, ySplit: 5 };
+        supplierSheet["!freeze"] = { xSplit: 0, ySplit: 5 };
+        XLSX.utils.book_append_sheet(workbook, clientSheet, "Factures clients");
+        XLSX.utils.book_append_sheet(workbook, supplierSheet, "Factures fournisseurs");
+        zip.file(`08_Delais_Paiement_DGI_${safePeriod}.xlsx`, XLSX.write(workbook, { bookType: "xlsx", type: "array" }));
       }
 
       // ── Build & download ZIP ─────────────────────────────────────────────────

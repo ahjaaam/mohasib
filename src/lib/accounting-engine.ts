@@ -43,6 +43,7 @@ export interface BookableBankLine {
   amount: number;       // signed: positive=income, negative=expense
   category: string | null;
   invoice_id?: string | null; // if this payment settles an invoice
+  counterpart_account?: string | null; // user-confirmed account opposite bank
 }
 
 interface JournalEntry {
@@ -248,7 +249,7 @@ export async function bookBankTransaction(
   const entries: JournalEntry[] = [];
 
   if (isIncome) {
-    if (bankLine.invoice_id) {
+    if (bankLine.invoice_id && !bankLine.counterpart_account) {
       // Payment that settles a client invoice: DEBIT bank, CREDIT 3421
       entries.push(
         {
@@ -276,7 +277,7 @@ export async function bookBankTransaction(
       );
     } else {
       // General income: DEBIT bank, CREDIT revenue
-      const revenueAccount = getRevenueAccount(bankLine.category ?? "");
+      const revenueAccount = bankLine.counterpart_account || getRevenueAccount(bankLine.category ?? "");
       entries.push(
         {
           journal: "BQ",
@@ -304,7 +305,7 @@ export async function bookBankTransaction(
     }
   } else {
     // Expense: DEBIT expense account, CREDIT bank
-    const expenseAccount = getExpenseAccount(bankLine.category ?? "");
+    const expenseAccount = bankLine.counterpart_account || getExpenseAccount(bankLine.category ?? "");
     entries.push(
       {
         journal: "BQ",

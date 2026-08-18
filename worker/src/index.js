@@ -12,6 +12,11 @@ export default {
   async email(message, env, _ctx) {
     // Read the full raw email (RFC 2822) from the stream
     const raw = await new Response(message.raw).text();
+    const rawBytes = new TextEncoder().encode(raw).byteLength;
+    if (rawBytes > 25 * 1024 * 1024) {
+      message.setReject("Message exceeds the 25 MB inbound limit");
+      return;
+    }
 
     const subject = message.headers.get("subject") ?? "";
 

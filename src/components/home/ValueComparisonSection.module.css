@@ -1,0 +1,35 @@
+.section { padding: 98px 32px 108px; background: #fff; color: #0d1526; }
+.heading { max-width: 760px; margin: 0 auto 46px; text-align: center; }
+.eyebrow { margin: 0 0 15px !important; color: #a36d2c !important; font-size: 10px !important; font-weight: 700 !important; letter-spacing: 0.15em; text-transform: uppercase; }
+.heading h2 { margin: 0 0 18px; font-size: clamp(36px, 4vw, 50px); font-weight: 600; letter-spacing: -0.045em; line-height: 1.06; }
+.heading > p:last-child { max-width: 620px; margin: 0 auto; color: #626a77; font-size: 15px; line-height: 1.68; }
+.tableShell { width: min(100%, 1180px); margin: 0 auto; overflow-x: auto; border: 1px solid #dfdcd3; border-radius: 12px !important; outline-offset: 4px; }
+.tableShell table { width: 100%; min-width: 920px; border-collapse: separate; border-spacing: 0; table-layout: fixed; background: #fff; }
+.tableShell th, .tableShell td { padding: 18px 19px; border-right: 1px solid #e6e3dc; border-bottom: 1px solid #e6e3dc; text-align: left; vertical-align: top; }
+.tableShell tr > *:last-child { border-right: 0; }
+.tableShell tbody tr:last-child > * { border-bottom: 0; }
+.tableShell thead th { background: #faf9f5; color: #5e6673; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.tableShell thead th:first-child { width: 18%; color: #0d1526; }
+.tableShell thead th:not(:first-child) { width: 27.333%; }
+.tableShell tbody th, .tableShell tfoot th { color: #0d1526; font-size: 12px; font-weight: 600; line-height: 1.45; }
+.tableShell td { color: #68707d; font-size: 12px; line-height: 1.58; }
+.tableShell .mohasibHeading { background: #0d1526; color: #fff; }
+.mohasibHeading span, .mohasibHeading small { display: block; }
+.mohasibHeading small { margin-top: 5px; color: #d9a45f; font-size: 8px; font-weight: 700; letter-spacing: 0.1em; }
+.tableShell .mohasibCell { background: #fbf4e9; color: #3f3425; }
+.tableShell tfoot th, .tableShell tfoot td { border-top: 2px solid #0d1526; border-bottom: 0; background: #faf9f5; }
+.tableShell tfoot .mohasibCell { background: #f3e5ce; color: #0d1526; }
+.mobileHint { display: none; }
+
+@media (max-width: 700px) {
+  .section { padding: 76px 18px 82px; }
+  .heading { margin-bottom: 34px; text-align: left; }
+  .heading h2 { font-size: clamp(34px, 10vw, 44px); }
+  .heading > p:last-child { margin-left: 0; font-size: 14px; }
+  .tableShell { border-radius: 10px !important; }
+  .tableShell th, .tableShell td { padding: 15px 16px; }
+  .tableShell thead th:first-child { position: sticky; z-index: 2; left: 0; box-shadow: 1px 0 #e6e3dc; }
+  .tableShell tbody th, .tableShell tfoot th { position: sticky; z-index: 1; left: 0; background: #fff; box-shadow: 1px 0 #e6e3dc; }
+  .tableShell tfoot th { background: #faf9f5; }
+  .mobileHint { display: block; width: min(100%, 1180px); margin: 11px auto 0; color: #858c96; font-size: 10px; }
+}

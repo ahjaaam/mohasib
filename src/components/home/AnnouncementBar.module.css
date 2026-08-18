@@ -1,0 +1,157 @@
+.bar {
+  position: sticky;
+  top: 76px;
+  z-index: 40;
+  border-bottom: 1px solid #ead5aa;
+  background: #f8e9c7;
+  color: #0d1526;
+}
+
+.inner {
+  display: flex;
+  width: min(100%, 1180px);
+  min-height: 64px;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin: 0 auto;
+  padding: 10px 68px 10px 24px;
+}
+
+.badge {
+  display: inline-flex;
+  min-height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px !important;
+  background: #c8924a;
+  padding: 0 11px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.message,
+.trial {
+  margin: 0;
+}
+
+.message {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.divider {
+  width: 1px;
+  height: 34px;
+  flex: 0 0 auto;
+  background: rgba(163, 109, 44, 0.38);
+}
+
+.trial {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.trial strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.trial span {
+  color: #5f6671;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.action {
+  display: inline-flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px !important;
+  background: #0d1526;
+  padding: 0 22px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.action:focus-visible,
+.close:focus-visible {
+  outline: 2px solid #0d1526;
+  outline-offset: 3px;
+}
+
+.close {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #0d1526;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+@media (max-width: 900px) {
+  .inner {
+    justify-content: flex-start;
+    gap: 16px;
+  }
+
+  .message {
+    flex: 1;
+    font-size: 13px;
+  }
+
+  .divider,
+  .trial {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .inner {
+    min-height: 0;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: 11px 52px 11px 16px;
+  }
+
+  .badge {
+    min-height: 25px;
+    padding: 0 8px;
+    font-size: 9px;
+  }
+
+  .message {
+    min-width: calc(100% - 130px);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .action {
+    min-height: 32px;
+    margin-left: auto;
+    padding: 0 15px;
+    font-size: 11px;
+  }
+
+  .close {
+    right: 10px;
+  }
+}

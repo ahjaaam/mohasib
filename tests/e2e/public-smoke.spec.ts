@@ -26,8 +26,8 @@ test("public pages and authentication entry points render", async ({ page }) => 
 
 test("workflows page is public and explains the core processes", async ({ page }) => {
   await page.goto("/");
-  const workflowsLink = page.getByRole("link", { name: "Workflows", exact: true });
-  if (!await workflowsLink.isVisible()) {
+  const workflowsLink = page.locator(".public-navbar a[href='/workflows']:visible").first();
+  if (await workflowsLink.count() === 0) {
     await page.getByRole("button", { name: "Ouvrir le menu" }).click();
   }
   await expect(workflowsLink).toBeVisible();
@@ -42,6 +42,7 @@ test("workflows page is public and explains the core processes", async ({ page }
 test("health endpoint reports a ready release", async ({ request }) => {
   const response = await request.get("/api/health");
   expect(response.ok()).toBeTruthy();
+  expect(response.headers()["content-security-policy"]).toContain("default-src 'self'");
 
   const payload = await response.json();
   expect(payload.status).toBe("ok");

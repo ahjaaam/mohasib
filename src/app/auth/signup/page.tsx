@@ -51,6 +51,10 @@ export default function SignupPage() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const token = searchParams.get("invitation");
+    const phone = searchParams.get("phone");
+    if (phone) {
+      setForm((current) => ({ ...current, phone }));
+    }
     const isInvoicingDomain = window.location.host === new URL(INVOICING_URL).host;
     if (!token && (isInvoicingDomain || searchParams.get("mode") === "invoicing")) {
       setUserType("entrepreneur");

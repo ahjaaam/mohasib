@@ -492,9 +492,9 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
     setResolving(true);
     try {
       if (doc.type === "recu" && doc.storage_path) {
-        const { data } = supabase.storage.from("receipts")
-          .getPublicUrl(doc.storage_path);
-        const resolved = { ...doc, url: data?.publicUrl ?? null };
+        const { data } = await supabase.storage.from("receipts")
+          .createSignedUrl(doc.storage_path, 5 * 60);
+        const resolved = { ...doc, url: data?.signedUrl ?? null };
         setDocs((prev) => prev.map((d) => d.id === doc.id ? resolved : d));
         setSelected(resolved);
       }

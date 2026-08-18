@@ -9,7 +9,7 @@ import {
   LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeftRight,
   LogOut, Menu, Inbox, Download,
   Settings, Calculator, FolderOpen, BarChart2, UserRoundCog, Building2, CreditCard, PenLine, LayoutTemplate,
-  GitMerge, Lock, ReceiptText,
+  GitMerge, Landmark, Lock, ReceiptText,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -34,6 +34,9 @@ const NAV_MAIN = [
   { href: "/invoices",          icon: FileText,   label: "Factures",            key: "invoices", permission: "invoice:read" },
   { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des échéances", key: "suivi-paiements", permission: "invoice:read" },
   { href: "/clients",           icon: Users,      label: "Clients",             key: "clients", permission: "invoice:read" },
+  ...(FEATURES.TREASURY_ENABLED
+    ? [{ href: "/tresorerie", icon: Landmark, label: "Trésorerie", key: "tresorerie", permission: "report:read" }]
+    : []),
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions", permission: "accounting:read" },
   { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
   FEATURES.SAISIE_ENABLED

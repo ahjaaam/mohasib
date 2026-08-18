@@ -91,13 +91,13 @@ export default function NewDossierForm() {
     }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    // Generate a stable short ID for the dedicated email before insert
-    // We use a random 6-char hex; the real ID isn't known yet client-side
-    const shortId = Math.random().toString(16).slice(2, 8);
+    // Use an unguessable mailbox token; this address accepts external email and
+    // therefore must not be derived from a dossier ID or Math.random().
+    const inboxToken = crypto.randomUUID().replaceAll("-", "").slice(0, 24);
     const { data, error } = await supabase.from("dossiers").insert({
       fiduciaire_user_id: user!.id,
       raison_sociale: form.raison_sociale.trim(),
-      inbox_email: `factures-${shortId}@mohasibai.com`,
+      inbox_email: `factures-${inboxToken}@mohasibai.com`,
       forme_juridique: form.forme_juridique,
       ice: form.ice || null,
       if_fiscal: form.if_fiscal || null,

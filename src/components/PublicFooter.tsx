@@ -1,44 +1,123 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Facebook, Instagram, Linkedin } from "lucide-react";
-import { invoicingUrl, whatsappUrl } from "@/lib/public-urls";
+import {
+  ArrowUpRight,
+  Facebook,
+  Instagram,
+  Linkedin,
+  MessageCircle,
+  Phone,
+} from "lucide-react";
 
-const FONT = "var(--font-jakarta), sans-serif";
+import { appUrl, invoicingUrl, whatsappUrl } from "@/lib/public-urls";
+import styles from "./PublicFooter.module.css";
+
+const ROADMAP_URL =
+  "https://app.notion.com/p/582f8f92c3d142898de0f00e94d26caf?v=3acb4e543c0b81e893fa000c40c51c08";
+
+const footerGroups = [
+  {
+    title: "Produit",
+    links: [
+      { label: "Workflows", href: "/workflows" },
+      { label: "Facturation gratuite", href: invoicingUrl() },
+    ],
+  },
+  {
+    title: "Ressources",
+    links: [
+      { label: "Bibliothèque", href: "/ressources" },
+      { label: "Blog", href: "/ressources/blog" },
+      { label: "Guides", href: "/ressources/guides" },
+      { label: "Centre d’aide", href: "/centre-aide" },
+    ],
+  },
+  {
+    title: "Mohasib",
+    links: [
+      { label: "Se connecter", href: appUrl("/connexion") },
+      { label: "Créer un compte", href: appUrl("/inscription") },
+      { label: "Nous contacter", href: "/centre-aide" },
+      { label: "Roadmap", href: ROADMAP_URL, external: true },
+    ],
+  },
+] as const;
+
+const socialLinks = [
+  { label: "LinkedIn", href: "https://www.linkedin.com/company/mohasibai/", icon: Linkedin },
+  { label: "Instagram", href: "https://www.instagram.com/mohasibai/", icon: Instagram },
+  { label: "Facebook", href: "https://www.facebook.com/mohasibai", icon: Facebook },
+] as const;
 
 export default function PublicFooter() {
   return (
-    <footer className="bg-white px-8 pb-9 pt-12 max-sm:px-5 max-sm:pb-7 max-sm:pt-10">
-      <div style={{ maxWidth: 1160, margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
-          <Image src="/logo2.png" alt="Mohasib" width={112} height={34} style={{ height: "auto", objectFit: "contain", opacity: 0.82 }} />
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <Link href="https://www.linkedin.com/company/mohasibai/" aria-label="LinkedIn" className="border border-[#D5D4CE] text-[#777E8B] transition-colors hover:border-[#A89596] hover:text-[#7A6668]" style={{ width: 34, height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
-              <Linkedin size={16} />
+    <footer className={styles.footer}>
+      <Image
+        src="/favicon.png"
+        alt=""
+        width={440}
+        height={440}
+        className={styles.watermark}
+        aria-hidden="true"
+      />
+      <div className={styles.inner}>
+        <div className={styles.main}>
+          <div className={styles.brand}>
+            <Link href="/" className={styles.logoLink} aria-label="Mohasib — Accueil">
+              <Image src="/logo2.png" alt="Mohasib AI" width={154} height={31} className={styles.logo} />
             </Link>
-            <Link href="https://www.instagram.com/mohasibai/" aria-label="Instagram" className="border border-[#D5D4CE] text-[#777E8B] transition-colors hover:border-[#A89596] hover:text-[#7A6668]" style={{ width: 34, height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
-              <Instagram size={16} />
-            </Link>
-            <Link href="https://www.facebook.com/mohasibai" aria-label="Facebook" className="border border-[#D5D4CE] text-[#777E8B] transition-colors hover:border-[#A89596] hover:text-[#7A6668]" style={{ width: 34, height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
-              <Facebook size={16} />
-            </Link>
+            <p className={styles.tagline}>
+              La plateforme de gestion et de comptabilité pensée pour les
+              entreprises marocaines.
+            </p>
+            <div className={styles.contactLinks}>
+              <a href="tel:+212670101952" className={styles.contactLink}>
+                <Phone size={15} aria-hidden="true" />
+                <span>06 70 10 19 52</span>
+              </a>
+              <a href={whatsappUrl()} target="_blank" rel="noopener noreferrer" className={styles.contactLink}>
+                <MessageCircle size={15} aria-hidden="true" />
+                <span>WhatsApp</span>
+              </a>
+            </div>
           </div>
+
+          <nav className={styles.navigation} aria-label="Navigation du pied de page">
+            {footerGroups.map((group) => (
+              <div className={styles.group} key={group.title}>
+                <h2>{group.title}</h2>
+                <ul>
+                  {group.links.map((link) => (
+                    <li key={link.label}>
+                      <Link
+                        href={link.href}
+                        target={"external" in link ? "_blank" : undefined}
+                        rel={"external" in link ? "noreferrer" : undefined}
+                      >
+                        <span>{link.label}</span>
+                        {"external" in link && <ArrowUpRight size={12} aria-hidden="true" />}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
         </div>
-        <div style={{ height: 1, backgroundColor: "#DEDDD7", marginBottom: 24 }} />
-        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <span style={{ fontSize: 13, color: "#777E8B", fontFamily: FONT }}>© 2026 Mohasib AI</span>
-          <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
-            <Link href={invoicingUrl()} className="text-[#777E8B] transition-colors hover:text-[#7A6668]" style={{ fontSize: 13, textDecoration: "none", fontFamily: FONT }}>
-              Facturation gratuite
-            </Link>
-            <Link href="/cgu" className="text-[#777E8B] transition-colors hover:text-[#7A6668]" style={{ fontSize: 13, textDecoration: "none", fontFamily: FONT }}>
-              CGU
-            </Link>
-            <Link href="/confidentialite" className="text-[#777E8B] transition-colors hover:text-[#7A6668]" style={{ fontSize: 13, textDecoration: "none", fontFamily: FONT }}>
-              Confidentialité
-            </Link>
-            <a href={whatsappUrl()} target="_blank" rel="noopener noreferrer" className="text-[#777E8B] transition-colors hover:text-[#7A6668]" style={{ fontSize: 13, textDecoration: "none", fontFamily: FONT }}>
-              Support
-            </a>
+
+        <div className={styles.bottom}>
+          <div className={styles.legal}>
+            <span>© 2026 Mohasib AI</span>
+            <Link href="/cgu">Conditions d’utilisation</Link>
+            <Link href="/confidentialite">Confidentialité</Link>
+          </div>
+
+          <div className={styles.socials} aria-label="Réseaux sociaux">
+            {socialLinks.map(({ label, href, icon: Icon }) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}>
+                <Icon size={15} aria-hidden="true" />
+              </a>
+            ))}
           </div>
         </div>
       </div>

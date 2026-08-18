@@ -8,7 +8,6 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: [
           "/",
-          "/tarifs",
           "/ressources",
           "/ressources/",
           "/centre-aide",
@@ -38,6 +37,7 @@ export default function robots(): MetadataRoute.Robots {
           "/comptable-pro/",
           "/connexion",
           "/inscription",
+          "/tarifs",
           "/mot-de-passe-oublie",
           "/reinitialiser-mot-de-passe",
           "/invitations/",

@@ -4,12 +4,14 @@ import { authorizePermission } from "@/lib/api-permissions";
 import { createVersion, getDiff, logAccountingEvent, logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
 import { enforcePeriodLock } from "@/lib/period-check";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const ownerId = await resolveAccountOwnerId(user.id);
 
     const body = await req.json();
     const {
@@ -61,7 +63,7 @@ export async function POST(req: NextRequest) {
     if (permission.response) return permission.response;
     const { data: company } = dossierId
       ? { data: null }
-      : await supabase.from("companies").select("id").eq("user_id", user.id).single();
+      : await supabase.from("companies").select("id").eq("user_id", ownerId).single();
     const mois = Number(String(date_paiement).slice(5, 7));
     const annee = Number(String(date_paiement).slice(0, 4));
     if (mois && annee) {
@@ -156,7 +158,7 @@ export async function POST(req: NextRequest) {
           const { data: transaction, error: transactionError } = await supabase
             .from("transactions")
             .insert({
-              user_id: user.id,
+              user_id: ownerId,
               type: "income",
               description: `Encaissement — paiement reçu`,
               amount,
@@ -231,7 +233,7 @@ export async function POST(req: NextRequest) {
         const { data: transaction, error: transactionError } = await supabase
           .from("transactions")
           .insert({
-            user_id: user.id,
+            user_id: ownerId,
             type: "expense",
             description: `Paiement fournisseur${receipt.ocr_data?.vendor_name ? ` — ${receipt.ocr_data.vendor_name}` : ""}`,
             amount,

@@ -72,16 +72,8 @@ export async function checkPlanLimit(companyId: string, feature: string): Promis
 
 export async function incrementOCRUsage(companyId: string): Promise<void> {
   const supabase = createAdminClient();
-  const { data: company } = await supabase
-    .from("companies")
-    .select("ocr_used_this_month")
-    .eq("id", companyId)
-    .single();
-
-  await supabase
-    .from("companies")
-    .update({ ocr_used_this_month: Number(company?.ocr_used_this_month ?? 0) + 1 })
-    .eq("id", companyId);
+  const { error } = await supabase.rpc("increment_ocr_usage", { company_id_arg: companyId });
+  if (error) throw error;
 }
 
 export async function checkTrialLimit(companyId: string, feature: TrialFeature): Promise<{

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { Lock, Menu, Phone, X } from "lucide-react";
 import { useState } from "react";
 import { appUrl, invoicingUrl } from "@/lib/public-urls";
 
@@ -18,35 +18,64 @@ export default function PublicNavbar() {
     <>
       <style>{`
         .public-navbar {
-          position: relative;
+          position: sticky;
+          top: 0;
           z-index: 50;
+          box-sizing: border-box;
+          border-bottom: 1px solid #E8E7E3;
         }
         .public-nav-inner {
           display: flex;
           width: 100%;
+          max-width: 1440px;
           height: 100%;
+          margin: 0 auto;
           align-items: center;
-          justify-content: space-between;
-          padding: 0 34px;
+          padding: 0 48px;
         }
         .public-brand-link {
           display: inline-flex;
+          flex: 0 0 auto;
           align-items: center;
+          margin-right: 56px;
           text-decoration: none;
         }
-        .public-nav-right {
+        .public-nav-primary,
+        .public-nav-actions {
           display: flex;
           align-items: center;
-          gap: 26px;
+        }
+        .public-nav-primary {
+          gap: 34px;
+        }
+        .public-nav-actions {
+          margin-left: auto;
+        }
+        .public-phone-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          margin-right: 16px;
+          color: ${NAVY};
+          font-family: ${FONT};
+          font-size: 13px;
+          font-weight: 600;
+          text-decoration: none;
+          white-space: nowrap;
+          transition: color 0.15s ease;
+        }
+        .public-phone-link:hover,
+        .public-phone-link:focus-visible {
+          color: #C8924A;
         }
         .public-nav-link {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          color: #77787a;
+          color: #3F4652;
           font-family: ${FONT};
           font-size: 14px;
-          font-weight: 200;
+          font-weight: 500;
           text-decoration: none;
           transition: color 0.15s ease;
         }
@@ -56,20 +85,46 @@ export default function PublicNavbar() {
         }
         .public-login-link {
           display: inline-flex;
-          min-height: 36px;
+          min-height: 42px;
           align-items: center;
-          padding-left: 26px;
-          border-left: 1px solid #E1E0DC;
-          color: ${NAVY};
+          justify-content: center;
+          gap: 7px;
+          padding: 0 20px;
+          border: 1px solid #C8924A;
+          border-radius: 9px !important;
+          background: #C8924A;
+          color: #FFFFFF;
           font-family: ${FONT};
           font-size: 14px;
           font-weight: 600;
           text-decoration: none;
-          transition: color 0.15s ease;
+          transition: background-color 0.15s ease, border-color 0.15s ease;
         }
         .public-login-link:hover,
         .public-login-link:focus-visible {
-          color: #7A6668;
+          border-color: #AD7635;
+          background: #AD7635;
+          color: #FFFFFF;
+        }
+        .public-contact-sales {
+          display: inline-flex;
+          min-height: 42px;
+          margin-left: 12px;
+          align-items: center;
+          justify-content: center;
+          padding: 0 20px;
+          border-radius: 9px !important;
+          background: ${NAVY};
+          color: #FFFFFF;
+          font-family: ${FONT};
+          font-size: 14px;
+          font-weight: 600;
+          text-decoration: none;
+          transition: background-color 0.15s ease;
+        }
+        .public-contact-sales:hover,
+        .public-contact-sales:focus-visible {
+          background: #253047;
         }
         .public-mobile-toggle,
         .public-mobile-panel {
@@ -79,15 +134,21 @@ export default function PublicNavbar() {
           .public-nav-inner {
             padding: 0 24px;
           }
-          .public-nav-right {
+          .public-brand-link {
+            margin-right: 0;
+          }
+          .public-nav-primary,
+          .public-nav-actions {
             display: none;
           }
           .public-mobile-toggle {
             display: inline-flex;
             width: 42px;
             height: 42px;
+            margin-left: auto;
             align-items: center;
             justify-content: center;
+            gap: 7px;
             border: 0;
             background: transparent;
             color: ${NAVY};
@@ -122,8 +183,36 @@ export default function PublicNavbar() {
             margin-top: 16px;
             align-items: center;
             justify-content: center;
-            background: ${NAVY};
+            border-radius: 9px !important;
+            background: #C8924A;
             color: #FFFFFF;
+            font-family: ${FONT};
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+          }
+          .public-mobile-phone {
+            display: flex;
+            min-height: 46px;
+            margin-top: 12px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: ${NAVY};
+            font-family: ${FONT};
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+          }
+          .public-mobile-contact-sales {
+            display: flex;
+            min-height: 46px;
+            margin-top: 10px;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid ${NAVY};
+            border-radius: 9px !important;
+            color: ${NAVY};
             font-family: ${FONT};
             font-size: 13px;
             font-weight: 700;
@@ -157,7 +246,7 @@ export default function PublicNavbar() {
             <Image src="/logo2.png" alt="Mohasib AI" width={154} height={31} style={{ height: "auto", objectFit: "contain" }} priority />
           </Link>
 
-          <div className="public-nav-right">
+          <div className="public-nav-primary">
             <Link href="/workflows" className="public-nav-link">
               Workflows
             </Link>
@@ -177,9 +266,21 @@ export default function PublicNavbar() {
             <Link href="/centre-aide" className="public-nav-link">
               Centre d&apos;aide
             </Link>
+          </div>
+
+          <div className="public-nav-actions">
+            <a href="tel:+212670101952" className="public-phone-link" aria-label="Appeler le 06 70 10 19 52">
+              <Phone size={16} aria-hidden="true" />
+              <span>06 70 10 19 52</span>
+            </a>
 
             <Link href={appUrl("/connexion")} className="public-login-link">
+              <Lock size={15} aria-hidden="true" />
               Se connecter
+            </Link>
+
+            <Link href="/centre-aide" className="public-contact-sales">
+              Nous contacter
             </Link>
           </div>
 
@@ -222,8 +323,18 @@ export default function PublicNavbar() {
               Centre d&apos;aide
             </Link>
 
+            <a href="tel:+212670101952" className="public-mobile-phone" aria-label="Appeler le 06 70 10 19 52">
+              <Phone size={16} aria-hidden="true" />
+              <span>06 70 10 19 52</span>
+            </a>
+
             <Link href={appUrl("/connexion")} className="public-mobile-login" onClick={() => setMobileOpen(false)}>
+              <Lock size={15} aria-hidden="true" />
               Se connecter
+            </Link>
+
+            <Link href="/centre-aide" className="public-mobile-contact-sales" onClick={() => setMobileOpen(false)}>
+              Nous contacter
             </Link>
           </div>
         )}

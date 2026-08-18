@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
-import DemoRequestModal from "@/components/DemoRequestModal";
+import WorkflowShowcase from "@/components/home/WorkflowShowcase";
+import WorkflowCommandCenter from "@/components/home/WorkflowCommandCenter";
+import ToolConsolidationSection from "@/components/home/ToolConsolidationSection";
+import CapabilitiesSection from "@/components/home/CapabilitiesSection";
+import DocumentTransformationSection from "@/components/home/DocumentTransformationSection";
+import FAQSection from "@/components/home/FAQSection";
+import AnnouncementBar from "@/components/home/AnnouncementBar";
 import { appUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
 
 export default function HomePageClient() {
-  const [demoOpen, setDemoOpen] = useState(false);
-
   return (
     <div className="public-site" style={{ fontFamily: FONT }}>
       <style>{`
@@ -57,25 +60,86 @@ export default function HomePageClient() {
           gap: 12px;
           flex-wrap: wrap;
         }
-        .home-hero-cta {
-          background: linear-gradient(160deg, #2a3348 0%, #0a0a0a 100%);
-          border-color: transparent;
-          font-weight: 500;
+        .home-phone-cta {
+          display: flex;
+          width: min(100%, 520px);
+          align-items: center;
+          gap: 8px;
+          padding: 7px;
+          border: 1px solid #0D1526;
+          border-radius: 12px !important;
+          background: #FFFFFF;
+          box-shadow: 0 0 0 1px #0D1526;
+          transition: border-color 150ms ease, box-shadow 150ms ease;
         }
-        .home-hero-cta:hover {
-          background: linear-gradient(160deg, #1e2536 0%, #000000 100%);
-          border-color: transparent;
+        .home-phone-cta:focus-within {
+          border-color: #0D1526;
+          box-shadow: 0 0 0 1px #0D1526;
         }
-        .home-demo-action {
-          border-color: #B9B6AE;
+        .home-phone-cta input {
+          min-width: 0;
+          min-height: 48px;
+          flex: 1;
+          border: 0;
+          background: transparent;
+          padding: 0 15px;
           color: #0D1526;
-          cursor: pointer;
-          font-weight: 500;
+          font-family: ${FONT};
+          font-size: 15px;
+          outline: none;
         }
-        .home-demo-action:hover {
-          border-color: var(--gold);
-          background: var(--gold);
+        .home-phone-cta input::placeholder {
+          color: #777D87;
+        }
+        .home-phone-cta input:focus-visible {
+          outline: none;
+        }
+        .home-phone-cta button {
+          min-height: 48px;
+          flex: 0 0 auto;
+          border: 0;
+          border-radius: 8px !important;
+          background: #0D1526;
+          padding: 0 22px;
           color: #FFFFFF;
+          font-family: ${FONT};
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background-color 150ms ease;
+        }
+        .home-phone-cta button:hover {
+          background: #202B42;
+        }
+        .home-closing-cta {
+          padding: 104px 24px 112px;
+          background: #FFFFFF;
+          color: #0D1526;
+          text-align: center;
+        }
+        .home-closing-cta-inner {
+          width: min(100%, 980px);
+          margin: 0 auto;
+        }
+        .home-closing-cta h2 {
+          max-width: 920px;
+          margin: 0 auto;
+          font-size: clamp(44px, 6vw, 72px);
+          font-weight: 600;
+          letter-spacing: -0.055em;
+          line-height: 1.02;
+          text-wrap: balance;
+        }
+        .home-closing-cta .home-phone-cta {
+          margin: 38px auto 0;
+          border-color: #0D1526;
+          box-shadow: 0 0 0 1px #0D1526;
+        }
+        .home-closing-cta .home-phone-cta button {
+          background: #0D1526;
+        }
+        .home-closing-cta .home-phone-cta button:hover {
+          background: #202B42;
         }
         .home-receipt-field {
           position: absolute;
@@ -329,9 +393,23 @@ export default function HomePageClient() {
             align-items: center;
             gap: 10px;
           }
-          .home-hero-actions a,
-          .home-hero-actions button {
+          .home-phone-cta {
             width: min(100%, 328px);
+            align-items: stretch;
+            flex-direction: column;
+          }
+          .home-phone-cta button {
+            width: 100%;
+          }
+          .home-closing-cta {
+            padding: 72px 20px 78px;
+          }
+          .home-closing-cta h2 {
+            font-size: clamp(36px, 11vw, 48px);
+            letter-spacing: -0.045em;
+          }
+          .home-closing-cta .home-phone-cta {
+            margin-top: 30px;
           }
           .home-receipt-one {
             --receipt-width: 54px;
@@ -402,40 +480,65 @@ export default function HomePageClient() {
         }
       `}</style>
       <PublicNavbar />
+      <AnnouncementBar />
 
       <section className="home-hero">
         <div className="home-hero-content">
-            <p className="public-eyebrow mb-4">L&apos;IA pour votre vie professionnelle</p>
+            <p className="public-eyebrow mb-4">L&apos;IA AU SERVICE DE VOTRE GESTION</p>
             <h1 className="home-hero-title">
-              Automatisez vos tâches administratives et{" "}comptables
+              Votre comptabilité, exécutées par l&apos;IA.
             </h1>
 
             <p className="home-hero-description">
             Connecter votre boite mail, envoyez vos factures, suivez vos paiements, effectuez vos rapprochements bancaires, créez vos bulletins de paie, déclarez votre TVA, obtenez des insights financiers et exportez une comptabilité propre.            </p>
 
             <div className="home-hero-actions">
-              <a
-                className="public-primary-action home-hero-cta ui-control"
-                href={appUrl("/inscription")}
-                style={{ minHeight: 50, padding: "0 30px", fontSize: 16, fontFamily: FONT }}
-              >
-                Créer mon espace
-              </a>
-              <button
-                type="button"
-                className="public-secondary-action home-demo-action ui-control"
-                onClick={() => setDemoOpen(true)}
-                style={{ minHeight: 50, padding: "0 24px", fontSize: 16, fontFamily: FONT }}
-              >
-                Recevoir la vidéo démo
-              </button>
+              <form className="home-phone-cta" action={appUrl("/inscription")} method="get">
+                <input
+                  type="tel"
+                  name="phone"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  aria-label="Votre numéro de téléphone"
+                  placeholder="Votre numéro de téléphone"
+                  required
+                />
+                <button type="submit">Commencer</button>
+              </form>
             </div>
+
+            <WorkflowCommandCenter />
 
         </div>
       </section>
 
+      <ToolConsolidationSection />
+      <WorkflowShowcase />
+      <DocumentTransformationSection />
+      <CapabilitiesSection />
+      <FAQSection />
+
+      <section className="home-closing-cta" aria-labelledby="closing-cta-title">
+        <div className="home-closing-cta-inner">
+          <h2 id="closing-cta-title">
+            Le temps, c&apos;est de l&apos;argent. Économisez les deux.
+          </h2>
+          <form className="home-phone-cta" action={appUrl("/inscription")} method="get">
+            <input
+              type="tel"
+              name="phone"
+              autoComplete="tel"
+              inputMode="tel"
+              aria-label="Votre numéro de téléphone"
+              placeholder="Votre numéro de téléphone"
+              required
+            />
+            <button type="submit">Commencer</button>
+          </form>
+        </div>
+      </section>
+
       <PublicFooter />
-      <DemoRequestModal open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
   );
 }

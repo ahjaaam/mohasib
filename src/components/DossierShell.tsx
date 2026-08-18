@@ -7,9 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeftRight, PenLine, LayoutTemplate,
-  Calculator, Download, BarChart2, UserRoundCog, Archive,
-  Inbox, Building2, X, GitMerge, Lock,
-  ReceiptText,
+  Calculator, Download, UserRoundCog, FolderOpen, BarChart2,
+  Inbox, Building2, GitMerge, Lock, Menu, CreditCard, LogOut,
+  ReceiptText, Landmark,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -24,38 +24,35 @@ import SidebarLogo from "@/components/SidebarLogo";
 import SidebarItemTooltip from "@/components/SidebarItemTooltip";
 
 const SIDEBAR_BACKGROUND = "#111621";
+const CLIENT_PORTAL_BLOCKED_SLUGS = ["tresorerie", "transactions", "rapprochement", "saisie", "ecritures", "grand-livre", "tva", "bilan", "export"];
 
-const NAV_GROUPS = [
-  {
-    group: "ADMIN",
-    items: [
-      { slug: "dashboard",    icon: ChartNoAxesCombined, label: "Tableau de bord", permission: "report:read" },
-      { slug: "inbox",        icon: Inbox,           label: "Achats", permission: "document:read" },
-      { slug: "receipts",     icon: ReceiptText,     label: "Justificatifs", permission: "document:read" },
-      { slug: "invoices",     icon: FileText,        label: "Factures clients", permission: "invoice:read" },
-      { slug: "clients",      icon: Users,           label: "Clients", permission: "invoice:read" },
-      { slug: "transactions", icon: ArrowLeftRight,  label: "Transactions", permission: "accounting:read" },
-      { slug: "paie",         icon: UserRoundCog,    label: "La paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
-      { slug: "archive",      icon: Archive,         label: "Archive", permission: "document:read" },
-    ],
-  },
-  {
-    group: "COMPTABILITÉ",
-    items: [
-      FEATURES.SAISIE_ENABLED
-        ? { slug: "saisie", icon: PenLine, label: "Saisie comptable", permission: "accounting:read", feature: "saisie" as PlanFeature }
-        : { slug: "ecritures", icon: LayoutTemplate, label: "Écritures", permission: "accounting:read" },
-      ...(FEATURES.GRAND_LIVRE_ENABLED
-        ? [{ slug: "grand-livre", icon: BarChart2, label: "Grand Livre", permission: "report:read" }]
-        : []),
-      { slug: "tva",         icon: Calculator, label: "Déclaration TVA", permission: "tva_declaration:read" },
-      { slug: "export",      icon: Download,  label: "Export CGNC", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
-      ...(FEATURES.BILAN_ENABLED
-        ? [{ slug: "bilan", icon: BarChart2, label: "Bilan / CPC", permission: "report:read", feature: "bilan" as PlanFeature }]
-        : []),
-      { slug: "rapprochement", icon: GitMerge,       label: "Rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
-    ],
-  },
+// Keep dossier workspaces aligned with the default account navigation. Pages are
+// shared wherever possible; only the dossier-prefixed href changes.
+const NAV_ITEMS = [
+  { slug: "dashboard", icon: ChartNoAxesCombined, label: "Tableau de bord", permission: "report:read" },
+  { slug: "inbox", icon: Inbox, label: "Achats", permission: "document:read" },
+  { slug: "receipts", icon: ReceiptText, label: "Justificatifs", permission: "document:read" },
+  { slug: "invoices", icon: FileText, label: "Factures", permission: "invoice:read" },
+  { slug: "suivi-paiements", icon: CreditCard, label: "Suivi des échéances", permission: "invoice:read" },
+  { slug: "clients", icon: Users, label: "Clients", permission: "invoice:read" },
+  ...(FEATURES.TREASURY_ENABLED
+    ? [{ slug: "tresorerie", icon: Landmark, label: "Trésorerie", permission: "report:read" }]
+    : []),
+  { slug: "transactions", icon: ArrowLeftRight, label: "Transactions", permission: "accounting:read" },
+  { slug: "rapprochement", icon: GitMerge, label: "Rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
+  FEATURES.SAISIE_ENABLED
+    ? { slug: "saisie", icon: PenLine, label: "Saisie comptable", permission: "accounting:read", feature: "saisie" as PlanFeature }
+    : { slug: "ecritures", icon: LayoutTemplate, label: "Écritures", permission: "accounting:read" },
+  ...(FEATURES.GRAND_LIVRE_ENABLED
+    ? [{ slug: "grand-livre", icon: BarChart2, label: "Grand Livre", permission: "report:read" }]
+    : []),
+  { slug: "tva", icon: Calculator, label: "Déclarations TVA", permission: "tva_declaration:read" },
+  ...(FEATURES.BILAN_ENABLED
+    ? [{ slug: "bilan", icon: BarChart2, label: "Bilan / CPC", permission: "report:read", feature: "bilan" as PlanFeature }]
+    : []),
+  { slug: "paie", icon: UserRoundCog, label: "La Paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
+  { slug: "export", icon: Download, label: "Exports", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
+  { slug: "archive", icon: FolderOpen, label: "Archive", permission: "document:read" },
 ];
 
 interface DossierMeta {
@@ -98,13 +95,12 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
 
   const base = `/comptable-pro/dossiers/${dossier.id}`;
   const currentSlug = pathname.split(`${base}/`)[1]?.split("/")[0];
-  const currentGroup = NAV_GROUPS.find(group => group.items.some(item => item.slug === currentSlug));
-  const currentItem = currentGroup?.items.find(item => item.slug === currentSlug);
+  const currentItem = NAV_ITEMS.find(item => item.slug === currentSlug);
   const permissionAllowed = allowed(currentItem?.permission);
   const featureAllowed = entitled(currentItem?.feature);
-  const clientPortalBlocked = isClientPortal && currentGroup?.group === "COMPTABILITÉ";
+  const clientPortalBlocked = isClientPortal && CLIENT_PORTAL_BLOCKED_SLUGS.includes(currentSlug ?? "");
   const pageAllowed = permissionAllowed && featureAllowed && !clientPortalBlocked;
-  const topBarItems = NAV_GROUPS.flatMap(group => group.items)
+  const topBarItems = NAV_ITEMS
     .filter(item => entitled(item.feature))
     .map(({ slug, icon, label }) => ({ href: `${base}/${slug}`, label, icon, keywords: `${label} navigation page` }));
 
@@ -127,19 +123,12 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {NAV_GROUPS.map(({ group, items }) => (
-          <div key={group}>
-            {!compact && (
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "1.5px", color: lightSidebar ? "#9A9386" : "rgba(255,255,255,0.14)", padding: "14px 18px 6px" }}>
-                {group}
-              </div>
-            )}
-            {items.filter(item => entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
-              const locked = !allowed(permission) || (isClientPortal && group === "COMPTABILITÉ");
+        {NAV_ITEMS.filter(item => entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
+              const locked = !allowed(permission) || (isClientPortal && CLIENT_PORTAL_BLOCKED_SLUGS.includes(slug));
               return (
               <SidebarItemTooltip key={slug} enabled={compact} label={label}>
                 <Link href={`${base}/${slug}`} aria-label={compact ? label : undefined}
-                  className={`flex items-center py-[9px] text-[13px] transition-all border-r-2 ${
+                  className={`flex items-center py-[12px] text-[13px] transition-all border-r-2 ${
                     compact ? "justify-center px-0" : "gap-2.5 px-[18px]"
                   } ${
                     isActive(slug)
@@ -159,8 +148,6 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               </SidebarItemTooltip>
               );
             })}
-          </div>
-        ))}
       </nav>
     </>
   );
@@ -170,13 +157,11 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
       <AccountOwnerProvider ownerId={ownerId}>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
       <PermissionBoundary permissions={permissions}>
-      <div className="flex flex-col h-screen overflow-hidden bg-[#FAFAF6]" data-sidebar-theme={sidebarTheme}>
+      <div className="mohasib-app flex h-screen overflow-hidden bg-[#FAFAF6]" data-sidebar-theme={sidebarTheme}>
 
-        {/* Sidebar + (search bar / content) column, side by side */}
-        <div className="flex flex-1 min-h-0">
           {/* Desktop sidebar */}
           <aside
-            className="hidden md:flex flex-col flex-shrink-0 relative transition-[width] duration-200 overflow-visible"
+            className="hidden md:flex fixed top-0 left-0 h-full flex-col z-20 transition-[width] duration-200 overflow-visible"
             style={{ width: sidebarCollapsed ? 56 : 210, background: sidebarBackground }}
           >
             <SidebarContent compact={sidebarCollapsed} />
@@ -188,8 +173,9 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
           </aside>
 
           {/* Right column: search top bar + scrollable page content */}
-          <div className="mohasib-main-column flex flex-col flex-1 min-w-0 overflow-hidden transition-[margin] duration-200">
+          <div className={`mohasib-main-column flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-[margin] duration-200 ${sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[210px]"}`}>
             <AppTopBar
+              key={pathname}
               items={topBarItems}
               userName={userName}
               userEmail={userEmail}
@@ -213,15 +199,37 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               dossierId={dossier.id}
             />
             <div className="h-16 flex-shrink-0" aria-hidden="true" />
-            <main className="flex-1 overflow-y-auto">
-              <div className="page-fade p-4 md:p-[24px_22px_18px] pb-[72px] md:pb-[18px]">
+            <main className="flex-1 overflow-hidden flex flex-col">
+              <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[18px]">
                 {pageAllowed ? children : <AccessRestricted backHref="/comptable-pro" reason={featureAllowed ? "permission" : "plan"} />}
               </div>
             </main>
           </div>
-        </div>
 
-        {/* Mobile drawer */}
+        <nav
+          className="pwa-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
+          style={{ height: "calc(56px + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)", background: SIDEBAR_BACKGROUND, borderTop: "1px solid rgba(255,255,255,0.1)" }}
+        >
+          {[
+            { slug: "dashboard", icon: ChartNoAxesCombined, label: "Accueil", permission: "report:read" },
+            { slug: "invoices", icon: FileText, label: "Factures", permission: "invoice:read" },
+            { slug: "archive", icon: Download, label: "Archive", permission: "document:read" },
+          ].map(({ slug, icon: Icon, label, permission }) => (
+            <Link key={slug} href={`${base}/${slug}`} className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+              style={{ color: isActive(slug) ? "#C8924A" : allowed(permission) ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              <Icon size={19} />
+              <span style={{ fontSize: 10, fontWeight: 500 }}>{label}</span>
+              {!allowed(permission) && <Lock size={9} className="absolute right-[24%] top-2" />}
+            </Link>
+          ))}
+          <button onClick={() => setDrawerOpen(true)} className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+            style={{ background: "none", border: "none", color: drawerOpen ? "#C8924A" : "rgba(255,255,255,0.45)" }}>
+            <Menu size={19} />
+            <span style={{ fontSize: 10, fontWeight: 500 }}>Menu</span>
+          </button>
+        </nav>
+
+        {/* Mobile menu — same bottom-sheet pattern as the default workspace. */}
         {drawerOpen && (
           <>
             <div
@@ -230,18 +238,30 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               onClick={() => setDrawerOpen(false)}
             />
             <div
-              className="md:hidden fixed top-0 left-0 h-full w-[260px] z-[70] flex flex-col"
-              style={{ background: sidebarBackground }}
+              className="md:hidden fixed bottom-0 left-0 right-0 z-[70] flex flex-col"
+              style={{ background: SIDEBAR_BACKGROUND, borderRadius: "16px 16px 0 0", padding: "16px 0 calc(24px + env(safe-area-inset-bottom))", maxHeight: "80vh" }}
             >
-              <div className={`flex items-center justify-between px-4 h-[52px] border-b flex-shrink-0 ${lightSidebar ? "border-black/10" : "border-white/10"}`}
-                style={{ background: sidebarBackground }}>
-                <span className={`truncate text-[13px] font-semibold ${lightSidebar ? "text-[#1A1A2E]" : "text-white"}`}>{dossier.raison_sociale}</span>
-                <button onClick={() => setDrawerOpen(false)} className={`p-1 ${lightSidebar ? "text-[#6F695D] hover:text-[#1A1A2E]" : "text-white/80 hover:text-white"}`}>
-                  <X size={18} />
-                </button>
+              <div className="flex justify-center mb-3">
+                <div className="h-1 w-8 rounded-full bg-white/20" />
               </div>
-              <div className="flex-1 overflow-y-auto flex flex-col">
-                <SidebarContent />
+              <div className="overflow-y-auto">
+                {NAV_ITEMS.filter(item => entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
+                  const locked = !allowed(permission) || (isClientPortal && CLIENT_PORTAL_BLOCKED_SLUGS.includes(slug));
+                  return (
+                    <Link key={slug} href={`${base}/${slug}`} onClick={() => setDrawerOpen(false)}
+                      className="flex items-center gap-3 px-5 py-3 transition-colors"
+                      style={{ color: isActive(slug) ? "#C8924A" : locked ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.7)" }}>
+                      <Icon size={16} />
+                      <span className="text-[14px] font-medium">{label}</span>
+                      {locked && <Lock size={11} className="ml-auto" />}
+                    </Link>
+                  );
+                })}
+                <div className="mx-5 my-2 h-px bg-white/[0.07]" />
+                <button onClick={signOut} className="flex w-full items-center gap-3 px-5 py-3 text-white/40">
+                  <LogOut size={16} />
+                  <span className="text-[14px]">Se déconnecter</span>
+                </button>
               </div>
             </div>
           </>

@@ -8,6 +8,9 @@ import { requirePlanFeature } from "@/lib/api-plan";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { enforcePeriodLock } from "@/lib/period-check";
 import { computePurchaseAmounts } from "@/lib/purchase-booking";
+import { cgncAccounts } from "@/lib/cgnc-accounts";
+
+const VALID_ACCOUNT_CODES = new Set(cgncAccounts.map(account => account.code));
 
 export async function POST(req: NextRequest) {
   try {
@@ -105,9 +108,18 @@ export async function POST(req: NextRequest) {
 
     // ── Bank transaction booking ───────────────────────────────────────────────
     if (type === "bank") {
-      const { transactionIds } = body as { transactionIds: string[] };
+      const { transactionIds, accountOverrides = {} } = body as {
+        transactionIds: string[];
+        accountOverrides?: Record<string, string>;
+      };
       if (!transactionIds?.length) {
         return NextResponse.json({ error: "transactionIds requis" }, { status: 400 });
+      }
+      for (const transactionId of transactionIds) {
+        const account = accountOverrides[transactionId];
+        if (account && !VALID_ACCOUNT_CODES.has(account)) {
+          return NextResponse.json({ error: "Compte comptable invalide" }, { status: 400 });
+        }
       }
 
       let transactionsQuery = supabase
@@ -126,6 +138,7 @@ export async function POST(req: NextRequest) {
           amount: signed,
           category: tx.category,
           invoice_id: tx.invoice_id ?? null,
+          counterpart_account: accountOverrides[tx.id] ?? null,
         }, companyId, dossierId ?? null);
       }
 
@@ -137,7 +150,7 @@ export async function POST(req: NextRequest) {
         action: "IMPORT",
         entityType: "transaction",
         entityLabel: `${txs?.length ?? 0} transaction(s)`,
-        newValues: { transactionIds },
+        newValues: { transactionIds, accountOverrides },
         ...getRequestMeta(req),
       });
       await logAccountingEvent({
@@ -148,7 +161,7 @@ export async function POST(req: NextRequest) {
         triggeredByEmail: user.email ?? null,
         entityType: "transaction",
         amount: (txs ?? []).reduce((sum, tx) => sum + Number(tx.amount ?? 0), 0),
-        eventData: { source: "accounting/book", transactionIds },
+        eventData: { source: "accounting/book", transactionIds, accountOverrides },
       });
       return NextResponse.json({ ok: true });
     }

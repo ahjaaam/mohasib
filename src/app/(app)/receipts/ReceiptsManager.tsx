@@ -124,11 +124,11 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     }
 
     const rows = (data ?? []) as Receipt[];
-    const withUrls = rows.map((receipt) => {
+    const withUrls = await Promise.all(rows.map(async (receipt) => {
       if (!receipt.storage_path) return receipt;
-      const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(receipt.storage_path);
-      return { ...receipt, signedUrl: urlData.publicUrl };
-    });
+      const { data: urlData } = await supabase.storage.from("receipts").createSignedUrl(receipt.storage_path, 5 * 60);
+      return { ...receipt, signedUrl: urlData?.signedUrl };
+    }));
     setReceipts(withUrls);
     setLoading(false);
   }, [dossierId, ownerId]); // eslint-disable-line react-hooks/exhaustive-deps

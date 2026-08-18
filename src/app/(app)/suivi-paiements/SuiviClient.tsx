@@ -827,7 +827,7 @@ const SUPPLIER_SUBTABS: [SubTab, string][] = [
 function SuppliersSection({
   items, filtered, subTab, setSubTab, countFn,
   onMarkPaid, agingOpen, setAgingOpen,
-  search, setSearch, dateFrom, setDateFrom, dateTo, setDateTo,
+  search, setSearch, dateFrom, setDateFrom, dateTo, setDateTo, inboxHref,
 }: {
   items: SupplierItem[];
   filtered: SupplierItem[];
@@ -843,6 +843,7 @@ function SuppliersSection({
   setDateFrom: (value: string) => void;
   dateTo: string;
   setDateTo: (value: string) => void;
+  inboxHref: string;
 }) {
   const [sortKey, setSortKey] = useState<SupplierPaymentSortKey>("due");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -943,7 +944,7 @@ function SuppliersSection({
                               Payée
                             </button>
                           )}
-                          <a href={`/inbox`}
+                          <a href={inboxHref}
                             className="btn btn-outline btn-sm">
                             <Eye size={10} /> Voir
                           </a>
@@ -982,6 +983,7 @@ interface SuiviClientProps {
   supplierItems: SupplierItem[];
   companyId: string | null;
   companyName?: string | null;
+  dossierId?: string | null;
 }
 
 export default function SuiviClient({
@@ -989,6 +991,7 @@ export default function SuiviClient({
   supplierItems: initSuppliers,
   companyId,
   companyName = null,
+  dossierId = null,
 }: SuiviClientProps) {
   const ownerId = useAccountOwnerId();
   const { period: globalPeriod } = useGlobalPeriod();
@@ -1016,13 +1019,14 @@ export default function SuiviClient({
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const [invRes, supRes] = await Promise.all([
-      supabase.from("invoices").select("*, clients(id, name, email, phone, whatsapp)")
-        .eq("user_id", ownerId).is("dossier_id", null).eq("invoice_type", "facture")
-        .neq("status", "draft").neq("status", "cancelled")
-        .order("due_date", { ascending: true, nullsFirst: false }),
-      supabase.from("receipts").select("*").eq("user_id", ownerId).is("dossier_id", null).eq("status", "matched"),
-    ]);
+    let invoiceQuery = supabase.from("invoices").select("*, clients(id, name, email, phone, whatsapp)")
+      .eq("user_id", ownerId).eq("invoice_type", "facture")
+      .neq("status", "draft").neq("status", "cancelled")
+      .order("due_date", { ascending: true, nullsFirst: false });
+    let supplierQuery = supabase.from("receipts").select("*").eq("user_id", ownerId).eq("status", "matched");
+    invoiceQuery = dossierId ? invoiceQuery.eq("dossier_id", dossierId) : invoiceQuery.is("dossier_id", null);
+    supplierQuery = dossierId ? supplierQuery.eq("dossier_id", dossierId) : supplierQuery.is("dossier_id", null);
+    const [invRes, supRes] = await Promise.all([invoiceQuery, supplierQuery]);
     if (invRes.data) setClientInvoices(invRes.data as any);
     const filtered = (supRes.data ?? []).filter((r: any) =>
       r.ocr_data?.document_type !== "avoir" && r.ocr_data?.is_supplier_invoice !== false
@@ -1211,6 +1215,7 @@ export default function SuiviClient({
           setDateFrom={setDateFrom}
           dateTo={dateTo}
           setDateTo={setDateTo}
+          inboxHref={dossierId ? `/comptable-pro/dossiers/${dossierId}/inbox` : "/inbox"}
         />
       )}
 

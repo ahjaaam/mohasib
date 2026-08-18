@@ -380,32 +380,20 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       bank_reference: t.reference || null,
     }));
 
-    let { data: insertedRows, error } = await supabase
-      .from("transactions").insert(rows).select("id");
+    let { error } = await supabase.from("transactions").insert(rows);
 
     // Graceful fallback: if new columns don't exist, retry without them
     if (error && (error.message.includes("source") || error.message.includes("bank_reference"))) {
-      const simpleRows = rows.map(({ source: _s, bank_reference: _b, ...r }) => r);
-      ({ data: insertedRows, error } = await supabase.from("transactions").insert(simpleRows).select("id"));
+      const simpleRows = rows.map((row) => Object.fromEntries(
+        Object.entries(row).filter(([key]) => key !== "source" && key !== "bank_reference"),
+      ));
+      ({ error } = await supabase.from("transactions").insert(simpleRows));
     }
 
     if (error) {
       setImporting(false);
       toast.error(translateError(error), { duration: 8000 });
       return;
-    }
-
-    // Fire-and-forget: book transactions as journal entries
-    if (insertedRows?.length) {
-      fetch("/api/accounting/book", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "bank",
-          transactionIds: insertedRows.map((r: any) => r.id),
-          dossierId: dossierId ?? null,
-        }),
-      }).catch(() => {});
     }
 
     // Keep the original statement alongside the generated transactions.
@@ -881,6 +869,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
                 <p className="text-[16px] font-bold text-[#1A1A2E]">
                   {importedStats.total} transactions importées avec succès !
                 </p>
+                <p className="mt-1 text-[11.5px] text-[#6B7280]">Confirmez chaque transaction dans la liste avant de créer son écriture comptable.</p>
                 {period && <p className="text-[12.5px] text-[#C8924A] font-medium mt-1">{period}</p>}
               </div>
 

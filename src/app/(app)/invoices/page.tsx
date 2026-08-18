@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import {
   Loader2, FileText, Plus, X, Search, ReceiptText, ClipboardList,
-  CheckCircle2, Send, Trash2, ThumbsDown,
+  CheckCircle2, Send, Trash2, ThumbsDown, Upload,
 } from "lucide-react";
 import type { Invoice, InvoiceStatus, PartialPayment, DevisStatus } from "@/types";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
@@ -17,6 +17,7 @@ import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 import TableBulkActions from "@/components/TableBulkActions";
 import TableSelectionCheckbox from "@/components/TableSelectionCheckbox";
+import BulkInvoiceImportModal from "./BulkInvoiceImportModal";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,8 @@ type InvoiceExt = Invoice & {
   montant_paye?: number;
   reste_a_payer?: number | null;
   paiements?: PartialPayment[];
+  source_document_id?: string | null;
+  import_source?: string | null;
 };
 
 type InvoiceSortKey = "number" | "client" | "object" | "subtotal" | "tva" | "total" | "date" | "due" | "status";
@@ -444,6 +447,15 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
   const AVOIR_EXCLUDED = ["Ajouter un paiement partiel", "Marquer comme payée", "Créer un avoir"];
   const items = (itemsByStatus[inv.status as string] ?? itemsByStatus.sent)
     .filter((item) => (!isAvoir || !AVOIR_EXCLUDED.includes(item.label)) && (canCreateAvoir || item.label !== "Créer un avoir"));
+  if (inv.source_document_id) {
+    items.unshift({
+      label: "Document original",
+      action: () => {
+        setOpen(false);
+        window.open(`/api/archive/documents/${inv.source_document_id}/content`, "_blank", "noopener,noreferrer");
+      },
+    });
+  }
   const permissionFor = (label: string) => label === "Supprimer"
     ? "invoice:delete"
     : label.startsWith("Envoyer") || label === "Relancer le client"
@@ -679,6 +691,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -948,6 +961,12 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
 
   return (
     <div>
+      <BulkInvoiceImportModal
+        open={bulkImportOpen}
+        dossierId={dossierId}
+        onClose={() => setBulkImportOpen(false)}
+        onImported={load}
+      />
       {/* ─── Page header ──────────────────────────────────────────────────── */}
       <div className="mb-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2.5">
@@ -980,9 +999,14 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
             <Plus size={13} /> Nouveau Devis
           </Link>
         ) : (
-          <Link data-permission="invoice:create" href={`${basePath}/new`} className="btn btn-gold flex items-center gap-1.5">
-            <Plus size={13} /> Nouvelle Facture
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <button data-permission="invoice:create" onClick={() => setBulkImportOpen(true)} className="btn btn-outline flex items-center gap-1.5">
+              <Upload size={13} /> Importer
+            </button>
+            <Link data-permission="invoice:create" href={`${basePath}/new`} className="btn btn-gold flex items-center gap-1.5">
+              <Plus size={13} /> Nouvelle Facture
+            </Link>
+          </div>
         )}
       </div>
 

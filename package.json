@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
@@ -40,7 +40,7 @@
     "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.1",
     "lucide-react": "^0.511.0",
-    "mailparser": "^3.9.10",
+    "mailparser": "^3.9.15",
     "next": "^16.2.12",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
@@ -71,6 +71,7 @@
   },
   "overrides": {
     "dompurify": "3.4.13",
+    "deepmerge-ts": "8.0.1",
     "form-data": "4.0.6",
     "nodemailer": "9.0.3",
     "postcss": "$postcss"

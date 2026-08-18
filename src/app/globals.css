@@ -1,11 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
-.font-serif-display { font-family: var(--font-playfair), 'Instrument Serif', Georgia, serif; }
+.font-serif-display { font-family: var(--font-serif); }
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  --font-jakarta: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-serif: 'Instrument Serif', Georgia, serif;
+  --font-inter: 'Inter', sans-serif;
   --navy: #0D1526;
   --navy2: #19274A;
   --gold: #C8924A;
@@ -35,13 +38,13 @@
 @layer base {
   html {
     min-width: 320px;
-    overflow-x: hidden;
+    overflow-x: clip;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   }
   body {
     @apply bg-[#FAFAF6] text-[#1A1A2E];
     min-width: 320px;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
   * { box-sizing: border-box; }
 

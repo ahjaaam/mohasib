@@ -246,9 +246,9 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     const withUrls: ReceiptWithUrl[] = await Promise.all(list.map(async (r) => {
       let signedUrl: string | undefined;
       if (r.storage_path) {
-        const { data: urlData } = supabase.storage
-          .from("receipts").getPublicUrl(r.storage_path);
-        signedUrl = urlData?.publicUrl ?? undefined;
+        const { data: urlData } = await supabase.storage
+          .from("receipts").createSignedUrl(r.storage_path, 5 * 60);
+        signedUrl = urlData?.signedUrl ?? undefined;
       }
       return {
         ...r,

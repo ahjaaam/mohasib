@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Transaction } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
-import { ArrowLeftRight, Plus, Filter, Link2, X } from "lucide-react";
+import { getAccountLabel, getExpenseAccount, getRevenueAccount } from "@/lib/cgnc-mapping";
+import { cgncAccounts } from "@/lib/cgnc-accounts";
+import { ArrowLeftRight, CheckCircle, Plus, Filter, Link2, Loader2, X } from "lucide-react";
 import BankImportModal from "./BankImportModal";
 import AllocateTransactionModal from "./AllocateTransactionModal";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
@@ -43,6 +45,10 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [bankImportOpen, setBankImportOpen] = useState(false);
   const [allocationTransaction, setAllocationTransaction] = useState<Transaction | null>(null);
   const [allocationCounts, setAllocationCounts] = useState<Record<string, number>>({});
+  const [bookedTransactionIds, setBookedTransactionIds] = useState<Set<string>>(new Set());
+  const [confirmingTransaction, setConfirmingTransaction] = useState<Transaction | null>(null);
+  const [bookingTransaction, setBookingTransaction] = useState(false);
+  const [accountingAccount, setAccountingAccount] = useState("");
 
   // Filters
   const [filterDescState, setFilterDescState] = useState({ source: requestedSearch, value: requestedSearch });
@@ -83,11 +89,20 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     const rows = (data ?? []) as Transaction[];
     setTransactions(rows);
     if (rows.length) {
-      const { data: allocations } = await supabase
-        .from("invoice_payments")
-        .select("transaction_id")
-        .in("transaction_id", rows.map(row => row.id))
-        .eq("allocation_status", "confirmed");
+      const transactionIds = rows.map(row => row.id);
+      const [{ data: allocations }, { data: bookedEntries }] = await Promise.all([
+        supabase
+          .from("invoice_payments")
+          .select("transaction_id")
+          .in("transaction_id", transactionIds)
+          .eq("allocation_status", "confirmed"),
+        supabase
+          .from("ecritures_comptables")
+          .select("source_id")
+          .eq("source_type", "bank")
+          .in("source_id", transactionIds),
+      ]);
+      setBookedTransactionIds(new Set((bookedEntries ?? []).map(entry => entry.source_id).filter(Boolean)));
       const counts: Record<string, number> = {};
       for (const allocation of allocations ?? []) {
         if (!allocation.transaction_id) continue;
@@ -112,6 +127,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       }
     } else {
       setAllocationCounts({});
+      setBookedTransactionIds(new Set());
       setLoading(false);
     }
   }
@@ -165,6 +181,40 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     if (saving) return;
     setAddTransactionOpen(false);
     setError(null);
+  }
+
+  async function confirmTransactionBooking() {
+    if (!confirmingTransaction || !accountingAccount || bookingTransaction) return;
+    setBookingTransaction(true);
+    setError(null);
+    const response = await fetch("/api/accounting/book", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "bank",
+        transactionIds: [confirmingTransaction.id],
+        accountOverrides: { [confirmingTransaction.id]: accountingAccount },
+        dossierId: dossierId ?? null,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(result.message ?? result.error ?? "La comptabilisation a échoué.");
+      setBookingTransaction(false);
+      return;
+    }
+    setBookedTransactionIds(current => new Set(current).add(confirmingTransaction.id));
+    setBookingTransaction(false);
+    setConfirmingTransaction(null);
+  }
+
+  function openTransactionConfirmation(transaction: Transaction) {
+    const suggestedAccount = transaction.type === "income"
+      ? getRevenueAccount(transaction.category ?? "")
+      : getExpenseAccount(transaction.category ?? "");
+    setError(null);
+    setAccountingAccount(suggestedAccount);
+    setConfirmingTransaction(transaction);
   }
 
   const currentMonth = today.slice(0, 7); // "YYYY-MM"
@@ -244,6 +294,65 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
           onSaved={load}
         />
       )}
+      {confirmingTransaction && (() => {
+        const amount = Math.abs(Number(confirmingTransaction.amount));
+        const isIncome = confirmingTransaction.type === "income";
+        const counterpartAccount = accountingAccount;
+        const selectableAccounts = cgncAccounts.filter(account => isIncome
+          ? account.code.startsWith("7") || account.code.startsWith("3") || account.code.startsWith("4")
+          : account.code.startsWith("6") || account.code.startsWith("2") || account.code.startsWith("4"));
+        return (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !bookingTransaction) setConfirmingTransaction(null);
+            }}
+          >
+            <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+                <div>
+                  <h2 className="text-[16px] font-bold text-[#1A1A2E]">Vérifier et comptabiliser</h2>
+                  <p className="mt-0.5 text-[11px] text-[#8A909B]">Aucune écriture ne sera créée avant votre confirmation.</p>
+                </div>
+                <button disabled={bookingTransaction} onClick={() => setConfirmingTransaction(null)} className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100 disabled:opacity-50"><X size={18} /></button>
+              </div>
+              <div className="grid gap-3 border-b border-gray-100 bg-[#FAFAF8] px-5 py-4 sm:grid-cols-3">
+                <div><div className="text-[10px] font-semibold uppercase text-[#9CA3AF]">Date</div><div className="mt-1 text-[12px] font-medium">{fmtDate(confirmingTransaction.date)}</div></div>
+                <div><div className="text-[10px] font-semibold uppercase text-[#9CA3AF]">Description</div><div className="mt-1 truncate text-[12px] font-medium">{confirmingTransaction.description}</div></div>
+                <div><div className="text-[10px] font-semibold uppercase text-[#9CA3AF]">Montant</div><div className="mt-1 text-[12px] font-semibold">{fmt(amount)}</div></div>
+              </div>
+              <div className="px-5 pt-5">
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Compte comptable</span>
+                  <select className="input w-full" value={accountingAccount} onChange={(event) => setAccountingAccount(event.target.value)}>
+                    {selectableAccounts.map(account => <option key={account.code} value={account.code}>{account.code} — {account.label}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="p-5">
+                <div className="mb-2 text-[11px] font-bold text-[#1A1A2E]">Aperçu de l’écriture · Journal BQ</div>
+                <div className="overflow-hidden rounded-lg border border-black/10">
+                  <table className="w-full text-[11px]">
+                    <thead className="bg-[#FAFAF8] text-[9.5px] uppercase text-[#9CA3AF]"><tr><th className="px-3 py-2 text-left">Compte</th><th className="px-3 py-2 text-left">Libellé</th><th className="px-3 py-2 text-right">Débit</th><th className="px-3 py-2 text-right">Crédit</th></tr></thead>
+                    <tbody className="divide-y divide-gray-100">
+                      <tr><td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">{isIncome ? "5141" : counterpartAccount}</td><td className="px-3 py-2">{getAccountLabel(isIncome ? "5141" : counterpartAccount)}</td><td className="px-3 py-2 text-right font-semibold">{fmt(amount)}</td><td className="px-3 py-2 text-right text-[#9CA3AF]">—</td></tr>
+                      <tr><td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">{isIncome ? counterpartAccount : "5141"}</td><td className="px-3 py-2">{getAccountLabel(isIncome ? counterpartAccount : "5141")}</td><td className="px-3 py-2 text-right text-[#9CA3AF]">—</td><td className="px-3 py-2 text-right font-semibold">{fmt(amount)}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {error && <p className="mx-5 mb-4 rounded-lg bg-[#FEE2E2] px-3 py-2 text-[12px] text-[#DC2626]">{error}</p>}
+              <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
+                <button disabled={bookingTransaction} onClick={() => setConfirmingTransaction(null)} className="btn btn-outline">Annuler</button>
+                <button disabled={bookingTransaction || !accountingAccount} onClick={confirmTransactionBooking} className="btn btn-gold">
+                  {bookingTransaction ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                  {bookingTransaction ? "Comptabilisation…" : "Confirmer et créer l’écriture"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {addTransactionOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -462,16 +571,17 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
               <SortableTh sortKey="category" label="Catégorie" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
               <SortableTh sortKey="source" label="Source" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
               <th>Affectation</th>
+              <th>Comptabilisation</th>
               <SortableTh sortKey="debit" label="Débit" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="left" />
               <SortableTh sortKey="credit" label="Crédit" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="left" />
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={7} className="loading-cell">Chargement...</td></tr>
+              <tr><td colSpan={8} className="loading-cell">Chargement...</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={7} className="text-center py-10 text-[#6B7280] text-[12px]">
+              <tr><td colSpan={8} className="text-center py-10 text-[#6B7280] text-[12px]">
                 {hasFilter ? "Aucun résultat" : "Aucune transaction"}
               </td></tr>
             )}
@@ -502,6 +612,19 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
                       ? `${allocationCounts[tx.id]} document${allocationCounts[tx.id] > 1 ? "s" : ""}`
                       : "Non affectée"}
                   </button>
+                </td>
+                <td>
+                  {bookedTransactionIds.has(tx.id) ? (
+                    <span className="badge b-paid">Comptabilisée</span>
+                  ) : (
+                    <button
+                      data-permission="accounting:create"
+                      onClick={() => openTransactionConfirmation(tx)}
+                      className="inline-flex items-center whitespace-nowrap rounded-md border border-emerald-600 px-2 py-1 text-[10.5px] font-semibold text-emerald-700 hover:bg-emerald-50"
+                    >
+                      Confirmer
+                    </button>
+                  )}
                 </td>
                 <td className={`text-left font-semibold ${tx.type === "expense" ? "text-[#DC2626]" : "text-[#9CA3AF]"}`}>
                   {tx.type === "expense" ? fmt(Math.abs(Number(tx.amount))) : "—"}

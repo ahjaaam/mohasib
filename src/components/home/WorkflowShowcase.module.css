@@ -1,0 +1,349 @@
+.section {
+  padding: 88px 32px 104px;
+  background: #fff;
+  color: #0d1526;
+}
+
+.heading {
+  max-width: 980px;
+  margin: 0 auto 54px;
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0 0 16px !important;
+  color: #a36d2c !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.16em;
+  line-height: 1.4 !important;
+  text-transform: uppercase;
+}
+
+.heading h2 {
+  margin: 0 0 20px;
+  color: #0d1526;
+  font-size: clamp(32px, 3.6vw, 46px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.heading > p:last-child {
+  max-width: 760px;
+  margin: 0 auto;
+  color: #5f6673;
+  font-size: 16px;
+  line-height: 1.75;
+  text-wrap: pretty;
+}
+
+.grid {
+  display: grid;
+  width: min(100%, 1180px);
+  margin: 0 auto;
+  align-items: stretch;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 22px;
+}
+
+.card {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e2dfd6;
+  border-radius: 12px !important;
+  background: #fff;
+}
+
+.visual {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  height: 320px;
+  min-width: 0;
+  align-items: center;
+  overflow: hidden;
+  padding: 22px;
+  border-bottom: 1px solid #eae7df;
+  background: #eef1f6 url("/images/workflow-card-background.jpg") center / cover no-repeat;
+}
+
+.visual::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.08);
+  content: "";
+}
+
+.visualStack {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel,
+.invoicePanel,
+.stateRow,
+.exportRow,
+.metrics > div {
+  border: 1px solid #e2dfd6;
+  background: #fff;
+}
+
+.panel {
+  min-width: 0;
+  padding: 11px 12px;
+  color: #0d1526;
+  font-family: Inter, sans-serif;
+  font-size: 10.5px;
+}
+
+.panel > strong {
+  display: block;
+  overflow: hidden;
+  margin-bottom: 7px;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panelHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -11px -12px 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #efede6;
+  background: #faf9f5;
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panelHeading span:last-child { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.offsetRight { margin-right: 24px; }
+.offsetLeft { margin-left: 24px; }
+
+.attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 1px solid #efede6;
+  background: #faf9f5;
+  color: #4b5563;
+}
+
+.darkPanel {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0d1526;
+  color: #fff;
+  font-family: Inter, sans-serif;
+  font-size: 10.5px;
+}
+
+.darkPanel small { display: block; color: #c9cfd9; font-size: 9.5px; line-height: 1.45; }
+.goldLabel { display: block; margin-bottom: 8px; color: #c8924a; font-size: 9px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; }
+
+.dataRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dataRow:last-child { border-bottom: 0; }
+.dataRow span { color: #9aa3b2; }
+.dataRow strong { font-size: 10px; }
+
+.validation {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid rgba(200, 146, 74, 0.42);
+  background: #fbf4e9;
+  color: #8a6129;
+  font-family: Inter, sans-serif;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+}
+
+.validation strong { font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.transaction {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  margin: 0 -12px;
+  padding: 8px 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  border-top: 1px solid #efede6;
+}
+
+.transaction span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transaction strong { font-size: 9.5px; white-space: nowrap; }
+.highlight { background: #fbf4e9; }
+
+.status {
+  display: inline-flex;
+  padding: 2px 6px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.success { background: #e6f1eb; color: #2f7a5b; }
+.warning { background: #f6e7ce; color: #8a6129; }
+.neutral { background: #f1efea; color: #626a77; }
+
+.matchLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 18px;
+}
+
+.matchLine span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.matchLine small { margin-left: auto; white-space: nowrap; }
+
+.billingGrid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 10px;
+}
+
+.invoicePanel {
+  padding: 12px;
+  color: #0d1526;
+  font-family: Inter, sans-serif;
+  font-size: 10px;
+}
+
+.invoicePanel > strong { display: block; margin: 3px 0 10px; font-size: 11px; }
+.miniLabel { color: #6b7280; font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.invoiceRow { display: flex; justify-content: space-between; gap: 6px; padding: 6px 0; border-bottom: 1px solid #efede6; color: #626a77; }
+.invoiceTotal { padding-bottom: 0; border-bottom: 0; color: #0d1526; }
+.billingSide { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
+.stateRow { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 9px; color: #4b5563; font-family: Inter, sans-serif; font-size: 9.5px; }
+.overdue { border-color: rgba(179, 64, 47, 0.35); background: #fdf2f0; color: #b3402f; }
+.greenDot, .goldDot, .redDot { width: 7px; height: 7px; border-radius: 50% !important; }
+.greenDot { background: #2f7a5b; }
+.goldDot { background: #c8924a; }
+.redDot { background: #b3402f; }
+
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border: 1px solid #e2dfd6; background: #e2dfd6; }
+.metrics > div { min-width: 0; padding: 9px; font-family: Inter, sans-serif; }
+.metrics span { display: block; overflow: hidden; margin-bottom: 5px; color: #6b7280; font-size: 7.5px; font-weight: 700; letter-spacing: 0.07em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.metrics strong { font-size: 11px; }
+.chartPanel { padding-bottom: 9px; }
+.chart { display: flex; height: 58px; align-items: flex-end; gap: 8px; }
+.barPair { display: flex; flex: 1; align-items: flex-end; gap: 2px; }
+.barPair i { width: 50%; background: #d6d3cb; }
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 -12px;
+  padding: 7px 12px;
+  border-bottom: 1px solid #efede6;
+}
+
+.checkRow:first-child { margin-top: -11px; }
+.checkRow:last-child { margin-bottom: -11px; border-bottom: 0; }
+.checkRow svg { flex: 0 0 auto; color: #2f7a5b; }
+
+.exportRow {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 11px;
+  color: #4b5563;
+  font-family: Inter, sans-serif;
+  font-size: 9.5px;
+}
+
+.exportRow > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  padding: 25px 24px 28px;
+}
+
+.category {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #6a7280;
+}
+
+.category svg { flex: 0 0 auto; color: #a36d2c; }
+.category span { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+
+.copy h3 {
+  margin: 0;
+  color: #0d1526;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.22;
+  text-wrap: balance;
+}
+
+.copy p {
+  margin: 0;
+  color: #68707d;
+  font-size: 14px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+@media (max-width: 1040px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .section { padding: 70px 18px 78px; }
+  .heading { margin-bottom: 38px; }
+  .heading h2 { font-size: clamp(30px, 9vw, 39px); }
+  .heading > p:last-child { font-size: 15px; line-height: 1.65; }
+  .grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .visual { height: 300px; padding: 18px; }
+  .copy { min-height: 0; padding: 22px 20px 25px; }
+}
+
+@media (max-width: 390px) {
+  .visual { height: 286px; padding: 14px; }
+  .offsetRight { margin-right: 12px; }
+  .offsetLeft, .matchLine { margin-left: 12px; }
+  .transaction { gap: 5px; }
+  .transaction strong { display: none; }
+}

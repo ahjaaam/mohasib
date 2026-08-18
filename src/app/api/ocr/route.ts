@@ -11,8 +11,9 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const permission = await authorizePermission("document", "create");
   if (permission.response) return permission.response;
+  const ownerId = await resolveAccountOwnerId(user.id);
 
-  const { data: company } = await supabase.from("companies").select("id").eq("user_id", user.id).single();
+  const { data: company } = await supabase.from("companies").select("id").eq("user_id", ownerId).single();
   if (company) {
     const usage = await getMonthlyUsage(company.id);
     if (!usage.allowed) {
@@ -33,7 +34,6 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
   const dossierId = formData.get("dossier_id") as string | null;
-  const ownerId = await resolveAccountOwnerId(user.id);
   if (dossierId) {
     const { data: ownedDossier } = await supabase
       .from("dossiers")
@@ -61,14 +61,15 @@ export async function POST(req: NextRequest) {
 
   // Upload to Supabase Storage
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const storagePath = `${user.id}/${Date.now()}.${ext}`;
-  let finalStoragePath: string | null = null;
+  const storagePath = `${ownerId}/${dossierId ? `${dossierId}/` : ""}${Date.now()}-${crypto.randomUUID()}.${ext}`;
 
   const { error: uploadErr } = await supabase.storage
     .from("receipts")
     .upload(storagePath, bytes, { contentType: file.type, upsert: false });
 
-  if (!uploadErr) finalStoragePath = storagePath;
+  if (uploadErr) {
+    return NextResponse.json({ error: "Impossible de stocker le fichier." }, { status: 502 });
+  }
 
   // OCR with fallback chain
   let ocrData: Record<string, unknown> = {};
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
     .insert({
       user_id: ownerId,
       ...(dossierId ? { dossier_id: dossierId } : {}),
-      storage_path: finalStoragePath,
+      storage_path: storagePath,
       file_name: file.name,
       mime_type: file.type,
       status: "pending",
@@ -95,7 +96,10 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
+  if (dbErr) {
+    await supabase.storage.from("receipts").remove([storagePath]).catch(() => undefined);
+    return NextResponse.json({ error: dbErr.message }, { status: 500 });
+  }
 
   if (company) {
     await incrementUploadCount(company.id, user.id, {

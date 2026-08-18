@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { isIP } from "node:net";
 
 // Uses service role to bypass RLS on rate_limits table.
 const adminClient = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -21,13 +22,49 @@ export interface RateLimitResult {
 
 async function getExistingRateLimit(key: string, endpoint: string) {
   if (!adminClient) return null;
-  const { data } = await adminClient
+  const { data, error } = await adminClient
     .from("rate_limits")
     .select("*")
     .eq("ip", key)
     .eq("endpoint", endpoint)
     .maybeSingle();
+  if (error) throw error;
   return data;
+}
+
+function unavailableResult(opts: RateLimitOptions): RateLimitResult {
+  return {
+    allowed: false,
+    remaining: 0,
+    resetTime: Math.ceil(Date.now() / 1000) + 60,
+    attempts: opts.maxAttempts,
+  };
+}
+
+async function consumeRateLimit(
+  key: string,
+  endpoint: string,
+  opts: RateLimitOptions,
+): Promise<RateLimitResult> {
+  if (!adminClient) return unavailableResult(opts);
+  const { data, error } = await adminClient.rpc("consume_rate_limit", {
+    key_arg: key,
+    endpoint_arg: endpoint,
+    max_attempts_arg: opts.maxAttempts,
+    window_ms_arg: opts.windowMs,
+    block_ms_arg: opts.blockMs,
+  });
+  const row = Array.isArray(data) ? data[0] : data;
+  if (error || !row) {
+    console.error("[rate-limit] Atomic counter unavailable", error?.message ?? "empty response");
+    return unavailableResult(opts);
+  }
+  return {
+    allowed: row.allowed === true,
+    remaining: Number(row.remaining ?? 0),
+    resetTime: Number(row.reset_time ?? Math.ceil(Date.now() / 1000) + 60),
+    attempts: Number(row.attempts ?? 0),
+  };
 }
 
 export async function getRateLimitStatus(
@@ -35,11 +72,15 @@ export async function getRateLimitStatus(
   endpoint: string,
   opts: RateLimitOptions,
 ): Promise<RateLimitResult> {
-  if (!adminClient) {
-    return { allowed: true, remaining: opts.maxAttempts, resetTime: Math.ceil(Date.now() / 1000), attempts: 0 };
-  }
+  if (!adminClient) return unavailableResult(opts);
   const now = new Date();
-  const existing = await getExistingRateLimit(key, endpoint);
+  let existing;
+  try {
+    existing = await getExistingRateLimit(key, endpoint);
+  } catch (error) {
+    console.error("[rate-limit] Status unavailable", error instanceof Error ? error.message : error);
+    return unavailableResult(opts);
+  }
   if (existing?.blocked_until && new Date(existing.blocked_until) > now) {
     return {
       allowed: false,
@@ -70,27 +111,7 @@ export async function recordRateLimitFailure(
   endpoint: string,
   opts: RateLimitOptions,
 ): Promise<RateLimitResult> {
-  if (!adminClient) {
-    return { allowed: true, remaining: opts.maxAttempts, resetTime: Math.ceil(Date.now() / 1000), attempts: 0 };
-  }
-  const now = new Date();
-  const existing = await getExistingRateLimit(key, endpoint);
-  const expired = !existing || new Date(existing.first_attempt).getTime() < now.getTime() - opts.windowMs;
-  const attempts = expired ? 1 : Number(existing.attempts ?? 0) + 1;
-  const blockedUntil = attempts >= opts.maxAttempts ? new Date(now.getTime() + opts.blockMs) : null;
-  await adminClient.from("rate_limits").upsert({
-    ip: key,
-    endpoint,
-    attempts,
-    first_attempt: expired ? now.toISOString() : existing.first_attempt,
-    blocked_until: blockedUntil?.toISOString() ?? null,
-  }, { onConflict: "ip,endpoint" });
-  return {
-    allowed: !blockedUntil,
-    remaining: Math.max(0, opts.maxAttempts - attempts),
-    resetTime: Math.floor((blockedUntil?.getTime() ?? (now.getTime() + opts.windowMs)) / 1000),
-    attempts,
-  };
+  return consumeRateLimit(key, endpoint, opts);
 }
 
 export async function clearRateLimit(key: string, endpoint: string) {
@@ -99,11 +120,15 @@ export async function clearRateLimit(key: string, endpoint: string) {
 }
 
 export function getClientIp(req: NextRequest): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    req.headers.get("x-real-ip") ??
-    "127.0.0.1"
-  );
+  const candidates = process.env.VERCEL
+    ? [req.headers.get("x-vercel-forwarded-for"), req.headers.get("x-forwarded-for"), req.headers.get("x-real-ip")]
+    : [req.headers.get("cf-connecting-ip"), req.headers.get("x-real-ip"), req.headers.get("x-forwarded-for")];
+  for (const candidate of candidates) {
+    const value = candidate?.split(",")[0]?.trim();
+    if (value && isIP(value)) return value;
+  }
+  // A shared fallback deliberately fails closed as a single rate-limit bucket.
+  return "unknown";
 }
 
 export async function checkRateLimit(
@@ -111,55 +136,7 @@ export async function checkRateLimit(
   endpoint: string,
   opts: RateLimitOptions
 ): Promise<RateLimitResult> {
-  if (!adminClient) {
-    return { allowed: true, remaining: opts.maxAttempts, resetTime: Math.ceil(Date.now() / 1000) };
-  }
-
-  const now = new Date();
-  const windowStart = new Date(now.getTime() - opts.windowMs);
-
-  const { data: existing } = await adminClient
-    .from("rate_limits")
-    .select("*")
-    .eq("ip", ip)
-    .eq("endpoint", endpoint)
-    .single();
-
-  // Still blocked from a previous violation
-  if (existing?.blocked_until && new Date(existing.blocked_until) > now) {
-    const resetTime = Math.floor(new Date(existing.blocked_until).getTime() / 1000);
-    return { allowed: false, remaining: 0, resetTime };
-  }
-
-  // No record yet, or window has expired → fresh start
-  if (!existing || new Date(existing.first_attempt) < windowStart) {
-    await adminClient.from("rate_limits").upsert(
-      { ip, endpoint, attempts: 1, first_attempt: now.toISOString(), blocked_until: null },
-      { onConflict: "ip,endpoint" }
-    );
-    const resetTime = Math.floor((now.getTime() + opts.windowMs) / 1000);
-    return { allowed: true, remaining: opts.maxAttempts - 1, resetTime };
-  }
-
-  const attempts = (existing.attempts ?? 0) + 1;
-
-  if (attempts >= opts.maxAttempts) {
-    const blockedUntil = new Date(now.getTime() + opts.blockMs);
-    await adminClient.from("rate_limits")
-      .update({ attempts, blocked_until: blockedUntil.toISOString() })
-      .eq("ip", ip)
-      .eq("endpoint", endpoint);
-    const resetTime = Math.floor(blockedUntil.getTime() / 1000);
-    return { allowed: false, remaining: 0, resetTime };
-  }
-
-  await adminClient.from("rate_limits")
-    .update({ attempts })
-    .eq("ip", ip)
-    .eq("endpoint", endpoint);
-
-  const resetTime = Math.floor((new Date(existing.first_attempt).getTime() + opts.windowMs) / 1000);
-  return { allowed: true, remaining: opts.maxAttempts - attempts, resetTime };
+  return consumeRateLimit(ip, endpoint, opts);
 }
 
 export function applyRateLimitHeaders(
