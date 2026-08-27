@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { Check } from "lucide-react";
 import styles from "./DocumentTransformationSection.module.css";
 
@@ -45,9 +44,6 @@ export default function DocumentTransformationSection() {
             </div>
           </div>
 
-          <Link className={styles.contactButton} href="/centre-aide">
-            Nous contacter
-          </Link>
         </div>
       </div>
     </section>

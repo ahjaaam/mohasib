@@ -1,7 +1,7 @@
 .section {
   padding: 108px 32px;
   background: #fff;
-  color: #0d1526;
+  color: #141413;
 }
 
 .inner {
@@ -48,55 +48,6 @@
   font-weight: 500;
 }
 
-.outcomes {
-  display: grid;
-  margin-top: 38px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid #e4e1d9;
-}
-
-.outcomes > div {
-  min-width: 0;
-  padding: 17px 14px 0 0;
-}
-
-.outcomes > div + div {
-  padding-left: 14px;
-  border-left: 1px solid #e4e1d9;
-}
-
-.outcomes span {
-  display: block;
-  margin-bottom: 8px;
-  color: #a36d2c;
-  font-family: Inter, sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.outcomes strong { display: block; font-size: 13px; font-weight: 600; }
-.outcomes p { margin: 5px 0 0; color: #7a818c; font-size: 11px; line-height: 1.45; }
-
-.contactButton {
-  display: inline-flex;
-  min-height: 48px;
-  align-items: center;
-  justify-content: center;
-  margin-top: 32px;
-  border-radius: 8px !important;
-  background: #0d1526;
-  padding: 0 24px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 150ms ease, transform 150ms ease;
-}
-
-.contactButton:hover { background: #202b42; transform: translateY(-1px); }
-.contactButton:focus-visible { outline: 2px solid #0d1526; outline-offset: 3px; }
-
 .constellation {
   position: relative;
   --orbit-duration: 42s;
@@ -104,7 +55,7 @@
   min-height: 0;
   aspect-ratio: 1 / 1;
   overflow: hidden;
-  border-radius: 20px !important;
+  border-radius: var(--home-radius-card) !important;
   background: #fff;
 }
 
@@ -143,7 +94,7 @@
   min-height: 74px;
   padding: 16px 22px;
   border: 1px solid rgba(13, 21, 38, 0.12);
-  border-radius: 12px !important;
+  border-radius: var(--home-radius-control) !important;
   background: #fff;
   box-shadow: 0 16px 38px rgba(13, 21, 38, 0.1);
   transform: translate(-50%, -50%);
@@ -162,7 +113,7 @@
   flex-direction: column;
   gap: 5px;
   border: 1px solid rgba(13, 21, 38, 0.1);
-  border-radius: 15px !important;
+  border-radius: var(--home-radius-control) !important;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 16px 36px rgba(13, 21, 38, 0.08);
   animation: constellation-counter-orbit var(--orbit-duration) linear infinite;
@@ -203,12 +154,8 @@
   .inner { gap: 44px; }
   .copy h2 { font-size: clamp(34px, 10vw, 44px); }
   .lead, .answer { font-size: 15px; line-height: 1.65; }
-  .outcomes { grid-template-columns: 1fr; }
-  .outcomes > div { padding: 14px 0; }
-  .outcomes > div + div { padding-left: 0; border-top: 1px solid #e4e1d9; border-left: 0; }
-  .contactButton { width: 100%; margin-top: 28px; }
   .constellation { min-height: 0; aspect-ratio: 1 / 1; }
-  .tool { width: 64px; height: 64px; border-radius: 12px !important; }
+  .tool { width: 64px; height: 64px; border-radius: var(--home-radius-control) !important; }
   .tool img { width: 32px; height: 32px; }
   .tool .wideLogo { width: 45px; height: 27px; }
   .tool span { display: none; }

@@ -72,9 +72,9 @@ function FinanceVisual() {
   return (
     <div className={styles.visualStack}>
       <div className={styles.metrics}>
-        <div><span>Trésorerie</span><strong>318 400</strong></div>
-        <div><span>Encaissé</span><strong>146 200</strong></div>
-        <div><span>Charges</span><strong>98 750</strong></div>
+        <div><span>Trésorerie</span><strong>318 400 <small>MAD</small></strong></div>
+        <div><span>Encaissé</span><strong>146 200 <small>MAD</small></strong></div>
+        <div><span>Charges</span><strong>98 750 <small>MAD</small></strong></div>
       </div>
       <div className={`${styles.panel} ${styles.chartPanel}`}>
         <div className={styles.panelHeading}><span>Produits / charges</span><span>6 mois</span></div>
@@ -137,9 +137,9 @@ const workflows = [
 
 export default function WorkflowShowcase() {
   return (
-    <section className={styles.section} aria-labelledby="home-workflows-title">
+    <section id="six-automatisations" className={styles.section} aria-labelledby="home-workflows-title">
       <div className={styles.heading}>
-        <p className={styles.eyebrow}>Six workflows, une seule plateforme</p>
+        <p className={styles.eyebrow}>Six automatisations, une seule plateforme</p>
         <h2 id="home-workflows-title">Du document reçu à la décision financière.</h2>
         <p>Mohasib relie les tâches qui occupent aujourd’hui votre équipe et transforme chaque étape en un processus structuré, traçable et prêt à valider.</p>
       </div>
@@ -147,12 +147,12 @@ export default function WorkflowShowcase() {
       <div className={styles.grid}>
         {workflows.map(({ label, title, description, icon: Icon, visual: Visual }) => (
           <article className={styles.card} key={label}>
-            <div className={styles.visual} aria-hidden="true"><Visual /></div>
             <div className={styles.copy}>
               <div className={styles.category}><Icon size={16} strokeWidth={1.7} /><span>{label}</span></div>
               <h3>{title}</h3>
               <p>{description}</p>
             </div>
+            <div className={styles.visual} aria-hidden="true"><Visual /></div>
           </article>
         ))}
       </div>

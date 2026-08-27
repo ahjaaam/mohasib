@@ -5,9 +5,12 @@ import {
   BarChart3,
   Calculator,
   Check,
+  CircleGauge,
   FileCheck2,
+  FolderKanban,
   Landmark,
   ReceiptText,
+  Sparkles,
   UsersRound,
 } from "lucide-react";
 import PublicFooter from "@/components/PublicFooter";
@@ -17,11 +20,38 @@ import { seoMetadata } from "@/lib/seo";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = seoMetadata({
-  title: "Workflows Mohasib — Automatisez votre gestion comptable",
+  title: "Solutions Mohasib — Automatisez et simplifiez votre gestion",
   description:
-    "Découvrez comment Mohasib automatise les factures fournisseurs, le rapprochement bancaire, le recouvrement, la TVA, le pilotage financier et la paie.",
-  path: "/workflows",
+    "Automatisez vos tâches, centralisez vos informations et simplifiez votre gestion comptable avec Mohasib.",
+  path: "/solutions",
 });
+
+const solutionPillars = [
+  {
+    id: "automatisation",
+    title: "Automatisation",
+    description:
+      "Mohasib prend en charge les tâches répétitives : saisie, classement, rapprochement, relances et préparation comptable.",
+    result: "Moins de travail manuel",
+    icon: Sparkles,
+  },
+  {
+    id: "centralisation",
+    title: "Centralisation",
+    description:
+      "Factures, justificatifs, transactions, paiements et indicateurs sont réunis dans un seul espace.",
+    result: "Toute l’information au même endroit",
+    icon: FolderKanban,
+  },
+  {
+    id: "simplification",
+    title: "Simplification",
+    description:
+      "Les étapes, contrôles et décisions deviennent plus clairs pour vous, votre équipe et votre comptable.",
+    result: "Une gestion plus simple au quotidien",
+    icon: CircleGauge,
+  },
+] as const;
 
 const workflows = [
   {
@@ -99,21 +129,39 @@ export default function WorkflowsPage() {
 
       <section className={styles.hero}>
         <div className={styles.heroInner}>
-          <p className="public-eyebrow">Workflows Mohasib</p>
-          <h1>Mohasib exécute.<br />Vous gardez la décision.</h1>
+          <p className="public-eyebrow">Solutions Mohasib</p>
+          <h1>Gérez moins.<br />Maîtrisez mieux.</h1>
           <p className={styles.heroDescription}>
-            Découvrez comment chaque tâche administrative ou comptable passe
-            d’un travail manuel dispersé à un processus structuré, automatisé
-            et vérifiable.
+            Mohasib automatise vos tâches, centralise vos informations et
+            simplifie votre gestion administrative et comptable.
           </p>
           <div className={styles.heroActions}>
-            <Link href="#tous-les-workflows" className="public-primary-action">
-              Voir les workflows <ArrowRight size={16} aria-hidden="true" />
+            <Link href="#nos-solutions" className="public-primary-action">
+              Découvrir nos solutions <ArrowRight size={16} aria-hidden="true" />
             </Link>
             <Link href={appUrl("/inscription")} className="public-secondary-action">
               Créer mon espace
             </Link>
           </div>
+        </div>
+      </section>
+
+      <section id="nos-solutions" className={styles.pillars} aria-labelledby="solutions-title">
+        <div className={styles.pillarsHeading}>
+          <p className={styles.sectionLabel}>Trois bénéfices concrets</p>
+          <h2 id="solutions-title">Une gestion plus fluide, du début à la fin.</h2>
+        </div>
+        <div className={styles.pillarGrid}>
+          {solutionPillars.map(({ id, title, description, result, icon: Icon }) => (
+            <article id={id} className={styles.pillarCard} key={id}>
+              <div className={styles.pillarIcon}>
+                <Icon size={24} strokeWidth={1.7} aria-hidden="true" />
+              </div>
+              <h3>{title}</h3>
+              <p>{description}</p>
+              <span>{result}</span>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -143,13 +191,13 @@ export default function WorkflowsPage() {
         </div>
       </section>
 
-      <section id="tous-les-workflows" className={styles.workflows} aria-labelledby="workflows-title">
+      <section id="cas-usage" className={styles.workflows} aria-labelledby="cas-usage-title">
         <div className={styles.workflowsHeading}>
-          <p className={styles.sectionLabel}>Six parcours, une seule logique</p>
-          <h2 id="workflows-title">Comment le travail change avec Mohasib</h2>
+          <p className={styles.sectionLabel}>Six cas d’usage</p>
+          <h2 id="cas-usage-title">Comment le travail change avec Mohasib</h2>
           <p>
-            Chaque workflow distingue ce que la plateforme peut exécuter de ce
-            qui doit rester sous votre contrôle.
+            Découvrez comment nos solutions s’appliquent aux tâches essentielles
+            de votre gestion.
           </p>
         </div>
 
@@ -192,7 +240,7 @@ export default function WorkflowsPage() {
           <p className={styles.sectionLabel}>Votre nouveau mode de travail</p>
           <h2>Automatisez l’exécution.<br />Conservez la maîtrise.</h2>
           <p>
-            Commencez avec un workflow, puis connectez progressivement vos
+            Commencez par un besoin, puis connectez progressivement vos
             documents, vos paiements et votre comptabilité.
           </p>
         </div>

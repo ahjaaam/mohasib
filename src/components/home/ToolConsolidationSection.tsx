@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import styles from "./ToolConsolidationSection.module.css";
 
 const tools = [
@@ -30,15 +29,6 @@ export default function ToolConsolidationSection() {
             l’information dispersée en tâches comptables prêtes à contrôler.
           </p>
 
-          <div className={styles.outcomes} aria-label="Ce que Mohasib centralise">
-            <div><span>01</span><strong>Collecter</strong><p>E-mails, messages et documents</p></div>
-            <div><span>02</span><strong>Structurer</strong><p>Données et pièces comptables</p></div>
-            <div><span>03</span><strong>Exécuter</strong><p>Workflows prêts à valider</p></div>
-          </div>
-
-          <Link className={styles.contactButton} href="/centre-aide">
-            Nous contacter
-          </Link>
         </div>
 
         <div className={styles.constellation} aria-label="Vos outils connectés à Mohasib">

@@ -24,19 +24,18 @@ test("public pages and authentication entry points render", async ({ page }) => 
   await expect(facturationBrand.getByRole("img", { name: "Mohasib" })).toHaveCSS("mask-image", /\/logo\.png/);
 });
 
-test("workflows page is public and explains the core processes", async ({ page }) => {
+test("solutions navigation leads to the six automations section", async ({ page }) => {
   await page.goto("/");
-  const workflowsLink = page.locator(".public-navbar a[href='/workflows']:visible").first();
-  if (await workflowsLink.count() === 0) {
+  const solutionsLink = page.locator(".public-navbar a[href='/#six-automatisations']:visible").first();
+  if (await solutionsLink.count() === 0) {
     await page.getByRole("button", { name: "Ouvrir le menu" }).click();
   }
-  await expect(workflowsLink).toBeVisible();
+  await expect(solutionsLink).toBeVisible();
 
-  await workflowsLink.click();
-  await expect(page).toHaveURL(/\/workflows$/);
-  await expect(page.getByRole("heading", { name: /Mohasib exécute/i })).toBeVisible();
-  await expect(page.locator("body")).toContainText(/Rapprochement bancaire/i);
-  await expect(page.locator("body")).toContainText(/TVA et préparation comptable/i);
+  await solutionsLink.click();
+  await expect(page).toHaveURL(/\/#six-automatisations$/);
+  await expect(page.locator("#six-automatisations")).toBeInViewport();
+  await expect(page.locator("#six-automatisations")).toContainText(/Six automatisations/i);
 });
 
 test("health endpoint reports a ready release", async ({ request }) => {

@@ -1,9 +1,7 @@
 .section {
   padding: 92px 32px 98px;
-  background:
-    linear-gradient(rgba(7, 10, 15, 0.58), rgba(7, 10, 15, 0.72)),
-    url("/images/capabilities-texture.webp") center 48% / cover no-repeat;
-  color: #fff;
+  background: #fcfbfa;
+  color: #141413;
 }
 
 .inner {
@@ -20,7 +18,7 @@
 
 .eyebrow {
   margin: 0 0 14px;
-  color: #d9a45f;
+  color: #976224;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -38,18 +36,18 @@
 
 .heading > p:last-child {
   margin: 20px 0 0;
-  color: #c9cfd8;
+  color: #626a77;
   font-size: 14px;
   line-height: 1.68;
   text-wrap: pretty;
 }
 
 .list {
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: 1px solid #e4e1d9;
 }
 
 .item {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid #e4e1d9;
 }
 
 .item summary {
@@ -59,7 +57,7 @@
   justify-content: space-between;
   gap: 24px;
   padding: 20px 2px;
-  color: #fff;
+  color: #0d1526;
   cursor: pointer;
   font-size: 15px;
   font-weight: 600;
@@ -72,7 +70,7 @@
 }
 
 .item summary:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid #976224;
   outline-offset: 4px;
 }
 
@@ -81,8 +79,8 @@
   width: 22px;
   height: 22px;
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #d8d5cc;
+  background: #f8f7f3;
 }
 
 .toggle::before,
@@ -92,7 +90,7 @@
   left: 50%;
   width: 8px;
   height: 1px;
-  background: #fff;
+  background: #0d1526;
   content: "";
   transform: translate(-50%, -50%);
 }
@@ -122,7 +120,7 @@
 
 .answer p {
   margin: 0;
-  color: #c9cfd8;
+  color: #626a77;
   font-size: 13px;
   line-height: 1.72;
 }

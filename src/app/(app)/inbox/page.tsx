@@ -9,7 +9,7 @@ import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
 import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "@/lib/purchase-booking";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceControlCheck } from "@/lib/invoice-controls";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, CircleDollarSign, Building2 } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 
@@ -79,6 +79,7 @@ interface UploadingFile {
 interface SupplierSummary {
   key: string;
   name: string;
+  receiptIds: string[];
   ice: string | null;
   fiscalId: string | null;
   rib: string | null;
@@ -110,6 +111,7 @@ function supplierSummaries(receipts: ReceiptWithUrl[]): SupplierSummary[] {
       suppliers.set(key, {
         key,
         name,
+        receiptIds: [receipt.id],
         ice,
         fiscalId: receipt.ocr_data.supplier_if?.trim() || null,
         rib: receipt.ocr_data.supplier_rib?.trim() || null,
@@ -122,6 +124,7 @@ function supplierSummaries(receipts: ReceiptWithUrl[]): SupplierSummary[] {
     }
 
     current.invoiceCount += 1;
+    current.receiptIds.push(receipt.id);
     current.totalTtc += amount;
     current.ice ||= ice;
     current.fiscalId ||= receipt.ocr_data.supplier_if?.trim() || null;
@@ -667,7 +670,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
       {/* ─── Suppliers: consolidated purchase directory ─────────────────── */}
       {!loading && tab === "suppliers" && (
-        <SuppliersView suppliers={suppliers} />
+        <SuppliersView suppliers={suppliers} receipts={receipts} onSaved={load} />
       )}
 
       {/* ─── Pending / Ignored: empty state ─────────────────────────────── */}
@@ -750,7 +753,6 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
           key={previewReceipt.id}
           receipt={previewReceipt}
           onClose={closePreview}
-          onChanged={load}
         />
       )}
     </div>
@@ -759,12 +761,98 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
 // ─── Suppliers View ──────────────────────────────────────────────────────────
 
-function SuppliersView({ suppliers }: { suppliers: SupplierSummary[] }) {
+type SupplierCoordinatesForm = {
+  ice: string;
+  fiscalId: string;
+  rib: string;
+  iban: string;
+};
+
+type SupplierSortKey = "name" | "total" | "count" | "latest";
+type SupplierViewMode = "cards" | "rows";
+
+function supplierInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function SuppliersView({ suppliers, receipts, onSaved }: { suppliers: SupplierSummary[]; receipts: ReceiptWithUrl[]; onSaved: () => Promise<void> }) {
+  const supabase = createClient();
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SupplierSortKey>("name");
+  const [sortAscending, setSortAscending] = useState(true);
+  const [viewMode, setViewMode] = useState<SupplierViewMode>("rows");
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<SupplierCoordinatesForm>({ ice: "", fiscalId: "", rib: "", iban: "" });
+  const [savingSupplier, setSavingSupplier] = useState(false);
   const normalizedSearch = search.trim().toLocaleLowerCase("fr");
   const filtered = normalizedSearch
     ? suppliers.filter((supplier) => `${supplier.name} ${supplier.ice ?? ""} ${supplier.fiscalId ?? ""} ${supplier.rib ?? ""} ${supplier.iban ?? ""}`.toLocaleLowerCase("fr").includes(normalizedSearch))
     : suppliers;
+  const displayedSuppliers = [...filtered].sort((left, right) => {
+    const direction = sortAscending ? 1 : -1;
+    if (sortKey === "total") return (left.totalTtc - right.totalTtc) * direction;
+    if (sortKey === "count") return (left.invoiceCount - right.invoiceCount) * direction;
+    if (sortKey === "latest") return left.latestDate.localeCompare(right.latestDate) * direction;
+    return left.name.localeCompare(right.name, "fr") * direction;
+  });
+
+  function selectSort(nextKey: SupplierSortKey) {
+    if (nextKey === sortKey) {
+      setSortAscending(current => !current);
+      return;
+    }
+    setSortKey(nextKey);
+    setSortAscending(nextKey === "name");
+  }
+
+  function startEditing(supplier: SupplierSummary) {
+    setEditingKey(supplier.key);
+    setEditForm({
+      ice: supplier.ice ?? "",
+      fiscalId: supplier.fiscalId ?? "",
+      rib: supplier.rib ?? "",
+      iban: supplier.iban ?? "",
+    });
+  }
+
+  async function saveSupplier(supplier: SupplierSummary) {
+    const targetReceipts = receipts.filter(receipt => supplier.receiptIds.includes(receipt.id));
+    if (!targetReceipts.length) {
+      toast.error("Aucune facture liée à ce fournisseur.");
+      return;
+    }
+
+    setSavingSupplier(true);
+    const coordinates = {
+      supplier_ice: editForm.ice.trim() || null,
+      supplier_if: editForm.fiscalId.trim() || null,
+      supplier_rib: editForm.rib.trim() || null,
+      supplier_iban: editForm.iban.trim() || null,
+    };
+    const results = await Promise.all(targetReceipts.map(receipt =>
+      supabase
+        .from("receipts")
+        .update({ ocr_data: { ...receipt.ocr_data, ...coordinates } })
+        .eq("id", receipt.id),
+    ));
+    setSavingSupplier(false);
+
+    if (results.some(result => result.error)) {
+      toast.error("Certaines coordonnées n’ont pas pu être enregistrées.");
+      await onSaved();
+      return;
+    }
+
+    setEditingKey(null);
+    await onSaved();
+    toast.success("Coordonnées du fournisseur mises à jour.");
+  }
 
   if (suppliers.length === 0) {
     return (
@@ -788,39 +876,97 @@ function SuppliersView({ suppliers }: { suppliers: SupplierSummary[] }) {
         />
       </div>
 
-      {filtered.length === 0 ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.5px] text-[#6B7280]">Trier par</span>
+        {([
+          ["name", "Nom"],
+          ["total", "Total achats"],
+          ["count", "Factures"],
+          ["latest", "Dernière facture"],
+        ] as [SupplierSortKey, string][]).map(([key, label]) => {
+          const active = sortKey === key;
+          const SortIcon = sortAscending ? ArrowUp : ArrowDown;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => selectSort(key)}
+              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-semibold transition ${active ? "border-[#C8924A]/40 bg-[#FFF7ED] text-[#C8924A]" : "border-[rgba(0,0,0,0.16)] bg-[#FAFAF6] text-[#6B7280] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:border-[#C8924A]/30 hover:bg-[#F0EDE5] hover:text-[#C8924A]"}`}
+            >
+              {label}
+              {active && <SortIcon size={11} />}
+            </button>
+          );
+        })}
+        <div className="ui-control ml-auto flex h-8 items-center border border-[rgba(0,0,0,0.16)] bg-[#F1F2F3] p-0.5" aria-label="Mode d’affichage">
+          <button type="button" onClick={() => setViewMode("cards")} aria-label="Afficher en cartes" aria-pressed={viewMode === "cards"} title="Vue cartes" className={`flex h-7 w-8 items-center justify-center transition-colors ${viewMode === "cards" ? "bg-white text-[#C8924A] shadow-sm" : "text-[#777E8B] hover:text-[#1A1A2E]"}`}>
+            <LayoutGrid size={14} />
+          </button>
+          <button type="button" onClick={() => setViewMode("rows")} aria-label="Afficher horizontalement" aria-pressed={viewMode === "rows"} title="Vue horizontale" className={`flex h-7 w-8 items-center justify-center transition-colors ${viewMode === "rows" ? "bg-white text-[#C8924A] shadow-sm" : "text-[#777E8B] hover:text-[#1A1A2E]"}`}>
+            <Rows3 size={14} />
+          </button>
+        </div>
+      </div>
+
+      {displayedSuppliers.length === 0 ? (
         <div className="empty-state">Aucun fournisseur ne correspond à « {search.trim()} ».</div>
       ) : (
-        <div className="overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white">
-          <div className="hidden grid-cols-[minmax(200px,1fr)_minmax(180px,1fr)_90px_130px_120px] gap-3 border-b border-[rgba(0,0,0,0.08)] bg-[#F9F9F6] px-4 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.4px] text-[#6B7280] md:grid">
-            <span className="text-left">Fournisseur</span>
-            <span className="text-left">Coordonnées du fournisseur</span>
-            <span className="text-left">Factures</span>
-            <span className="text-left">Total TTC</span>
-            <span className="text-left">Dernière facture</span>
-          </div>
-          {filtered.map((supplier) => (
+        <div className={`grid grid-cols-1 gap-2.5 ${viewMode === "cards" ? "sm:grid-cols-2 lg:grid-cols-3" : ""}`}>
+          {displayedSuppliers.map((supplier) => (
             <div
               key={supplier.key}
-              className="grid w-full gap-3 border-b border-[rgba(0,0,0,0.06)] px-4 py-3 text-left last:border-b-0 md:grid-cols-[minmax(200px,1fr)_minmax(180px,1fr)_90px_130px_120px] md:items-center"
+              className={`client-card group relative flex flex-col overflow-hidden !p-0 transition-all hover:border-[#C8924A]/40 ${viewMode === "rows" ? "md:flex-row md:items-stretch" : ""}`}
             >
-              <span className="flex min-w-0 items-center gap-2.5">
-                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center bg-[#F0EDE5] text-[#C8924A]">
-                  <Building2 size={14} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[12.5px] font-semibold text-[#1A1A2E]">{supplier.name}</span>
-                  <span className="mt-0.5 block text-[10.5px] text-[#9CA3AF] md:hidden">{supplier.invoiceCount} facture{supplier.invoiceCount > 1 ? "s" : ""}</span>
-                </span>
-              </span>
-              <span className="space-y-0.5 text-[10.5px] text-[#6B7280]">
-                <span className="block"><strong className="font-semibold text-[#4B5260]">ICE</strong> {supplier.ice || "—"}</span>
-                <span className="block"><strong className="font-semibold text-[#4B5260]">IF</strong> {supplier.fiscalId || "—"}</span>
-                {(supplier.iban || supplier.rib) && <span className="block truncate" title={supplier.iban || supplier.rib || undefined}><strong className="font-semibold text-[#4B5260]">RIB/IBAN</strong> {supplier.iban || supplier.rib}</span>}
-              </span>
-              <span className="hidden text-[11.5px] font-semibold text-[#1A1A2E] md:block">{supplier.invoiceCount}</span>
-              <span className="text-[12px] font-semibold text-[#1A1A2E] md:block">{fmt(supplier.totalTtc)} MAD</span>
-              <span className="text-[11.5px] text-[#6B7280]">{supplier.latestDate ? fmtDate(supplier.latestDate) : "—"}</span>
+              <div className={`flex min-w-0 gap-3 p-4 ${viewMode === "rows" ? "md:w-[280px] md:flex-shrink-0" : ""}`}>
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center bg-[#0D1526] text-[13px] font-bold text-[#C8924A]">
+                  {supplierInitials(supplier.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px] font-semibold text-[#1A1A2E]">{supplier.name}</div>
+                  <div className="mt-1 space-y-0.5">
+                    <div className="truncate text-[11px] text-[#6B7280]">ICE: {supplier.ice || "—"}</div>
+                    <div className="truncate text-[11px] text-[#6B7280]">IF: {supplier.fiscalId || "—"}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`grid grid-cols-3 gap-4 border-t border-[rgba(0,0,0,0.08)] px-4 py-3 ${viewMode === "rows" ? "md:w-[330px] md:flex-shrink-0 md:border-l md:border-t-0 md:items-center" : ""}`}>
+                <div className="text-[11px] text-[#6B7280]"><strong className="block text-[12px] font-semibold text-[#1A1A2E]">{fmt(supplier.totalTtc)} MAD</strong>Total achats</div>
+                <div className="text-[11px] text-[#6B7280]"><strong className="block text-[12px] font-semibold text-[#1A1A2E]">{supplier.invoiceCount}</strong>Factures</div>
+                <div className="text-[11px] text-[#6B7280]"><strong className="block text-[12px] font-semibold text-[#1A1A2E]">{supplier.latestDate ? fmtDate(supplier.latestDate) : "—"}</strong>Dernière</div>
+              </div>
+
+              <div className={`min-w-0 flex-1 border-t border-[rgba(0,0,0,0.06)] px-4 py-3 ${viewMode === "rows" ? "md:border-l md:border-t-0" : ""}`}>
+                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.45px] text-[#9CA3AF]">Coordonnées du fournisseur</div>
+                {editingKey === supplier.key ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input aria-label="ICE du fournisseur" value={editForm.ice} onChange={event => setEditForm(current => ({ ...current, ice: event.target.value }))} className="input h-8 w-full text-[11px]" placeholder="ICE" />
+                    <input aria-label="IF du fournisseur" value={editForm.fiscalId} onChange={event => setEditForm(current => ({ ...current, fiscalId: event.target.value }))} className="input h-8 w-full text-[11px]" placeholder="IF" />
+                    <input aria-label="RIB du fournisseur" value={editForm.rib} onChange={event => setEditForm(current => ({ ...current, rib: event.target.value }))} className="input h-8 w-full text-[11px]" placeholder="RIB" />
+                    <input aria-label="IBAN du fournisseur" value={editForm.iban} onChange={event => setEditForm(current => ({ ...current, iban: event.target.value }))} className="input h-8 w-full text-[11px]" placeholder="IBAN" />
+                    <div className="flex gap-2 sm:col-span-2">
+                      <button data-permission="document:create" disabled={savingSupplier} onClick={() => saveSupplier(supplier)} className="inline-flex items-center gap-1 rounded-md bg-[#0D1526] px-2.5 py-1.5 text-[10.5px] font-semibold text-white disabled:opacity-50">
+                        {savingSupplier ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />} Enregistrer
+                      </button>
+                      <button disabled={savingSupplier} onClick={() => setEditingKey(null)} className="rounded-md border border-black/10 px-2.5 py-1.5 text-[10.5px] font-semibold text-[#6B7280] disabled:opacity-50">Annuler</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1 text-[11px] text-[#6B7280]">
+                    <div className="truncate" title={supplier.rib || undefined}><span className="font-semibold text-[#4B5260]">RIB:</span> {supplier.rib || "—"}</div>
+                    <div className="truncate" title={supplier.iban || undefined}><span className="font-semibold text-[#4B5260]">IBAN:</span> {supplier.iban || "—"}</div>
+                  </div>
+                )}
+              </div>
+
+              <div className={`flex items-center justify-between gap-3 border-t border-[rgba(0,0,0,0.06)] px-4 py-3 ${viewMode === "rows" ? "md:w-[140px] md:flex-shrink-0 md:flex-col md:items-start md:justify-center md:border-l md:border-t-0" : ""}`}>
+                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-[#C8924A]"><FileText size={12} /> {supplier.invoiceCount} facture{supplier.invoiceCount > 1 ? "s" : ""}</span>
+                {editingKey !== supplier.key && (
+                  <button data-permission="document:create" onClick={() => startEditing(supplier)} className="inline-flex items-center gap-1 text-[10.5px] font-medium text-[#C8924A] opacity-70 transition-opacity group-hover:opacity-100">
+                    <Pencil size={10} /> Modifier →
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -1037,9 +1183,10 @@ function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPre
 
 // ─── Preview panel (fixed right) ──────────────────────────────────────────────
 
-function PreviewPanel({ receipt: r, onClose, onChanged }: { receipt: ReceiptWithUrl; onClose: () => void; onChanged: () => Promise<void> }) {
+function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClose: () => void }) {
   const ocr = r.ocr_data;
   const isPdf = r.mime_type === "application/pdf";
+  const previewUrl = isPdf && r.storage_path ? `/api/receipts/${r.id}/content` : r.signedUrl;
 
   return (
     <>
@@ -1061,19 +1208,19 @@ function PreviewPanel({ receipt: r, onClose, onChanged }: { receipt: ReceiptWith
             <X size={14} />
           </button>
         </div>
-        <ReceiptControlPanel receipt={r} onChanged={onChanged} />
+        <ReceiptControlPanel receipt={r} />
         <div className="min-h-0 flex-1 overflow-auto bg-[#F3F4F6] flex items-start justify-center">
-          {!r.signedUrl ? (
+          {!previewUrl ? (
             <div className="flex flex-col items-center justify-center h-full w-full text-center p-8">
               <FileText size={40} className="text-[#D1D5DB] mb-3" />
               <p className="text-[12.5px] text-[#9CA3AF]">Aucun aperçu disponible</p>
             </div>
           ) : isPdf ? (
-            <iframe src={r.signedUrl} className="w-full h-full" style={{ minHeight: "100%" }} title="Document PDF" />
+            <iframe src={previewUrl} className="w-full h-full" style={{ minHeight: "100%" }} title="Document PDF" />
           ) : (
             <div className="p-4 w-full flex items-start justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={r.signedUrl} alt="document" className="max-w-full rounded-lg shadow-md" />
+              <img src={previewUrl} alt="document" className="max-w-full rounded-lg shadow-md" />
             </div>
           )}
         </div>
@@ -1083,18 +1230,12 @@ function PreviewPanel({ receipt: r, onClose, onChanged }: { receipt: ReceiptWith
 }
 
 type ReceiptControlPayload = {
-  current_user_id: string;
-  receipt: Receipt;
-  checks: InvoiceControlCheck[];
-  approvers: Array<{ id: string; label: string; email?: string | null }>;
   events: Array<{ id: string; event_type: string; message: string; created_at: string; actor_label?: string | null }>;
 };
 
-function ReceiptControlPanel({ receipt, onChanged }: { receipt: ReceiptWithUrl; onChanged: () => Promise<void> }) {
+function ReceiptControlPanel({ receipt }: { receipt: ReceiptWithUrl }) {
   const [payload, setPayload] = useState<ReceiptControlPayload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [approverId, setApproverId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1108,99 +1249,18 @@ function ReceiptControlPanel({ receipt, onChanged }: { receipt: ReceiptWithUrl; 
           return;
         }
         setPayload(result);
-        const firstApprover = result.approvers?.find((approver: { id: string }) => approver.id !== result.current_user_id);
-        setApproverId(firstApprover?.id || "");
       });
     return () => { cancelled = true; };
   }, [receipt.id]);
 
-  async function act(action: string, extra: Record<string, unknown> = {}) {
-    setBusy(true);
-    const response = await fetch(`/api/receipts/${receipt.id}/control`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, ...extra }),
-    });
-    const result = await response.json().catch(() => ({}));
-    setBusy(false);
-    if (!response.ok) {
-      toast.error(result.error || "Action impossible.");
-      return;
-    }
-    setPayload(result);
-    await onChanged();
-    toast.success(
-      action === "request_approval" ? "Demande de validation envoyée."
-        : action === "approve" ? "Facture validée."
-          : action === "reject" ? "Facture refusée."
-            : action === "mark_paid" ? "Facture marquée comme payée."
-              : "Contrôle mis à jour.",
-    );
-  }
-
   if (loading) {
-    return <div className="flex items-center gap-2 border-b border-black/10 px-4 py-3 text-[11px] text-[#9CA3AF]"><Loader2 size={13} className="animate-spin" /> Vérification de la facture…</div>;
+    return <div className="flex items-center gap-2 border-b border-black/10 px-4 py-3 text-[11px] text-[#9CA3AF]"><Loader2 size={13} className="animate-spin" /> Chargement de l’activité…</div>;
   }
   if (!payload) return null;
 
-  const current = payload.receipt;
-  const alternateApprovers = payload.approvers.filter(approver => approver.id !== payload.current_user_id);
-  const isAssignedApprover = current.approver_id === payload.current_user_id;
-  const stateLabel = current.control_status === "paid" ? "Payée" : current.control_status === "recorded" ? "Comptabilisée" : "À vérifier";
-
   return (
     <div className="max-h-[46%] flex-shrink-0 overflow-y-auto border-b border-black/10 bg-white px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <ShieldCheck size={15} className="text-[#C8924A]" />
-          <span className="text-[11.5px] font-bold text-[#0D1526]">Contrôle fournisseur</span>
-        </div>
-        <span className="rounded-full bg-[#F3F4F6] px-2 py-1 text-[9.5px] font-bold text-[#4B5563]">{stateLabel}</span>
-      </div>
-
-      <div className="mt-3 space-y-2">
-        {payload.checks.map(check => (
-          <div key={`${check.code}-${check.relatedReceiptId ?? ""}`} className={`rounded-lg border px-3 py-2 ${check.severity === "critical" ? "border-red-200 bg-red-50" : check.severity === "warning" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
-            <div className={`text-[10.5px] font-bold ${check.severity === "critical" ? "text-red-800" : check.severity === "warning" ? "text-amber-800" : "text-emerald-800"}`}>{check.title}</div>
-            <div className="mt-0.5 text-[10px] leading-4 text-[#626874]">{check.message}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-3 rounded-lg border border-black/10 bg-[#FAFAF6] p-3">
-        <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-[#0D1526]"><UserCheck size={12} /> Validation simple</div>
-        {current.approval_status === "pending" ? (
-          <div className="mt-2">
-            <p className="text-[10px] text-[#6B7280]">En attente du validateur désigné.</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {isAssignedApprover && <button disabled={busy} onClick={() => act("approve")} className="rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">Valider</button>}
-              {isAssignedApprover && <button disabled={busy} onClick={() => act("reject")} className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-[10px] font-bold text-red-700 disabled:opacity-50">Refuser</button>}
-              {!isAssignedApprover && <button disabled={busy} onClick={() => act("cancel_approval")} className="rounded-md border border-black/10 bg-white px-3 py-1.5 text-[10px] font-bold text-[#6B7280] disabled:opacity-50">Annuler la demande</button>}
-            </div>
-          </div>
-        ) : current.approval_status === "approved" ? (
-          <p className="mt-2 text-[10px] font-semibold text-emerald-700">Cette facture a été validée.</p>
-        ) : (
-          <div className="mt-2">
-            {alternateApprovers.length > 0 ? (
-              <div className="flex gap-2">
-                <select value={approverId} onChange={event => setApproverId(event.target.value)} className="min-w-0 flex-1 rounded-md border border-black/10 bg-white px-2 py-1.5 text-[10px]">
-                  {alternateApprovers.map(approver => <option key={approver.id} value={approver.id}>{approver.label}</option>)}
-                </select>
-                <button disabled={busy || !approverId} onClick={() => act("request_approval", { approverId })} className="rounded-md bg-[#0D1526] px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">Demander</button>
-              </div>
-            ) : (
-              <p className="text-[10px] leading-4 text-[#8A909B]">Ajoutez un collaborateur dans Paramètres → Équipe pour demander une validation.</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {current.control_status === "recorded" && (
-        <button disabled={busy} onClick={() => act("mark_paid")} className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-[10px] font-bold text-emerald-700 disabled:opacity-50"><CircleDollarSign size={12} /> Marquer payée</button>
-      )}
-
-      <div className="mt-4">
+      <div>
         <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-[#0D1526]"><Clock3 size={12} /> Activité</div>
         <div className="mt-2 space-y-2 border-l border-[#D8DADF] pl-3">
           {payload.events.length === 0 ? <p className="text-[10px] text-[#9CA3AF]">Aucune activité enregistrée.</p> : payload.events.map(event => (

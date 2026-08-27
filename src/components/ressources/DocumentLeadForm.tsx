@@ -77,17 +77,17 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
   }
 
   return (
-    <div className="public-surface public-accent-surface p-6">
-      <div className="public-icon-tile h-12 w-12">
+    <div className="document-download-card public-surface p-6 lg:sticky lg:top-28">
+      <div className="document-download-icon flex h-12 w-12 items-center justify-center bg-white/15 text-white">
         <Download size={24} />
       </div>
-      <h2 className="mt-5 text-[22px] font-bold text-[#0D1526]">Télécharger gratuitement</h2>
-      <p className="mt-2 text-[13.5px] leading-6 text-[#6B7280]">
+      <h2 className="mt-5 text-[22px] font-bold text-white">Télécharger gratuitement</h2>
+      <p className="mt-2 text-[13.5px] leading-6 text-white/75">
         Entrez votre email pour accéder au document. Nous l&apos;utiliserons aussi pour vous envoyer des ressources utiles liées à la gestion d&apos;entreprise.
       </p>
 
       {success ? (
-        <div className="mt-6 rounded-xl bg-[#ECFDF5] p-5 text-center">
+        <div className="document-download-success mt-6 bg-white/95 p-5 text-center">
           <CheckCircle className="mx-auto text-[#059669]" size={32} />
           <p className="mt-3 text-[14px] font-bold text-[#065F46]">Merci, votre document est prêt.</p>
           <p className="mt-2 text-[12px] leading-5 text-[#047857]">
@@ -110,23 +110,24 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="votre@email.com"
-            className="w-full rounded-lg border border-[rgba(13,21,38,0.12)] px-3 py-3 text-[14px] outline-none focus:border-[#A89596]"
+            className="w-full border border-white/30 bg-white/95 px-3 py-3 text-[14px] text-[#0D1526] outline-none placeholder:text-[#8B9099] focus:border-white focus:ring-2 focus:ring-white/20"
           />
           <input
             type="tel"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
             placeholder="Téléphone (optionnel)"
-            className="w-full rounded-lg border border-[rgba(13,21,38,0.12)] px-3 py-3 text-[14px] outline-none focus:border-[#A89596]"
+            className="w-full border border-white/30 bg-white/95 px-3 py-3 text-[14px] text-[#0D1526] outline-none placeholder:text-[#8B9099] focus:border-white focus:ring-2 focus:ring-white/20"
           />
-          {error && <p className="text-[12px] leading-5 text-red-600">{error}</p>}
+          {error && <p className="text-[12px] leading-5 text-[#FFD3D3]">{error}</p>}
           <button
             disabled={saving || !resource.fileUrl}
-            className="public-primary-action w-full disabled:cursor-not-allowed disabled:opacity-60"
+            className="document-download-action public-primary-action w-full disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saving ? "Ouverture..." : "Accéder au document ->"}
+            {!saving && <Download size={16} aria-hidden="true" />}
+            {saving ? "Ouverture..." : "Accéder au document"}
           </button>
-          <p className="text-center text-[11.5px] leading-5 text-[#9CA3AF]">
+          <p className="text-center text-[11.5px] leading-5 text-white/60">
             Pas de spam. Désabonnement en un clic.
           </p>
         </form>

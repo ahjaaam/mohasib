@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import { PortableText } from "@portabletext/react";
@@ -87,8 +86,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
 
       <section className="public-page-hero">
         <div className="mx-auto max-w-5xl">
-          <Link href="/ressources/documents" className="text-[12px] font-semibold text-[#B58A52]">← Documents téléchargeables</Link>
-          <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+          <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
             <div>
               <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#B58A52]">Modèle gratuit</p>
               <h1 className="mt-4 text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">{document.title}</h1>

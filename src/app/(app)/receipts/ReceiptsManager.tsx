@@ -612,10 +612,10 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
               </div>
             </div>
             <div className="min-h-[60vh] flex-1 bg-[#F3F4F6] p-3">
-              {!preview.signedUrl ? (
+              {!preview.signedUrl && !preview.storage_path ? (
                 <div className="flex h-full min-h-[60vh] items-center justify-center text-[12px] text-[#9CA3AF]">Aucun fichier disponible.</div>
               ) : preview.mime_type === "application/pdf" ? (
-                <iframe title={preview.file_name ?? "Justificatif PDF"} src={preview.signedUrl} className="h-[72vh] w-full rounded-lg bg-white" />
+                <iframe title={preview.file_name ?? "Justificatif PDF"} src={`/api/receipts/${preview.id}/content`} className="h-[72vh] w-full rounded-lg bg-white" />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={preview.signedUrl} alt={preview.file_name ?? "Justificatif"} className="mx-auto max-h-[72vh] max-w-full rounded-lg object-contain" />

@@ -1,7 +1,7 @@
 export const ROUTES = {
   HOME: "/",
   TARIFS: "/tarifs",
-  WORKFLOWS: "/workflows",
+  SOLUTIONS: "/#six-automatisations",
   RESSOURCES: "/ressources",
   CGU: "/cgu",
   CONFIDENTIALITE: "/confidentialite",
@@ -39,6 +39,8 @@ export const ROUTES = {
 } as const;
 
 export const LEGACY_ROUTES = {
+  AUTOMATISATIONS: "/automatisations",
+  WORKFLOWS: "/workflows",
   DASHBOARD: "/dashboard",
   FACTURES: "/invoices",
   FACTURE_NOUVELLE: "/invoices/new",

@@ -41,6 +41,12 @@
     overflow-x: clip;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
   body {
     @apply bg-[#FAFAF6] text-[#1A1A2E];
     min-width: 320px;
@@ -267,6 +273,8 @@
     --public-accent-strong: #7A6668;
     --public-accent-mid: #A89596;
     --public-accent-soft: #F4EFF0;
+    --home-radius-card: 8px;
+    --home-radius-control: 6px;
     min-height: 100vh;
     background: #F8F7F7;
     color: #0D1526;
@@ -316,6 +324,45 @@
   .ressources-page .public-page-hero {
     border-bottom-color: #E8DCC8;
     background: #FFFFFF;
+  }
+  .ressources-page .documents-hero-card {
+    border-radius: 20px !important;
+  }
+  .ressources-page .documents-filter-panel {
+    border-radius: 14px !important;
+  }
+  .ressources-page .documents-filter-control {
+    border-radius: 8px !important;
+  }
+  .ressources-page .documents-search-icon {
+    border-radius: 8px !important;
+  }
+  .ressources-page .documents-library-table {
+    border-radius: 16px !important;
+  }
+  .ressources-page .documents-library-icon,
+  .ressources-page .documents-file-icon {
+    border-radius: 8px !important;
+  }
+  .ressources-page .document-download-card.public-surface {
+    border-color: rgba(255, 255, 255, 0.18) !important;
+    border-radius: 20px !important;
+    background: linear-gradient(135deg, #0D1526 0%, #976224 100%) !important;
+  }
+  .ressources-page .document-download-icon {
+    border-radius: 10px !important;
+  }
+  .ressources-page .document-download-success {
+    border-radius: 12px !important;
+  }
+  .ressources-page .document-download-action.public-primary-action {
+    border-color: #FFFFFF;
+    background: #FFFFFF;
+    color: #0D1526;
+  }
+  .ressources-page .document-download-action.public-primary-action:hover {
+    border-color: #F5E8D5;
+    background: #F5E8D5;
   }
   .ressources-page .public-eyebrow {
     color: #B58A52;

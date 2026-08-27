@@ -49,6 +49,81 @@
   font-size: 14px;
 }
 
+.pillars {
+  padding: 96px 24px;
+  background: #ffffff;
+  scroll-margin-top: 76px;
+}
+
+.pillarsHeading {
+  max-width: 680px;
+  margin: 0 auto 48px;
+  text-align: center;
+}
+
+.pillarsHeading h2 {
+  margin-top: 14px;
+  color: #0d1526;
+  font-family: var(--font-inter), sans-serif;
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+
+.pillarGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  width: min(100%, 1120px);
+  margin: 0 auto;
+}
+
+.pillarCard {
+  min-width: 0;
+  padding: 34px;
+  border: 1px solid #e1ded6;
+  background: #fcfbf8;
+  scroll-margin-top: 100px;
+}
+
+.pillarIcon {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(200, 146, 74, 0.38);
+  background: rgba(200, 146, 74, 0.10);
+  color: #a36d2c;
+}
+
+.pillarCard h3 {
+  margin-top: 24px;
+  color: #0d1526;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.pillarCard p {
+  min-height: 108px;
+  margin-top: 14px;
+  color: #687180;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.pillarCard span {
+  display: block;
+  padding-top: 18px;
+  border-top: 1px solid #e1ded6;
+  color: #3f7d61;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .principle {
   padding: 76px 24px;
   background: #f8f7f3;
@@ -299,8 +374,13 @@
 
 @media (max-width: 900px) {
   .principleInner,
-  .workflowCard {
+  .workflowCard,
+  .pillarGrid {
     grid-template-columns: 1fr;
+  }
+
+  .pillarCard p {
+    min-height: 0;
   }
 
   .principleInner {
@@ -330,6 +410,7 @@
     font-size: 15px;
   }
 
+  .pillars,
   .principle,
   .workflows {
     padding: 64px 20px;

@@ -19,16 +19,14 @@ const footerGroups = [
   {
     title: "Produit",
     links: [
-      { label: "Workflows", href: "/workflows" },
+      { label: "Solutions", href: "/#six-automatisations" },
       { label: "Facturation gratuite", href: invoicingUrl() },
     ],
   },
   {
     title: "Ressources",
     links: [
-      { label: "Bibliothèque", href: "/ressources" },
-      { label: "Blog", href: "/ressources/blog" },
-      { label: "Guides", href: "/ressources/guides" },
+      { label: "Documents", href: "/ressources/documents" },
       { label: "Centre d’aide", href: "/centre-aide" },
     ],
   },

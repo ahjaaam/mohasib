@@ -12,7 +12,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://*.ingest.sentry.io https://*.api.sanity.io https://challenges.cloudflare.com",
-  "frame-src https://challenges.cloudflare.com",
+  "frame-src 'self' https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "media-src 'self' blob: https:",
   "upgrade-insecure-requests",
@@ -53,6 +53,9 @@ const nextConfig = {
       { source: "/pricing", destination: "/tarifs", permanent: false },
       { source: "/tva", destination: "/declarations-tva", permanent: false },
       { source: "/export", destination: "/export-fiduciaire", permanent: false },
+      { source: "/solutions", destination: "/#six-automatisations", permanent: true },
+      { source: "/workflows", destination: "/#six-automatisations", permanent: true },
+      { source: "/automatisations", destination: "/#six-automatisations", permanent: true },
     ];
   },
   async rewrites() {

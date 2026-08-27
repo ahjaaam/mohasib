@@ -1,7 +1,7 @@
 .section {
   padding: 88px 32px;
-  background: #fff;
-  color: #0d1526;
+  background: #fcfbfa;
+  color: #141413;
 }
 
 .inner {
@@ -18,7 +18,7 @@
   aspect-ratio: 1 / 1;
   overflow: hidden;
   border: 1px solid rgba(13, 21, 38, 0.1);
-  border-radius: 14px !important;
+  border-radius: var(--home-radius-card) !important;
   background: #f6f4ef;
 }
 
@@ -37,7 +37,7 @@
   min-height: 30px;
   align-items: center;
   padding: 0 10px;
-  border-radius: 5px !important;
+  border-radius: 4px !important;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -86,25 +86,6 @@
 .impactPoints strong { font-size: 15px; font-weight: 600; }
 .impactPoints p { margin: 6px 0 0; color: #636b77; font-size: 13px; line-height: 1.55; }
 
-.contactButton {
-  display: inline-flex;
-  min-height: 48px;
-  align-items: center;
-  justify-content: center;
-  margin-top: 32px;
-  border-radius: 8px !important;
-  background: #0d1526;
-  padding: 0 24px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 150ms ease, transform 150ms ease;
-}
-
-.contactButton:hover { background: #202b42; transform: translateY(-1px); }
-.contactButton:focus-visible { outline: 2px solid #0d1526; outline-offset: 3px; }
-
 @media (max-width: 1000px) {
   .inner { grid-template-columns: 1fr; }
   .visual { width: min(100%, 720px); }
@@ -121,5 +102,4 @@
   .beforeLabel { left: 11px; }
   .afterLabel { right: 11px; }
   .impactPoints { gap: 18px; }
-  .contactButton { width: 100%; margin-top: 28px; }
 }

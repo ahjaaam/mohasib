@@ -17,7 +17,7 @@ export default function ValueComparisonSection() {
       <div className={styles.heading}>
         <p className={styles.eyebrow}>Pourquoi Mohasib</p>
         <h2 id="value-comparison-title">Ce qui change, concrètement.</h2>
-        <p>Comparez le travail manuel, l’accumulation d’outils spécialisés et un workflow Mohasib réellement intégré.</p>
+        <p>Comparez le travail manuel, l’accumulation d’outils spécialisés et les automatisations intégrées de Mohasib.</p>
       </div>
 
       <div className={styles.tableShell} tabIndex={0} role="region" aria-label="Comparaison des méthodes de gestion comptable">

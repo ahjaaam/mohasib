@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
 import WorkflowShowcase from "@/components/home/WorkflowShowcase";
@@ -8,7 +9,6 @@ import ToolConsolidationSection from "@/components/home/ToolConsolidationSection
 import CapabilitiesSection from "@/components/home/CapabilitiesSection";
 import DocumentTransformationSection from "@/components/home/DocumentTransformationSection";
 import FAQSection from "@/components/home/FAQSection";
-import AnnouncementBar from "@/components/home/AnnouncementBar";
 import { appUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
@@ -17,6 +17,29 @@ export default function HomePageClient() {
   return (
     <div className="public-site" style={{ fontFamily: FONT }}>
       <style>{`
+        .public-skip-link {
+          position: fixed;
+          z-index: 1000;
+          top: 12px;
+          left: 12px;
+          padding: 10px 16px;
+          border-radius: var(--home-radius-control);
+          background: #141413;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 700;
+          text-decoration: none;
+          transform: translateY(-160%);
+          transition: transform 150ms ease;
+        }
+        .public-skip-link:focus-visible {
+          outline: 3px solid #976224;
+          outline-offset: 3px;
+          transform: translateY(0);
+        }
+        #main-content {
+          scroll-margin-top: 120px;
+        }
         .home-hero {
           position: relative;
           display: flex;
@@ -24,8 +47,8 @@ export default function HomePageClient() {
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          padding: 112px 27px 96px;
-          background: #FFFFFF;
+          padding: 52px 27px 96px;
+          background: #FDFBF6;
         }
         .home-hero-content {
           position: relative;
@@ -34,25 +57,41 @@ export default function HomePageClient() {
           margin: 0 auto;
           text-align: center;
         }
-        .home-hero .public-eyebrow {
-          color: var(--gold);
+        .home-hero-intro {
+          display: block;
+        }
+        .home-hero-copy {
+          position: relative;
+          z-index: 2;
+          max-width: 800px;
+          margin: 0 auto;
+          text-align: center;
         }
         .home-hero-title {
-          max-width: 1160px;
-          margin: 0 auto 26px;
-          color: #0A0A0A;
-          font-size: clamp(46px, 4.2vw, 58px);
+          max-width: 760px;
+          margin: 0 auto 24px;
+          color: #141413;
+          font-size: clamp(50px, 5.5vw, 76px);
           font-weight: 600;
-          letter-spacing: -3px;
-          line-height: 0.98;
+          letter-spacing: -0.02em;
+          line-height: 0.96;
+          text-wrap: balance;
+        }
+        .home-hero-title span {
+          display: block;
+          color: #976224;
         }
         .home-hero-description {
-          max-width: 610px;
-          margin: 0 auto 34px;
+          max-width: 650px;
+          margin: 0 auto 30px;
           color: #4B5563;
           font-family: ${FONT};
-          font-size: 16px;
-          line-height: 1.65;
+          font-size: 17px;
+          line-height: 1.6;
+        }
+        .home-hero-button:focus-visible {
+          outline: 3px solid #0D3650;
+          outline-offset: 4px;
         }
         .home-hero-actions {
           display: flex;
@@ -60,61 +99,71 @@ export default function HomePageClient() {
           gap: 12px;
           flex-wrap: wrap;
         }
-        .home-phone-cta {
-          display: flex;
-          width: min(100%, 520px);
+        .home-hero-button {
+          display: inline-flex;
+          min-height: 54px;
           align-items: center;
-          gap: 8px;
-          padding: 7px;
-          border: 1px solid #0D1526;
-          border-radius: 12px !important;
-          background: #FFFFFF;
-          box-shadow: 0 0 0 1px #0D1526;
-          transition: border-color 150ms ease, box-shadow 150ms ease;
-        }
-        .home-phone-cta:focus-within {
-          border-color: #0D1526;
-          box-shadow: 0 0 0 1px #0D1526;
-        }
-        .home-phone-cta input {
-          min-width: 0;
-          min-height: 48px;
-          flex: 1;
-          border: 0;
-          background: transparent;
-          padding: 0 15px;
-          color: #0D1526;
-          font-family: ${FONT};
-          font-size: 15px;
-          outline: none;
-        }
-        .home-phone-cta input::placeholder {
-          color: #777D87;
-        }
-        .home-phone-cta input:focus-visible {
-          outline: none;
-        }
-        .home-phone-cta button {
-          min-height: 48px;
-          flex: 0 0 auto;
-          border: 0;
-          border-radius: 8px !important;
-          background: #0D1526;
-          padding: 0 22px;
-          color: #FFFFFF;
+          justify-content: center;
+          gap: 9px;
+          border: 1.5px solid #141413;
+          border-radius: var(--home-radius-control) !important;
+          padding: 0 28px;
           font-family: ${FONT};
           font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background-color 150ms ease;
+          font-weight: 700;
+          text-decoration: none;
+          transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
         }
-        .home-phone-cta button:hover {
-          background: #202B42;
+        .home-hero-button:hover {
+          transform: translateY(-2px);
+        }
+        .home-hero-button-primary {
+          background: #141413;
+          color: #F3F0EE;
+        }
+        .home-hero .home-hero-button {
+          font-size: 16px;
+          font-weight: 600;
+        }
+        .home-hero .home-hero-button-primary {
+          border: 0;
+          background: linear-gradient(135deg, #976224 0%, #0D1526 100%);
+          color: #FFFFFF;
+        }
+        .home-hero-button-primary:hover {
+          background: #262627;
+        }
+        .home-hero .home-hero-button-primary:hover {
+          background: linear-gradient(135deg, #7D4F1C 0%, #19274A 100%);
+        }
+        .home-hero-button-secondary {
+          background: #FFFFFF;
+          color: #141413;
+        }
+        .home-hero-button-secondary:hover {
+          background: #F5F6F8;
+        }
+        .home-hero-proof {
+          display: flex;
+          justify-content: center;
+          gap: 22px;
+          margin-top: 22px;
+          color: #606875;
+          font-size: 12px;
+          font-weight: 600;
+        }
+        .home-hero-proof span {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        #centre-execution {
+          scroll-margin-top: 100px;
         }
         .home-closing-cta {
           padding: 104px 24px 112px;
-          background: #FFFFFF;
-          color: #0D1526;
+          background: #F3F0EE;
+          color: #141413;
           text-align: center;
         }
         .home-closing-cta-inner {
@@ -130,16 +179,8 @@ export default function HomePageClient() {
           line-height: 1.02;
           text-wrap: balance;
         }
-        .home-closing-cta .home-phone-cta {
-          margin: 38px auto 0;
-          border-color: #0D1526;
-          box-shadow: 0 0 0 1px #0D1526;
-        }
-        .home-closing-cta .home-phone-cta button {
-          background: #0D1526;
-        }
-        .home-closing-cta .home-phone-cta button:hover {
-          background: #202B42;
+        .home-closing-cta .home-hero-actions {
+          margin-top: 38px;
         }
         .home-receipt-field {
           position: absolute;
@@ -335,8 +376,20 @@ export default function HomePageClient() {
           }
         }
         @media (prefers-reduced-motion: reduce) {
+          .public-skip-link,
+          .home-hero-button {
+            transition: none;
+          }
+          .home-hero-button:hover {
+            transform: none;
+          }
           .home-scattered-receipt img {
             animation: none;
+          }
+        }
+        @media (max-width: 1390px) {
+          .home-hero {
+            padding-top: 42px;
           }
         }
         @media (max-width: 1000px) {
@@ -373,14 +426,14 @@ export default function HomePageClient() {
         }
         @media (max-width: 760px) {
           .home-hero {
-            padding: 70px 20px 54px;
+            padding: 36px 20px 54px;
           }
           .home-hero-title {
             max-width: 620px;
             margin-bottom: 22px;
-            font-size: clamp(34px, 6vw, 40px);
-            letter-spacing: -1.6px;
-            line-height: 1;
+            font-size: clamp(40px, 10.5vw, 54px);
+            letter-spacing: -0.055em;
+            line-height: 0.98;
           }
           .home-hero-description {
             max-width: 340px;
@@ -393,13 +446,14 @@ export default function HomePageClient() {
             align-items: center;
             gap: 10px;
           }
-          .home-phone-cta {
+          .home-hero-button {
             width: min(100%, 328px);
-            align-items: stretch;
-            flex-direction: column;
           }
-          .home-phone-cta button {
-            width: 100%;
+          .home-hero-proof {
+            max-width: 330px;
+            margin: 22px auto 0;
+            flex-wrap: wrap;
+            gap: 9px 16px;
           }
           .home-closing-cta {
             padding: 72px 20px 78px;
@@ -408,7 +462,7 @@ export default function HomePageClient() {
             font-size: clamp(36px, 11vw, 48px);
             letter-spacing: -0.045em;
           }
-          .home-closing-cta .home-phone-cta {
+          .home-closing-cta .home-hero-actions {
             margin-top: 30px;
           }
           .home-receipt-one {
@@ -479,43 +533,49 @@ export default function HomePageClient() {
           }
         }
       `}</style>
-      <PublicNavbar />
-      <AnnouncementBar />
+      <a className="public-skip-link" href="#main-content">Aller au contenu principal</a>
+      <PublicNavbar logoWidth={132} />
 
+      <main id="main-content" tabIndex={-1}>
       <section className="home-hero">
         <div className="home-hero-content">
-            <p className="public-eyebrow mb-4">L&apos;IA AU SERVICE DE VOTRE GESTION</p>
-            <h1 className="home-hero-title">
-              Votre comptabilité, exécutées par l&apos;IA.
-            </h1>
+          <div className="home-hero-intro">
+            <div className="home-hero-copy">
+              <h1 className="home-hero-title">
+                Votre comptabilité,
+                <span>exécutée par l&apos;IA.</span>
+              </h1>
 
-            <p className="home-hero-description">
-            Connecter votre boite mail, envoyez vos factures, suivez vos paiements, effectuez vos rapprochements bancaires, créez vos bulletins de paie, déclarez votre TVA, obtenez des insights financiers et exportez une comptabilité propre.            </p>
+              <p className="home-hero-description">
+                Factures, paiements, TVA et écritures comptables : Mohasib exécute votre gestion de bout en bout.
+              </p>
 
-            <div className="home-hero-actions">
-              <form className="home-phone-cta" action={appUrl("/inscription")} method="get">
-                <input
-                  type="tel"
-                  name="phone"
-                  autoComplete="tel"
-                  inputMode="tel"
-                  aria-label="Votre numéro de téléphone"
-                  placeholder="Votre numéro de téléphone"
-                  required
-                />
-                <button type="submit">Commencer</button>
-              </form>
+              <div className="home-hero-actions">
+                <a className="home-hero-button home-hero-button-primary" href={appUrl("/inscription")}>
+                  Essayer gratuitement <ArrowRight size={16} aria-hidden="true" />
+                </a>
+                <a className="home-hero-button home-hero-button-secondary" href="/centre-aide">
+                  Demander une démo
+                </a>
+              </div>
+
+              <div className="home-hero-proof">
+                <span>Utilisé par les directeurs financiers et les TPME</span>
+              </div>
             </div>
+          </div>
 
+          <div id="centre-execution">
             <WorkflowCommandCenter />
+          </div>
 
         </div>
       </section>
 
-      <ToolConsolidationSection />
       <WorkflowShowcase />
-      <DocumentTransformationSection />
+      <ToolConsolidationSection />
       <CapabilitiesSection />
+      <DocumentTransformationSection />
       <FAQSection />
 
       <section className="home-closing-cta" aria-labelledby="closing-cta-title">
@@ -523,20 +583,13 @@ export default function HomePageClient() {
           <h2 id="closing-cta-title">
             Le temps, c&apos;est de l&apos;argent. Économisez les deux.
           </h2>
-          <form className="home-phone-cta" action={appUrl("/inscription")} method="get">
-            <input
-              type="tel"
-              name="phone"
-              autoComplete="tel"
-              inputMode="tel"
-              aria-label="Votre numéro de téléphone"
-              placeholder="Votre numéro de téléphone"
-              required
-            />
-            <button type="submit">Commencer</button>
-          </form>
+          <div className="home-hero-actions">
+            <a className="home-hero-button home-hero-button-primary" href={appUrl("/inscription")}>Créer mon compte</a>
+            <a className="home-hero-button home-hero-button-secondary" href="/centre-aide">Nous contacter</a>
+          </div>
         </div>
       </section>
+      </main>
 
       <PublicFooter />
     </div>

@@ -53,12 +53,12 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0D1526",
+  themeColor: "#FDFBF6",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" style={{ scrollBehavior: "smooth" }}>
+    <html lang="fr">
       <body suppressHydrationWarning style={{ fontFamily: "var(--font-jakarta), sans-serif" }}>
         <script
           type="application/ld+json"

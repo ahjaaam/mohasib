@@ -24,6 +24,8 @@ const marketingHosts = new Set([marketingHost, bareMarketingHost, `www.${bareMar
 const marketingRoutes = [
   "/",
   "/tarifs",
+  "/solutions",
+  "/automatisations",
   "/workflows",
   "/ressources",
   "/centre-aide",
