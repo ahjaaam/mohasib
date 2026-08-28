@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,6 +18,7 @@ import {
   Lock,
   LogOut,
   Menu,
+  Phone,
   Search,
   ScrollText,
   Settings,
@@ -241,7 +243,18 @@ export default function AppTopBar({
             }`}
             aria-label="Mohasib"
           >
-            <SidebarLogo light={!darkTopBar} compact={!guestMode} color="#C8924A" />
+            {guestMode ? (
+              <Image
+                src="/logo2.png"
+                alt="Mohasib AI"
+                width={132}
+                height={32}
+                className="h-auto w-[120px] object-contain"
+                priority
+              />
+            ) : (
+              <SidebarLogo light={!darkTopBar} compact color="#C8924A" />
+            )}
           </Link>
         )}
         {cabinetMenuItems.length > 0 && (
@@ -533,9 +546,23 @@ export default function AppTopBar({
         </button>}
 
         {guestMode ? (
-          <Link href={appUrl("/connexion")} className="ml-1 inline-flex h-10 items-center justify-center border border-[#D7DADF] bg-[#F1F2F3] px-3 text-[11.5px] font-bold text-[#4B5563] transition-colors hover:border-[#C7CBD1] hover:bg-[#E5E7EB] hover:text-[#374151] sm:ml-2 sm:px-4 sm:text-[12px]">
-            Se connecter
-          </Link>
+          <>
+            <a
+              href="tel:+212670101952"
+              className="inline-flex h-11 flex-shrink-0 items-center justify-center gap-[7px] text-[13px] font-semibold text-[#0D1526] transition-colors hover:text-[#C8924A] focus-visible:text-[#C8924A]"
+              aria-label="Appeler le 06 70 10 19 52"
+            >
+              <Phone size={16} aria-hidden="true" />
+              <span className="hidden lg:inline">06 70 10 19 52</span>
+            </a>
+            <Link
+              href={appUrl("/connexion")}
+              className="ml-1 inline-flex h-11 flex-shrink-0 items-center justify-center gap-[7px] text-[14px] font-semibold text-[#0D1526] transition-colors hover:text-[#976224] focus-visible:text-[#976224] sm:ml-3"
+            >
+              <Lock size={15} aria-hidden="true" />
+              Se connecter
+            </Link>
+          </>
         ) : <div className="relative ml-0.5 flex-shrink-0 border-l border-[#E6E6E1] pl-1.5 sm:ml-2 sm:pl-3">
           <button
             type="button"

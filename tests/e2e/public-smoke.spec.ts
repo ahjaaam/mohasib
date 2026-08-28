@@ -21,7 +21,9 @@ test("public pages and authentication entry points render", async ({ page }) => 
   await page.goto("/facturation");
   const facturationBrand = page.getByRole("link", { name: "Mohasib", exact: true });
   await expect(facturationBrand).toBeVisible();
-  await expect(facturationBrand.getByRole("img", { name: "Mohasib" })).toHaveCSS("mask-image", /\/logo\.png/);
+  await expect(facturationBrand.getByRole("img", { name: "Mohasib AI" })).toHaveAttribute("src", /logo2\.png/);
+  await expect(page.getByRole("link", { name: "Appeler le 06 70 10 19 52" })).toHaveAttribute("href", "tel:+212670101952");
+  await expect(page.getByRole("link", { name: "Se connecter" })).toBeVisible();
 });
 
 test("solutions navigation leads to the six automations section", async ({ page }) => {

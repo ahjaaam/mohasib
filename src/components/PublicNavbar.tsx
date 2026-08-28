@@ -403,7 +403,6 @@ export default function PublicNavbar({ logoWidth = 132 }: PublicNavbarProps) {
                 <span className="public-language-option" data-active="true" lang="fr">
                   <span className="public-language-flag" aria-hidden="true">🇫🇷</span>
                   Français
-                  <small>Actif</small>
                 </span>
                 <span className="public-language-option" lang="en">
                   <span className="public-language-flag" aria-hidden="true">🇬🇧</span>
@@ -479,7 +478,7 @@ export default function PublicNavbar({ logoWidth = 132 }: PublicNavbarProps) {
                 <ChevronDown size={14} aria-hidden="true" />
               </summary>
               <div className="public-mobile-language-options" aria-label="Langues du site">
-                <span lang="fr"><span className="public-language-flag" aria-hidden="true">🇫🇷</span>Français <small>Actif</small></span>
+                <span lang="fr"><span className="public-language-flag" aria-hidden="true">🇫🇷</span>Français</span>
                 <span lang="en"><span className="public-language-flag" aria-hidden="true">🇬🇧</span>English <small>Bientôt</small></span>
                 <span lang="ar"><span className="public-language-flag" aria-hidden="true">🇲🇦</span>العربية <small>Bientôt</small></span>
               </div>
