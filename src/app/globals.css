@@ -275,6 +275,22 @@
     --public-accent-soft: #F4EFF0;
     --home-radius-card: 8px;
     --home-radius-control: 6px;
+    /* Marketing system — the homepage is the visual source of truth. */
+    --marketing-ink: #141413;
+    --marketing-ink-navy: #0D1526;
+    --marketing-copper: #976224;
+    --marketing-copper-hover: #7D4F1C;
+    --marketing-copy: #626A77;
+    --marketing-copy-strong: #4B5563;
+    --marketing-canvas: #FDFBF6;
+    --marketing-surface: #FFFFFF;
+    --marketing-surface-soft: #FCFBFA;
+    --marketing-surface-muted: #F3F0EE;
+    --marketing-border: #E4E1D9;
+    --marketing-border-strong: #D8D5CC;
+    --marketing-content-width: 1180px;
+    --marketing-section-space: clamp(72px, 8vw, 104px);
+    --marketing-motion-fast: 150ms ease;
     min-height: 100vh;
     background: #F8F7F7;
     color: #0D1526;
@@ -293,6 +309,69 @@
     font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
+  }
+  .marketing-container {
+    width: min(100%, var(--marketing-content-width));
+    margin-inline: auto;
+  }
+  .marketing-eyebrow {
+    margin: 0;
+    color: var(--marketing-copper);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .marketing-display {
+    margin: 0;
+    color: var(--marketing-ink);
+    font-size: clamp(44px, 6vw, 76px);
+    font-weight: 600;
+    letter-spacing: -0.045em;
+    line-height: 0.98;
+    text-wrap: balance;
+  }
+  .marketing-lede {
+    color: var(--marketing-copy-strong);
+    font-size: 16px;
+    line-height: 1.65;
+    text-wrap: pretty;
+  }
+  .marketing-action {
+    display: inline-flex;
+    min-height: 52px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border: 1.5px solid var(--marketing-ink);
+    border-radius: var(--home-radius-control);
+    padding: 0 24px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background-color var(--marketing-motion-fast), color var(--marketing-motion-fast), transform var(--marketing-motion-fast);
+  }
+  .marketing-action:hover {
+    transform: translateY(-2px);
+  }
+  .marketing-action:focus-visible {
+    outline: 3px solid var(--marketing-copper);
+    outline-offset: 4px;
+  }
+  .marketing-action-primary {
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--marketing-copper) 0%, var(--marketing-ink-navy) 100%);
+    color: #FFFFFF;
+  }
+  .marketing-action-primary:hover {
+    background: linear-gradient(135deg, var(--marketing-copper-hover) 0%, #19274A 100%);
+  }
+  .marketing-action-secondary {
+    background: var(--marketing-surface);
+    color: var(--marketing-ink);
+  }
+  .marketing-action-secondary:hover {
+    background: #F5F6F8;
   }
   .public-surface {
     border: 1px solid #DED8D9 !important;

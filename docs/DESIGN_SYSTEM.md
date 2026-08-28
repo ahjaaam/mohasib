@@ -84,6 +84,32 @@ Public cards do not use decorative shadows. Navy panels are reserved for a
 single strong narrative or CTA section; multicolor category treatments should
 use the standard gold tint unless the color communicates a real status.
 
+### Marketing system
+
+The homepage is the source of truth for Mohasib marketing pages. New public
+marketing routes should use the `--marketing-*` tokens and `marketing-*`
+primitives defined in `src/app/globals.css` instead of copying hardcoded values.
+
+Core palette: warm canvas `#FDFBF6`, soft surface `#FCFBFA`, muted section
+`#F3F0EE`, ink `#141413`, navy ink `#0D1526`, copper `#976224`, body copy
+`#626A77`, and dividers `#E4E1D9`.
+
+Reusable primitives:
+
+- `marketing-container`: centered `1180px` content boundary.
+- `marketing-eyebrow`: compact copper uppercase section label.
+- `marketing-display`: balanced, editorial marketing display heading.
+- `marketing-lede`: standard public-page introduction copy.
+- `marketing-action`: shared CTA geometry, motion, and focus treatment.
+- `marketing-action-primary` and `marketing-action-secondary`: gradient primary
+  and white outlined action variants.
+
+Marketing cards use thin dividers, no decorative outer shadow, and only the
+`6px` control or `8px` card radius tokens. Headings use restrained weight
+(`600`) and tight tracking. Copper is an accent for one phrase, eyebrow, icon,
+or interaction cue rather than a large background fill. All interactions keep
+the shared visible copper focus ring and `150ms` motion timing.
+
 ## Section tabs
 
 Page-level section and status selectors use the notification-page underline

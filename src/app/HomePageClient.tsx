@@ -48,12 +48,12 @@ export default function HomePageClient() {
           justify-content: center;
           overflow: hidden;
           padding: 52px 27px 96px;
-          background: #FDFBF6;
+          background: var(--marketing-canvas);
         }
         .home-hero-content {
           position: relative;
           z-index: 3;
-          width: min(100%, 1180px);
+          width: min(100%, var(--marketing-content-width));
           margin: 0 auto;
           text-align: center;
         }
@@ -70,7 +70,7 @@ export default function HomePageClient() {
         .home-hero-title {
           max-width: 760px;
           margin: 0 auto 24px;
-          color: #141413;
+          color: var(--marketing-ink);
           font-size: clamp(50px, 5.5vw, 76px);
           font-weight: 600;
           letter-spacing: -0.02em;
@@ -79,12 +79,12 @@ export default function HomePageClient() {
         }
         .home-hero-title span {
           display: block;
-          color: #976224;
+          color: var(--marketing-copper);
         }
         .home-hero-description {
           max-width: 650px;
           margin: 0 auto 30px;
-          color: #4B5563;
+          color: var(--marketing-copy-strong);
           font-family: ${FONT};
           font-size: 17px;
           line-height: 1.6;
@@ -121,11 +121,13 @@ export default function HomePageClient() {
           background: #141413;
           color: #F3F0EE;
         }
-        .home-hero .home-hero-button {
+        .home-hero .home-hero-button,
+        .home-closing-cta .home-hero-button {
           font-size: 16px;
           font-weight: 600;
         }
-        .home-hero .home-hero-button-primary {
+        .home-hero .home-hero-button-primary,
+        .home-closing-cta .home-hero-button-primary {
           border: 0;
           background: linear-gradient(135deg, #976224 0%, #0D1526 100%);
           color: #FFFFFF;
@@ -133,7 +135,8 @@ export default function HomePageClient() {
         .home-hero-button-primary:hover {
           background: #262627;
         }
-        .home-hero .home-hero-button-primary:hover {
+        .home-hero .home-hero-button-primary:hover,
+        .home-closing-cta .home-hero-button-primary:hover {
           background: linear-gradient(135deg, #7D4F1C 0%, #19274A 100%);
         }
         .home-hero-button-secondary {
@@ -162,8 +165,8 @@ export default function HomePageClient() {
         }
         .home-closing-cta {
           padding: 104px 24px 112px;
-          background: #F3F0EE;
-          color: #141413;
+          background: #FDFBF6;
+          color: var(--marketing-ink);
           text-align: center;
         }
         .home-closing-cta-inner {
@@ -552,7 +555,7 @@ export default function HomePageClient() {
 
               <div className="home-hero-actions">
                 <a className="home-hero-button home-hero-button-primary" href={appUrl("/inscription")}>
-                  Essayer gratuitement <ArrowRight size={16} aria-hidden="true" />
+                  Ouvrir votre compte <ArrowRight size={16} aria-hidden="true" />
                 </a>
                 <a className="home-hero-button home-hero-button-secondary" href="/centre-aide">
                   Demander une démo
@@ -574,8 +577,8 @@ export default function HomePageClient() {
 
       <WorkflowShowcase />
       <ToolConsolidationSection />
-      <CapabilitiesSection />
       <DocumentTransformationSection />
+      <CapabilitiesSection />
       <FAQSection />
 
       <section className="home-closing-cta" aria-labelledby="closing-cta-title">
@@ -584,7 +587,9 @@ export default function HomePageClient() {
             Le temps, c&apos;est de l&apos;argent. Économisez les deux.
           </h2>
           <div className="home-hero-actions">
-            <a className="home-hero-button home-hero-button-primary" href={appUrl("/inscription")}>Créer mon compte</a>
+            <a className="home-hero-button home-hero-button-primary" href={appUrl("/inscription")}>
+              Ouvrir votre compte <ArrowRight size={16} aria-hidden="true" />
+            </a>
             <a className="home-hero-button home-hero-button-secondary" href="/centre-aide">Nous contacter</a>
           </div>
         </div>

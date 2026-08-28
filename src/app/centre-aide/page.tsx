@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import { FaLinkedinIn, FaRegEnvelope, FaWhatsapp } from "react-icons/fa6";
 import PublicFooter from "@/components/PublicFooter";
 import PublicNavbar from "@/components/PublicNavbar";
 import { seoMetadata } from "@/lib/seo";
 import { whatsappUrl } from "@/lib/public-urls";
+import styles from "./CentreAidePage.module.css";
 
 export const metadata: Metadata = seoMetadata({
   title: "Centre d'aide | Mohasib AI",
@@ -14,96 +15,91 @@ export const metadata: Metadata = seoMetadata({
 
 const cards = [
   {
-    title: "Follow us on LinkedIn",
+    title: "Suivez-nous sur LinkedIn",
     description: "Suivez les nouveautés, annonces produit et conseils pratiques autour de Mohasib AI.",
     cta: "Suivre Mohasib AI",
     href: "https://www.linkedin.com/company/mohasibai/",
+    icon: FaLinkedinIn,
   },
   {
-    title: "Email us",
+    title: "Écrivez-nous par email",
     description: "Pour une question, un bug, une demande de démo ou un besoin d'accompagnement.",
     cta: "Envoyer un email",
     href: "mailto:a.ahjame@gmail.com",
+    icon: FaRegEnvelope,
   },
   {
-    title: "Live chat on WhatsApp",
+    title: "Discutez sur WhatsApp",
     description: "Échangez rapidement avec l'équipe Mohasib pour une question, une démo ou un besoin d'aide.",
     cta: "Ouvrir WhatsApp",
     href: whatsappUrl(),
+    icon: FaWhatsapp,
   },
 ];
 
 export default function CentreAidePage() {
   return (
-    <main className="public-site bg-white">
+    <div className={`public-site ${styles.page}`}>
       <PublicNavbar />
 
-      <section className="relative overflow-hidden bg-white">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-50"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(13,21,38,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(13,21,38,0.035) 1px, transparent 1px)",
-            backgroundSize: "72px 72px",
-            maskImage: "linear-gradient(to bottom, black, transparent 78%)",
-          }}
-        />
-
-        <div className="relative mx-auto max-w-[1120px] px-5 pb-14 pt-16 text-center sm:px-10 sm:pb-20 sm:pt-24 lg:pt-28">
-          <p className="public-eyebrow">Centre d&apos;aide · Mohasib AI</p>
-          <h1 className="mx-auto mt-5 max-w-[900px] text-[42px] font-extrabold leading-[0.98] tracking-[-0.045em] text-[#0D1526] sm:text-[58px] lg:text-[72px]">
-            Comment pouvons-nous vous aider ?
-          </h1>
-          <p className="mx-auto mt-6 max-w-[650px] text-[14px] leading-6 text-[#666B75] sm:text-[16px] sm:leading-7">
-            Retrouvez les moyens simples pour contacter Mohasib AI, suivre les nouveautés ou demander de l&apos;aide.
-          </p>
-        </div>
-      </section>
-
-      <section className="bg-white px-5 py-16 sm:px-10 sm:py-24">
-        <div className="mx-auto max-w-[1120px]">
-          <div className="mb-9 border-b border-[#D1D5DB] pb-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8B765A]">Nous contacter</p>
-            <h2 className="mt-2 text-[28px] font-bold tracking-[-0.025em] text-[#0D1526] sm:text-[36px]">
-              Choisissez le canal qui vous convient.
-            </h2>
+      <main>
+        <section className={styles.hero} aria-labelledby="help-title">
+          <div className={`marketing-container ${styles.heroInner}`}>
+            <p className="marketing-eyebrow">Centre d&apos;aide · Mohasib AI</p>
+            <h1 id="help-title" className={`marketing-display ${styles.title}`}>
+              Comment pouvons-nous
+              <span className={styles.titleAccent}>vous aider ?</span>
+            </h1>
+            <p className={`marketing-lede ${styles.lede}`}>
+              Une question, un besoin d&apos;accompagnement ou l&apos;envie de découvrir Mohasib ? Choisissez le canal qui vous convient.
+            </p>
           </div>
+        </section>
 
-          <div className="grid items-stretch gap-5 md:grid-cols-3">
-            {cards.map(({ title, description, cta, href }) => {
-              const content = (
-                <article className="flex h-full flex-col border border-[#9CA3AF] bg-white p-6 text-[#0D1526] sm:p-8">
-                  <h3 className="text-[26px] font-bold leading-[1.15] sm:text-[30px]">{title}</h3>
-                  <p className="mt-6 flex-1 text-[13.5px] leading-6 text-[#666B75]">{description}</p>
-                  <div className="mt-8 inline-flex min-h-12 w-fit items-center gap-8 bg-[#0D1526] px-5 text-[12.5px] font-bold text-white transition-colors group-hover:bg-[#253047]">
-                    {cta}
-                    <ArrowRight size={15} />
-                  </div>
-                </article>
-              );
+        <section className={styles.contactSection} aria-labelledby="contact-title">
+          <div className="marketing-container">
+            <div className={styles.sectionHeading}>
+              <div>
+                <p className="marketing-eyebrow">Nous contacter</p>
+                <h2 id="contact-title">Parlons de ce dont vous avez besoin.</h2>
+              </div>
+              <p className={styles.sectionIntro}>
+                Notre équipe vous répond pour le produit, une démonstration ou une question liée à votre utilisation de Mohasib.
+              </p>
+            </div>
 
-              const isExternal = href?.startsWith("http");
+            <div className={styles.cards}>
+              {cards.map(({ title, description, cta, href, icon: Icon }) => {
+                const isExternal = href.startsWith("http");
 
-              return href ? (
-                <Link
-                  key={title}
-                  href={href}
-                  className="group block h-full no-underline"
-                  target={isExternal ? "_blank" : undefined}
-                  rel={isExternal ? "noopener noreferrer" : undefined}
-                >
-                  {content}
-                </Link>
-              ) : (
-                <div key={title}>{content}</div>
-              );
-            })}
+                return (
+                  <a
+                    key={title}
+                    href={href}
+                    className={styles.cardLink}
+                    target={isExternal ? "_blank" : undefined}
+                    rel={isExternal ? "noopener noreferrer" : undefined}
+                  >
+                    <article className={styles.card}>
+                      <div className={styles.cardTop}>
+                        <span className={styles.iconTile} aria-hidden="true"><Icon size={24} /></span>
+                      </div>
+                      <h3>{title}</h3>
+                      <p>{description}</p>
+                      <span className={styles.cardAction}>
+                        {cta} <ArrowUpRight size={18} aria-hidden="true" />
+                      </span>
+                    </article>
+                  </a>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+      </main>
 
       <PublicFooter />
-    </main>
+    </div>
   );
 }

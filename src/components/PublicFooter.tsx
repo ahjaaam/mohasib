@@ -5,9 +5,9 @@ import {
   Facebook,
   Instagram,
   Linkedin,
-  MessageCircle,
   Phone,
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa6";
 
 import { appUrl, invoicingUrl, whatsappUrl } from "@/lib/public-urls";
 import styles from "./PublicFooter.module.css";
@@ -62,7 +62,7 @@ export default function PublicFooter() {
         <div className={styles.main}>
           <div className={styles.brand}>
             <Link href="/" className={styles.logoLink} aria-label="Mohasib — Accueil">
-              <Image src="/logo2.png" alt="Mohasib AI" width={154} height={31} className={styles.logo} />
+              <Image src="/logo.png" alt="Mohasib AI" width={154} height={26} className={styles.logo} />
             </Link>
             <p className={styles.tagline}>
               La plateforme de gestion et de comptabilité pensée pour les
@@ -74,7 +74,7 @@ export default function PublicFooter() {
                 <span>06 70 10 19 52</span>
               </a>
               <a href={whatsappUrl()} target="_blank" rel="noopener noreferrer" className={styles.contactLink}>
-                <MessageCircle size={15} aria-hidden="true" />
+                <FaWhatsapp size={15} aria-hidden="true" />
                 <span>WhatsApp</span>
               </a>
             </div>

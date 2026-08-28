@@ -2,9 +2,9 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border-top: 1px solid #e8e7e3;
-  background: #fff;
-  color: #0d1526;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1f1f1f;
+  color: #fff;
   font-family: var(--font-jakarta), sans-serif;
 }
 
@@ -55,7 +55,7 @@
 .tagline {
   max-width: 350px;
   margin: 25px 0 0;
-  color: #656d79;
+  color: rgba(255, 255, 255, 0.66);
   font-size: 14px;
   line-height: 1.7;
 }
@@ -71,7 +71,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #0d1526;
+  color: rgba(255, 255, 255, 0.88);
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
@@ -95,7 +95,7 @@
 
 .group h2 {
   margin: 0 0 20px;
-  color: #0d1526;
+  color: #fff;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -114,7 +114,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: #656d79;
+  color: rgba(255, 255, 255, 0.66);
   font-size: 13px;
   line-height: 1.5;
   text-decoration: none;
@@ -132,7 +132,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  border-top: 1px solid #e8e7e3;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .legal {
@@ -140,7 +140,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 24px;
-  color: #808691;
+  color: rgba(255, 255, 255, 0.54);
   font-size: 11px;
 }
 
@@ -152,7 +152,7 @@
 
 .legal a:hover,
 .legal a:focus-visible {
-  color: #0d1526;
+  color: #fff;
 }
 
 .socials {
@@ -166,9 +166,9 @@
   height: 34px;
   align-items: center;
   justify-content: center;
-  border: 1px solid #deddd7;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px !important;
-  color: #777e8b;
+  color: rgba(255, 255, 255, 0.72);
   text-decoration: none;
   transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
 }

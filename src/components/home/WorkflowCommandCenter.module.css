@@ -185,7 +185,7 @@
 }
 
 .stageOutline polygon {
-  fill: none;
+  fill: #fff;
   stroke: #ddc9a9;
   stroke-linejoin: round;
   stroke-width: 1;
@@ -221,7 +221,7 @@
   border: 0;
   background: transparent;
   box-shadow: none;
-  color: #fff;
+  color: #0d1526;
 }
 
 .icon svg {
@@ -232,7 +232,7 @@
 
 .stage h3 {
   margin: 10px 0 7px;
-  color: #fff;
+  color: #0d1526;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -240,7 +240,7 @@
 
 .stage p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(13, 21, 38, 0.72);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -409,7 +409,7 @@
     padding: 14px 18px;
     border: 1px solid rgba(221, 201, 169, 0.78);
     border-radius: 8px;
-    background: rgba(8, 14, 28, 0.16);
+    background: #fff;
     grid-template-columns: 48px minmax(0, 1fr);
     column-gap: 14px;
   }
