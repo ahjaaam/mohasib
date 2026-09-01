@@ -19,6 +19,7 @@ export type PricingResult = {
   payroll: number;
   monthlyTotal: number;
   annualTotal: number;
+  annualSavings: number;
   includedOcr: number;
   includedAccountingUsers: number;
   includedConnectedClientUsers: number;
@@ -39,6 +40,7 @@ export const PRICING_RULES = {
   includedAiSpaces: 5,
   ocrPerBlock: 100,
   ocrBlockPrice: 75,
+  annualDiscountRate: 0.1,
 } as const;
 
 export const DEFAULT_PRICING_CONFIGURATION: PricingConfiguration = {
@@ -80,7 +82,7 @@ export function normalizePricingConfiguration(input: unknown): PricingConfigurat
     audience: value.audience,
     workspaces: Math.max(1, quantity(value.workspaces, defaults.workspaces)),
     managedDossiers: quantity(value.managedDossiers, defaults.managedDossiers),
-    accountingUsers: quantity(value.accountingUsers, defaults.accountingUsers),
+    accountingUsers: Math.max(1, quantity(value.accountingUsers, defaults.accountingUsers)),
     connectedClientUsers: quantity(value.connectedClientUsers, defaults.connectedClientUsers),
     ocrDocuments: quantity(value.ocrDocuments, defaults.ocrDocuments),
     payrollEmployees: quantity(value.payrollEmployees, defaults.payrollEmployees),
@@ -119,6 +121,8 @@ export function calculatePricing(configuration: PricingConfiguration): PricingRe
   const billablePayrollEmployees = Math.max(0, payrollEmployees - PRICING_RULES.includedPayrollEmployees);
   const payroll = billablePayrollEmployees * PRICING_RULES.additionalPayrollEmployee;
   const monthlyTotal = base + additionalDossiers + users + ocr + payroll;
+  const annualBeforeDiscount = monthlyTotal * 12;
+  const annualSavings = Math.round(annualBeforeDiscount * PRICING_RULES.annualDiscountRate);
 
   return {
     base,
@@ -127,7 +131,8 @@ export function calculatePricing(configuration: PricingConfiguration): PricingRe
     ocr,
     payroll,
     monthlyTotal,
-    annualTotal: monthlyTotal * 12,
+    annualTotal: annualBeforeDiscount - annualSavings,
+    annualSavings,
     includedOcr,
     includedAccountingUsers,
     includedConnectedClientUsers,

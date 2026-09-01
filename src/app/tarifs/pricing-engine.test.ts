@@ -9,7 +9,24 @@ import {
 
 describe("tarifs pricing simulator", () => {
   it("prices the default Entreprise offer", () => {
-    expect(calculatePricing(DEFAULT_PRICING_CONFIGURATION).monthlyTotal).toBe(299);
+    const result = calculatePricing(DEFAULT_PRICING_CONFIGURATION);
+
+    expect(result.monthlyTotal).toBe(299);
+    expect(result.annualSavings).toBe(359);
+    expect(result.annualTotal).toBe(3229);
+  });
+
+  it("rounds the ten-percent annual discount to the nearest dirham", () => {
+    const result = calculatePricing({
+      ...DEFAULT_PRICING_CONFIGURATION,
+      accountingUsers: 3,
+      ocrDocuments: 500,
+      payrollEmployees: 200,
+    });
+
+    expect(result.monthlyTotal).toBe(2057);
+    expect(result.annualSavings).toBe(2468);
+    expect(result.annualTotal).toBe(22216);
   });
 
   it("uses the revised agriculture example", () => {
@@ -67,9 +84,10 @@ describe("tarifs pricing simulator", () => {
     expect(normalizePricingConfiguration({
       ...DEFAULT_PRICING_CONFIGURATION,
       workspaces: "2",
+      accountingUsers: 0,
       payrollEmployees: 21.9,
       aiSpaces: 12,
-    })).toMatchObject({ workspaces: 2, payrollEmployees: 21, aiSpaces: 5 });
+    })).toMatchObject({ workspaces: 2, accountingUsers: 1, payrollEmployees: 21, aiSpaces: 5 });
   });
 
   it("turns a Cabinet quote into account limits", () => {

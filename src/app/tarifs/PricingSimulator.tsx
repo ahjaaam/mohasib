@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { RotateCcw } from "lucide-react";
 import {
   calculatePricing,
+  DEFAULT_CABINET_PRICING_CONFIGURATION,
   DEFAULT_PRICING_CONFIGURATION,
   PRICING_RULES,
   type PricingAudience,
@@ -13,6 +15,11 @@ import styles from "./PricingSimulator.module.css";
 const audienceLabels: Record<PricingAudience, string> = {
   entreprise: "Entreprise",
   cabinet: "Cabinet",
+};
+
+const defaultConfigurations: Record<PricingAudience, PricingConfiguration> = {
+  entreprise: DEFAULT_PRICING_CONFIGURATION,
+  cabinet: DEFAULT_CABINET_PRICING_CONFIGURATION,
 };
 
 function formatMoney(value: number) {
@@ -38,42 +45,53 @@ function QuantityField({
   step?: number;
   onChange: (value: number) => void;
 }) {
+  const hintId = `${id}-hint`;
+
   return (
     <div className={styles.field}>
       <label htmlFor={id}>{label}</label>
       <input
         id={id}
+        name={id}
         type="number"
         inputMode="numeric"
         min={min}
         max={max}
         step={step}
         value={value}
+        autoComplete="off"
+        aria-describedby={hintId}
         onChange={(event) => {
           const next = Number(event.target.value);
           const bounded = Number.isFinite(next) ? Math.max(min, next) : min;
           onChange(max === undefined ? bounded : Math.min(max, bounded));
         }}
       />
-      <small>{hint}</small>
+      <small id={hintId}>{hint}</small>
     </div>
   );
 }
 
 export default function PricingSimulator() {
-  const [configuration, setConfiguration] = useState<PricingConfiguration>(DEFAULT_PRICING_CONFIGURATION);
+  const [audience, setAudience] = useState<PricingAudience>("entreprise");
+  const [configurations, setConfigurations] = useState<Record<PricingAudience, PricingConfiguration>>(() => ({
+    entreprise: { ...DEFAULT_PRICING_CONFIGURATION },
+    cabinet: { ...DEFAULT_CABINET_PRICING_CONFIGURATION },
+  }));
+  const configuration = configurations[audience];
   const result = useMemo(() => calculatePricing(configuration), [configuration]);
 
   const update = <Key extends keyof PricingConfiguration>(key: Key, value: PricingConfiguration[Key]) => {
-    setConfiguration((current) => ({ ...current, [key]: value }));
+    setConfigurations((current) => ({
+      ...current,
+      [audience]: { ...current[audience], [key]: value },
+    }));
   };
 
-  const selectAudience = (audience: PricingAudience) => {
-    setConfiguration((current) => ({
+  const resetConfiguration = () => {
+    setConfigurations((current) => ({
       ...current,
-      audience,
-      accountingUsers: audience === "cabinet" ? Math.max(2, current.accountingUsers) : Math.max(1, current.accountingUsers),
-      managedDossiers: audience === "cabinet" ? Math.max(10, current.managedDossiers) : current.managedDossiers,
+      [audience]: { ...defaultConfigurations[audience] },
     }));
   };
 
@@ -87,20 +105,26 @@ export default function PricingSimulator() {
 
   return (
     <div className={styles.simulator}>
-      <div className={styles.tabs} role="group" aria-label="Type d’offre">
-        {(["entreprise", "cabinet"] as const).map((audience) => (
-          <button
-            key={audience}
-            type="button"
-            aria-pressed={configuration.audience === audience}
-            className={`${styles.tab} ${configuration.audience === audience ? styles.tabActive : ""}`}
-            onClick={() => selectAudience(audience)}
-          >
-            {audienceLabels[audience]}
-            <small>{audience === "entreprise" ? "299 DH par espace" : "899 DH avec 10 dossiers"}</small>
-          </button>
-        ))}
-      </div>
+      <section className={styles.offerPicker} aria-labelledby="pricing-profile-title">
+        <div className={styles.pickerCopy}>
+          <p>Votre structure</p>
+          <h2 id="pricing-profile-title">Choisissez votre profil</h2>
+        </div>
+        <div className={styles.tabs} role="group" aria-label="Type d’offre">
+          {(["entreprise", "cabinet"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={audience === option}
+              className={`${styles.tab} ${audience === option ? styles.tabActive : ""}`}
+              onClick={() => setAudience(option)}
+            >
+              {audienceLabels[option]}
+              <small>{option === "entreprise" ? "À partir de 299 DH / mois" : "À partir de 899 DH / mois"}</small>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <div className={styles.body}>
         <section className={styles.form}>
@@ -109,7 +133,8 @@ export default function PricingSimulator() {
               <h2>Configuration</h2>
               <p>Modifiez uniquement les éléments utiles au calcul.</p>
             </div>
-            <button type="button" className={styles.reset} onClick={() => setConfiguration(DEFAULT_PRICING_CONFIGURATION)}>
+            <button type="button" className={styles.reset} onClick={resetConfiguration}>
+              <RotateCcw size={14} aria-hidden="true" />
               Réinitialiser
             </button>
           </div>
@@ -150,6 +175,7 @@ export default function PricingSimulator() {
                 ? "2 collaborateurs inclus, puis 99 DH par collaborateur supplémentaire."
                 : "1 utilisateur inclus par espace, puis 99 DH par utilisateur supplémentaire."}
               value={configuration.accountingUsers}
+              min={1}
               onChange={(value) => update("accountingUsers", value)}
             />
             <QuantityField
@@ -178,13 +204,14 @@ export default function PricingSimulator() {
           </div>
         </section>
 
-        <aside className={styles.summary} aria-live="polite">
+        <aside className={styles.summary}>
+          <p className={styles.summaryEyebrow}>Votre estimation</p>
           <h2>{audienceLabels[configuration.audience]}</h2>
           <p className={styles.summaryIntro}>Estimation mensuelle TTC</p>
 
-          <div className={styles.price}>
+          <div className={styles.price} aria-live="polite" aria-atomic="true">
             <span>Prix final</span>
-            <strong>{formatMoney(result.monthlyTotal)} DH</strong>
+            <output>{formatMoney(result.monthlyTotal)}&nbsp;DH</output>
             <small>par mois, TTC</small>
             <p className={styles.free}>Mise en place gratuite</p>
           </div>
@@ -199,7 +226,7 @@ export default function PricingSimulator() {
           </dl>
 
           <p className={styles.annual}>
-            <span>Total sur 12 mois</span>
+            <span>Paiement annuel <small>−10 %</small></span>
             <strong>{formatMoney(result.annualTotal)} DH</strong>
           </p>
 

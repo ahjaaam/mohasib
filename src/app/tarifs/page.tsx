@@ -11,10 +11,12 @@ export default function TarifsPage() {
       <main>
         <section className={styles.hero}>
           <div className={styles.heroInner}>
-            <p className="marketing-eyebrow">Tarification Mohasib AI</p>
-            <h1>Calculez le prix adapté à votre activité.</h1>
+            <h1>
+              Calculez le tarif adapté à
+              <span>votre activité.</span>
+            </h1>
             <p className={styles.lede}>
-              Sélectionnez votre formule et vos volumes. Votre estimation mensuelle se met à jour instantanément.
+              Choisissez votre profil, ajustez vos volumes et obtenez instantanément votre estimation mensuelle TTC.
             </p>
           </div>
         </section>

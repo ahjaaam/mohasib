@@ -156,7 +156,7 @@ export default function AdminPricingConfigurator({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[10px] text-gray-500">Annuel : <b className="text-[#0D1526]">{money(result.annualTotal)} DH</b> · Mise en place, stockage et jusqu’à 5 espaces IA inclus.</p>
+        <p className="text-[10px] text-gray-500">Annuel avec 10 % de remise : <b className="text-[#0D1526]">{money(result.annualTotal)} DH</b> · Mise en place, stockage et jusqu’à 5 espaces IA inclus.</p>
         <button type="button" disabled={busy} onClick={() => void save()} className="rounded bg-[#0D1526] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">
           {busy ? "Enregistrement…" : "Enregistrer ce tarif"}
         </button>

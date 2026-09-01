@@ -1,84 +1,50 @@
 .page {
   min-height: 100vh;
-  background: #fdfbf6;
+  background: var(--marketing-canvas);
+  font-family: var(--font-jakarta), sans-serif;
 }
 
 .hero {
-  position: relative;
-  overflow: hidden;
-  border-bottom: 1px solid #e4e1d9;
-  background:
-    radial-gradient(circle at 88% 18%, rgba(151, 98, 36, 0.1), transparent 24%),
-    #fdfbf6;
-}
-
-.hero::after {
-  position: absolute;
-  right: -110px;
-  bottom: -180px;
-  width: 380px;
-  height: 380px;
-  border: 1px solid rgba(151, 98, 36, 0.13);
-  border-radius: 50%;
-  content: "";
-  pointer-events: none;
+  background: var(--marketing-canvas);
 }
 
 .heroInner {
-  position: relative;
-  z-index: 1;
-  width: min(1180px, calc(100% - 48px));
+  width: min(100% - 48px, 980px);
   margin: 0 auto;
-  padding: 74px 0 70px;
+  padding: 68px 0 46px;
+  text-align: center;
 }
 
 .heroInner h1 {
-  max-width: 760px;
-  margin: 17px 0 0;
-  color: #0d1526;
-  font-family: var(--font-inter), sans-serif;
-  font-size: clamp(38px, 5vw, 64px);
-  font-weight: 650;
+  margin: 0 auto;
+  color: var(--marketing-ink);
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: clamp(44px, 6vw, 72px);
+  font-weight: 600;
   letter-spacing: -0.045em;
-  line-height: 1.02;
+  line-height: 0.98;
   text-wrap: balance;
 }
 
+.heroInner h1 span { display: block; color: var(--marketing-copper); }
+
 .lede {
-  max-width: 620px;
-  margin: 22px 0 0;
-  color: #626a77;
-  font-size: 15px;
-  line-height: 1.75;
+  max-width: 680px;
+  margin: 24px auto 0;
+  color: var(--marketing-copy-strong);
+  font-size: 17px;
+  line-height: 1.65;
+  text-wrap: pretty;
 }
 
-.calculatorSection {
-  background: #f6f3ed;
-  padding: 72px 0 88px;
-}
-
-.shell {
-  width: min(1180px, calc(100% - 48px));
-  margin: 0 auto;
-  color: #0d1526;
-  font: 14px/1.45 var(--font-jakarta), sans-serif;
-}
+.calculatorSection { padding: 0 0 104px; background: var(--marketing-canvas); }
+.shell { width: min(100% - 48px, var(--marketing-content-width)); margin: 0 auto; }
 
 @media (max-width: 650px) {
   .heroInner,
-  .shell {
-    width: min(100% - 36px, 1180px);
-  }
-
-  .heroInner {
-    padding: 54px 0 52px;
-  }
-
-  .heroInner h1 {
-    font-size: 38px;
-  }
-
-  .calculatorSection {
-    padding: 42px 0 58px;
-  }
+  .shell { width: min(100% - 36px, var(--marketing-content-width)); }
+  .heroInner { padding: 48px 0 34px; }
+  .heroInner h1 { font-size: clamp(40px, 12vw, 54px); }
+  .lede { margin-top: 20px; font-size: 15px; }
+  .calculatorSection { padding: 0 0 72px; }
 }
