@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import AdminPricingConfigurator from "@/components/admin/AdminPricingConfigurator";
 
 async function post(endpoint: string, body: Record<string, unknown>) {
   const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -61,6 +62,11 @@ export function AccountControls({
         <button disabled={busy} className="rounded border border-black/15 px-3 py-2 text-xs font-bold sm:col-span-2 xl:col-span-6">Mettre à jour l’identité</button>
       </form>
     </section>
+    <AdminPricingConfigurator
+      companyId={company.id}
+      companyType={company.user_type}
+      initialConfiguration={company.pricing_configuration}
+    />
     <section className="rounded-md border border-[#C8924A]/30 bg-white p-4 shadow-sm">
       <div>
         <h2 className="text-sm font-bold">Droits et limites du compte</h2>
@@ -100,10 +106,13 @@ export function AccountControls({
     </section>
     <section className="rounded-md border border-black/10 bg-white p-4">
       <h2 className="text-sm font-bold">Abonnement et accès</h2>
-      <p className="mt-1 text-[11px] text-gray-500">Le statut active ou bloque les droits configurés ci-dessus, sans sélectionner de package.</p>
+      <p className="mt-1 text-[11px] text-gray-500">Le montant de l’abonnement est repris automatiquement depuis la configuration tarifaire enregistrée.</p>
       <form className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-6" onSubmit={event => {
         event.preventDefault();
-        void run(`/api/admin/accounts/${company.id}/access`, Object.fromEntries(new FormData(event.currentTarget)));
+        const body: Record<string, unknown> = Object.fromEntries(new FormData(event.currentTarget));
+        const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+        if (submitter?.value === "restart") body.restart = true;
+        void run(`/api/admin/accounts/${company.id}/access`, body);
       }}>
         <select name="status" defaultValue={company.subscription_status ?? "trial"} className="input text-xs">
           <option value="free">Mohasib Gratuit</option>
@@ -114,10 +123,13 @@ export function AccountControls({
         </select>
         <input name="ends_at" type="date" defaultValue={company.subscription_ends_at ?? company.trial_ends_at?.slice(0, 10) ?? ""} className="input text-xs" />
         <select name="billing_period" className="input text-xs"><option value="monthly">Mensuel</option><option value="annual">Annuel</option></select>
-        <input name="amount_mad" type="number" min="0" step="0.01" placeholder="Montant MAD" className="input text-xs" />
+        <div className="input flex items-center bg-[#FAFAF6] text-xs font-bold text-[#0D1526]">{Number(company.quoted_monthly_mad ?? 0).toLocaleString("fr-MA")} DH / mois</div>
         <select name="payment_method" className="input text-xs"><option value="">Mode de paiement</option><option value="virement">Virement</option><option value="cmi">CMI</option><option value="especes">Espèces</option><option value="gratuit">Gratuit</option></select>
         <input name="payment_reference" placeholder="Référence paiement" className="input text-xs" />
-        <button disabled={busy} className="rounded bg-[#0D1526] px-3 py-2 text-xs font-bold text-white sm:col-span-3 xl:col-span-6">Mettre à jour l’accès</button>
+        <button disabled={busy} className="rounded border border-black/15 px-3 py-2 text-xs font-bold sm:col-span-3 xl:col-span-3">Mettre à jour l’accès</button>
+        <button name="access_action" value="restart" disabled={busy} className="rounded bg-[#0D1526] px-3 py-2 text-xs font-bold text-white sm:col-span-3 xl:col-span-3">
+          {company.subscription_status === "active" ? "Renouveler l’abonnement" : "Redémarrer l’abonnement"}
+        </button>
       </form>
     </section>
     <section className="rounded-md border border-black/10 bg-white p-4">

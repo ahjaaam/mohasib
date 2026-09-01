@@ -343,7 +343,7 @@ export default function InvoiceActions({
 
         {status === "draft" && (
           <>
-            <Link href={`/invoices/${invoiceId}/edit`} className="btn btn-outline justify-center w-full">
+            <Link href={`/factures/${invoiceId}/modifier`} className="btn btn-outline justify-center w-full">
               <Pencil size={13} /> Modifier la facture
             </Link>
             <button

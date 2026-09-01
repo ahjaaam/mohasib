@@ -188,7 +188,7 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
           <div className="tbl">
             <div className="tbl-header">
               <span className="tbl-title">Factures récentes</span>
-              <Link href={`${base}/invoices`} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+              <Link href={`${base}/factures`} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
                 <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
               </Link>
             </div>

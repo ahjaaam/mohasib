@@ -210,6 +210,7 @@ export async function POST(request: Request) {
         file_name: originalName,
         mime_type: mime,
         status: "pending",
+        document_area: "purchase",
         email_message_id: dedupeId,
         ocr_data: ocrData,
       });

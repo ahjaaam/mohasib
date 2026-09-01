@@ -25,7 +25,10 @@ export default function GlobalPeriodSelector({ onOpen, align = "right" }: { onOp
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setCustomOpen(false);
+      }
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -55,6 +58,7 @@ export default function GlobalPeriodSelector({ onOpen, align = "right" }: { onOp
         type="button"
         onClick={() => {
           if (!open) onOpen?.();
+          if (open) setCustomOpen(false);
           setOpen((value) => !value);
         }}
         className={`app-topbar-period flex h-10 items-center gap-2 border px-2.5 text-[12px] font-semibold transition-colors sm:px-3 ${

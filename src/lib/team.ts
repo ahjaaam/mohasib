@@ -92,7 +92,7 @@ export async function resolveClientPortalRedirect(userId: string): Promise<strin
   if (membership?.role_name !== "client_portal") return null;
   const dossierId = membership.dossier_id ?? membership.dossier_scope?.[0];
   if (!dossierId) return null;
-  return `/comptable-pro/dossiers/${dossierId}/dashboard`;
+  return `/comptable-pro/dossiers/${dossierId}/tableau-de-bord`;
 }
 
 export async function getUserAccessProfile(userId: string) {

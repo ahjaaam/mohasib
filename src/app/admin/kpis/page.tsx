@@ -5,6 +5,7 @@ import { AdminDateRangeFilter } from "@/components/admin/AdminDateRangeFilter";
 import { adminContext, formatDate, formatMoney } from "@/lib/admin-data";
 import { adminDateRange, inAdminDateRange } from "@/lib/admin-date-range";
 import { TRIAL_LIMITS, TRIAL_FEATURE_LABELS, TRIAL_USAGE_COLUMNS, type TrialFeature } from "@/lib/trial-limits";
+import { pricingPlanLabel } from "@/lib/pricing";
 
 type CompanyRow = {
   id: string;
@@ -300,7 +301,7 @@ export default async function AdminKpisPage({ searchParams }: { searchParams: Pr
               <div className="rounded-md bg-[#F8F8F5] p-3"><div className="text-[10px] text-gray-500">Comptables Pro</div><div className="mt-1 text-lg font-bold">{comptables}</div></div>
             </div>
             <div className="space-y-2">
-              {planRows.map(([plan, count]) => <Bar key={plan} label={plan} value={count} max={totalAccounts} />)}
+              {planRows.map(([plan, count]) => <Bar key={plan} label={pricingPlanLabel(plan)} value={count} max={totalAccounts} />)}
             </div>
           </div>
         </Section>

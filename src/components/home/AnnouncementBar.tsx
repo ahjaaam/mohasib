@@ -10,10 +10,10 @@ export default function AnnouncementBar() {
   if (!visible) return null;
 
   return (
-    <aside className={styles.bar} aria-label="Facturation gratuite Mohasib">
+    <aside className={styles.bar} aria-label="Annonce sur la facturation gratuite Mohasib">
       <div className={styles.inner}>
         <p className={styles.message}>
-          Créez et envoyez vos factures professionnelles gratuitement
+          Créez, envoyez et suivez vos factures gratuitement avec Mohasib
         </p>
 
       </div>

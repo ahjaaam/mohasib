@@ -94,7 +94,7 @@ export default function AppTopBar({
   userEmail,
   userId,
   avatarUrl,
-  settingsHref = "/settings",
+  settingsHref = "/parametres",
   dossierId,
   invoicingOnly = false,
   showBrand = false,
@@ -235,7 +235,7 @@ export default function AppTopBar({
       <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
         {showBrand && (
           <Link
-            href="/dashboard"
+            href="/tableau-de-bord"
             className={`flex-shrink-0 items-center ${
               guestMode
                 ? "flex w-[120px]"
@@ -376,7 +376,7 @@ export default function AppTopBar({
           <Search
             size={16}
             strokeWidth={1.8}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A909B]"
+            className="app-topbar-search-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A909B]"
           />
           <input
             ref={inputRef}

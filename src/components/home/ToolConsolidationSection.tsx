@@ -18,15 +18,15 @@ export default function ToolConsolidationSection() {
     <section className={styles.section} aria-labelledby="tool-consolidation-title">
       <div className={styles.inner}>
         <div className={styles.copy}>
-          <p className={styles.eyebrow}>Une seule plateforme</p>
-          <h2 id="tool-consolidation-title">Fatigué de jongler avec trop d’outils&nbsp;?</h2>
+          <p className={styles.eyebrow}>Vos informations enfin réunies</p>
+          <h2 id="tool-consolidation-title">Un seul espace pour suivre tout le flux.</h2>
           <p className={styles.lead}>
-            Vos factures arrivent par e-mail et WhatsApp. Vos suivis vivent dans
-            Excel. Vos pièces sont dispersées entre Drive, Word et vos dossiers.
+            Les factures arrivent par e-mail ou WhatsApp. Les suivis restent dans
+            Excel. Les pièces se dispersent entre Drive et les dossiers partagés.
           </p>
           <p className={styles.answer}>
-            Mohasib rassemble ces flux, comprend vos documents et transforme
-            l’information dispersée en tâches comptables prêtes à contrôler.
+            Mohasib rassemble ces informations et les transforme en opérations
+            structurées, avec les documents et le contexte nécessaires pour les contrôler.
           </p>
 
         </div>

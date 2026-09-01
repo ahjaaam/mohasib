@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   const title = `${document.title} gratuit | Mohasib AI`;
-  const description = document.description || `Téléchargez gratuitement ${document.title}, un modèle utile pour les entrepreneurs et professionnels au Maroc.`;
+  const description = document.description || `Téléchargez ${document.title}, un modèle prêt à adapter pour les professionnels au Maroc.`;
 
   return {
     title,
@@ -88,7 +88,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
         <div className="mx-auto max-w-5xl">
           <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
             <div>
-              <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#B58A52]">Modèle gratuit</p>
+              <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#B58A52]">Document à télécharger</p>
               <h1 className="mt-4 text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">{document.title}</h1>
               {isPortableText(document.descriptionRich) ? (
                 <div className="mt-5 max-w-2xl space-y-4 text-[15px] leading-7 text-[#6B7280]">
@@ -151,9 +151,9 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
       <section className="px-6 py-12">
         <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
           {[
-            ["Format pratique", "Un document prêt à adapter selon votre situation."],
-            ["Pensé pour le Maroc", "Conçu pour les besoins fréquents des entrepreneurs, financiers et professionnels marocains."],
-            ["Accès immédiat", "Recevez le lien après avoir saisi votre email."],
+            ["Prêt à adapter", "Personnalisez le document selon votre activité et votre situation."],
+            ["Adapté au contexte marocain", "Répondez aux besoins courants des dirigeants, financiers et comptables au Maroc."],
+            ["Accès par e-mail", "Saisissez votre adresse pour ouvrir le document et conserver son lien."],
           ].map(([title, description]) => (
             <div key={title} className="public-surface p-6">
               <div className="public-icon-tile h-11 w-11">

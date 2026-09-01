@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { logAdminAudit, requireAdminApi } from "@/lib/admin-api";
+import { calculatePricing, normalizePricingConfiguration } from "@/lib/pricing";
+import { nextSubscriptionEnd } from "@/lib/subscription-dates";
 
 const STATUSES = ["free", "trial", "active", "grace", "expired"] as const;
 
@@ -22,47 +24,52 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: company } = await admin!.from("companies").select("*").eq("id", id).maybeSingle();
   if (!company) return NextResponse.json({ message: "Compte introuvable" }, { status: 404 });
 
-  const endDate = body.ends_at || null;
+  const restarting = body.restart === true;
+  const status = restarting ? "active" : body.status;
+  const endDate = restarting ? nextSubscriptionEnd(body.billing_period) : body.ends_at || null;
   if (endDate && !validIsoDate(endDate)) {
     return NextResponse.json({ message: "Date de fin invalide" }, { status: 400 });
   }
-  if (body.status === "active" && !endDate) {
+  if (status === "active" && !endDate) {
     return NextResponse.json({ message: "La date de fin est obligatoire pour un accès actif" }, { status: 400 });
   }
-  const amountMad = Number(body.amount_mad ?? 0);
-  if (!Number.isFinite(amountMad) || amountMad < 0) {
-    return NextResponse.json({ message: "Le montant doit être un nombre positif ou nul" }, { status: 400 });
+  const today = new Date().toISOString().slice(0, 10);
+  if (status === "active" && endDate! < today) {
+    return NextResponse.json({ message: "La date de fin d’un accès actif ne peut pas être passée" }, { status: 400 });
   }
+  const pricingConfiguration = normalizePricingConfiguration(company.pricing_configuration);
+  if (status === "active" && !pricingConfiguration) {
+    return NextResponse.json({ message: "Enregistrez d’abord la configuration tarifaire du compte." }, { status: 400 });
+  }
+  const pricing = pricingConfiguration ? calculatePricing(pricingConfiguration) : null;
+  const billingPeriod = body.billing_period === "annual" ? "annual" : "monthly";
+  const amountMad = status === "active" && pricing
+    ? billingPeriod === "annual" ? pricing.annualTotal : pricing.monthlyTotal
+    : 0;
+  const paidPlan = pricingConfiguration?.audience ?? "custom";
   const updateValues = {
-    plan: body.status === "free" ? "free" : body.status === "trial" ? "trial" : "custom",
-    subscription_status: body.status,
-    subscription_ends_at: body.status === "free" ? null : body.status === "trial" ? company.subscription_ends_at : endDate,
-    trial_ends_at: body.status === "free" ? null : body.status === "trial" && endDate ? `${endDate}T23:59:59.999Z` : company.trial_ends_at,
+    plan: status === "free" ? "free" : status === "trial" ? "trial" : paidPlan,
+    subscription_status: status,
+    subscription_ends_at: status === "free" ? null : status === "trial" ? company.subscription_ends_at : endDate,
+    trial_ends_at: status === "free" ? null : status === "trial" && endDate ? `${endDate}T23:59:59.999Z` : company.trial_ends_at,
     scheduled_plan: null,
     scheduled_plan_date: null,
   };
-  const update = await admin!.from("companies").update(updateValues).eq("id", id);
-  if (update.error) return NextResponse.json({ message: update.error.message }, { status: 400 });
-
-  if (body.status === "active" && endDate) {
-    await admin!.from("subscriptions").update({ status: "cancelled" }).eq("company_id", id).eq("status", "active");
-    const startsAt = new Date().toISOString().slice(0, 10);
-    const inserted = await admin!.from("subscriptions").insert({
-      company_id: id,
-      plan: "custom",
-      previous_plan: company.plan,
-      change_type: company.subscription_status === "active" ? "renewal" : "activation",
-      billing_period: body.billing_period === "annual" ? "annual" : "monthly",
-      amount_mad: amountMad,
-      payment_method: body.payment_method || null,
-      payment_reference: body.payment_reference || null,
-      starts_at: startsAt,
-      ends_at: endDate,
-      status: "active",
-      created_by_email: user!.email,
-    });
-    if (inserted.error) return NextResponse.json({ message: inserted.error.message }, { status: 400 });
-  }
+  const transition = await admin!.rpc("admin_set_company_access_priced", {
+    p_company_id: id,
+    p_status: status,
+    p_end_date: endDate,
+    p_billing_period: billingPeriod,
+    p_amount_mad: amountMad,
+    p_payment_method: body.payment_method || null,
+    p_payment_reference: body.payment_reference || null,
+    p_created_by_email: user!.email,
+    p_restart: restarting,
+    p_plan: paidPlan,
+    p_pricing_configuration: pricingConfiguration,
+    p_quoted_monthly_mad: pricing?.monthlyTotal ?? null,
+  });
+  if (transition.error) return NextResponse.json({ message: transition.error.message }, { status: 400 });
 
   await logAdminAudit({
     adminEmail: user!.email!,
@@ -74,5 +81,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     oldValues: { plan: company.plan, subscription_status: company.subscription_status, subscription_ends_at: company.subscription_ends_at },
     newValues: updateValues,
   });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, status, endsAt: endDate, amountMad, pricing });
 }

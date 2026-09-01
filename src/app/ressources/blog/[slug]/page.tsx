@@ -16,9 +16,9 @@ const categoryLabels: Record<string, string> = {
   tva: "TVA",
   is: "IS",
   paie: "Paie",
-  tresorerie: "Tresorerie",
-  creation: "Creation",
-  comptabilite: "Comptabilite",
+  tresorerie: "Trésorerie",
+  creation: "Création",
+  comptabilite: "Comptabilité",
 };
 
 const portableTextComponents: PortableTextComponents = {
@@ -152,7 +152,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           </span>
           <h1 className="mt-5 font-serif text-[38px] leading-tight text-[#0D1526] md:text-[52px]">{post.title}</h1>
           <p className="mt-4 text-[13px] text-[#6B7280]">
-            {formatDate(post.publishedAt)} · {formatReadTime(post.readTime)} · Equipe Mohasib
+            {formatDate(post.publishedAt)} · {formatReadTime(post.readTime)} · Équipe Mohasib
           </p>
           <DocumentShareButtons title={post.title} url={articleUrl} description="article Mohasib AI" />
         </div>
@@ -168,15 +168,15 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         </div>
 
         <div className="mt-12 rounded-2xl bg-[#0D1526] p-7 text-white">
-          <h2 className="text-[22px] font-bold">Mohasib calcule votre TVA automatiquement</h2>
+          <h2 className="text-[22px] font-bold">Transformez vos documents en opérations prêtes à contrôler</h2>
           <p className="mt-3 max-w-2xl text-[14px] leading-7 text-white/65">
-            Plus besoin de tout faire manuellement. Centralisez vos factures, calculez vos declarations et gardez une vision claire de vos obligations.
+            Centralisez vos factures et paiements, préparez vos écritures et gardez une vue claire sur les prochaines actions.
           </p>
           <Link
             href={appUrl("/inscription")}
             className="mt-6 inline-flex rounded-lg bg-[#0D1526] px-5 py-3 text-[13px] font-bold text-white transition hover:bg-[#253047]"
           >
-            Créer un compte -&gt;
+            Découvrir Mohasib →
           </Link>
         </div>
       </article>

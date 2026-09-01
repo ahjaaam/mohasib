@@ -41,7 +41,7 @@ export default async function DossierNewAvoirPage({
       .limit(50),
   ]);
 
-  const backHref = `/comptable-pro/dossiers/${dossierId}/invoices?mode=avoirs`;
+  const backHref = `/comptable-pro/dossiers/${dossierId}/factures?mode=avoirs`;
 
   return (
     <>

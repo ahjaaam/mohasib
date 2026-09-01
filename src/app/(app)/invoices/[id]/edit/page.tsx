@@ -25,7 +25,7 @@ export default async function EditInvoicePage({
     .single();
 
   if (!inv) notFound();
-  if (inv.status !== "draft") redirect(`/invoices/${id}`);
+  if (inv.status !== "draft") redirect(`/factures/${id}`);
 
   const { data } = await supabase
     .from("clients")
@@ -41,7 +41,7 @@ export default async function EditInvoicePage({
       <PageHeader
         title={`Modifier ${inv.invoice_number}`}
         subtitle="Mettez à jour les informations et les lignes de la facture"
-        icon={<BackIconLink href={`/invoices/${id}`} label="Retour à la facture" />}
+        icon={<BackIconLink href={`/factures/${id}`} label="Retour à la facture" />}
         iconBare
       />
       <EditInvoiceForm invoice={inv} clients={clients} />

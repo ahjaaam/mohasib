@@ -242,7 +242,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
     } else {
       const clientEmail = (row as any).clients?.email ?? null;
       if (devisStatus === "brouillon") {
-        router.push("/invoices?mode=devis");
+        router.push("/factures?mode=devis");
         router.refresh();
       } else {
         setCreated({ id: row.id, number: row.invoice_number, clientEmail });
@@ -262,7 +262,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
       window.open(whatsappUrl, "_blank");
       setWaState("success");
       toast.success("WhatsApp ouvert avec le devis");
-      setTimeout(() => { router.push("/invoices?mode=devis"); router.refresh(); }, 1500);
+      setTimeout(() => { router.push("/factures?mode=devis"); router.refresh(); }, 1500);
     } catch (e: any) {
       setWaState("error");
       toast.error(translateError(e), { duration: 5000 });
@@ -278,7 +278,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
       if (!res.ok) throw new Error(json.message || json.error || `HTTP ${res.status}`);
       setEmailState("success");
       toast.success("Email envoyé avec succès");
-      setTimeout(() => { router.push("/invoices?mode=devis"); router.refresh(); }, 1500);
+      setTimeout(() => { router.push("/factures?mode=devis"); router.refresh(); }, 1500);
     } catch (e: any) {
       setEmailState("error");
       toast.error(translateError(e), { duration: 5000 });
@@ -366,7 +366,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
           </button>
         </div>
         <button
-          onClick={() => { router.push("/invoices?mode=devis"); router.refresh(); }}
+          onClick={() => { router.push("/factures?mode=devis"); router.refresh(); }}
           className="text-[11.5px] text-[#6B7280] hover:text-[#1A1A2E] underline"
         >
           Retour aux devis

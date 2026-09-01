@@ -64,7 +64,7 @@ function ToolPanel({ title, children }: { title: string; children: React.ReactNo
       </div>
       {children}
       <Link href={appUrl("/inscription")} className="public-secondary-action mt-6 flex w-full">
-        Calculer avec mes vraies donnees -&gt;
+        Suivre ces données dans Mohasib →
       </Link>
     </section>
   );
@@ -114,15 +114,15 @@ function TvaSimulator() {
       <div className="grid gap-4 md:grid-cols-2">
         <NumberField label="CA HT (MAD)" value={tvaCA} onChange={setTvaCA} />
         <SelectField label="Taux TVA" value={tvaRate} onChange={setTvaRate} options={["7", "10", "14", "20"]} />
-        <NumberField label="TVA deductible achats (MAD)" value={tvaDeductible} onChange={setTvaDeductible} />
-        <SelectField label="Regime" value={tvaRegime} onChange={setTvaRegime} options={["Mensuel", "Trimestriel"]} />
+        <NumberField label="TVA déductible sur les achats (MAD)" value={tvaDeductible} onChange={setTvaDeductible} />
+        <SelectField label="Régime" value={tvaRegime} onChange={setTvaRegime} options={["Mensuel", "Trimestriel"]} />
       </div>
       <div className="mt-5 space-y-3 rounded-xl bg-[#F8F7F7] p-4">
-        <ResultRow label="TVA collectee" value={mad(tva.collected)} />
-        <ResultRow label="TVA deductible" value={`-${mad(tvaDeductible)}`} muted />
+        <ResultRow label="TVA collectée" value={mad(tva.collected)} />
+        <ResultRow label="TVA déductible" value={`-${mad(tvaDeductible)}`} muted />
         <div className="h-px bg-[rgba(13,21,38,0.12)]" />
         <div className="flex justify-between text-[16px] font-bold text-[#7A6668]"><span>TVA nette due</span><span>{mad(tva.due)}</span></div>
-        <ResultRow label="Prochaine echeance" value={tvaRegime === "Mensuel" ? nextDeadline() : "20 du mois suivant le trimestre"} />
+        <ResultRow label="Prochaine échéance" value={tvaRegime === "Mensuel" ? nextDeadline() : "20 du mois suivant le trimestre"} />
       </div>
     </ToolPanel>
   );
@@ -144,19 +144,19 @@ function IsSimulator() {
     <ToolPanel title="Simulateur IS">
       <div className="grid gap-4 md:grid-cols-2">
         <NumberField label="CA annuel HT (MAD)" value={isCA} onChange={setIsCA} />
-        <NumberField label="Charges deductibles (MAD)" value={isCharges} onChange={setIsCharges} />
+        <NumberField label="Charges déductibles (MAD)" value={isCharges} onChange={setIsCharges} />
       </div>
       <div className="mt-5 space-y-3 rounded-xl bg-[#F8F7F7] p-4">
-        <ResultRow label="Benefice imposable" value={mad(isResult.profit)} />
-        <ResultRow label="IS calcule" value={mad(isResult.calculated)} />
+        <ResultRow label="Bénéfice imposable" value={mad(isResult.profit)} />
+        <ResultRow label="IS calculé" value={mad(isResult.calculated)} />
         <ul className="space-y-1 text-[12px] text-[#6B7280]">
-          <li>17.5% jusqu'a 300 000 MAD</li>
-          <li>20% de 300 001 a 1 000 000 MAD</li>
-          <li>22.75% de 1 000 001 a 100 000 000 MAD</li>
-          <li>34% au-dela de 100 000 000 MAD</li>
+          <li>17,5 % jusqu’à 300 000 MAD</li>
+          <li>20 % de 300 001 à 1 000 000 MAD</li>
+          <li>22,75 % de 1 000 001 à 100 000 000 MAD</li>
+          <li>34 % au-delà de 100 000 000 MAD</li>
         </ul>
-        <ResultRow label="Cotisation minimale (0.25%)" value={mad(isResult.minimum)} />
-        <div className="flex justify-between text-[16px] font-bold text-[#7A6668]"><span>IS a payer</span><span>{mad(isResult.payable)}</span></div>
+        <ResultRow label="Cotisation minimale (0,25 %)" value={mad(isResult.minimum)} />
+        <div className="flex justify-between text-[16px] font-bold text-[#7A6668]"><span>IS à payer</span><span>{mad(isResult.payable)}</span></div>
         <ResultRow label="Acompte T1 (25%)" value={mad(isResult.acompte)} />
       </div>
     </ToolPanel>
@@ -165,7 +165,7 @@ function IsSimulator() {
 
 function PayrollSimulator() {
   const [salary, setSalary] = useState(9000);
-  const [family, setFamily] = useState("Celibataire");
+  const [family, setFamily] = useState("Célibataire");
   const [children, setChildren] = useState(0);
 
   const payroll = useMemo(() => {
@@ -173,7 +173,7 @@ function PayrollSimulator() {
     const amo = salary * 0.0226;
     const fraisPro = Math.min(salary * 0.2, 2500);
     const taxable = Math.max(0, salary - cnss - amo - fraisPro);
-    const ir = calcIR(taxable, family === "Marie", children);
+    const ir = calcIR(taxable, family === "Marié(e)", children);
     const net = Math.max(0, salary - cnss - amo - ir);
     const employerCost = salary * 1.185;
     return { cnss, amo, fraisPro, taxable, ir, net, employerCost };
@@ -183,19 +183,19 @@ function PayrollSimulator() {
     <ToolPanel title="Simulateur Bulletin de Paie">
       <div className="grid gap-4 md:grid-cols-3">
         <NumberField label="Salaire brut (MAD)" value={salary} onChange={setSalary} />
-        <SelectField label="Situation familiale" value={family} onChange={setFamily} options={["Celibataire", "Marie"]} />
+        <SelectField label="Situation familiale" value={family} onChange={setFamily} options={["Célibataire", "Marié(e)"]} />
         <NumberField label="Nombre d'enfants" value={children} onChange={setChildren} max={6} />
       </div>
       <div className="mt-5 space-y-3 rounded-xl bg-[#F8F7F7] p-4">
         <ResultRow label="Salaire brut" value={mad(salary)} />
-        <ResultRow label="CNSS salarie (4.48%, cap 6000)" value={`-${mad(payroll.cnss)}`} muted />
-        <ResultRow label="AMO salarie (2.26%)" value={`-${mad(payroll.amo)}`} muted />
-        <ResultRow label="Frais pro (20%, cap 2500/mois)" value={`-${mad(payroll.fraisPro)}`} muted />
+        <ResultRow label="CNSS salarié (4,48 %, plafond 6 000)" value={`-${mad(payroll.cnss)}`} muted />
+        <ResultRow label="AMO salarié (2,26 %)" value={`-${mad(payroll.amo)}`} muted />
+        <ResultRow label="Frais professionnels (20 %, plafond 2 500/mois)" value={`-${mad(payroll.fraisPro)}`} muted />
         <ResultRow label="Net imposable" value={mad(payroll.taxable)} />
         <ResultRow label="IR net" value={`-${mad(payroll.ir)}`} muted />
         <div className="h-px bg-[rgba(13,21,38,0.12)]" />
-        <div className="flex justify-between text-[16px] font-bold text-[#7A6668]"><span>Net a payer</span><span>{mad(payroll.net)}</span></div>
-        <ResultRow label="Cout employeur total" value={mad(payroll.employerCost)} />
+        <div className="flex justify-between text-[16px] font-bold text-[#7A6668]"><span>Net à payer</span><span>{mad(payroll.net)}</span></div>
+        <ResultRow label="Coût employeur total" value={mad(payroll.employerCost)} />
       </div>
     </ToolPanel>
   );
@@ -216,20 +216,20 @@ function RentabilitySimulator() {
   }, [rentCA, rentCharges, employees, avgSalary]);
 
   return (
-    <ToolPanel title="Simulateur Rentabilite">
+    <ToolPanel title="Simulateur de rentabilité">
       <div className="grid gap-4 md:grid-cols-2">
         <NumberField label="CA mensuel (MAD)" value={rentCA} onChange={setRentCA} />
         <NumberField label="Charges mensuelles (MAD)" value={rentCharges} onChange={setRentCharges} />
-        <NumberField label="Nombre d'employes" value={employees} onChange={setEmployees} max={10} />
+        <NumberField label="Nombre d’employés" value={employees} onChange={setEmployees} max={10} />
         <NumberField label="Salaire moyen brut (MAD)" value={avgSalary} onChange={setAvgSalary} />
       </div>
       <div className="mt-5 space-y-3 rounded-xl bg-[#F8F7F7] p-4">
         <ResultRow label="CA mensuel" value={mad(rentCA)} />
         <ResultRow label="Charges" value={`-${mad(rentCharges)}`} muted />
         <ResultRow label="Masse salariale" value={`-${mad(rentability.payrollMass)}`} muted />
-        <ResultRow label="TVA estimee" value={`-${mad(rentability.estimatedTva)}`} muted />
+        <ResultRow label="TVA estimée" value={`-${mad(rentability.estimatedTva)}`} muted />
         <div className={`flex justify-between text-[16px] font-bold ${rentability.result >= 0 ? "text-[#7A6668]" : "text-[#DC2626]"}`}>
-          <span>Resultat net estime</span><span>{mad(rentability.result)}</span>
+          <span>Résultat net estimé</span><span>{mad(rentability.result)}</span>
         </div>
         <ResultRow label="Marge nette" value={`${rentability.margin.toFixed(1)}%`} />
       </div>

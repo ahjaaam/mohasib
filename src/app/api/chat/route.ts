@@ -436,8 +436,8 @@ async function executeTool(name: string, input: any, ctx: ToolContext): Promise<
         date_emission: issueDate,
         date_echeance: dueDate,
         lien: dossierId
-          ? `/comptable-pro/dossiers/${dossierId}/invoices/${invoice.id}`
-          : `/invoices/${invoice.id}`,
+          ? `/comptable-pro/dossiers/${dossierId}/factures/${invoice.id}`
+          : `/factures/${invoice.id}`,
       };
       ctx.mutationResults.set(mutationKey, result);
       return result;

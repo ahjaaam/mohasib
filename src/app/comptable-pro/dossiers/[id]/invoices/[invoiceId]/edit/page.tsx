@@ -25,7 +25,7 @@ export default async function DossierEditInvoicePage({
     .single();
 
   if (!inv) notFound();
-  if (inv.status !== "draft") redirect(`/comptable-pro/dossiers/${dossierId}/invoices/${invoiceId}`);
+  if (inv.status !== "draft") redirect(`/comptable-pro/dossiers/${dossierId}/factures/${invoiceId}`);
 
   const { data } = await supabase
     .from("clients")
@@ -34,7 +34,7 @@ export default async function DossierEditInvoicePage({
     .order("name");
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];
-  const backHref = `/comptable-pro/dossiers/${dossierId}/invoices`;
+  const backHref = `/comptable-pro/dossiers/${dossierId}/factures`;
 
   return <EditInvoiceForm invoice={inv} clients={clients} backHref={backHref} />;
 }

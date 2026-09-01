@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "./purchase-booking";
 
 describe("shouldBookConfirmedPurchase", () => {
-  it("books a confirmed justificatif even when it is not classified as an invoice", () => {
+  it("books a confirmed expense report even when it is not classified as an invoice", () => {
     expect(shouldBookConfirmedPurchase({
       document_type: "receipt",
       is_supplier_invoice: false,

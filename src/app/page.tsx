@@ -5,14 +5,14 @@ import HomePageClient from "./HomePageClient";
 import { seoMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = seoMetadata({
-  title: "Mohasib AI — Logiciel de comptabilité, facturation et TVA au Maroc",
-  description: "Logiciel de comptabilité marocain pour créer vos factures, suivre vos paiements, gérer vos documents, préparer la TVA, la paie et vos exports comptables.",
+  title: "Mohasib AI — Automatisez votre gestion comptable au Maroc",
+  description: "Centralisez vos factures, paiements et notes de frais. Mohasib prépare vos écritures, votre TVA et vos exports pour vous aider à décider plus vite.",
   path: "/",
 });
 
 export default async function Page() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (user) redirect("/dashboard");
+  if (user) redirect("/tableau-de-bord");
   return <HomePageClient />;
 }

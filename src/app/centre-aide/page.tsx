@@ -8,30 +8,30 @@ import { whatsappUrl } from "@/lib/public-urls";
 import styles from "./CentreAidePage.module.css";
 
 export const metadata: Metadata = seoMetadata({
-  title: "Centre d'aide | Mohasib AI",
-  description: "Contactez Mohasib AI par email, LinkedIn ou WhatsApp pour une question, une démo ou un besoin d’accompagnement.",
+  title: "Contact et assistance | Mohasib AI",
+  description: "Contactez l’équipe Mohasib pour une question sur le produit, une demande de démonstration ou un besoin d’accompagnement.",
   path: "/centre-aide",
 });
 
 const cards = [
   {
-    title: "Suivez-nous sur LinkedIn",
-    description: "Suivez les nouveautés, annonces produit et conseils pratiques autour de Mohasib AI.",
-    cta: "Suivre Mohasib AI",
+    title: "Suivre les nouveautés sur LinkedIn",
+    description: "Retrouvez les annonces produit et nos conseils pratiques pour les professionnels au Maroc.",
+    cta: "Voir la page LinkedIn",
     href: "https://www.linkedin.com/company/mohasibai/",
     icon: FaLinkedinIn,
   },
   {
-    title: "Écrivez-nous par email",
-    description: "Pour une question, un bug, une demande de démo ou un besoin d'accompagnement.",
-    cta: "Envoyer un email",
+    title: "Nous écrire par e-mail",
+    description: "Décrivez votre question, votre problème ou votre besoin. Notre équipe vous répond avec les prochaines étapes.",
+    cta: "Écrire à l’équipe",
     href: "mailto:a.ahjame@gmail.com",
     icon: FaRegEnvelope,
   },
   {
-    title: "Discutez sur WhatsApp",
-    description: "Échangez rapidement avec l'équipe Mohasib pour une question, une démo ou un besoin d'aide.",
-    cta: "Ouvrir WhatsApp",
+    title: "Échanger avec nous sur WhatsApp",
+    description: "Posez une question rapide ou convenez d’un moment pour découvrir Mohasib avec notre équipe.",
+    cta: "Démarrer la discussion",
     href: whatsappUrl(),
     icon: FaWhatsapp,
   },
@@ -47,11 +47,11 @@ export default function CentreAidePage() {
           <div className={`marketing-container ${styles.heroInner}`}>
             <p className="marketing-eyebrow">Centre d&apos;aide · Mohasib AI</p>
             <h1 id="help-title" className={`marketing-display ${styles.title}`}>
-              Comment pouvons-nous
-              <span className={styles.titleAccent}>vous aider ?</span>
+              Une question sur Mohasib&nbsp;?
+              <span className={styles.titleAccent}>Parlons-en.</span>
             </h1>
             <p className={`marketing-lede ${styles.lede}`}>
-              Une question, un besoin d&apos;accompagnement ou l&apos;envie de découvrir Mohasib ? Choisissez le canal qui vous convient.
+              Produit, démonstration ou assistance&nbsp;: choisissez le canal le plus pratique pour joindre notre équipe.
             </p>
           </div>
         </section>
@@ -61,10 +61,10 @@ export default function CentreAidePage() {
             <div className={styles.sectionHeading}>
               <div>
                 <p className="marketing-eyebrow">Nous contacter</p>
-                <h2 id="contact-title">Parlons de ce dont vous avez besoin.</h2>
+                <h2 id="contact-title">Choisissez comment nous contacter.</h2>
               </div>
               <p className={styles.sectionIntro}>
-                Notre équipe vous répond pour le produit, une démonstration ou une question liée à votre utilisation de Mohasib.
+                Pour nous aider à répondre précisément, indiquez votre activité et le sujet de votre demande.
               </p>
             </div>
 

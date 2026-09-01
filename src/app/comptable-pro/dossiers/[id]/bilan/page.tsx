@@ -9,7 +9,7 @@ import { FEATURES } from "@/lib/features";
 
 export default async function BilanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!FEATURES.BILAN_ENABLED) redirect(`/comptable-pro/dossiers/${id}/export`);
+  if (!FEATURES.BILAN_ENABLED) redirect(`/comptable-pro/dossiers/${id}/export-fiduciaire`);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/connexion");

@@ -215,7 +215,7 @@ export default function IntegrationsTab({ company, dossierId }: Props) {
       <p className="text-[11px] text-[#9CA3AF] px-0.5">
         La synchronisation automatique s'exécute toutes les 15 minutes.
         Les factures détectées apparaissent dans votre{" "}
-        <a href="/inbox" className="underline hover:text-[#6B7280]">espace Achats</a>.
+        <a href="/boite-de-reception" className="underline hover:text-[#6B7280]">espace Achats</a>.
       </p>
     </div>
   );

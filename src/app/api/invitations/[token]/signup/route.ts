@@ -65,7 +65,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   });
 
   const redirect = roleName === "client_portal" && membership.dossier_id
-    ? `/comptable-pro/dossiers/${membership.dossier_id}/dashboard`
+    ? `/comptable-pro/dossiers/${membership.dossier_id}/tableau-de-bord`
     : company?.user_type === "fiduciaire" ? "/comptable-pro" : "/tableau-de-bord";
 
   return NextResponse.json({ success: true, email, redirect });

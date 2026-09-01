@@ -39,7 +39,7 @@ export function NotificationComposer({ users, companies, initialCompanyIds = [],
     <form className="grid gap-3" onSubmit={event => { event.preventDefault(); void submit(event.currentTarget, "send"); }}>
       <div className="grid gap-3 lg:grid-cols-2">
         <label className="text-[11px] font-semibold">Titre<input name="title" required maxLength={120} className="input mt-1 text-xs" /></label>
-        <label className="text-[11px] font-semibold">Lien dans l’application<input name="link" placeholder="/dashboard" className="input mt-1 text-xs" /></label>
+        <label className="text-[11px] font-semibold">Lien dans l’application<input name="link" placeholder="/tableau-de-bord" className="input mt-1 text-xs" /></label>
       </div>
       <label className="text-[11px] font-semibold">Message<textarea name="message" required maxLength={1500} className="input mt-1 min-h-24 text-xs" /></label>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -53,7 +53,7 @@ export function NotificationComposer({ users, companies, initialCompanyIds = [],
       {audienceType === "companies" && <label className="text-[11px] font-semibold">Comptes<select name="company_ids" multiple required defaultValue={initialCompanyIds} className="input mt-1 min-h-28 text-xs">{companies.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>}
       {audienceType === "segment" && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <label className="text-[11px] font-semibold">Type<select name="user_type" className="input mt-1 text-xs"><option value="">Tous</option><option value="entrepreneur">Entrepreneur</option><option value="fiduciaire">Fiduciaire</option></select></label>
-        <label className="text-[11px] font-semibold">Plan<input name="plan" placeholder="trial, business…" className="input mt-1 text-xs" /></label>
+        <label className="text-[11px] font-semibold">Tarif<input name="plan" placeholder="entreprise ou cabinet" className="input mt-1 text-xs" /></label>
         <label className="text-[11px] font-semibold">Statut<select name="status" className="input mt-1 text-xs"><option value="">Tous</option>{["free", "trial", "active", "grace", "expired", "suspended"].map(value => <option key={value}>{value}</option>)}</select></label>
         <label className="text-[11px] font-semibold">Inactifs depuis (jours)<input name="inactive_days" type="number" min="1" className="input mt-1 text-xs" /></label>
         <label className="text-[11px] font-semibold">Essai expire sous (jours)<input name="trial_expiring_days" type="number" min="1" className="input mt-1 text-xs" /></label>

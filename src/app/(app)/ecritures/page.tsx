@@ -115,7 +115,7 @@ export default async function EcrituresPage({
         const tva = Number(inv.tax_amount ?? 0);
         const ttc = Number(inv.total ?? 0);
         const lib = `${client}${ref ? " - " + ref : ""}`;
-        const href = `/invoices/${inv.id}`;
+        const href = `/factures/${inv.id}`;
         rows.push({ date: inv.issue_date, numero_piece: ref, compte: "3421", libelle: lib, debit: ttc, credit: 0, source: "facture", journal: "VT", href });
         rows.push({ date: inv.issue_date, numero_piece: ref, compte: "7131", libelle: lib, debit: 0, credit: ht > 0 ? ht : ttc, source: "facture", journal: "VT", href });
         if (tva > 0) rows.push({ date: inv.issue_date, numero_piece: ref, compte: "4455", libelle: `TVA ${ref}`, debit: 0, credit: tva, source: "facture", journal: "VT", href });
@@ -213,7 +213,7 @@ export default async function EcrituresPage({
             {JOURNAL_LABELS[journal]}
             <span className="ml-2 text-[11px] text-[#9CA3AF] font-normal capitalize">{periodLabel}</span>
           </span>
-          <Link href="/export" className="flex items-center gap-1 text-[12px] font-semibold text-[#C8924A] hover:underline">
+          <Link href="/export-fiduciaire" className="flex items-center gap-1 text-[12px] font-semibold text-[#C8924A] hover:underline">
             <Download size={12} /> Exporter
           </Link>
         </div>

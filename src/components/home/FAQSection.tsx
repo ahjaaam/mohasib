@@ -4,27 +4,27 @@ const questions = [
   {
     question: "Mohasib est-il adapté à la comptabilité marocaine ?",
     answer:
-      "Oui. Mohasib est conçu autour des besoins des entreprises marocaines : facturation, écritures comptables, TVA, paie et exports structurés pour faciliter le travail de votre entreprise et de votre comptable.",
+      "Oui. Mohasib prend en charge les besoins courants des entreprises au Maroc : facturation, écritures comptables, TVA, paie et exports à transmettre à votre comptable.",
   },
   {
     question: "Comment mes documents arrivent-ils dans Mohasib ?",
     answer:
-      "Vous pouvez transmettre vos factures et justificatifs, connecter votre boîte Gmail ou Outlook et centraliser les pièces reçues. Mohasib lit les documents et prépare les informations utiles pour votre validation.",
+      "Vous pouvez importer vos factures et notes de frais ou connecter votre boîte Gmail ou Outlook. Mohasib centralise les pièces, extrait les données utiles et les présente pour validation.",
   },
   {
     question: "L’IA remplace-t-elle mon comptable ?",
     answer:
-      "Non. L’IA accélère la collecte, la lecture et la préparation des opérations répétitives. Vous gardez le contrôle des validations et votre comptable peut se concentrer sur le contrôle, le conseil et les décisions importantes.",
+      "Non. L’IA prépare les tâches répétitives comme la lecture des pièces, le classement et les rapprochements suggérés. Vous gardez la responsabilité des validations et votre comptable reste votre interlocuteur pour le contrôle et le conseil.",
   },
   {
     question: "Puis-je suivre mes paiements et mes échéances ?",
     answer:
-      "Oui. Mohasib rassemble factures, règlements et transactions pour vous aider à repérer les montants dus, les échéances à venir et les rapprochements qui demandent votre attention.",
+      "Oui. Mohasib réunit factures, règlements et transactions pour faire ressortir les montants dus, les échéances à venir et les paiements à rapprocher.",
   },
   {
     question: "Puis-je collaborer avec mon expert-comptable ?",
     answer:
-      "Oui. Vos documents et écritures restent organisés dans un même espace, et vous pouvez préparer des exports propres à partager avec votre expert-comptable lorsque vous en avez besoin.",
+      "Oui. Vos documents et écritures restent organisés dans un même espace. Vous pouvez préparer des exports structurés et les transmettre à votre expert-comptable quand vous le souhaitez.",
   },
   {
     question: "Mes données restent-elles sous mon contrôle ?",
@@ -39,10 +39,10 @@ export default function FAQSection() {
       <div className={styles.inner}>
         <header className={styles.heading}>
           <p className={styles.eyebrow}>Questions fréquentes</p>
-          <h2 id="faq-title">Ce qu’il faut savoir avant de commencer</h2>
+          <h2 id="faq-title">Vos questions avant de commencer</h2>
           <p>
-            Des réponses simples sur le fonctionnement de Mohasib et la manière
-            dont la plateforme s’intègre à votre gestion quotidienne.
+            Comprenez ce que Mohasib automatise, ce que vous validez et comment
+            la plateforme s’intègre à votre organisation.
           </p>
         </header>
 

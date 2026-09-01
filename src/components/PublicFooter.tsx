@@ -19,7 +19,7 @@ const footerGroups = [
   {
     title: "Produit",
     links: [
-      { label: "Solutions", href: "/#six-automatisations" },
+      { label: "Fonctionnalités", href: "/#six-automatisations" },
       { label: "Facturation gratuite", href: invoicingUrl() },
     ],
   },
@@ -65,8 +65,8 @@ export default function PublicFooter() {
               <Image src="/logo.png" alt="Mohasib AI" width={154} height={26} className={styles.logo} />
             </Link>
             <p className={styles.tagline}>
-              La plateforme de gestion et de comptabilité pensée pour les
-              entreprises marocaines.
+              La plateforme qui relie factures, paiements et comptabilité pour
+              les entreprises et cabinets au Maroc.
             </p>
             <div className={styles.contactLinks}>
               <a href="tel:+212670101952" className={styles.contactLink}>

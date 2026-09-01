@@ -15,7 +15,7 @@ async function accessibleReceipt(id: string) {
     .select("id,user_id,dossier_id,storage_path")
     .eq("id", id)
     .maybeSingle();
-  if (!data) return { response: NextResponse.json({ error: "Justificatif introuvable" }, { status: 404 }) };
+  if (!data) return { response: NextResponse.json({ error: "Note de frais introuvable" }, { status: 404 }) };
 
   return { receipt: data };
 }

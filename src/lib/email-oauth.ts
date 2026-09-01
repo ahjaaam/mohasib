@@ -6,7 +6,7 @@ import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 export type EmailProvider = "gmail" | "outlook";
 
-const SETTINGS_PATH = "/settings?tab=integrations";
+const SETTINGS_PATH = "/parametres?tab=integrations";
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
 type OAuthStatePayload = {
@@ -97,7 +97,7 @@ export function oauthRedirect(request: Request, params: Record<string, string>, 
 }
 
 export function dossierSettingsPath(dossierId: string) {
-  return `/comptable-pro/dossiers/${dossierId}/settings?tab=integrations`;
+  return `/comptable-pro/dossiers/${dossierId}/parametres?tab=integrations`;
 }
 
 export function appOrigin(request: Request) {

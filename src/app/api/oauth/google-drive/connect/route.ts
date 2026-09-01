@@ -15,12 +15,12 @@ export async function GET(request: Request) {
 
   const ownerId = await resolveAccountOwnerId(user.id);
   if (ownerId !== user.id) {
-    return NextResponse.redirect(new URL("/settings?tab=integrations&error=drive_owner_required", request.url));
+    return NextResponse.redirect(new URL("/parametres?tab=integrations&error=drive_owner_required", request.url));
   }
 
   const config = googleDriveConfig(request);
   if (!config.clientId || !config.clientSecret) {
-    return NextResponse.redirect(new URL("/settings?tab=integrations&error=drive_not_configured", request.url));
+    return NextResponse.redirect(new URL("/parametres?tab=integrations&error=drive_not_configured", request.url));
   }
 
   const state = createGoogleDriveState(user.id);

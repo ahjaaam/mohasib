@@ -94,7 +94,7 @@ export default function EditInvoiceForm({
 
     setSaving(false);
     if (err) { setError(translateError(err)); }
-    else { router.push(backHref ? `${backHref}/${invoice.id}` : `/invoices/${invoice.id}`); router.refresh(); }
+    else { router.push(backHref ? `${backHref}/${invoice.id}` : `/factures/${invoice.id}`); router.refresh(); }
   }
 
   return (

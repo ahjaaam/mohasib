@@ -15,9 +15,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const result = await admin!.auth.admin.updateUserById(id, { email_confirm: true });
     if (result.error) return NextResponse.json({ message: result.error.message }, { status: 400 });
   } else if (action === "suspend" || action === "reactivate") {
+    const previousMemberships = await admin!.from("user_memberships").select("id,status").eq("user_id", id).neq("status", "revoked");
+    if (previousMemberships.error) return NextResponse.json({ message: previousMemberships.error.message }, { status: 400 });
+    const membershipUpdate = await admin!.from("user_memberships").update({ status: action === "suspend" ? "suspended" : "active" }).eq("user_id", id).neq("status", "revoked");
+    if (membershipUpdate.error) return NextResponse.json({ message: membershipUpdate.error.message }, { status: 400 });
     const result = await admin!.auth.admin.updateUserById(id, { ban_duration: action === "suspend" ? "876000h" : "none" });
-    if (result.error) return NextResponse.json({ message: result.error.message }, { status: 400 });
-    await admin!.from("user_memberships").update({ status: action === "suspend" ? "suspended" : "active" }).eq("user_id", id).neq("status", "revoked");
+    if (result.error) {
+      const rollbackErrors: string[] = [];
+      for (const previous of previousMemberships.data ?? []) {
+        const rollback = await admin!.from("user_memberships").update({ status: previous.status }).eq("id", previous.id);
+        if (rollback.error) rollbackErrors.push(rollback.error.message);
+      }
+      return NextResponse.json({
+        message: `${result.error.message}${rollbackErrors.length ? `; restauration des accès incomplète (${rollbackErrors.join("; ")})` : ""}`,
+      }, { status: 400 });
+    }
   } else if (action === "password_reset") {
     const generated = await admin!.auth.admin.generateLink({ type: "recovery", email: target.email });
     const actionLink = generated.data.properties?.action_link;

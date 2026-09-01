@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { visibleDocumentAreas } from "@/lib/document-area";
 import type { Receipt, OcrData } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
@@ -241,7 +242,11 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(ownerId);
-    const receiptsQuery = supabase.from("receipts").select("*").order("created_at", { ascending: false });
+    const receiptsQuery = supabase
+      .from("receipts")
+      .select("*")
+      .in("document_area", visibleDocumentAreas("purchases"))
+      .order("created_at", { ascending: false });
     const { data } = await (dossierId
       ? receiptsQuery.eq("dossier_id", dossierId)
       : receiptsQuery.eq("user_id", ownerId).is("dossier_id", null));
@@ -323,6 +328,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "processing" } : f));
         const fd = new FormData();
         fd.append("file", file);
+        fd.append("document_area", "purchase");
         if (dossierId) fd.append("dossier_id", dossierId);
         const res = await fetch("/api/ocr", { method: "POST", body: fd });
         const json = await res.json();
@@ -354,7 +360,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         await load();
       } else if (json.not_connected) {
         toast("Connectez votre email dans Paramètres → Intégrations", { icon: <Mail size={16} aria-hidden="true" /> });
-        router.push("/settings?tab=integrations");
+        router.push("/parametres?tab=integrations");
       } else if (json.errors?.length) {
         toast.error(json.errors.join(" "), { duration: 5000 });
       } else {
@@ -488,7 +494,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       .update({ status: "matched" })
       .eq("id", id);
     if (statusUpdateError) {
-      toast.error("Le justificatif est comptabilisé, mais son statut n'a pas pu être mis à jour.");
+      toast.error("La note de frais est comptabilisée, mais son statut n'a pas pu être mis à jour.");
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
@@ -499,7 +505,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     if (previewReceipt?.id === id) setPreviewReceipt(null);
     dismissCard(id);
     if (shouldBookPurchase) {
-      toast.success("Justificatif comptabilisé et ajouté au suivi fournisseurs !");
+      toast.success("Note de frais comptabilisée et ajoutée au suivi fournisseurs !");
     } else {
       toast.success("Facture confirmée !");
     }

@@ -49,7 +49,7 @@ export default async function DossierInvoiceDetailPage({
 
   if (!inv) notFound();
 
-  const backHref = `/comptable-pro/dossiers/${dossierId}/invoices`;
+  const backHref = `/comptable-pro/dossiers/${dossierId}/factures`;
   const client = (inv as any).clients;
   const [bgStatus, colorStatus] = STATUS_CLASS[inv.status] ?? ["#F3F4F6", "#6B7280"];
   const labelStatus = STATUS_LABEL[inv.status] ?? inv.status;

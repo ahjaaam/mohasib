@@ -8,8 +8,8 @@ import GuidesClient from "../guides/GuidesClient";
 export const revalidate = 60;
 
 export const metadata: Metadata = seoMetadata({
-  title: "Documents téléchargeables Maroc — Modèles Word, Excel et PDF gratuits",
-  description: "Téléchargez des modèles, templates et documents utiles au Maroc : contrats, tableaux Excel, checklists, documents comptables, fiscaux et administratifs.",
+  title: "Modèles et documents professionnels au Maroc | Mohasib AI",
+  description: "Téléchargez des contrats, tableaux, checklists et modèles prêts à adapter pour votre gestion comptable, fiscale et administrative au Maroc.",
   path: "/ressources/documents",
 });
 

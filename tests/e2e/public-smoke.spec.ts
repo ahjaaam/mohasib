@@ -37,7 +37,7 @@ test("solutions navigation leads to the six automations section", async ({ page 
   await solutionsLink.click();
   await expect(page).toHaveURL(/\/#six-automatisations$/);
   await expect(page.locator("#six-automatisations")).toBeInViewport();
-  await expect(page.locator("#six-automatisations")).toContainText(/Six automatisations/i);
+  await expect(page.locator("#six-automatisations")).toContainText(/Six flux réunis/i);
 });
 
 test("health endpoint reports a ready release", async ({ request }) => {
@@ -53,4 +53,12 @@ test("health endpoint reports a ready release", async ({ request }) => {
 test("protected application routes do not expose private content anonymously", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/(auth\/login|connexion)(\?|$)/);
+});
+
+test("localized protected routes resolve without redirect loops", async ({ page }) => {
+  for (const route of ["/tableau-de-bord", "/factures", "/notes-de-frais", "/parametres"]) {
+    const response = await page.goto(route);
+    expect(response?.status()).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/(auth\/login|connexion)(\?|$)/);
+  }
 });

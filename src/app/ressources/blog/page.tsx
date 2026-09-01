@@ -9,20 +9,20 @@ import { urlFor } from "@/lib/sanity";
 export const revalidate = 60;
 
 export const metadata: Metadata = seoMetadata({
-  title: "Blog comptabilité Maroc — TVA, IS, paie et entrepreneuriat | Mohasib AI",
-  description: "Conseils pratiques pour entrepreneurs et cabinets au Maroc : TVA, IS, paie, facturation, trésorerie, obligations fiscales et comptabilité.",
+  title: "Conseils de gestion et comptabilité au Maroc | Blog Mohasib",
+  description: "Des explications pratiques sur la TVA, l’IS, la paie, la facturation et la trésorerie pour les professionnels au Maroc.",
   path: "/ressources/blog",
 });
 
-const filters = ["Tous", "TVA", "IS", "Paie", "Tresorerie", "Creation d'entreprise"];
+const filters = ["Tous", "TVA", "IS", "Paie", "Trésorerie", "Création d’entreprise"];
 
 const categoryLabels: Record<string, string> = {
   tva: "TVA",
   is: "IS",
   paie: "Paie",
-  tresorerie: "Tresorerie",
-  creation: "Creation",
-  comptabilite: "Comptabilite",
+  tresorerie: "Trésorerie",
+  creation: "Création",
+  comptabilite: "Comptabilité",
 };
 
 const categoryStyles: Record<string, string> = {
@@ -66,10 +66,10 @@ export default async function BlogPage() {
           <Link href="/ressources" className="text-[12px] font-semibold text-[#B58A52]">← Ressources</Link>
           <p className="public-eyebrow mt-6">Blog Mohasib</p>
           <h1 className="mt-4 text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">
-            Comptabilite & Entrepreneuriat
+            Des réponses claires pour mieux gérer votre activité
           </h1>
           <p className="mt-4 text-[15px] leading-7 text-[#6B7280]">
-            Conseils pratiques pour gerer votre activite au Maroc
+            Comptabilité, fiscalité, paie et trésorerie expliquées pour les professionnels au Maroc.
           </p>
         </div>
       </section>
@@ -112,7 +112,7 @@ export default async function BlogPage() {
                       <span>{formatReadTime(post.readTime)}</span>
                       <span>{formatDate(post.publishedAt)}</span>
                     </div>
-                    <span className="mt-5 inline-flex text-[13px] font-semibold text-[#B58A52]">Lire l'article -&gt;</span>
+                    <span className="mt-5 inline-flex text-[13px] font-semibold text-[#B58A52]">Lire l’article →</span>
                   </div>
                 </Link>
               );

@@ -311,7 +311,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "invoice", invoiceId: row.id, dossierId }),
       }).catch(() => {});
-      if (status === "draft") { router.push(backHref ?? "/invoices"); router.refresh(); }
+      if (status === "draft") { router.push(backHref ?? "/factures"); router.refresh(); }
       else { setCreated({ id: row.id, number: row.invoice_number }); }
     }
   }
@@ -328,7 +328,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
       window.open(whatsappUrl, "_blank");
       setWaState("success");
       toast.success("WhatsApp ouvert avec la facture");
-      setTimeout(() => { router.push(backHref ?? "/invoices"); router.refresh(); }, 1500);
+      setTimeout(() => { router.push(backHref ?? "/factures"); router.refresh(); }, 1500);
     } catch (e: any) {
       setWaState("error");
       toast.error(translateError(e), { duration: 5000 });
@@ -440,14 +440,14 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full max-w-xs">
           <button
-            onClick={() => { router.push(`${backHref ?? "/invoices"}/${created.id}`); router.refresh(); }}
+            onClick={() => { router.push(`${backHref ?? "/factures"}/${created.id}`); router.refresh(); }}
             className="btn btn-outline flex-1 justify-center"
           >
             Voir la facture
           </button>
         </div>
         <button
-          onClick={() => { router.push(backHref ?? "/invoices"); router.refresh(); }}
+          onClick={() => { router.push(backHref ?? "/factures"); router.refresh(); }}
           className="text-[11.5px] text-[#6B7280] hover:text-[#1A1A2E] underline"
         >
           Retour aux factures

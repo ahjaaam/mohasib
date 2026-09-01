@@ -19,28 +19,28 @@ export default function DocumentTransformationSection() {
         </div>
 
         <div className={styles.copy}>
-          <p className={styles.eyebrow}>Lecture intelligente des documents</p>
-          <h2 id="document-transformation-title">Une facture reçue. Des données prêtes à valider.</h2>
+          <p className={styles.eyebrow}>Lecture automatique des documents</p>
+          <h2 id="document-transformation-title">Déposez une facture. Contrôlez les données extraites.</h2>
           <p className={styles.intro}>
-            Photo, scan ou PDF&nbsp;: Mohasib lit la pièce, extrait les informations
-            utiles et prépare le traitement comptable.
+            Photo, scan ou PDF&nbsp;: Mohasib relève les montants, les dates, le fournisseur
+            et la TVA, puis prépare le traitement comptable.
           </p>
 
           <div className={styles.impactPoints}>
             <div>
               <span><Check size={15} strokeWidth={2.4} /></span>
-              <strong>Des heures récupérées</strong>
-              <p>Fini de déchiffrer et ressaisir chaque facture ligne par ligne.</p>
+              <strong>Moins de saisie manuelle</strong>
+              <p>Vous évitez de relire et ressaisir chaque facture ligne par ligne.</p>
             </div>
             <div>
               <span><Check size={15} strokeWidth={2.4} /></span>
-              <strong>Moins d’erreurs et d’allers-retours</strong>
-              <p>Les montants, dates et taux de TVA sont structurés avant votre contrôle.</p>
+              <strong>Un contrôle plus rapide</strong>
+              <p>Les champs importants sont structurés et présentés ensemble avant validation.</p>
             </div>
             <div>
               <span><Check size={15} strokeWidth={2.4} /></span>
-              <strong>Plus de temps pour le conseil</strong>
-              <p>Votre énergie revient aux décisions utiles, pas à la saisie répétitive.</p>
+              <strong>Une trace facile à retrouver</strong>
+              <p>Les données restent reliées à la pièce d’origine pour faciliter chaque vérification.</p>
             </div>
           </div>
 

@@ -30,7 +30,7 @@ function intentFrom(value: string): GateIntent {
 export default function GuestAuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [intent, setIntent] = useState<GateIntent | null>(() =>
-    pathname.includes("/new") || pathname.includes("/nouvelle") ? intentFrom(pathname) : null,
+    pathname.includes("/new") || pathname.includes("/nouvelle") || pathname.includes("/nouveau") ? intentFrom(pathname) : null,
   );
 
   function interceptProtectedAction(event: MouseEvent<HTMLDivElement>) {

@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
   const dossierId = formData.get("dossier_id") as string | null;
+  const requestedArea = formData.get("document_area");
+  const documentArea = requestedArea === "supporting_document" ? "supporting_document" : "purchase";
   if (dossierId) {
     const { data: ownedDossier } = await supabase
       .from("dossiers")
@@ -91,6 +93,7 @@ export async function POST(req: NextRequest) {
       file_name: file.name,
       mime_type: file.type,
       status: "pending",
+      document_area: documentArea,
       ocr_data: ocrData,
     })
     .select()

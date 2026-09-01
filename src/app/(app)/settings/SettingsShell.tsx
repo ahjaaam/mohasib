@@ -126,7 +126,7 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
 
         {/* Tab content */}
         <div className="flex-1 min-w-0">
-          {!tabAllowed && <AccessRestricted backHref="/settings" reason={tabAllowedByPlan ? "permission" : "plan"} />}
+          {!tabAllowed && <AccessRestricted backHref="/parametres" reason={tabAllowedByPlan ? "permission" : "plan"} />}
           {tabAllowed && <>
           {tab === "entreprise" && <EntrepriseTab userId={accountOwnerId} company={company} />}
           {tab === "profil" && <ProfilTab userId={userId} userEmail={userEmail} profile={profile} prefs={prefs} />}

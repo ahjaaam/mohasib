@@ -7,7 +7,7 @@ import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { FEATURES } from "@/lib/features";
 
 export default async function GrandLivrePage() {
-  if (!FEATURES.GRAND_LIVRE_ENABLED) redirect("/export");
+  if (!FEATURES.GRAND_LIVRE_ENABLED) redirect("/export-fiduciaire");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/connexion");

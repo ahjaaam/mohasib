@@ -36,13 +36,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { suspended } = body;
   const status = suspended ? "suspended" : "active";
-  const membershipUpdate = await admin!.from("user_memberships").update({ status }).eq("id", id);
+  const membershipUpdate = await admin!.from("user_memberships").update({ status }).eq("id", id).select("id,status").maybeSingle();
   if (membershipUpdate.error) return NextResponse.json({ message: membershipUpdate.error.message }, { status: 400 });
+  if (!membershipUpdate.data || membershipUpdate.data.status !== status) {
+    return NextResponse.json({ message: "L’accès du membre n’a pas pu être modifié." }, { status: 409 });
+  }
 
   if (!suspended && member.user_id) {
     const unban = await admin!.auth.admin.updateUserById(member.user_id, { ban_duration: "none" });
     if (unban.error) {
-      return NextResponse.json({ message: `Accès réactivé, mais le blocage Auth n'a pas pu être retiré : ${unban.error.message}` }, { status: 400 });
+      const rollback = await admin!.from("user_memberships").update({ status: member.status }).eq("id", id);
+      return NextResponse.json({
+        message: `Le blocage Auth n'a pas pu être retiré : ${unban.error.message}${rollback.error ? `; restauration de l’accès incomplète (${rollback.error.message})` : ""}`,
+      }, { status: 400 });
     }
   }
 

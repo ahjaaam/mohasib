@@ -6,27 +6,27 @@ import PublicFooter from "@/components/PublicFooter";
 import { seoMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = seoMetadata({
-  title: "Ressources comptabilité Maroc — Blog, simulateurs et documents gratuits",
-  description: "Explorez les ressources Mohasib AI : articles de comptabilité marocaine, simulateurs TVA/IS/paie et modèles Word, Excel ou PDF à télécharger.",
+  title: "Ressources pour gérer votre entreprise au Maroc | Mohasib AI",
+  description: "Consultez des articles pratiques et téléchargez des modèles pour mieux gérer la comptabilité, la fiscalité et l’administration de votre entreprise au Maroc.",
   path: "/ressources",
 });
 
 const cards = [
   {
     title: "Blog",
-    subtitle: "Tout savoir sur la comptabilite et l'entrepreneuriat",
+    subtitle: "Des réponses claires aux questions de gestion courantes",
     description:
-      "Articles pratiques sur la TVA, l'IS, la paie, la gestion de tresorerie et les obligations fiscales au Maroc. Rediges pour les non-comptables.",
-    cta: "Lire les articles ->",
+      "Comprenez la TVA, l’IS, la paie, la trésorerie et les obligations fiscales au Maroc grâce à des articles directement applicables.",
+    cta: "Consulter le blog →",
     href: "/ressources/blog",
     icon: BookOpen,
   },
   {
     title: "Documents téléchargeables",
-    subtitle: "Modèles, templates et documents prêts à l’emploi",
+    subtitle: "Des modèles prêts à adapter à votre activité",
     description:
-      "Contrats, modèles Word, PDF pratiques, checklists et documents utiles pour les entrepreneurs, financiers et comptables au Maroc.",
-    cta: "Voir les documents ->",
+      "Gagnez du temps avec des contrats, tableaux, checklists et documents utiles aux dirigeants, financiers et comptables au Maroc.",
+    cta: "Parcourir les documents →",
     href: "/ressources/documents",
     icon: Download,
   },
@@ -40,10 +40,10 @@ export default function RessourcesPage() {
         <div className="mx-auto max-w-4xl text-center">
           <p className="public-eyebrow">Ressources</p>
           <h1 className="mx-auto mt-4 max-w-3xl text-[38px] font-bold leading-tight text-[#0D1526] md:text-[52px]">
-            Tout ce qu'il vous faut pour gerer votre comptabilite
+            Des ressources pratiques pour mieux gérer votre entreprise
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-7 text-[#6B7280]">
-            Articles, simulateurs et documents gratuits conçus pour les entrepreneurs marocains
+            Des contenus clairs et des modèles prêts à l’emploi pour passer plus vite de la question à l’action.
           </p>
         </div>
       </section>

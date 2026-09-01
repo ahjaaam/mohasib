@@ -20,9 +20,9 @@ import { seoMetadata } from "@/lib/seo";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = seoMetadata({
-  title: "Solutions Mohasib — Automatisez et simplifiez votre gestion",
+  title: "Solutions Mohasib — Automatisez vos opérations comptables",
   description:
-    "Automatisez vos tâches, centralisez vos informations et simplifiez votre gestion comptable avec Mohasib.",
+    "Découvrez comment Mohasib centralise vos documents, prépare vos écritures, rapproche vos paiements et simplifie le contrôle comptable.",
   path: "/solutions",
 });
 
@@ -31,24 +31,24 @@ const solutionPillars = [
     id: "automatisation",
     title: "Automatisation",
     description:
-      "Mohasib prend en charge les tâches répétitives : saisie, classement, rapprochement, relances et préparation comptable.",
-    result: "Moins de travail manuel",
+      "Mohasib prépare les tâches répétitives : extraction, classement, rapprochement, relances et écritures comptables.",
+    result: "Moins de préparation manuelle",
     icon: Sparkles,
   },
   {
     id: "centralisation",
     title: "Centralisation",
     description:
-      "Factures, justificatifs, transactions, paiements et indicateurs sont réunis dans un seul espace.",
-    result: "Toute l’information au même endroit",
+      "Factures, notes de frais, transactions, paiements et indicateurs restent reliés dans un seul espace.",
+    result: "Une information complète et traçable",
     icon: FolderKanban,
   },
   {
     id: "simplification",
     title: "Simplification",
     description:
-      "Les étapes, contrôles et décisions deviennent plus clairs pour vous, votre équipe et votre comptable.",
-    result: "Une gestion plus simple au quotidien",
+      "Votre équipe voit ce qui est prêt, ce qui demande un contrôle et ce qui reste à traiter.",
+    result: "Des priorités claires au quotidien",
     icon: CircleGauge,
   },
 ] as const;
@@ -56,67 +56,67 @@ const solutionPillars = [
 const workflows = [
   {
     number: "01",
-    title: "Factures fournisseurs et justificatifs",
-    summary: "Du document reçu à la pièce classée, sans ressaisie inutile.",
+    title: "Factures fournisseurs et notes de frais",
+    summary: "Du document reçu à l’écriture préparée, avec moins de ressaisie.",
     before:
-      "Vous recevez, vous vérifiez, vous saisissez, vous classez et vous archivez.",
+      "Vous ouvrez chaque pièce, relevez les données, préparez la saisie, puis classez le document.",
     withMohasib:
-      "Mohasib reçoit, extrait les informations et prépare la saisie. Vous confirmez. Mohasib comptabilise, classe et archive.",
+      "Mohasib centralise la pièce, extrait les informations et prépare l’écriture. Vous contrôlez les données et validez le traitement.",
     decision: "Vous validez les données extraites et le traitement comptable proposé.",
     icon: ReceiptText,
   },
   {
     number: "02",
     title: "Rapprochement bancaire",
-    summary: "Les transactions, justificatifs et écarts réunis dans un même contrôle.",
+    summary: "Transactions, notes de frais et écarts réunis dans le même écran de contrôle.",
     before:
-      "Vous importez les relevés, recherchez les justificatifs, comparez les montants, rapprochez les transactions et identifiez les écarts.",
+      "Vous importez les relevés, recherchez les notes de frais et comparez chaque montant ligne par ligne.",
     withMohasib:
-      "Mohasib lit les relevés, retrouve les justificatifs et propose les rapprochements. Vous confirmez les correspondances; Mohasib signale les écarts.",
+      "Mohasib importe les mouvements, recherche les notes de frais et suggère les correspondances. Vous confirmez les cas incertains.",
     decision: "Vous arbitrez uniquement les rapprochements ambigus ou incomplets.",
     icon: Landmark,
   },
   {
     number: "03",
     title: "Facturation client et recouvrement",
-    summary: "De la création de la facture jusqu’à l’encaissement suivi.",
+    summary: "Créez la facture, suivez son échéance et enregistrez son paiement au même endroit.",
     before:
       "Vous créez les factures, les envoyez, suivez les échéances, relancez les clients et enregistrez les paiements.",
     withMohasib:
-      "Mohasib prépare les factures. Vous confirmez. Mohasib les envoie, suit les échéances, prépare les relances et enregistre les paiements importés ou validés.",
+      "Mohasib relie la facture à son échéance et à son règlement. Vous voyez les retards et décidez des relances à envoyer.",
     decision: "Vous confirmez la facture, les cas de relance sensibles et les paiements non identifiés.",
     icon: FileCheck2,
   },
   {
     number: "04",
     title: "Suivi financier et pilotage",
-    summary: "Des données dispersées transformées en décisions lisibles.",
+    summary: "Des indicateurs à jour pour décider sans reconstruire vos tableaux.",
     before:
       "Vous rassemblez les données, préparez les tableaux, calculez les indicateurs, comparez les résultats et analysez la situation.",
     withMohasib:
-      "Mohasib rassemble les données, prépare les tableaux, calcule les indicateurs et détecte les écarts. Vous analysez et prenez les décisions.",
+      "Mohasib actualise les indicateurs et fait ressortir les écarts importants. Vous analysez leur cause et décidez de la suite.",
     decision: "Vous gardez l’interprétation, les arbitrages et la décision finale.",
     icon: BarChart3,
   },
   {
     number: "05",
     title: "TVA et préparation comptable",
-    summary: "Une comptabilité contrôlée et un dossier prêt à transmettre.",
+    summary: "Des contrôles regroupés avant de valider la TVA et les exports.",
     before:
       "Vous vérifiez les écritures, calculez la TVA, préparez les exports, rassemblez les documents et transmettez le dossier à votre comptable.",
     withMohasib:
-      "Mohasib contrôle les écritures, calcule la TVA, rassemble les pièces et prépare les exports. Vous confirmez; Mohasib constitue le dossier comptable.",
+      "Mohasib rassemble les écritures et les pièces, calcule la TVA et signale les anomalies. Vous validez la période et préparez l’export.",
     decision: "Vous validez la période, les exceptions fiscales et les données à transmettre.",
     icon: Calculator,
   },
   {
     number: "06",
     title: "Paie et tâches administratives",
-    summary: "Les documents, calculs et validations suivent un parcours traçable.",
+    summary: "Les variables, validations et bulletins suivent un parcours clair.",
     before:
       "Vous préparez les documents, calculez les éléments de paie, demandez les validations, relancez les personnes concernées et archivez chaque dossier.",
     withMohasib:
-      "Mohasib prépare les documents, calcule les éléments nécessaires, organise les validations, effectue les relances et archive chaque dossier.",
+      "Mohasib centralise les variables, prépare les éléments de paie et suit les validations avant l’archivage de la période.",
     decision: "Vous contrôlez et confirmez les éléments sensibles avant leur finalisation.",
     icon: UsersRound,
   },
@@ -130,17 +130,17 @@ export default function WorkflowsPage() {
       <section className={styles.hero}>
         <div className={styles.heroInner}>
           <p className="public-eyebrow">Solutions Mohasib</p>
-          <h1>Gérez moins.<br />Maîtrisez mieux.</h1>
+          <h1>Automatisez le travail répétitif.<br />Gardez la décision.</h1>
           <p className={styles.heroDescription}>
-            Mohasib automatise vos tâches, centralise vos informations et
-            simplifie votre gestion administrative et comptable.
+            Découvrez comment Mohasib transforme vos documents, paiements et
+            données financières en opérations prêtes à contrôler.
           </p>
           <div className={styles.heroActions}>
             <Link href="#nos-solutions" className="public-primary-action">
-              Découvrir nos solutions <ArrowRight size={16} aria-hidden="true" />
+              Voir les cas d’usage <ArrowRight size={16} aria-hidden="true" />
             </Link>
             <Link href={appUrl("/inscription")} className="public-secondary-action">
-              Créer mon espace
+              Essayer Mohasib
             </Link>
           </div>
         </div>
@@ -148,8 +148,8 @@ export default function WorkflowsPage() {
 
       <section id="nos-solutions" className={styles.pillars} aria-labelledby="solutions-title">
         <div className={styles.pillarsHeading}>
-          <p className={styles.sectionLabel}>Trois bénéfices concrets</p>
-          <h2 id="solutions-title">Une gestion plus fluide, du début à la fin.</h2>
+          <p className={styles.sectionLabel}>Ce que votre équipe y gagne</p>
+          <h2 id="solutions-title">Moins de ressaisie. Plus de visibilité. Un contrôle plus simple.</h2>
         </div>
         <div className={styles.pillarGrid}>
           {solutionPillars.map(({ id, title, description, result, icon: Icon }) => (
@@ -168,23 +168,22 @@ export default function WorkflowsPage() {
       <section className={styles.principle} aria-labelledby="workflow-principle-title">
         <div className={styles.principleInner}>
           <div>
-            <p className={styles.sectionLabel}>La logique globale</p>
-            <h2 id="workflow-principle-title">Moins d’exécution. Plus de contrôle utile.</h2>
+            <p className={styles.sectionLabel}>Le principe</p>
+            <h2 id="workflow-principle-title">Mohasib prépare. Vous contrôlez et validez.</h2>
           </div>
           <div className={styles.principleComparison}>
             <article className={styles.principleBefore}>
               <span>Avant Mohasib</span>
               <p>
-                Vous recevez, recherchez, saisissez, vérifiez, calculez,
-                relancez, classez et archivez.
+                Votre équipe collecte, ressaisit, compare et relance dans plusieurs outils.
               </p>
             </article>
             <ArrowRight className={styles.principleArrow} size={24} aria-hidden="true" />
             <article className={styles.principleAfter}>
               <span>Avec Mohasib</span>
               <p>
-                Mohasib exécute ces étapes. Vous confirmez uniquement lorsque
-                votre décision est nécessaire.
+                Mohasib centralise et prépare les opérations. Votre équipe traite
+                les exceptions et garde la décision finale.
               </p>
             </article>
           </div>
@@ -193,11 +192,11 @@ export default function WorkflowsPage() {
 
       <section id="cas-usage" className={styles.workflows} aria-labelledby="cas-usage-title">
         <div className={styles.workflowsHeading}>
-          <p className={styles.sectionLabel}>Six cas d’usage</p>
-          <h2 id="cas-usage-title">Comment le travail change avec Mohasib</h2>
+          <p className={styles.sectionLabel}>Six cas d’usage concrets</p>
+          <h2 id="cas-usage-title">Comparez votre processus actuel avec Mohasib</h2>
           <p>
-            Découvrez comment nos solutions s’appliquent aux tâches essentielles
-            de votre gestion.
+            Voyez précisément ce que Mohasib prépare et les décisions qui restent
+            entre vos mains.
           </p>
         </div>
 
@@ -237,15 +236,15 @@ export default function WorkflowsPage() {
 
       <section className={styles.finalCta}>
         <div>
-          <p className={styles.sectionLabel}>Votre nouveau mode de travail</p>
-          <h2>Automatisez l’exécution.<br />Conservez la maîtrise.</h2>
+          <p className={styles.sectionLabel}>Commencez à votre rythme</p>
+          <h2>Choisissez un premier flux.<br />Connectez le reste ensuite.</h2>
           <p>
-            Commencez par un besoin, puis connectez progressivement vos
-            documents, vos paiements et votre comptabilité.
+            Centralisez d’abord le processus qui vous prend le plus de temps,
+            puis étendez Mohasib à vos autres opérations.
           </p>
         </div>
         <Link href={appUrl("/inscription")} className="public-primary-action">
-          Créer mon espace <ArrowRight size={16} aria-hidden="true" />
+          Essayer Mohasib <ArrowRight size={16} aria-hidden="true" />
         </Link>
       </section>
 

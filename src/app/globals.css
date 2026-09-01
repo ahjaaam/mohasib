@@ -157,13 +157,17 @@
 }
 
 .app-topbar--dark #app-global-search::placeholder {
-  color: #8F96A3;
+  color: #C8CDD5;
 }
 
 .app-topbar--dark #app-global-search + span {
   border-color: rgba(255, 255, 255, 0.12) !important;
   background: #202632 !important;
-  color: #A9B0BC !important;
+  color: #D9DDE4 !important;
+}
+
+.app-topbar--dark .app-topbar-search-icon {
+  color: #D9DDE4 !important;
 }
 
 .app-topbar--dark > div > a,
@@ -171,7 +175,7 @@
 .app-topbar--dark > div > div > button {
   border-color: transparent !important;
   background: transparent !important;
-  color: #AAB1BD !important;
+  color: #E2E5EA !important;
 }
 
 .app-topbar--dark > div > a:hover,

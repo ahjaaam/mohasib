@@ -63,7 +63,7 @@ export default async function DashboardPage() {
   const selectedPeriodLabel = globalPeriodLabel(selectedPeriod);
   const { data: { user } } = await supabase.auth.getUser();
   const entitlements = await getPlanEntitlements(user!.id);
-  if (entitlements.plan === "free") redirect("/invoices");
+  if (entitlements.plan === "free") redirect("/factures");
   const ownerId = await resolveAccountOwnerId(user!.id);
 
   const companyRes = await supabase
@@ -154,7 +154,7 @@ export default async function DashboardPage() {
               ? `Limite mensuelle atteinte (${usageData.used}/${usageData.limit} documents). Imports désactivés jusqu'au ${usageData.resetDate}.`
               : `Vous avez utilisé ${usageData.used}/${usageData.limit} documents ce mois (${usageData.remaining} restant${usageData.remaining > 1 ? "s" : ""}).`}
           </span>
-          <a href="/settings?tab=abonnement" className="font-semibold whitespace-nowrap hover:underline">Voir l'abonnement →</a>
+          <a href="/parametres?tab=abonnement" className="font-semibold whitespace-nowrap hover:underline">Voir l'abonnement →</a>
         </div>
       )}
 
@@ -173,7 +173,7 @@ export default async function DashboardPage() {
         {/* Prochaines échéances */}
         <div>
           <SectionLabel action={(
-            <Link href="/settings?tab=echeances" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+            <Link href="/parametres?tab=echeances" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
               <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
             </Link>
           )}>Prochaines échéances</SectionLabel>
@@ -265,7 +265,7 @@ export default async function DashboardPage() {
           <div className="tbl">
             <div className="tbl-header">
               <span className="tbl-title">Factures récentes</span>
-              <Link href="/invoices" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+              <Link href="/factures" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
                 <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
               </Link>
             </div>

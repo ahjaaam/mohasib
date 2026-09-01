@@ -89,7 +89,7 @@ export async function generateNotifications() {
     type: "welcome",
     title: "Bienvenue sur Mohasib !",
     message: "Commencez par configurer votre entreprise et créer votre première facture.",
-    link: "/settings",
+    link: "/parametres",
     priority: "normal",
     unique_key: "welcome",
   });
@@ -109,7 +109,7 @@ export async function generateNotifications() {
         type: "missing_info",
         title: "Complétez votre profil",
         message: "Votre ICE et informations légales sont manquants. Ils sont requis sur vos factures.",
-        link: "/settings",
+        link: "/parametres",
         priority: "normal",
         unique_key: "missing_ice",
       });
@@ -143,7 +143,7 @@ export async function generateNotifications() {
       type: "tva_deadline",
       title: `Déclaration TVA due le ${deadline}`,
       message: `Votre TVA estimée est ~${Math.round(tvaEstimate / 100) * 100} MAD. Ne manquez pas la date limite DGI.`,
-      link: "/dashboard",
+      link: "/tableau-de-bord",
       priority: daysUntilTVA <= 10 ? "high" : "normal",
       unique_key: tvaKey,
     });
@@ -185,7 +185,7 @@ export async function generateNotifications() {
         type: "monthly_summary",
         title: `Résumé de ${monthLabel}`,
         message: `CA: ${fmt(ca)} MAD | Factures émises: ${count} | Dépenses: ${fmt(deps)} MAD | Résultat net: ${fmt(net)} MAD`,
-        link: "/dashboard",
+        link: "/tableau-de-bord",
         priority: "normal",
         unique_key: monthKey,
       });
@@ -217,7 +217,7 @@ export async function generateNotifications() {
       message: isLarge
         ? `${clientName} vous doit ${amount} MAD depuis ${daysOverdue} jours. Pensez à relancer.`
         : `${(inv as any).invoice_number} de ${amount} MAD est en retard de ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}. Envoyez une relance à votre client.`,
-      link: `/invoices/${inv.id}`,
+      link: `/factures/${inv.id}`,
       priority: "high",
       unique_key: `overdue_${inv.id}`,
     });
@@ -232,7 +232,7 @@ export async function generateNotifications() {
       type: "cnss_reminder",
       title: "Rappel CNSS",
       message: "N'oubliez pas votre déclaration CNSS mensuelle avant la fin du mois.",
-      link: "/dashboard",
+      link: "/tableau-de-bord",
       priority: "normal",
       unique_key: cnssKey,
     });

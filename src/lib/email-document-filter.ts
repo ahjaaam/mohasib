@@ -47,7 +47,7 @@ export function shouldImportEmailDocument(
     return ACCOUNTING_DOCUMENT_TYPES.has(documentType);
   }
 
-  // In Justificatifs mode, invoices and credit notes are always rejected,
+  // In Notes de frais mode, invoices and credit notes are always rejected,
   // even when the filename or email subject also contains an accepted word.
   if (ACCOUNTING_DOCUMENT_TYPES.has(documentType)) return false;
   if (RECEIPT_DOCUMENT_TYPES.has(documentType)) return true;

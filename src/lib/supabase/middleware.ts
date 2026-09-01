@@ -152,10 +152,10 @@ export async function updateSession(request: NextRequest) {
   if (isInvoicingHost && path === "/") {
     const url = request.nextUrl.clone();
     if (user) {
-      url.pathname = "/invoices";
+      url.pathname = "/factures";
       return NextResponse.redirect(url);
     }
-    url.pathname = "/facturation/invoices";
+    url.pathname = "/facturation/factures";
     return NextResponse.rewrite(url);
   }
 
@@ -163,10 +163,10 @@ export async function updateSession(request: NextRequest) {
   if (user && isInvoicingHost && ["/devis", "/avoirs", "/articles"].includes(path)) {
     const url = request.nextUrl.clone();
     if (path === "/articles") {
-      url.pathname = "/settings";
+      url.pathname = "/parametres";
       url.searchParams.set("tab", "articles");
     } else {
-      url.pathname = "/invoices";
+      url.pathname = "/factures";
       url.searchParams.set("mode", path.slice(1));
     }
     return NextResponse.redirect(url);
@@ -185,9 +185,9 @@ export async function updateSession(request: NextRequest) {
           : path.startsWith("/articles")
             ? "article"
             : "facture";
-    const isCreationPath = path.includes("/new") || path.includes("/nouvelle");
+    const isCreationPath = path.includes("/new") || path.includes("/nouvelle") || path.includes("/nouveau");
     url.pathname = isCreationPath
-      ? `/facturation/create/${intent}`
+      ? `/facturation/creer/${intent}`
       : path.startsWith("/clients")
         ? "/facturation/clients"
         : path.startsWith("/devis")
@@ -196,7 +196,7 @@ export async function updateSession(request: NextRequest) {
             ? "/facturation/avoirs"
             : path.startsWith("/articles")
               ? "/facturation/articles"
-              : "/facturation/invoices";
+              : "/facturation/factures";
     return NextResponse.rewrite(url);
   }
 

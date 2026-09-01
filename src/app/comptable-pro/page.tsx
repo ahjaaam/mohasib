@@ -93,7 +93,7 @@ export default async function FiduciaireOverviewPage() {
         sublabel: (inv.clients as any)?.name ?? "Client",
         amount: Number(inv.total ?? 0),
         sign: "+" as const,
-        href: `/comptable-pro/dossiers/${inv.dossier_id}/invoices/${inv.id}`,
+        href: `/comptable-pro/dossiers/${inv.dossier_id}/factures/${inv.id}`,
         source: "invoice" as const,
       };
     }),
@@ -160,7 +160,7 @@ export default async function FiduciaireOverviewPage() {
             <p className="text-[11px] text-[#9CA3AF] mt-0.5">Tous vos dossiers clients — {periodeLabel}</p>
           </div>
         </div>
-        <Link href="/comptable-pro/dossiers/new" className="btn btn-gold">
+        <Link href="/comptable-pro/dossiers/nouveau" className="btn btn-gold">
           + Nouveau dossier
         </Link>
       </div>
@@ -211,7 +211,7 @@ export default async function FiduciaireOverviewPage() {
               <FolderOpen size={32} className="text-[#D1D5DB] mx-auto mb-3" />
               <p className="text-[13px] text-[#6B7280] mb-1">Aucun dossier client</p>
               <p className="text-[12px] text-[#9CA3AF] mb-4">Créez votre premier dossier pour commencer</p>
-              <Link href="/comptable-pro/dossiers/new" className="btn btn-gold btn-sm">
+              <Link href="/comptable-pro/dossiers/nouveau" className="btn btn-gold btn-sm">
                 + Nouveau dossier
               </Link>
             </div>
@@ -267,7 +267,7 @@ export default async function FiduciaireOverviewPage() {
                             className="btn btn-outline btn-sm">
                             Ouvrir
                           </Link>
-                          <Link href={`/comptable-pro/dossiers/${d.id}/edit`}
+                          <Link href={`/comptable-pro/dossiers/${d.id}/modifier`}
                             className="btn btn-outline btn-sm">
                             Modifier
                           </Link>

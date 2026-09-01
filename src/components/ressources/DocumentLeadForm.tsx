@@ -81,9 +81,9 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
       <div className="document-download-icon flex h-12 w-12 items-center justify-center bg-white/15 text-white">
         <Download size={24} />
       </div>
-      <h2 className="mt-5 text-[22px] font-bold text-white">Télécharger gratuitement</h2>
+      <h2 className="mt-5 text-[22px] font-bold text-white">Recevoir le document</h2>
       <p className="mt-2 text-[13.5px] leading-6 text-white/75">
-        Entrez votre email pour accéder au document. Nous l&apos;utiliserons aussi pour vous envoyer des ressources utiles liées à la gestion d&apos;entreprise.
+        Saisissez votre e-mail pour ouvrir le document. Vous pourrez aussi recevoir nos prochaines ressources de gestion.
       </p>
 
       {success ? (
@@ -91,7 +91,7 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
           <CheckCircle className="mx-auto text-[#059669]" size={32} />
           <p className="mt-3 text-[14px] font-bold text-[#065F46]">Merci, votre document est prêt.</p>
           <p className="mt-2 text-[12px] leading-5 text-[#047857]">
-            Nous vous envoyons aussi le lien par email. Si l&apos;ouverture automatique a été bloquée par votre navigateur, utilisez le bouton ci-dessous.
+            Le lien a aussi été envoyé par e-mail. Si le document ne s’est pas ouvert, utilisez le bouton ci-dessous.
           </p>
           <a
             href={resource.fileUrl ?? "#"}
@@ -99,7 +99,7 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
             rel="noopener noreferrer"
             className="mt-4 inline-flex items-center justify-center rounded-lg bg-[#059669] px-4 py-2.5 text-[12px] font-bold text-white transition hover:bg-[#047857]"
           >
-            Ouvrir le document
+            Ouvrir le document maintenant
           </a>
         </div>
       ) : (
@@ -125,7 +125,7 @@ export default function DocumentLeadForm({ resource }: DocumentLeadFormProps) {
             className="document-download-action public-primary-action w-full disabled:cursor-not-allowed disabled:opacity-60"
           >
             {!saving && <Download size={16} aria-hidden="true" />}
-            {saving ? "Ouverture..." : "Accéder au document"}
+            {saving ? "Préparation du document..." : "Recevoir le document"}
           </button>
           <p className="text-center text-[11.5px] leading-5 text-white/60">
             Pas de spam. Désabonnement en un clic.

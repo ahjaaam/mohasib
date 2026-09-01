@@ -127,8 +127,8 @@ export async function GET(request: NextRequest) {
       label: invoice.invoice_number,
       description: details || "Facture",
       href: invoice.dossier_id
-        ? scopedHref(invoice.dossier_id, "invoices", { q: invoice.invoice_number })
-        : `/invoices/${invoice.id}`,
+        ? scopedHref(invoice.dossier_id, "factures", { q: invoice.invoice_number })
+        : `/factures/${invoice.id}`,
     });
   }
 
@@ -188,8 +188,8 @@ export async function GET(request: NextRequest) {
         id: `receipt-supplier-${receipt.id}`,
         kind: "supplier",
         label: vendor,
-        description: "Fournisseur · Justificatifs",
-        href: scopedHref(receipt.dossier_id, "receipts", { search: vendor }),
+        description: "Fournisseur · Notes de frais",
+        href: scopedHref(receipt.dossier_id, "notes-de-frais", { search: vendor }),
       });
     }
 
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
       kind: "document",
       label: receipt.file_name || vendor || "Reçu",
       description: vendor ? `Reçu · ${vendor}` : "Reçu fournisseur",
-      href: scopedHref(receipt.dossier_id, "receipts", { search: vendor || receipt.file_name || "" }),
+      href: scopedHref(receipt.dossier_id, "notes-de-frais", { search: vendor || receipt.file_name || "" }),
     });
   }
 
@@ -209,7 +209,7 @@ export async function GET(request: NextRequest) {
       kind: "dossier",
       label: dossier.raison_sociale,
       description: details || "Dossier",
-      href: `/comptable-pro/dossiers/${dossier.id}/dashboard`,
+      href: `/comptable-pro/dossiers/${dossier.id}/tableau-de-bord`,
     });
   }
 

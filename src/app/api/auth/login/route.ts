@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
   }).catch(() => {});
   const portalRedirect = data.user ? await resolveClientPortalRedirect(data.user.id) : null;
   const teamContext = data.user && !portalRedirect ? await resolveTeamContext(data.user.id) : null;
-  const redirectTo = portalRedirect ?? (teamContext?.plan === "free" ? "/invoices" : null);
+  const redirectTo = portalRedirect ?? (teamContext?.plan === "free" ? "/factures" : null);
   const res = NextResponse.json({ userId: data.user?.id, redirectTo });
   applyRateLimitHeaders(res, LIMIT, { allowed: true, remaining: LIMIT, resetTime: Math.ceil(Date.now() / 1000), attempts: 0 });
   return res;

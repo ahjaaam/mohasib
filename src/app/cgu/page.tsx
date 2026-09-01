@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import LegalDocumentPage, { type LegalSection } from "@/components/LegalDocumentPage";
 
 export const metadata: Metadata = {
@@ -83,7 +84,7 @@ const sections: LegalSection[] = [
       <>
         <ul>
           <li>Période d&apos;essai gratuite : 7 jours, avec limites précisées dans l&apos;application, sans obligation de carte bancaire.</li>
-          <li>Plans payants : facturation mensuelle ou annuelle, prix affichés sur <a href="/tarifs" className="font-semibold text-[#C8924A] hover:underline">/tarifs</a>, TTC.</li>
+          <li>Plans payants : facturation mensuelle ou annuelle, prix affichés sur <Link href="/tarifs" className="font-semibold text-[#C8924A] hover:underline">/tarifs</Link>, TTC.</li>
           <li>Les mises à niveau prennent effet immédiatement ; les rétrogradations prennent effet à la fin de la période en cours.</li>
           <li>Modes de paiement acceptés : virement bancaire, autres moyens à venir.</li>
           <li>Aucun remboursement au prorata n&apos;est dû, sauf erreur de facturation reconnue.</li>

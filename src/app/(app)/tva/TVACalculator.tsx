@@ -479,7 +479,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
             B: {activeBLines.length} · C: {activeCLines.length} · D: {activeDLines.length} · E: {activeELines.length}
           </p>
         </div>
-        <Link href="/settings?tab=tva" className="btn btn-outline text-[11.5px] text-[#92400E]">
+        <Link href="/parametres?tab=tva" className="btn btn-outline text-[11.5px] text-[#92400E]">
           Gérer les lignes actives
         </Link>
       </div>
@@ -915,7 +915,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
                     : calc.invoices.map(inv => (
                       <tr key={inv.id} className="border-t border-[rgba(0,0,0,0.04)] hover:bg-[#FAFAF6]">
                         <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280]">
-                          <Link href={`/invoices/${inv.id}`} className="hover:text-[#C8924A]">{inv.invoice_number}</Link>
+                          <Link href={`/factures/${inv.id}`} className="hover:text-[#C8924A]">{inv.invoice_number}</Link>
                         </td>
                         <td className="px-4 py-2.5 text-[12px]">{inv.client_name}</td>
                         <td className="px-4 py-2.5 text-[11.5px] text-[#6B7280]">{fmtDate(inv.issue_date)}</td>

@@ -16,7 +16,7 @@ export default function WaitlistClient() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) {
-      toast.error("Email requis");
+      toast.error("Saisissez votre adresse e-mail.");
       return;
     }
     setSaving(true);
@@ -37,7 +37,7 @@ export default function WaitlistClient() {
       .select("id", { count: "exact", head: true });
     setPosition(count ?? null);
     setSaving(false);
-    toast.success("Inscription enregistrée");
+    toast.success("Vous êtes bien inscrit sur la liste d’attente.");
   }
 
   return (
@@ -63,11 +63,11 @@ export default function WaitlistClient() {
         </div>
       </div>
       <button disabled={saving} className="public-primary-action mt-5 w-full disabled:opacity-60">
-        {saving ? "Inscription..." : "Rejoindre la liste"}
+        {saving ? "Inscription en cours..." : "M’inscrire sur la liste"}
       </button>
       {position !== null && (
         <p className="mt-4 rounded-xl bg-[#ECFDF5] px-4 py-3 text-center text-[13px] font-bold text-[#065F46]">
-          Votre position estimée : #{position}
+          Inscription confirmée. Position estimée&nbsp;: #{position}
         </p>
       )}
     </form>

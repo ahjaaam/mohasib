@@ -113,6 +113,7 @@ export interface AvoirFournisseur {
 }
 
 export type ReceiptStatus = "pending" | "matched" | "ignored";
+export type ReceiptDocumentArea = "purchase" | "supporting_document" | "legacy";
 
 export interface OcrData {
   date?: string | null;
@@ -154,6 +155,7 @@ export interface Receipt {
   file_name: string | null;
   mime_type: string | null;
   status: ReceiptStatus;
+  document_area: ReceiptDocumentArea;
   ocr_data: OcrData;
   created_at: string;
   updated_at: string;

@@ -928,7 +928,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
             </div>
             <div className="flex gap-2">
               <button onClick={() => setLimitReached(null)} className="btn btn-outline flex-1 justify-center">Fermer</button>
-              <a href="/settings" className="btn btn-gold flex-1 justify-center text-center">Voir l'abonnement →</a>
+              <a href="/parametres" className="btn btn-gold flex-1 justify-center text-center">Voir l'abonnement →</a>
             </div>
           </div>
         </div>

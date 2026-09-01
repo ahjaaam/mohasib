@@ -763,7 +763,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     <div>
       {/* Page header */}
       <PageHeader
-        title="La Paie"
+        title="La paie"
         subtitle="Gestion de la paie marocaine"
         icon={<UserRoundCog size={18} />}
         action={

@@ -74,8 +74,8 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
   const ownerId = useAccountOwnerId();
 
   const APP_ROUTES: Partial<Record<TabKey, string>> = {
-    factures:     `/invoices?dossier_id=${dossier.id}`,
-    achats:       `/inbox?dossier_id=${dossier.id}`,
+    factures:     `/factures?dossier_id=${dossier.id}`,
+    achats:       `/boite-de-reception?dossier_id=${dossier.id}`,
     paie:         `/paie?dossier_id=${dossier.id}`,
   };
 

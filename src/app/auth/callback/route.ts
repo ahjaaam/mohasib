@@ -54,7 +54,7 @@ export async function GET(request: Request) {
           const company = Array.isArray(membership.companies) ? membership.companies[0] : membership.companies;
           const dossierId = membership.dossier_id ?? membership.dossier_scope?.[0];
           const memberDest = membership.role_name === "client_portal" && dossierId
-            ? `/comptable-pro/dossiers/${dossierId}/dashboard`
+            ? `/comptable-pro/dossiers/${dossierId}/tableau-de-bord`
             : membership.access_scope === "comptable_pro_only"
               ? "/comptable-pro"
               : membership.access_scope === "business_only"

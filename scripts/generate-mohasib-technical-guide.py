@@ -369,7 +369,7 @@ def build_story():
     s += [
         FlowDiagram(["Capture source", "Extract and normalize", "Classify and link", "Generate consequences", "Validate, post, audit"], title="END-TO-END BUSINESS PIPELINE"),
         Spacer(1, 4*mm),
-        P("Mohasib is a multi-tenant accounting SaaS for Moroccan businesses and accounting firms. The application combines commercial documents, supplier justificatifs, payments, bank statements, accounting journals, tax and payroll support, reporting, collaboration, and an AI assistant."),
+        P("Mohasib is a multi-tenant accounting SaaS for Moroccan businesses and accounting firms. The application combines commercial documents, supplier expense reports, payments, bank statements, accounting journals, tax and payroll support, reporting, collaboration, and an AI assistant."),
         H2("The five layers"),
         grid_table(["Layer", "Responsibility", "Examples"], [
             ["Capture", "Acquire original evidence", "Gmail/Outlook attachment, upload, photo, generated invoice, bank file"],
@@ -385,7 +385,7 @@ def build_story():
     s += H1("02", "Terminology and boundaries")
     s += [
         grid_table(["Term", "Meaning in Mohasib", "What it is not"], [
-            ["Justificatif", "A supplier invoice, receipt, ticket, or other evidence stored in the receipt/document domain", "It is not automatically a bank transaction or journal entry"],
+            ["Note de frais", "A supplier invoice, receipt, ticket, or other evidence stored in the receipt/document domain", "It is not automatically a bank transaction or journal entry"],
             ["Transaction", "An operational money movement, manual or originating from a bank import", "It is not itself proof that the expense is valid"],
             ["Payment allocation", "A many-to-many settlement link between a transaction and a commercial document", "It is not bank reconciliation"],
             ["Recouvrement", "Customer collection: monitoring due invoices, reminders, receipt of funds, and allocation to invoices", "It is not only sending reminders"],
@@ -423,7 +423,7 @@ def build_story():
     s += [LinkDiagram(), Spacer(1, 3*mm),
         grid_table(["Entity", "Purpose", "Important links"], [
             ["invoices", "Customer invoices, credit notes, totals, due dates, collection status", "client_id; payment allocations; journal source_id"],
-            ["receipts", "Supplier justificatifs and OCR data", "transaction_id legacy link; payment allocations; purchase journal source_id"],
+            ["receipts", "Supplier expense reports and OCR data", "transaction_id legacy link; payment allocations; purchase journal source_id"],
             ["transactions", "Income/expense movement with manual or bank_import source", "invoice_id legacy link; bank_line_id; payment allocations"],
             ["invoice_payments", "Many-to-many allocation between transaction and exactly one document type", "transaction_id plus invoice_id or inbox_item_id"],
             ["bank_statements", "Imported statement header and balances", "contains bank_statement_lines"],
@@ -439,7 +439,7 @@ def build_story():
 
     s += H1("05", "Document ingestion and OCR workflow")
     s += [
-        FlowDiagram(["Receive file", "Validate type and size", "Store private original", "Extract fields + confidence", "Review and confirm"], title="JUSTIFICATIF INGESTION"),
+        FlowDiagram(["Receive file", "Validate type and size", "Store private original", "Extract fields + confidence", "Review and confirm"], title="EXPENSE REPORT INGESTION"),
         H2("Supported capture channels"),
         B("Manual upload or camera/photo from the inbox/receipt workflow."),
         B("Inbound or synchronized Gmail/Outlook attachments. Supported attachment types include PDF, JPEG, PNG, WebP, and GIF; current email logic uses a 10 MB limit."),
@@ -560,7 +560,7 @@ def build_story():
         PageBreak(),
     ]
 
-    s += H1("11", "Supplier payables and justificatif settlement")
+    s += H1("11", "Supplier payables and expense report settlement")
     s += [
         FlowDiagram(["Supplier document captured", "Purchase validated", "Payable recognized", "Expense transaction imported", "Payment allocated", "Payable cleared"], title="SUPPLIER PAYMENT"),
         H2("Supplier-document state"),
@@ -692,7 +692,7 @@ def build_story():
         H2("Correction model"),
         P("A posted accounting event should not be silently overwritten. Corrections should create a reversal event and a new corrected event, preserving source linkage, actor, reason, prior event reference and hashes. The accounting_events table already supports previous-event and reversal metadata and is protected by an append-only trigger."),
         H2("Close model"),
-        P("Before period lock: resolve unmatched bank lines, missing justificatifs, unallocated payments, imbalanced or draft entries, supplier/customer balances, TVA anomalies and payroll/declaration discrepancies. After lock: only authorized unlock or controlled adjustment procedures should be permitted."),
+        P("Before period lock: resolve unmatched bank lines, missing expense reports, unallocated payments, imbalanced or draft entries, supplier/customer balances, TVA anomalies and payroll/declaration discrepancies. After lock: only authorized unlock or controlled adjustment procedures should be permitted."),
         PageBreak(),
     ]
 

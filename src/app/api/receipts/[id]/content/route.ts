@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .maybeSingle();
 
   if (!receipt) {
-    return NextResponse.json({ error: "Justificatif introuvable." }, { status: 404 });
+    return NextResponse.json({ error: "Note de frais introuvable." }, { status: 404 });
   }
 
   const permission = await authorizePermission("document", "read", { dossierId: receipt.dossier_id });
@@ -25,10 +25,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const admin = createAdminClient();
   const { data, error } = await admin.storage.from("receipts").download(receipt.storage_path);
   if (error || !data) {
-    return NextResponse.json({ error: "Lecture du justificatif impossible." }, { status: 502 });
+    return NextResponse.json({ error: "Lecture de la note de frais impossible." }, { status: 502 });
   }
 
-  const safeName = (receipt.file_name || "justificatif").replace(/["\r\n]/g, "_");
+  const safeName = (receipt.file_name || "note-de-frais").replace(/["\r\n]/g, "_");
   return new Response(data, {
     headers: {
       "Content-Type": receipt.mime_type || data.type || "application/octet-stream",

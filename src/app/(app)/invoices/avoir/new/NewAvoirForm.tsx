@@ -255,7 +255,7 @@ export default function NewAvoirForm({
     setSaving(false);
     if (status === "draft") {
       toast.success(`Brouillon ${row.invoice_number} enregistré`);
-      router.push(backHref ?? "/invoices?mode=avoirs");
+      router.push(backHref ?? "/factures?mode=avoirs");
       router.refresh();
     } else {
       toast.success(`Avoir ${row.invoice_number} émis et comptabilisé`);
@@ -387,7 +387,7 @@ export default function NewAvoirForm({
           </button>
         </div>
         <button
-          onClick={() => { router.push(backHref ?? "/invoices?mode=avoirs"); router.refresh(); }}
+          onClick={() => { router.push(backHref ?? "/factures?mode=avoirs"); router.refresh(); }}
           className="text-[11.5px] text-[#6B7280] hover:text-[#1A1A2E] underline"
         >
           Retour aux avoirs

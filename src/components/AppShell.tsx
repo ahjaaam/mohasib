@@ -24,14 +24,15 @@ import AppTopBar from "@/components/AppTopBar";
 import SidebarToggleButton from "@/components/SidebarToggleButton";
 import SidebarLogo from "@/components/SidebarLogo";
 import SidebarItemTooltip from "@/components/SidebarItemTooltip";
+import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 
 const SIDEBAR_BACKGROUND = "#111621";
 
 const NAV_MAIN = [
-  { href: "/dashboard",    icon: ChartNoAxesCombined, label: "Tableau de bord", key: "dashboard", permission: "report:read" },
-  { href: "/inbox",        icon: Inbox,           label: "Achats",             key: "inbox", permission: "document:read" },
-  { href: "/receipts",     icon: ReceiptText,     label: "Justificatifs",      key: "receipts", permission: "document:read" },
-  { href: "/invoices",          icon: FileText,   label: "Factures",            key: "invoices", permission: "invoice:read" },
+  { href: "/tableau-de-bord", icon: ChartNoAxesCombined, label: "Tableau de bord", key: "dashboard", permission: "report:read" },
+  { href: "/boite-de-reception", icon: Inbox,     label: "Achats",             key: "inbox", permission: "document:read" },
+  { href: "/notes-de-frais", icon: ReceiptText,  label: "Notes de frais",     key: "receipts", permission: "document:read" },
+  { href: "/factures",          icon: FileText,   label: "Factures",            key: "invoices", permission: "invoice:read" },
   { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des échéances", key: "suivi-paiements", permission: "invoice:read" },
   { href: "/clients",           icon: Users,      label: "Clients",             key: "clients", permission: "invoice:read" },
   ...(FEATURES.TREASURY_ENABLED
@@ -42,9 +43,9 @@ const NAV_MAIN = [
   FEATURES.SAISIE_ENABLED
     ? { href: "/saisie", icon: PenLine, label: "Saisie comptable", key: "saisie", permission: "accounting:read", feature: "saisie" as PlanFeature }
     : { href: "/ecritures", icon: LayoutTemplate, label: "Écritures", key: "ecritures", permission: "accounting:read" },
-  { href: "/tva",          icon: Calculator,      label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
-  { href: "/paie",         icon: UserRoundCog,    label: "La Paie",            key: "paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
-  { href: "/export",       icon: Download,        label: "Exports",            key: "export", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
+  { href: "/declarations-tva", icon: Calculator, label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
+  { href: "/paie",         icon: UserRoundCog,    label: "La paie",            key: "paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
+  { href: "/export-fiduciaire", icon: Download,  label: "Exports",            key: "export", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
   { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive", permission: "document:read" },
 ];
 
@@ -54,7 +55,7 @@ const ALL_NAV = [
   ...NAV_MAIN,
   ...NAV_SOON,
   { href: "/rapports", icon: BarChart2,     label: "Rapports",     key: "rapports", soon: true, permission: "report:read" },
-  { href: "/settings", icon: Settings,      label: "Paramètres",   key: "settings", permission: "settings:update" },
+  { href: "/parametres", icon: Settings,    label: "Paramètres",   key: "settings", permission: "settings:update" },
 ];
 
 interface Props {
@@ -96,7 +97,7 @@ interface Props {
 
 export default function AppShell({ children, userId, ownerId, userEmail, userName, userCompany, cabinetCompanies = [], userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements, guestMode = false, sidebarTheme: initialSidebarTheme = "cream" }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { collapsed: sidebarCollapsed, toggleCollapsed: toggleSidebarCollapsed } = useSidebarCollapsed();
   const [sidebarTheme, setSidebarTheme] = useState(initialSidebarTheme);
   const [referenceTime] = useState(() => Date.now());
   const pathname = usePathname();
@@ -105,29 +106,22 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   const supabase = createClient();
   const { can } = usePermissions(permissions);
   const effectivePathname = guestMode
-    ? pathname === "/" || pathname.startsWith("/facturation/invoices") || pathname.startsWith("/facturation/devis") || pathname.startsWith("/facturation/avoirs") || pathname.startsWith("/facturation/create") || pathname.startsWith("/devis") || pathname.startsWith("/avoirs")
-      ? "/invoices"
+    ? pathname === "/" || pathname.startsWith("/facturation/factures") || pathname.startsWith("/facturation/devis") || pathname.startsWith("/facturation/avoirs") || pathname.startsWith("/facturation/creer") || pathname.startsWith("/devis") || pathname.startsWith("/avoirs")
+      ? "/factures"
       : pathname.startsWith("/facturation/clients")
         ? "/clients"
         : pathname.startsWith("/facturation/articles") || pathname.startsWith("/articles")
-          ? "/settings"
+          ? "/parametres"
           : pathname
     : pathname;
   const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
   const entitled = (feature?: PlanFeature) => !feature || entitlements.features[feature];
-  const normalizedPath = effectivePathname
-    .replace(/^\/tableau-de-bord/, "/dashboard")
-    .replace(/^\/boite-de-reception/, "/inbox")
-    .replace(/^\/factures/, "/invoices")
-    .replace(/^\/declarations-tva/, "/tva")
-    .replace(/^\/export-fiduciaire/, "/export")
-    .replace(/^\/parametres/, "/settings");
-  const currentNav = ALL_NAV.find(item => normalizedPath === item.href || normalizedPath.startsWith(`${item.href}/`));
-  const currentFeature = featureForPath(normalizedPath) ?? (currentNav && "feature" in currentNav ? currentNav.feature : undefined);
-  const routePermission = /^\/invoices\/(?:new|devis\/new|avoir\/new)$/.test(normalizedPath) || /^\/invoices\/[^/]+\/edit$/.test(normalizedPath)
+  const currentNav = ALL_NAV.find(item => effectivePathname === item.href || effectivePathname.startsWith(`${item.href}/`));
+  const currentFeature = featureForPath(effectivePathname) ?? (currentNav && "feature" in currentNav ? currentNav.feature : undefined);
+  const routePermission = /^\/factures\/(?:nouvelle|devis\/nouveau|avoirs\/nouveau)$/.test(effectivePathname) || /^\/factures\/[^/]+\/modifier$/.test(effectivePathname)
     ? "invoice:create"
     : currentNav?.permission;
-  const permissionAllowed = normalizedPath.startsWith("/settings")
+  const permissionAllowed = effectivePathname.startsWith("/parametres")
     ? allowed("settings:update") || allowed("settings:manage_team")
     : allowed(routePermission);
   const featureAllowed = entitled(currentFeature);
@@ -169,22 +163,13 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   }
 
   const isActive = (href: string) => {
-    const frenchToEnglish: Record<string, string> = {
-      "/tableau-de-bord": "/dashboard",
-      "/boite-de-reception": "/inbox",
-      "/factures": "/invoices",
-      "/declarations-tva": "/tva",
-      "/export-fiduciaire": "/export",
-      "/parametres": "/settings",
-    };
-    const currentPath = frenchToEnglish[effectivePathname] ?? effectivePathname;
-    if (href === "/invoices") {
-      return currentPath === "/invoices" || currentPath.startsWith("/invoices/");
+    if (href === "/factures") {
+      return effectivePathname === "/factures" || effectivePathname.startsWith("/factures/");
     }
     if (href === "/suivi-paiements") {
-      return currentPath.startsWith("/suivi-paiements");
+      return effectivePathname.startsWith("/suivi-paiements");
     }
-    return currentPath === href;
+    return effectivePathname === href;
   };
 
   const trialDays = accountState?.trial_ends_at ? Math.ceil((new Date(accountState.trial_ends_at).getTime() - referenceTime) / 86400000) : null;
@@ -230,10 +215,10 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                   : locked
                     ? lightSidebar
                       ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
-                      : "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                      : "text-white/35 hover:text-white/55 hover:bg-white/5 border-transparent"
                     : lightSidebar
                       ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
-                      : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                      : "text-white/80 hover:text-white hover:bg-white/5 border-transparent"
               }`}>
               <Icon size={sidebarCollapsed ? 18 : 15} />
               {!sidebarCollapsed && label}
@@ -264,7 +249,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
           <SidebarContent />
           <SidebarToggleButton
             collapsed={sidebarCollapsed}
-            onToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            onToggle={toggleSidebarCollapsed}
             light={lightSidebar}
           />
         </aside>}
@@ -279,7 +264,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             key={pathname}
             items={topBarItems}
             primaryNav={freePlan ? [
-              { href: "/invoices", label: "Factures", active: isActive("/invoices") },
+              { href: "/factures", label: "Factures", active: isActive("/factures") },
               { href: "/clients", label: "Clients", active: isActive("/clients") },
             ] : undefined}
             userName={userName}
@@ -293,13 +278,13 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             cabinetMenuItems={!freePlan && isFiduciaire && accessScope !== "business_only"
               ? [
                   {
-                    href: "/dashboard",
+                    href: "/tableau-de-bord",
                     label: businessWorkspaceLabel,
                     icon: LayoutDashboard,
                     active: !pathname.startsWith("/comptable-pro"),
                   },
                   ...cabinetCompanies.map((company) => ({
-                    href: `/comptable-pro/dossiers/${company.id}/dashboard`,
+                    href: `/comptable-pro/dossiers/${company.id}/tableau-de-bord`,
                     label: company.name,
                     icon: Building2,
                     active: pathname.startsWith(`/comptable-pro/dossiers/${company.id}`),
@@ -341,8 +326,8 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
         >
           {freePlan ? (
             <>
-              <Link href="/invoices" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-                style={{ color: isActive("/invoices") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              <Link href="/factures" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+                style={{ color: isActive("/factures") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
                 <FileText size={19} />
                 <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
               </Link>
@@ -353,15 +338,15 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
               </Link>
             </>
           ) : <>
-            <Link href="/dashboard" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-              style={{ color: isActive("/dashboard") ? "#C8924A" : allowed("report:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+            <Link href="/tableau-de-bord" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+              style={{ color: isActive("/tableau-de-bord") ? "#C8924A" : allowed("report:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
               <ChartNoAxesCombined size={19} />
               <span style={{ fontSize: 10, fontWeight: 500 }}>Accueil</span>
               {!allowed("report:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
             </Link>
 
-            <Link href="/invoices" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-              style={{ color: isActive("/invoices") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+            <Link href="/factures" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+              style={{ color: isActive("/factures") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
               <FileText size={19} />
               <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
               {!allowed("invoice:read") && <Lock size={9} className="absolute right-[24%] top-2" />}

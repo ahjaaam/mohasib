@@ -613,7 +613,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
                     .map((invoice) => (
                       <Link
                         key={invoice.id}
-                        href={`/invoices/${invoice.id}`}
+                        href={`/factures/${invoice.id}`}
                         onClick={(event) => event.stopPropagation()}
                         className="flex items-center justify-between text-[11px] text-[#6B7280] hover:text-[#C8924A]"
                       >
@@ -631,7 +631,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
             {/* Actions */}
             <div className={`flex items-center justify-between gap-3 border-t border-[rgba(0,0,0,0.06)] px-4 py-3 ${viewMode === "rows" ? "md:w-[170px] md:flex-shrink-0 md:flex-col md:items-start md:justify-center md:border-l md:border-t-0" : ""}`}>
               <Link
-                href={`/invoices?q=${encodeURIComponent(c.name)}`}
+                href={`/factures?q=${encodeURIComponent(c.name)}`}
                 onClick={(e) => e.stopPropagation()}
                 className="flex items-center gap-1.5 text-[11.5px] text-[#C8924A] font-medium hover:underline"
               >

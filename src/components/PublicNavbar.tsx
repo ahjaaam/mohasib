@@ -383,6 +383,10 @@ export default function PublicNavbar({ logoWidth = 132 }: PublicNavbarProps) {
               Facturation
             </Link>
 
+            <Link href="/tarifs" className="public-nav-link">
+              Tarifs
+            </Link>
+
             <a href={ROADMAP_URL} className="public-nav-link" target="_blank" rel="noreferrer">
               Roadmap
             </a>
@@ -428,7 +432,7 @@ export default function PublicNavbar({ logoWidth = 132 }: PublicNavbarProps) {
             </Link>
 
             <Link href="/centre-aide" className="public-contact-sales">
-              Nous contacter
+              Demander une démo
             </Link>
           </div>
 
@@ -455,6 +459,10 @@ export default function PublicNavbar({ logoWidth = 132 }: PublicNavbarProps) {
 
             <Link href={invoicingUrl("/")} className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
               Facturation
+            </Link>
+
+            <Link href="/tarifs" className="public-mobile-main-link" onClick={() => setMobileOpen(false)}>
+              Tarifs
             </Link>
 
             <a
@@ -495,7 +503,7 @@ export default function PublicNavbar({ logoWidth = 132 }: PublicNavbarProps) {
             </Link>
 
             <Link href="/centre-aide" className="public-mobile-contact-sales" onClick={() => setMobileOpen(false)}>
-              Nous contacter
+              Demander une démo
             </Link>
           </div>
         )}

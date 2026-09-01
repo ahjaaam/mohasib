@@ -24,12 +24,12 @@ type Capability = {
 const capabilities: Capability[] = [
   {
     title: "Achats",
-    description: "Dépenses et fournisseurs centralisés",
+    description: "Factures, dépenses et fournisseurs centralisés",
     icon: Inbox,
   },
   {
-    title: "Justificatifs",
-    description: "Collecte et lecture automatique",
+    title: "Notes de frais",
+    description: "Collecte, extraction et classement",
     icon: ReceiptText,
   },
   {
@@ -39,17 +39,17 @@ const capabilities: Capability[] = [
   },
   {
     title: "Suivi des échéances",
-    description: "Relances et paiements à venir",
+    description: "Échéances, retards et relances à suivre",
     icon: CalendarClock,
   },
   {
     title: "Clients",
-    description: "Historique et soldes accessibles",
+    description: "Historique, factures et soldes accessibles",
     icon: Users,
   },
   {
     title: "Transactions",
-    description: "Mouvements bancaires organisés",
+    description: "Mouvements importés et organisés",
     icon: Landmark,
   },
   {
@@ -59,12 +59,12 @@ const capabilities: Capability[] = [
   },
   {
     title: "Écritures comptables",
-    description: "Saisie structurée et contrôlable",
+    description: "Écritures préparées et traçables",
     icon: BookOpenText,
   },
   {
     title: "Déclarations TVA",
-    description: "TVA calculée et prête à déclarer",
+    description: "Calculs et contrôles avant déclaration",
     icon: Calculator,
   },
   {
@@ -74,7 +74,7 @@ const capabilities: Capability[] = [
   },
   {
     title: "Mohasib Agent",
-    description: "Assistant IA pour piloter vos opérations",
+    description: "Assistant IA pour retrouver et analyser vos données",
     icon: Bot,
   },
   {
@@ -89,13 +89,13 @@ export default function CapabilitiesSection() {
     <section className={styles.section} aria-labelledby="capabilities-title">
       <div className={styles.inner}>
         <header className={styles.heading}>
-          <p className={styles.eyebrow}>Tout est connecté</p>
+          <p className={styles.eyebrow}>Une plateforme, un suivi continu</p>
           <h2 id="capabilities-title">
-            Tout ce qu’il vous faut pour piloter votre entreprise
+            Les outils essentiels pour gérer et contrôler vos finances
           </h2>
           <p>
-            De la collecte des pièces à la TVA, Mohasib réunit vos opérations
-            financières et comptables dans un seul espace.
+            De la collecte des pièces aux exports comptables, chaque module partage
+            la même information pour éviter les doubles saisies et les fichiers isolés.
           </p>
         </header>
 

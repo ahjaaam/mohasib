@@ -4,6 +4,7 @@ import { AccountControls, DeleteAccountControl, MemberAccessScopeSelect, MemberT
 import { AdminAction, StatusBadge } from "@/components/admin/AdminUI";
 import { accountStatus, adminContext, authUserMap, formatDate, formatMoney } from "@/lib/admin-data";
 import { TRIAL_LIMITS } from "@/lib/trial-limits";
+import { pricingPlanLabel } from "@/lib/pricing";
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -67,7 +68,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   return <div>
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h1 className="text-xl font-bold">{company.raison_sociale || "Compte sans nom"}</h1><StatusBadge status={accountStatus(company)} /></div><p className="mt-1 text-xs text-gray-500">{owner?.email || "—"} · {company.user_type || "—"} · créé {formatDate(company.created_at)}</p></div><div className="flex flex-wrap gap-2"><a href={`/api/admin/accounts/${company.id}/export`} className="rounded border border-black/15 px-3 py-2 text-xs font-semibold">Exporter les données</a><AdminAction endpoint={`/api/admin/accounts/${company.id}/reset-usage`} label="Réinitialiser l’usage" danger /><Link href={`/admin/notifications?company=${company.id}`} className="rounded bg-[#C8924A] px-3 py-2 text-xs font-bold text-white">Envoyer une notification</Link></div></div>
     <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[
-      ["Accès", company.subscription_status === "trial" ? "Version gratuite" : "Sur mesure"],
+      ["Tarif", pricingPlanLabel(company.plan)],
       ["Fin abonnement", formatDate(company.subscription_ends_at || company.trial_ends_at)],
       ["OCR", `${company.ocr_used_this_month ?? 0} / ${override.data?.ocr_limit ?? plan?.ocr_limit ?? "—"}`],
       ["Utilisateurs", `${(members.data ?? []).filter(item => item.status === "active").length} / ${override.data?.users_limit ?? plan?.users_limit ?? "—"}`],
@@ -157,7 +158,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     </section>
     <div className="mt-5 grid gap-5 xl:grid-cols-2">
       <section className="rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Collaborateurs</h2><div className="divide-y divide-black/5">{staffMembers.map(member => <div key={member.id} className="flex items-center justify-between gap-3 px-4 py-3 text-[11px]"><div><b>{`${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || member.user_email || "Invitation"}</b><div className="text-gray-500">{member.user_email} · Collaborateur · {member.status}</div></div><div className="flex flex-wrap items-center justify-end gap-2"><MemberAccessScopeSelect id={member.id} current={member.access_scope} /><MemberToggle id={member.id} suspended={member.status === "suspended"} /></div></div>)}</div></section>
-      <section className="rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Historique d’abonnement</h2><div className="divide-y divide-black/5">{(subscriptions.data ?? []).map(item => <div key={item.id} className="grid gap-1 px-4 py-3 text-[11px] sm:grid-cols-3 sm:gap-0"><b>{item.plan}</b><span>{formatMoney(item.amount_mad)}</span><span className="text-gray-500 sm:text-right">{formatDate(item.starts_at)} → {formatDate(item.ends_at)}</span></div>)}</div></section>
+      <section className="rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Historique d’abonnement</h2><div className="divide-y divide-black/5">{(subscriptions.data ?? []).map(item => <div key={item.id} className="grid gap-1 px-4 py-3 text-[11px] sm:grid-cols-3 sm:gap-0"><b>{pricingPlanLabel(item.plan)}</b><span>{formatMoney(item.amount_mad)}</span><span className="text-gray-500 sm:text-right">{formatDate(item.starts_at)} → {formatDate(item.ends_at)}</span></div>)}</div></section>
     </div>
     <section className="mt-5 rounded-md border border-black/10 bg-white"><h2 className="border-b border-black/10 px-4 py-3 text-sm font-bold">Journal d’audit</h2><div className="divide-y divide-black/5">{(audits.data ?? []).map(item => <div key={item.id} className="grid gap-1 px-4 py-3 text-[11px] sm:grid-cols-[180px_1fr_180px]"><b>{item.action}</b><span>{item.entity_label || item.entity_type}</span><span className="text-gray-500 sm:text-right">{item.user_email} · {formatDate(item.created_at)}</span></div>)}</div></section>
     <DeleteAccountControl companyId={company.id} companyName={company.raison_sociale || "Compte sans nom"} />

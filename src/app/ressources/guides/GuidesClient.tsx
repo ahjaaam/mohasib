@@ -54,9 +54,9 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
         >
           <div className="mx-auto max-w-5xl text-center">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#F0C98F]">Documents téléchargeables</p>
-            <h1 className="mt-4 text-[38px] font-bold leading-tight text-white md:text-[52px]">Parcourir toutes les ressources</h1>
+            <h1 className="mt-4 text-[38px] font-bold leading-tight text-white md:text-[52px]">Trouvez le bon document. Adaptez-le à votre activité.</h1>
             <p className="mx-auto mt-4 max-w-2xl text-[18px] leading-8 text-white/80 md:text-[20px]">
-              Près de 300 ressources gratuites pour développer votre entreprise
+              Des modèles professionnels pour gagner du temps sur vos tâches comptables, fiscales et administratives.
             </p>
             {guides.length > 0 && (
               <div className="documents-filter-panel mt-8 grid gap-4 bg-white/95 p-5 text-left shadow-[0_14px_35px_rgba(5,10,20,0.20)] sm:grid-cols-2 xl:grid-cols-4">
@@ -139,8 +139,8 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
                   <BookOpen size={19} />
                 </span>
                 <div>
-                  <h2 className="text-[15px] font-bold text-[#0D1526]">Bibliothèque de documents</h2>
-                  <p className="mt-0.5 text-[12px] text-[#6B7280]">Parcourez les modèles disponibles ou recherchez par mot-clé.</p>
+                  <h2 className="text-[15px] font-bold text-[#0D1526]">Tous les documents disponibles</h2>
+                  <p className="mt-0.5 text-[12px] text-[#6B7280]">Filtrez par sujet, type ou format pour trouver rapidement le bon modèle.</p>
                 </div>
               </div>
               <span className="self-start rounded-full bg-[#F5E8D5] px-3 py-1.5 text-[11px] font-bold text-[#976224] sm:self-auto">
@@ -201,7 +201,7 @@ export default function GuidesClient({ guides }: { guides: DownloadableGuide[] }
                     <tr>
                       <td colSpan={5} className="px-6 py-14 text-center">
                         <h3 className="text-[16px] font-bold text-[#0D1526]">Aucun document trouvé</h3>
-                        <p className="mt-2 text-[12.5px] text-[#6B7280]">Essayez un autre mot-clé comme contrat, TVA, facture ou bail.</p>
+                        <p className="mt-2 text-[12.5px] text-[#6B7280]">Modifiez vos filtres ou essayez un mot-clé comme contrat, TVA, facture ou bail.</p>
                       </td>
                     </tr>
                   )}

@@ -110,7 +110,7 @@ function buildOffer(audience: Audience, configuration: Configuration): FlexOffer
     return {
       id: audience,
       name: "Entreprise Flex",
-      description: "Une base complète pour votre entreprise, puis un prix qui évolue uniquement avec votre usage réel.",
+      description: "Les fonctions essentielles pour votre entreprise, avec un prix ajusté à vos volumes réels.",
       price: breakdown.reduce((total, line) => total + line.amount, 0),
       features: [
         "Factures et devis illimités",
@@ -156,7 +156,7 @@ function buildOffer(audience: Audience, configuration: Configuration): FlexOffer
   return {
     id: audience,
     name: "Cabinet Flex",
-    description: "Le cabinet paie sa plateforme et choisit, client par client, un dossier géré ou un espace métier complet.",
+    description: "Une base pour le cabinet, puis le choix entre un dossier géré ou un espace connecté pour chaque client.",
     price: breakdown.reduce((total, line) => total + line.amount, 0),
     features: [
       "Tableau de bord cabinet et boîte globale",
@@ -277,9 +277,9 @@ export default function PricingCalculator() {
     <div>
       <div className="mb-7 flex flex-col justify-between gap-5 border-b border-[#D1D5DB] pb-6 sm:flex-row sm:items-end">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8B765A]">Configurez votre espace</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8B765A]">Estimez votre abonnement</p>
           <h2 className="mt-2 text-[28px] font-bold tracking-[-0.025em] text-[#0D1526] sm:text-[36px]">
-            Votre usage. Votre prix.
+            Ajustez les volumes. Voyez le prix.
           </h2>
         </div>
         <div className="flex w-full border border-[#D8DADF] bg-[#F6F5F3] p-1 sm:w-auto">
@@ -362,7 +362,7 @@ export default function PricingCalculator() {
             href={appUrl("/inscription")}
             className="mt-9 inline-flex min-h-12 items-center justify-between gap-8 bg-white px-5 text-[12.5px] font-bold text-[#0D1526] transition-colors hover:bg-[#F1EDE7]"
           >
-            Créer un compte gratuitement
+            Commencer avec cette formule
             <ArrowRight size={15} />
           </Link>
         </section>
@@ -378,9 +378,9 @@ export default function PricingCalculator() {
           <div className="relative">
             <div className="flex items-start justify-between gap-4 border-b border-[#D8DCE3] pb-6">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#8B765A]">Estimez votre abonnement</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#8B765A]">Votre configuration</p>
                 <p className="mt-2 max-w-[500px] text-[12px] leading-5 text-[#747B87]">
-                  Ajustez chaque quantité. Le total TTC est recalculé immédiatement, sans changement de plan.
+                  Ajustez chaque quantité. Le détail et le total mensuel TTC se mettent à jour immédiatement.
                 </p>
               </div>
               <button type="button" onClick={reset} className="shrink-0 text-[10px] font-bold text-[#707783] underline underline-offset-4 hover:text-[#0D1526]">

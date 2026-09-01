@@ -43,6 +43,8 @@ export const DEFAULT_PLAN_LIMITS: Record<string, Record<string, number | boolean
   comptable_s:   { ocr_limit: 100, storage_gb: 25,  dossiers_limit: 5,  users_limit: 1, employee_limit: 5,  has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: true,  has_tva_edi: true,  has_inbox_global: false, has_mass_declarations: false },
   comptable_pro: { ocr_limit: 500, storage_gb: 100, dossiers_limit: 20, users_limit: 2, employee_limit: 10, has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: true,  has_tva_edi: true,  has_inbox_global: true,  has_mass_declarations: true },
   comptable_inf: { ocr_limit: -1,  storage_gb: -1,  dossiers_limit: -1, users_limit: 5, employee_limit: -1, has_bank_import: true,  has_saisie: true,  has_paie: true,  has_export_fiduciaire: true,  has_avoirs: true,  has_bilan: true,  has_tva_edi: true,  has_inbox_global: true,  has_mass_declarations: true },
+  entreprise:     { ocr_limit: 100, storage_gb: -1,  dossiers_limit: 0,  users_limit: 1, employee_limit: 20, has_bank_import: true, has_saisie: true, has_paie: true, has_export_fiduciaire: true, has_avoirs: true, has_bilan: true, has_tva_edi: true, has_inbox_global: false, has_mass_declarations: false },
+  cabinet:        { ocr_limit: 1000, storage_gb: -1, dossiers_limit: 10, users_limit: 12, employee_limit: 20, has_bank_import: true, has_saisie: true, has_paie: true, has_export_fiduciaire: true, has_avoirs: true, has_bilan: true, has_tva_edi: true, has_inbox_global: true, has_mass_declarations: true },
   // Activating an account promotes it to `custom`. Custom accounts start with
   // full access; explicit company overrides remain the source of truth when an
   // administrator intentionally restricts a module or limit.
@@ -53,8 +55,8 @@ export const MAIN_ROUTE_FEATURES: Record<string, PlanFeature> = {
   "/rapprochement": "bank_import",
   "/saisie": "saisie",
   "/paie": "paie",
-  "/export": "export_fiduciaire",
   "/export-fiduciaire": "export_fiduciaire",
+  "/factures/avoirs": "avoirs",
   "/invoices/avoir": "avoirs",
   "/transactions/avoirs-fournisseurs": "avoirs",
 };
@@ -67,11 +69,11 @@ export function featureForPath(pathname: string, routes = MAIN_ROUTE_FEATURES) {
 }
 
 const FREE_PLAN_ROUTES = [
-  "/invoices",
   "/factures",
+  "/invoices",
   "/clients",
-  "/settings",
   "/parametres",
+  "/settings",
   "/notifications",
 ] as const;
 

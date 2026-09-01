@@ -133,7 +133,7 @@ export default function FiduciairePaiePage() {
         <div className="text-center py-16">
           <FolderOpen size={36} className="text-[#D1D5DB] mx-auto mb-3" />
           <p className="text-[13px] text-[#6B7280] mb-1">Aucun dossier actif</p>
-          <Link href="/comptable-pro/dossiers/new" className="btn btn-gold btn-sm mt-3 inline-flex">
+          <Link href="/comptable-pro/dossiers/nouveau" className="btn btn-gold btn-sm mt-3 inline-flex">
             Créer un dossier
           </Link>
         </div>

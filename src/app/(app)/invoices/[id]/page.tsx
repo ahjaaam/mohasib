@@ -80,7 +80,7 @@ export default async function InvoiceDetailPage({
             >
               {labelStatus}
             </span>
-            <Link href="/invoices" className="btn btn-outline flex items-center gap-1.5">
+            <Link href="/factures" className="btn btn-outline flex items-center gap-1.5">
               <ArrowLeft size={13} /> Retour
             </Link>
           </>

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
+import { visibleDocumentAreas } from "@/lib/document-area";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
@@ -111,6 +112,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     let request = supabase
       .from("receipts")
       .select("*")
+      .in("document_area", visibleDocumentAreas("expenses"))
       .order("created_at", { ascending: false });
     request = dossierId
       ? request.eq("dossier_id", dossierId)
@@ -118,7 +120,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
 
     const { data, error } = await request;
     if (error) {
-      toast.error("Impossible de charger les justificatifs.");
+      toast.error("Impossible de charger les notes de frais.");
       setLoading(false);
       return;
     }
@@ -151,6 +153,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       try {
         const body = new FormData();
         body.append("file", file);
+        body.append("document_area", "supporting_document");
         if (dossierId) body.append("dossier_id", dossierId);
         const response = await fetch("/api/ocr", { method: "POST", body });
         const result = await response.json().catch(() => ({}));
@@ -161,7 +164,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       }
     }
     if (imported) {
-      toast.success(`${imported} justificatif${imported > 1 ? "s" : ""} importé${imported > 1 ? "s" : ""}`);
+      toast.success(`${imported} note${imported > 1 ? "s" : ""} de frais importée${imported > 1 ? "s" : ""}`);
       await load();
     }
     setUploading(false);
@@ -186,7 +189,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     }
     setReceipts((current) => current.map((item) => item.id === receipt.id ? { ...item, status: nextStatus } : item));
     setPreview((current) => current?.id === receipt.id ? { ...current, status: nextStatus } : current);
-    toast.success(nextStatus === "pending" ? "Justificatif remis à traiter" : "Justificatif archivé");
+    toast.success(nextStatus === "pending" ? "Note de frais remise à traiter" : "Note de frais archivée");
   }
 
   async function deleteReceipt(receipt: ReceiptWithUrl) {
@@ -205,7 +208,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     }
     setReceipts((current) => current.filter((item) => item.id !== receipt.id));
     if (preview?.id === receipt.id) setPreview(null);
-    toast.success("Justificatif supprimé");
+    toast.success("Note de frais supprimée");
   }
 
   function reviewAndConfirm(receipt: ReceiptWithUrl) {
@@ -261,7 +264,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       .update({ ocr_data: confirmedOcr })
       .eq("id", confirming.id);
     if (updateError) {
-      toast.error("Impossible d’enregistrer les données du justificatif.");
+      toast.error("Impossible d’enregistrer les données de la note de frais.");
       setBooking(false);
       return;
     }
@@ -284,7 +287,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       body: JSON.stringify({ status: "matched" }),
     });
     if (!statusResponse.ok) {
-      toast.error("L’écriture est créée, mais le statut du justificatif n’a pas été mis à jour.");
+      toast.error("L’écriture est créée, mais le statut de la note de frais n’a pas été mis à jour.");
       setBooking(false);
       return;
     }
@@ -298,7 +301,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     setBooking(false);
     setConfirming(null);
     setConfirmationForm(null);
-    toast.success("Justificatif comptabilisé dans Écritures.");
+    toast.success("Note de frais comptabilisée dans Écritures.");
   }
 
   const filtered = useMemo(() => receipts.filter((receipt) => {
@@ -334,7 +337,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
             <ReceiptText size={18} className="text-[#C8924A]" />
           </div>
           <div>
-            <h1 className="text-[18px] font-bold leading-none text-[#1A1A2E]">Justificatifs</h1>
+            <h1 className="text-[18px] font-bold leading-none text-[#1A1A2E]">Notes de frais</h1>
             <p className="mt-0.5 text-[11px] text-[#9CA3AF]">Centralisez, recherchez et classez vos reçus et pièces comptables</p>
           </div>
         </div>
@@ -357,7 +360,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="text-[12.5px] font-semibold text-[#1A1A2E]">Déposez vos justificatifs ici</div>
+            <div className="text-[12.5px] font-semibold text-[#1A1A2E]">Déposez vos notes de frais ici</div>
             <div className="text-[11px] text-[#9CA3AF]">PDF, JPG, PNG ou WebP · 10 Mo maximum · extraction automatique</div>
           </div>
           <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
@@ -415,7 +418,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
         <div className="empty-state">
           <ReceiptText size={34} className="mx-auto mb-3 text-[#D1D5DB]" />
           <p className="text-[13px] font-medium text-[#6B7280]">
-            {receipts.length ? "Aucun justificatif ne correspond aux filtres." : "Aucun justificatif pour le moment."}
+            {receipts.length ? "Aucune note de frais ne correspond aux filtres." : "Aucune note de frais pour le moment."}
           </p>
           {!receipts.length && (
             <button onClick={() => fileInputRef.current?.click()} className="btn btn-gold mt-4 text-[12px]">
@@ -426,7 +429,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       ) : (
         <div className="overflow-hidden rounded-xl border border-[rgba(0,0,0,0.08)] bg-white">
           <div className="hidden grid-cols-[minmax(240px,1.5fr)_1fr_130px_130px_210px] gap-3 border-b border-gray-100 bg-[#FAFAF8] px-4 py-2 text-[10.5px] font-semibold uppercase tracking-wide text-[#8A909B] md:grid">
-            <span>Justificatif</span><span>Fournisseur</span><span>Montant</span><span>Statut</span><span className="text-right">Actions</span>
+            <span>Note de frais</span><span>Fournisseur</span><span>Montant</span><span>Statut</span><span className="text-right">Actions</span>
           </div>
           {filtered.map((receipt) => {
             const meta = STATUS_META[receipt.status];
@@ -438,7 +441,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
                     <FileText size={17} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-[12.5px] font-semibold text-[#1A1A2E]">{receipt.file_name ?? "Justificatif sans nom"}</span>
+                    <span className="block truncate text-[12.5px] font-semibold text-[#1A1A2E]">{receipt.file_name ?? "Note de frais sans nom"}</span>
                     <span className="block text-[10.5px] text-[#9CA3AF]">{formatDate(receipt.created_at)} · {receiptSource(receipt)}</span>
                   </span>
                 </button>
@@ -594,7 +597,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
           <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <div className="min-w-0">
-                <div className="truncate text-[13px] font-semibold text-[#1A1A2E]">{preview.file_name ?? "Justificatif"}</div>
+                <div className="truncate text-[13px] font-semibold text-[#1A1A2E]">{preview.file_name ?? "Note de frais"}</div>
                 <div className="text-[10.5px] text-[#9CA3AF]">{receiptVendor(preview)} · {formatAmount(preview.ocr_data.amount, preview.ocr_data.currency ?? "MAD")}</div>
               </div>
               <div className="flex items-center gap-1">
@@ -615,10 +618,10 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
               {!preview.signedUrl && !preview.storage_path ? (
                 <div className="flex h-full min-h-[60vh] items-center justify-center text-[12px] text-[#9CA3AF]">Aucun fichier disponible.</div>
               ) : preview.mime_type === "application/pdf" ? (
-                <iframe title={preview.file_name ?? "Justificatif PDF"} src={`/api/receipts/${preview.id}/content`} className="h-[72vh] w-full rounded-lg bg-white" />
+                <iframe title={preview.file_name ?? "Note de frais PDF"} src={`/api/receipts/${preview.id}/content`} className="h-[72vh] w-full rounded-lg bg-white" />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={preview.signedUrl} alt={preview.file_name ?? "Justificatif"} className="mx-auto max-h-[72vh] max-w-full rounded-lg object-contain" />
+                <img src={preview.signedUrl} alt={preview.file_name ?? "Note de frais"} className="mx-auto max-h-[72vh] max-w-full rounded-lg object-contain" />
               )}
             </div>
           </div>

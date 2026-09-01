@@ -10,7 +10,7 @@ export default async function FiduciaireGrandLivrePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  if (!FEATURES.GRAND_LIVRE_ENABLED) redirect(`/comptable-pro/dossiers/${id}/export`);
+  if (!FEATURES.GRAND_LIVRE_ENABLED) redirect(`/comptable-pro/dossiers/${id}/export-fiduciaire`);
 
   return (
     <GrandLivreView

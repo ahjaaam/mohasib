@@ -33,7 +33,7 @@ export default async function DossierNewInvoicePage({
     }),
   ]);
 
-  const backHref = `/comptable-pro/dossiers/${dossierId}/invoices`;
+  const backHref = `/comptable-pro/dossiers/${dossierId}/factures`;
 
   return (
     <>

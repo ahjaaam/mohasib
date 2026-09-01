@@ -124,7 +124,7 @@ export default function DossierSettingsClient({ dossierId, userId, ownerId, user
               <p className="text-[12px] text-[#6B7280] mb-4">
                 Modifiez l&apos;ICE, l&apos;IF, le RC, la CNSS, le régime TVA, les soldes initiaux et gérez l&apos;accès de votre client à ce dossier.
               </p>
-              <Link href={`/comptable-pro/dossiers/${dossierId}/edit`} className="btn btn-gold inline-flex items-center gap-1.5">
+              <Link href={`/comptable-pro/dossiers/${dossierId}/modifier`} className="btn btn-gold inline-flex items-center gap-1.5">
                 Modifier le dossier <ArrowRight size={13} />
               </Link>
             </div>

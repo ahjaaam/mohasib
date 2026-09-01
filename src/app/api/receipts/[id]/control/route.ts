@@ -15,7 +15,7 @@ async function receiptContext(id: string, action: "read" | "create") {
     .select("*")
     .eq("id", id)
     .maybeSingle();
-  if (!receipt) return { response: NextResponse.json({ error: "Justificatif introuvable" }, { status: 404 }) };
+  if (!receipt) return { response: NextResponse.json({ error: "Note de frais introuvable" }, { status: 404 }) };
 
   const permission = await authorizePermission("document", action, { dossierId: receipt.dossier_id });
   if (permission.response) return { response: permission.response };
@@ -183,7 +183,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const supplier = updated.ocr_data?.vendor_name ?? updated.ocr_data?.vendor ?? updated.file_name ?? "Facture fournisseur";
-  const link = updated.dossier_id ? `/comptable-pro/dossiers/${updated.dossier_id}/inbox` : "/inbox";
+  const link = updated.dossier_id ? `/comptable-pro/dossiers/${updated.dossier_id}/boite-de-reception` : "/boite-de-reception";
   if (action === "request_approval" && updated.approver_id) {
     await admin.from("notifications").insert({
       user_id: updated.approver_id,

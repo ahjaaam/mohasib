@@ -11,7 +11,7 @@ import {
 } from "@/lib/google-drive";
 
 function redirectAndClear(request: Request, params: Record<string, string>) {
-  const url = new URL("/settings", request.url);
+  const url = new URL("/parametres", request.url);
   url.searchParams.set("tab", "integrations");
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
   const response = NextResponse.redirect(url);

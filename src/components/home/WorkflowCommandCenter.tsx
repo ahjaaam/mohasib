@@ -6,31 +6,31 @@ const PIPELINE = [
   {
     number: "01",
     title: "Collecter",
-    description: "Toutes vos preuves arrivent au même endroit.",
+    description: "Vos factures et notes de frais arrivent au même endroit.",
     icon: Inbox,
   },
   {
     number: "02",
     title: "Comprendre",
-    description: "L’IA extrait, vérifie et normalise les données.",
+    description: "L’IA extrait et structure les données utiles.",
     icon: ScanText,
   },
   {
     number: "03",
     title: "Relier",
-    description: "Chaque mouvement retrouve son document et son contexte.",
+    description: "Chaque transaction est reliée à sa note de frais.",
     icon: Link2,
   },
   {
     number: "04",
     title: "Produire",
-    description: "Mohasib prépare les conséquences comptables.",
+    description: "Mohasib prépare l’écriture et le traitement comptable.",
     icon: Calculator,
   },
   {
     number: "05",
     title: "Contrôler",
-    description: "Vous validez un résultat traçable et explicable.",
+    description: "Vous contrôlez les exceptions et validez le résultat.",
     icon: ShieldCheck,
   },
 ] as const;
@@ -49,18 +49,18 @@ export default function WorkflowCommandCenter() {
             height={14}
             aria-hidden="true"
           />
-          <strong>Mohasib · Centre d’exécution</strong>
+          <strong>Mohasib · Flux comptable</strong>
         </div>
-        <span>De la preuve à une comptabilité prête à valider</span>
+        <span>Du document reçu à l’écriture prête à valider</span>
       </div>
 
       <div className={styles.content}>
         <header className={styles.intro}>
-          <p>Le système Mohasib</p>
-          <h2 id="command-center-title">Une chaîne comptable continue, de la pièce à la décision.</h2>
+          <p>Comment fonctionne Mohasib</p>
+          <h2 id="command-center-title">Un flux clair, du document à la décision.</h2>
           <span>
-            Mohasib ne juxtapose pas des fonctionnalités. Il transforme chaque document en une donnée
-            exploitable, reliée à son opération et traduite en résultat comptable contrôlable.
+            Chaque pièce est lue, structurée et reliée à la bonne opération. Vous obtenez un traitement
+            comptable prêt à contrôler, sans perdre la trace du document d’origine.
           </span>
         </header>
 
@@ -92,10 +92,10 @@ export default function WorkflowCommandCenter() {
         <div className={styles.principle}>
           <div className={styles.principleLoop} aria-hidden="true" />
           <div className={styles.principleCopy}>
-            <strong>Le bénéfice central</strong>
+            <strong>Vous gardez la maîtrise</strong>
             <p>
-              Chaque chiffre reste relié à sa preuve, à son paiement et à l’écriture produite&nbsp;:
-              moins de saisie, plus de contrôle, une comptabilité toujours explicable.
+              Chaque chiffre reste relié à sa note de frais, à son paiement et à son écriture&nbsp;:
+              vous vérifiez plus vite et savez toujours d’où vient l’information.
             </p>
           </div>
         </div>

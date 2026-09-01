@@ -9,14 +9,75 @@ import ToolConsolidationSection from "@/components/home/ToolConsolidationSection
 import CapabilitiesSection from "@/components/home/CapabilitiesSection";
 import DocumentTransformationSection from "@/components/home/DocumentTransformationSection";
 import FAQSection from "@/components/home/FAQSection";
+import CursorTrail from "@/components/home/CursorTrail";
 import { appUrl } from "@/lib/public-urls";
 
 const FONT = "var(--font-jakarta), sans-serif";
 
 export default function HomePageClient() {
   return (
-    <div className="public-site" style={{ fontFamily: FONT }}>
+    <div className="public-site home-custom-cursor" style={{ fontFamily: FONT }}>
       <style>{`
+        @media (hover: hover) and (pointer: fine) {
+          .home-custom-cursor,
+          .home-custom-cursor * {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='4' fill='%23976224'/%3E%3C/svg%3E") 7 7, auto;
+          }
+
+          .home-custom-cursor :where(
+            a,
+            button,
+            summary,
+            label,
+            select,
+            [role='button'],
+            [role='link']
+          ),
+          .home-custom-cursor :where(a, button, summary, label, select, [role='button'], [role='link']) * {
+            cursor: pointer;
+          }
+
+          .home-custom-cursor :where(
+            input:not([type]),
+            input[type='text'],
+            input[type='email'],
+            input[type='password'],
+            input[type='search'],
+            input[type='tel'],
+            input[type='url'],
+            input[type='number'],
+            textarea,
+            [contenteditable='true']
+          ) {
+            cursor: text;
+          }
+
+          .home-cursor-trail {
+            position: fixed;
+            z-index: 9999;
+            inset: 0;
+            pointer-events: none;
+          }
+
+          .home-cursor-trail-dot {
+            position: fixed;
+            top: 0;
+            left: 0;
+            border-radius: 50% !important;
+            background: #976224;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 150ms ease-out;
+            will-change: transform, opacity;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
+          .home-cursor-trail {
+            display: none;
+          }
+        }
+
         .public-skip-link {
           position: fixed;
           z-index: 1000;
@@ -53,7 +114,7 @@ export default function HomePageClient() {
         .home-hero-content {
           position: relative;
           z-index: 3;
-          width: min(100%, var(--marketing-content-width));
+          width: min(100%, 1400px);
           margin: 0 auto;
           text-align: center;
         }
@@ -63,23 +124,27 @@ export default function HomePageClient() {
         .home-hero-copy {
           position: relative;
           z-index: 2;
-          max-width: 800px;
+          max-width: none;
           margin: 0 auto;
           text-align: center;
         }
         .home-hero-title {
-          max-width: 760px;
+          max-width: none;
           margin: 0 auto 24px;
           color: var(--marketing-ink);
-          font-size: clamp(50px, 5.5vw, 76px);
+          font-size: clamp(32px, 4.1vw, 64px);
           font-weight: 600;
           letter-spacing: -0.02em;
           line-height: 0.96;
           text-wrap: balance;
+          white-space: nowrap;
         }
         .home-hero-title span {
           display: block;
           color: var(--marketing-copper);
+        }
+        .home-hero-title .home-hero-title-primary {
+          color: var(--marketing-ink);
         }
         .home-hero-description {
           max-width: 650px;
@@ -437,6 +502,7 @@ export default function HomePageClient() {
             font-size: clamp(40px, 10.5vw, 54px);
             letter-spacing: -0.055em;
             line-height: 0.98;
+            white-space: normal;
           }
           .home-hero-description {
             max-width: 340px;
@@ -536,6 +602,7 @@ export default function HomePageClient() {
           }
         }
       `}</style>
+      <CursorTrail />
       <a className="public-skip-link" href="#main-content">Aller au contenu principal</a>
       <PublicNavbar logoWidth={132} />
 
@@ -545,17 +612,17 @@ export default function HomePageClient() {
           <div className="home-hero-intro">
             <div className="home-hero-copy">
               <h1 className="home-hero-title">
-                Votre comptabilité,
-                <span>exécutée par l&apos;IA.</span>
+                <span className="home-hero-title-primary">Automatisez votre comptabilité.</span>
+                <span>Gardez le contrôle.</span>
               </h1>
 
               <p className="home-hero-description">
-                Factures, paiements, TVA et écritures comptables : Mohasib exécute votre gestion de bout en bout.
+                Mohasib centralise vos factures, paiements et notes de frais, puis prépare les écritures et la TVA. Vous contrôlez les exceptions et validez.
               </p>
 
               <div className="home-hero-actions">
                 <a className="home-hero-button home-hero-button-primary" href={appUrl("/inscription")}>
-                  Ouvrir votre compte <ArrowRight size={16} aria-hidden="true" />
+                  Créer mon espace <ArrowRight size={16} aria-hidden="true" />
                 </a>
                 <a className="home-hero-button home-hero-button-secondary" href="/centre-aide">
                   Demander une démo
@@ -563,7 +630,7 @@ export default function HomePageClient() {
               </div>
 
               <div className="home-hero-proof">
-                <span>Utilisé par les directeurs financiers et les TPME</span>
+                <span>Conçu pour les dirigeants, équipes financières et cabinets comptables au Maroc</span>
               </div>
             </div>
           </div>
@@ -584,13 +651,13 @@ export default function HomePageClient() {
       <section className="home-closing-cta" aria-labelledby="closing-cta-title">
         <div className="home-closing-cta-inner">
           <h2 id="closing-cta-title">
-            Le temps, c&apos;est de l&apos;argent. Économisez les deux.
+            Passez moins de temps à préparer. Plus de temps à décider.
           </h2>
           <div className="home-hero-actions">
             <a className="home-hero-button home-hero-button-primary" href={appUrl("/inscription")}>
-              Ouvrir votre compte <ArrowRight size={16} aria-hidden="true" />
+              Créer mon espace <ArrowRight size={16} aria-hidden="true" />
             </a>
-            <a className="home-hero-button home-hero-button-secondary" href="/centre-aide">Nous contacter</a>
+            <a className="home-hero-button home-hero-button-secondary" href="/centre-aide">Parler à notre équipe</a>
           </div>
         </div>
       </section>

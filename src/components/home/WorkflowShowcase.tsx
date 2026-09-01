@@ -127,21 +127,21 @@ function PayrollVisual() {
 }
 
 const workflows = [
-  { label: "Documents fournisseurs", title: "De l’e-mail à l’écriture comptable", description: "Mohasib récupère vos factures et justificatifs, extrait les informations utiles, prépare la saisie et classe chaque document.", icon: Mail, visual: SupplierVisual },
-  { label: "Rapprochement bancaire", title: "Chaque transaction trouve son justificatif", description: "Les relevés, paiements et pièces sont réunis automatiquement. Vous intervenez uniquement sur les correspondances incertaines.", icon: Landmark, visual: BankVisual },
-  { label: "Facturation & recouvrement", title: "Facturez. Suivez. Encaissez.", description: "Créez et envoyez vos factures, suivez les échéances et préparez les relances depuis un même espace.", icon: FileText, visual: BillingVisual },
-  { label: "Pilotage financier", title: "Vos chiffres deviennent lisibles", description: "Mohasib rassemble vos données, calcule vos indicateurs et met en évidence les écarts qui méritent votre attention.", icon: BarChart3, visual: FinanceVisual },
-  { label: "TVA & export comptable", title: "Une TVA prête à valider", description: "Les écritures sont contrôlées, les pièces réunies et les exports préparés pour une transmission comptable propre.", icon: ShieldCheck, visual: VatVisual },
-  { label: "Paie & administration", title: "La paie, sans les allers-retours", description: "Préparez les éléments de paie, organisez les validations et conservez un historique clair de chaque dossier.", icon: UsersRound, visual: PayrollVisual },
+  { label: "Achats et notes de frais", title: "Passez de la facture reçue à l’écriture préparée", description: "Mohasib collecte vos pièces, extrait les données utiles et prépare la saisie. Vous contrôlez avant validation.", icon: Mail, visual: SupplierVisual },
+  { label: "Rapprochement bancaire", title: "Retrouvez la note de frais de chaque transaction", description: "Mohasib rapproche relevés, paiements et pièces, puis vous présente uniquement les correspondances à confirmer.", icon: Landmark, visual: BankVisual },
+  { label: "Facturation et recouvrement", title: "Suivez chaque facture jusqu’au paiement", description: "Créez vos factures, suivez leurs échéances et préparez vos relances dans le même espace.", icon: FileText, visual: BillingVisual },
+  { label: "Pilotage financier", title: "Repérez rapidement ce qui mérite votre attention", description: "Suivez vos indicateurs à jour et identifiez les écarts à analyser sans reconstruire vos tableaux à la main.", icon: BarChart3, visual: FinanceVisual },
+  { label: "TVA et exports comptables", title: "Préparez une TVA plus simple à contrôler", description: "Mohasib vérifie les écritures, réunit les pièces et prépare les exports avant votre validation.", icon: ShieldCheck, visual: VatVisual },
+  { label: "Paie et administration", title: "Centralisez les variables et les validations de paie", description: "Rassemblez les éléments de paie, suivez les validations et conservez l’historique de chaque période.", icon: UsersRound, visual: PayrollVisual },
 ] as const;
 
 export default function WorkflowShowcase() {
   return (
     <section id="six-automatisations" className={styles.section} aria-labelledby="home-workflows-title">
       <div className={styles.heading}>
-        <p className={styles.eyebrow}>Six automatisations, une seule plateforme</p>
-        <h2 id="home-workflows-title">Du document reçu à la décision financière.</h2>
-        <p>Mohasib relie les tâches qui occupent aujourd’hui votre équipe et transforme chaque étape en un processus structuré, traçable et prêt à valider.</p>
+        <p className={styles.eyebrow}>Six flux réunis dans une plateforme</p>
+        <h2 id="home-workflows-title">Automatisez les tâches répétitives. Concentrez-vous sur les décisions.</h2>
+        <p>Mohasib relie vos documents, vos paiements et votre comptabilité pour que votre équipe sache quoi contrôler et quoi faire ensuite.</p>
       </div>
 
       <div className={styles.grid}>

@@ -388,12 +388,12 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
 
   const createAvoir: MenuItem = {
     label: "Créer un avoir",
-    href: `${basePath}/avoir/new?linked=${inv.id}`,
+    href: `${basePath}/avoirs/nouveau?linked=${inv.id}`,
   };
 
   const itemsByStatus: Record<string, MenuItem[]> = {
     draft: [
-      { label: "Modifier", href: `${basePath}/${inv.id}/edit` },
+      { label: "Modifier", href: `${basePath}/${inv.id}/modifier` },
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
       { label: "Envoyer par email", action: handleEmail },
@@ -609,7 +609,7 @@ function DevisMenu({ inv, onDelete, onAccept, onRefuse, onConvert }: {
 
   type DItem = { label: string; action: () => void; red?: boolean; green?: boolean };
   const items: DItem[] = [
-    { label: "Modifier", action: () => { setOpen(false); window.location.href = `/invoices/${inv.id}/edit`; } },
+    { label: "Modifier", action: () => { setOpen(false); window.location.href = `/factures/${inv.id}/modifier`; } },
     { label: "Télécharger PDF", action: handlePdf },
     { label: "Envoyer par WhatsApp", action: handleWhatsApp },
     { label: "Envoyer par email", action: handleEmail },
@@ -676,7 +676,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
   const searchParams = useSearchParams();
   const requestedSearch = searchParams.get("q") ?? "";
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
-  const basePath = dossierId ? `/comptable-pro/dossiers/${dossierId}/invoices` : "/invoices";
+  const basePath = dossierId ? `/comptable-pro/dossiers/${dossierId}/factures` : "/factures";
   const [invoices, setInvoices] = useState<InvoiceExt[]>([]);
   const [mode, setMode] = useState<PageMode>((searchParams.get("mode") as PageMode) ?? initialMode ?? "factures");
   const [tab, setTab] = useState<TabKey>("all");
@@ -989,12 +989,12 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
           </div>
         </div>
         {mode === "avoirs" ? (
-          <Link data-permission="invoice:create" href={`${basePath}/avoir/new`}
+          <Link data-permission="invoice:create" href={`${basePath}/avoirs/nouveau`}
             className="btn btn-gold flex items-center gap-1.5">
             <Plus size={13} /> Nouvel Avoir
           </Link>
         ) : mode === "devis" ? (
-          <Link data-permission="invoice:create" href="/invoices/devis/new"
+          <Link data-permission="invoice:create" href="/factures/devis/nouveau"
             className="btn btn-gold flex items-center gap-1.5">
             <Plus size={13} /> Nouveau Devis
           </Link>
@@ -1003,7 +1003,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
             <button data-permission="invoice:create" onClick={() => setBulkImportOpen(true)} className="btn btn-outline flex items-center gap-1.5">
               <Upload size={13} /> Importer
             </button>
-            <Link data-permission="invoice:create" href={`${basePath}/new`} className="btn btn-gold flex items-center gap-1.5">
+            <Link data-permission="invoice:create" href={`${basePath}/nouvelle`} className="btn btn-gold flex items-center gap-1.5">
               <Plus size={13} /> Nouvelle Facture
             </Link>
           </div>
@@ -1241,17 +1241,17 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
                         : "Aucune facture. Créez votre première facture et envoyez-la à votre client."}
                   </p>
                   {mode === "avoirs" ? (
-                    <Link data-permission="invoice:create" href={`${basePath}/avoir/new`} className={emptyTableActionClass}>
+                    <Link data-permission="invoice:create" href={`${basePath}/avoirs/nouveau`} className={emptyTableActionClass}>
                       + Nouvel Avoir
                     </Link>
                   ) : mode === "devis" ? (
-                    <Link data-permission="invoice:create" href="/invoices/devis/new" className={emptyTableActionClass}>
+                    <Link data-permission="invoice:create" href="/factures/devis/nouveau" className={emptyTableActionClass}>
                       + Nouveau Devis
                     </Link>
                   ) : (
                     <Link
                       data-permission="invoice:create"
-                      href={`${basePath}/new`}
+                      href={`${basePath}/nouvelle`}
                       className={emptyTableActionClass}
                     >
                       + Nouvelle Facture

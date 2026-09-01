@@ -22,17 +22,18 @@ import AppTopBar from "@/components/AppTopBar";
 import SidebarToggleButton from "@/components/SidebarToggleButton";
 import SidebarLogo from "@/components/SidebarLogo";
 import SidebarItemTooltip from "@/components/SidebarItemTooltip";
+import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 
 const SIDEBAR_BACKGROUND = "#111621";
-const CLIENT_PORTAL_BLOCKED_SLUGS = ["tresorerie", "transactions", "rapprochement", "saisie", "ecritures", "grand-livre", "tva", "bilan", "export"];
+const CLIENT_PORTAL_BLOCKED_SLUGS = ["tresorerie", "transactions", "rapprochement", "saisie", "ecritures", "grand-livre", "tva", "bilan", "export-fiduciaire"];
 
 // Keep dossier workspaces aligned with the default account navigation. Pages are
 // shared wherever possible; only the dossier-prefixed href changes.
 const NAV_ITEMS = [
-  { slug: "dashboard", icon: ChartNoAxesCombined, label: "Tableau de bord", permission: "report:read" },
-  { slug: "inbox", icon: Inbox, label: "Achats", permission: "document:read" },
-  { slug: "receipts", icon: ReceiptText, label: "Justificatifs", permission: "document:read" },
-  { slug: "invoices", icon: FileText, label: "Factures", permission: "invoice:read" },
+  { slug: "tableau-de-bord", icon: ChartNoAxesCombined, label: "Tableau de bord", permission: "report:read" },
+  { slug: "boite-de-reception", icon: Inbox, label: "Achats", permission: "document:read" },
+  { slug: "notes-de-frais", icon: ReceiptText, label: "Notes de frais", permission: "document:read" },
+  { slug: "factures", icon: FileText, label: "Factures", permission: "invoice:read" },
   { slug: "suivi-paiements", icon: CreditCard, label: "Suivi des échéances", permission: "invoice:read" },
   { slug: "clients", icon: Users, label: "Clients", permission: "invoice:read" },
   ...(FEATURES.TREASURY_ENABLED
@@ -50,8 +51,8 @@ const NAV_ITEMS = [
   ...(FEATURES.BILAN_ENABLED
     ? [{ slug: "bilan", icon: BarChart2, label: "Bilan / CPC", permission: "report:read", feature: "bilan" as PlanFeature }]
     : []),
-  { slug: "paie", icon: UserRoundCog, label: "La Paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
-  { slug: "export", icon: Download, label: "Exports", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
+  { slug: "paie", icon: UserRoundCog, label: "La paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
+  { slug: "export-fiduciaire", icon: Download, label: "Exports", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
   { slug: "archive", icon: FolderOpen, label: "Archive", permission: "document:read" },
 ];
 
@@ -81,7 +82,7 @@ interface Props {
 
 export default function DossierShell({ children, dossier, dossiers = [dossier], userId, userName, userEmail, userCompany, userAvatar, permissions = null, roleLabel, isClientPortal = false, entitlements, ownerId, sidebarTheme = "cream" }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { collapsed: sidebarCollapsed, toggleCollapsed: toggleSidebarCollapsed } = useSidebarCollapsed();
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -136,10 +137,10 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
                       : locked
                         ? lightSidebar
                           ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
-                          : "text-white/25 hover:text-white/45 hover:bg-white/5 border-transparent"
+                          : "text-white/35 hover:text-white/55 hover:bg-white/5 border-transparent"
                         : lightSidebar
                           ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
-                          : "text-white/50 hover:text-white/85 hover:bg-white/5 border-transparent"
+                          : "text-white/80 hover:text-white hover:bg-white/5 border-transparent"
                   }`}>
                   <Icon size={compact ? 18 : 15} />
                   {!compact && label}
@@ -167,7 +168,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
             <SidebarContent compact={sidebarCollapsed} />
             <SidebarToggleButton
               collapsed={sidebarCollapsed}
-              onToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              onToggle={toggleSidebarCollapsed}
               light={lightSidebar}
             />
           </aside>
@@ -185,9 +186,9 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               topBarTheme={sidebarTheme}
               workspaceLabel={dossier.raison_sociale}
               cabinetMenuItems={!isClientPortal ? [
-                { href: "/dashboard", label: userCompany?.trim() || "Mon entreprise", icon: LayoutDashboard },
+                { href: "/tableau-de-bord", label: userCompany?.trim() || "Mon entreprise", icon: LayoutDashboard },
                 ...dossiers.map((item) => ({
-                  href: `/comptable-pro/dossiers/${item.id}/dashboard`,
+                  href: `/comptable-pro/dossiers/${item.id}/tableau-de-bord`,
                   label: item.raison_sociale,
                   icon: Building2,
                   active: item.id === dossier.id,
@@ -195,7 +196,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               ] : undefined}
               onOpenMobileMenu={() => setDrawerOpen(true)}
               onSignOut={signOut}
-              settingsHref={`${base}/settings`}
+              settingsHref={`${base}/parametres`}
               dossierId={dossier.id}
             />
             <div className="h-16 flex-shrink-0" aria-hidden="true" />
@@ -211,8 +212,8 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
           style={{ height: "calc(56px + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)", background: SIDEBAR_BACKGROUND, borderTop: "1px solid rgba(255,255,255,0.1)" }}
         >
           {[
-            { slug: "dashboard", icon: ChartNoAxesCombined, label: "Accueil", permission: "report:read" },
-            { slug: "invoices", icon: FileText, label: "Factures", permission: "invoice:read" },
+            { slug: "tableau-de-bord", icon: ChartNoAxesCombined, label: "Accueil", permission: "report:read" },
+            { slug: "factures", icon: FileText, label: "Factures", permission: "invoice:read" },
             { slug: "archive", icon: Download, label: "Archive", permission: "document:read" },
           ].map(({ slug, icon: Icon, label, permission }) => (
             <Link key={slug} href={`${base}/${slug}`} className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"

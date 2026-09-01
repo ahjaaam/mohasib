@@ -62,7 +62,7 @@ export default async function DossiersPage({
           </p>
         </div>
         <div className="ml-auto">
-          <Link href="/comptable-pro/dossiers/new" className="btn btn-gold">
+          <Link href="/comptable-pro/dossiers/nouveau" className="btn btn-gold">
             <Plus size={13} /> Nouveau dossier
           </Link>
         </div>
@@ -107,7 +107,7 @@ export default async function DossiersPage({
             {q ? `Aucun dossier pour "${q}"` : "Aucun dossier client"}
           </p>
           {!q && (
-            <Link href="/comptable-pro/dossiers/new" className="btn btn-gold btn-sm mt-3 inline-flex">
+            <Link href="/comptable-pro/dossiers/nouveau" className="btn btn-gold btn-sm mt-3 inline-flex">
               <Plus size={12} /> Créer un dossier
             </Link>
           )}

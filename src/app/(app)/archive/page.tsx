@@ -604,7 +604,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
                   Nouvelle
                 </button>
               ) : (
-                <a href="/settings?tab=integrations" className="btn btn-outline flex-shrink-0 text-[11.5px]">
+                <a href="/parametres?tab=integrations" className="btn btn-outline flex-shrink-0 text-[11.5px]">
                   <GoogleDriveIcon size={12} /> Connecter Drive
                 </a>
               )}

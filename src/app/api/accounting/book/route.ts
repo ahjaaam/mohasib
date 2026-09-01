@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
       const { totalTtc, totalHt, tvaAmount } = computePurchaseAmounts(ocr);
       const date     = ocr.date ?? receipt.created_at?.split("T")[0] ?? new Date().toISOString().split("T")[0];
       if (totalTtc <= 0) {
-        return NextResponse.json({ error: "Montant du justificatif invalide" }, { status: 400 });
+        return NextResponse.json({ error: "Montant de la note de frais invalide" }, { status: 400 });
       }
 
       const mois = Number(String(date).slice(5, 7));
