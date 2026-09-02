@@ -58,7 +58,7 @@
 
 .tab:hover { border-color: rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.14); color: #fff; }
 .tab:focus-visible { outline: 3px solid var(--marketing-copper); outline-offset: 3px; }
-.tabActive { border-color: #d8d5cc; background: var(--marketing-surface); color: var(--marketing-ink); box-shadow: 0 5px 14px rgba(13, 21, 38, 0.09), inset 0 -3px var(--marketing-copper); }
+.tabActive { border-color: #d8d5cc; background: var(--marketing-surface); color: var(--marketing-ink); }
 .tab small { display: block; margin-top: 3px; color: rgba(255, 255, 255, 0.74); font-size: 10px; font-weight: 500; }
 .tabActive small { color: #7a808b; }
 .tabActive:hover { border-color: #d8d5cc; background: var(--marketing-surface); color: var(--marketing-ink); }
