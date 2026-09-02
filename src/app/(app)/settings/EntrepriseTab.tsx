@@ -293,7 +293,7 @@ export default function EntrepriseTab({ userId, company }: Props) {
       <button
         onClick={save}
         disabled={saving}
-        className="btn btn-gold w-full justify-center py-2.5 disabled:opacity-60"
+        className="btn btn-gold self-start justify-center py-2.5 disabled:opacity-60"
       >
         {saving ? "Enregistrement..." : "Enregistrer les informations"}
       </button>

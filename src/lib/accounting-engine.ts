@@ -30,6 +30,7 @@ export interface BookablePurchase {
   total_ht: number;
   total_ttc: number;
   tva_amount: number;
+  discount_amount?: number;
   category: string | null;
   expense_account?: string | null;
   supplier_name?: string | null;
@@ -216,7 +217,25 @@ export async function bookPurchaseInvoice(
     });
   }
 
-  // 3 — Credit 4411 (supplier debt) for TTC
+  // 3 — Credit 6119 for a discount granted after the invoice's gross TTC.
+  // This preserves the invoice's original HT and TVA bases while reducing the
+  // amount owed to the supplier.
+  if ((purchase.discount_amount ?? 0) > 0) {
+    entries.push({
+      journal: "AC",
+      compte: "6119",
+      compte_label: getAccountLabel("6119"),
+      debit: 0,
+      credit: purchase.discount_amount ?? 0,
+      libelle: `Remise obtenue — ${purchase.reference ?? purchase.description}`,
+      source_type: "purchase",
+      source_id: purchase.id,
+      date_ecriture: purchase.date,
+      numero_piece: purchase.reference ?? undefined,
+    });
+  }
+
+  // 4 — Credit 4411 (supplier debt) for the net TTC payable
   entries.push({
     journal: "AC",
     compte: "4411",

@@ -27,7 +27,7 @@ export default function ApparenceTab({ userId, company, prefs }: Props) {
 
   const [color, setColor] = useState(company.invoice_color ?? "#C8924A");
   const [sidebarTheme, setSidebarTheme] = useState<"dark" | "cream">(
-    prefs.sidebar_theme === "dark" ? "dark" : "cream",
+    prefs.sidebar_theme === "cream" ? "cream" : "dark",
   );
   const [shows, setShows] = useState({
     show_logo: company.show_logo ?? true,
@@ -167,7 +167,7 @@ export default function ApparenceTab({ userId, company, prefs }: Props) {
         <Toggle k="show_page_number" label="Afficher le numéro de page" />
       </div>
 
-      <button onClick={save} disabled={saving} className="btn btn-gold w-full justify-center py-2.5 disabled:opacity-60">
+      <button onClick={save} disabled={saving} className="btn btn-gold self-start justify-center py-2.5 disabled:opacity-60">
         {saving ? "Enregistrement..." : "Enregistrer l'apparence"}
       </button>
     </div>

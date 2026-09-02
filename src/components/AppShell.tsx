@@ -6,9 +6,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
-  LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeftRight,
+  LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeft, ArrowLeftRight,
   LogOut, Menu, Inbox, Download,
-  Settings, Calculator, FolderOpen, BarChart2, UserRoundCog, Building2, CreditCard, PenLine, LayoutTemplate,
+  Settings, Calculator, FolderOpen, BarChart2, UserRoundCog, Building2, CreditCard, PenLine, Scale,
   GitMerge, Landmark, Lock, ReceiptText,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -21,16 +21,17 @@ import TrialLimitModal from "@/components/TrialLimitModal";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 import AppTopBar from "@/components/AppTopBar";
-import SidebarToggleButton from "@/components/SidebarToggleButton";
 import SidebarLogo from "@/components/SidebarLogo";
 import SidebarItemTooltip from "@/components/SidebarItemTooltip";
+import SidebarAccountMenu from "@/components/SidebarAccountMenu";
 import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
+import { SETTINGS_TABS, settingsTabAllowedOnPlan } from "@/lib/settings-navigation";
 
 const SIDEBAR_BACKGROUND = "#111621";
 
 const NAV_MAIN = [
   { href: "/tableau-de-bord", icon: ChartNoAxesCombined, label: "Tableau de bord", key: "dashboard", permission: "report:read" },
-  { href: "/boite-de-reception", icon: Inbox,     label: "Achats",             key: "inbox", permission: "document:read" },
+  { href: "/achats", icon: Inbox,     label: "Achats",             key: "inbox", permission: "document:read" },
   { href: "/notes-de-frais", icon: ReceiptText,  label: "Notes de frais",     key: "receipts", permission: "document:read" },
   { href: "/factures",          icon: FileText,   label: "Factures",            key: "invoices", permission: "invoice:read" },
   { href: "/suivi-paiements",   icon: CreditCard, label: "Suivi des échéances", key: "suivi-paiements", permission: "invoice:read" },
@@ -42,7 +43,7 @@ const NAV_MAIN = [
   { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
   FEATURES.SAISIE_ENABLED
     ? { href: "/saisie", icon: PenLine, label: "Saisie comptable", key: "saisie", permission: "accounting:read", feature: "saisie" as PlanFeature }
-    : { href: "/ecritures", icon: LayoutTemplate, label: "Écritures", key: "ecritures", permission: "accounting:read" },
+    : { href: "/ecritures", icon: Scale, label: "Écritures", key: "ecritures", permission: "accounting:read" },
   { href: "/declarations-tva", icon: Calculator, label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
   { href: "/paie",         icon: UserRoundCog,    label: "La paie",            key: "paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
   { href: "/export-fiduciaire", icon: Download,  label: "Exports",            key: "export", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
@@ -95,7 +96,7 @@ interface Props {
   sidebarTheme?: "dark" | "cream";
 }
 
-export default function AppShell({ children, userId, ownerId, userEmail, userName, userCompany, cabinetCompanies = [], userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements, guestMode = false, sidebarTheme: initialSidebarTheme = "cream" }: Props) {
+export default function AppShell({ children, userId, ownerId, userEmail, userName, userCompany, cabinetCompanies = [], userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements, guestMode = false, sidebarTheme: initialSidebarTheme = "dark" }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { collapsed: sidebarCollapsed, toggleCollapsed: toggleSidebarCollapsed } = useSidebarCollapsed();
   const [sidebarTheme, setSidebarTheme] = useState(initialSidebarTheme);
@@ -104,7 +105,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
-  const { can } = usePermissions(permissions);
+  const { can, isOwner } = usePermissions(permissions);
   const effectivePathname = guestMode
     ? pathname === "/" || pathname.startsWith("/facturation/factures") || pathname.startsWith("/facturation/devis") || pathname.startsWith("/facturation/avoirs") || pathname.startsWith("/facturation/creer") || pathname.startsWith("/devis") || pathname.startsWith("/avoirs")
       ? "/factures"
@@ -133,6 +134,16 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   const topBarItems = ALL_NAV
     .filter((item: any) => !item.soon && visibleOnPlan(item.href) && allowed(item.permission) && entitled(item.feature))
     .map(({ href, label, icon }: any) => ({ href, label, icon, keywords: `${label} navigation page` }));
+  const isSettingsWorkspace = effectivePathname.startsWith("/parametres") || effectivePathname.startsWith("/settings");
+  const visibleSettingsTabs = SETTINGS_TABS.filter((item) =>
+    settingsTabAllowedOnPlan(item.id, entitlements.plan)
+    && (item.id !== "equipe" || entitlements.features.multi_users)
+    && (isOwner || (!item.ownerOnly && (!item.permission || allowed(item.permission)))),
+  );
+  const requestedSettingsTab = searchParams.get("tab");
+  const activeSettingsTab = visibleSettingsTabs.some((item) => item.id === requestedSettingsTab)
+    ? requestedSettingsTab
+    : "entreprise";
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
   useEffect(() => { setSidebarTheme(initialSidebarTheme); }, [initialSidebarTheme]);
@@ -202,25 +213,67 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => {
+        {isSettingsWorkspace ? (
+          <>
+            <Link
+              href="/tableau-de-bord"
+              aria-label={sidebarCollapsed ? "Retour à l’application" : undefined}
+              className={`sidebar-nav-item mx-2 mb-2 flex items-center py-[13px] text-[13px] transition-all ${
+                sidebarCollapsed ? "justify-center px-0" : "gap-3 px-[10px]"
+              } ${lightSidebar ? "text-[#5F5A50] hover:text-[#1A1A2E]" : "text-white/65 hover:text-white"}`}
+            >
+              <ArrowLeft size={sidebarCollapsed ? 19 : 16} />
+              {!sidebarCollapsed && "Retour à l’application"}
+            </Link>
+
+            {!sidebarCollapsed && (
+              <div className={`px-[18px] pb-2 pt-1 text-[9.5px] font-bold uppercase tracking-[1px] ${lightSidebar ? "text-[#8B867C]" : "text-white/35"}`}>
+                Paramètres
+              </div>
+            )}
+
+            {visibleSettingsTabs.map(({ id, icon: Icon, label }) => (
+              <SidebarItemTooltip key={id} enabled={sidebarCollapsed} label={label}>
+                <Link
+                  href={`/parametres?tab=${id}`}
+                  aria-label={sidebarCollapsed ? label : undefined}
+                  className={`sidebar-nav-item mx-2 flex items-center py-[13px] text-[14px] transition-all ${
+                    sidebarCollapsed ? "justify-center px-0" : "gap-3 px-[10px]"
+                  } ${
+                    activeSettingsTab === id
+                      ? "sidebar-nav-item--active text-[#C8924A]"
+                      : lightSidebar
+                        ? "text-[#5F5A50] hover:text-[#1A1A2E]"
+                        : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  <Icon size={sidebarCollapsed ? 19 : 16} />
+                  {!sidebarCollapsed && label}
+                </Link>
+              </SidebarItemTooltip>
+            ))}
+          </>
+        ) : NAV_MAIN.filter(item => visibleOnPlan(item.href) && entitled(item.feature)).map(({ href, icon: Icon, label, permission }: any) => {
           const locked = !allowed(permission);
           return (
           <SidebarItemTooltip key={href} enabled={sidebarCollapsed} label={label}>
             <Link href={href} aria-label={sidebarCollapsed ? label : undefined}
-              className={`flex items-center py-[12px] text-[13px] transition-all border-r-2 ${
-                sidebarCollapsed ? "justify-center px-0" : "gap-2.5 px-[18px]"
+              className={`sidebar-nav-item flex items-center py-[13px] text-[14px] transition-all ${
+                sidebarCollapsed
+                  ? "mx-2 justify-center px-0"
+                  : "mx-2 gap-3 px-[10px]"
               } ${
                 isActive(href)
-                  ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
+                  ? "sidebar-nav-item--active text-[#C8924A]"
                   : locked
                     ? lightSidebar
-                      ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
-                      : "text-white/35 hover:text-white/55 hover:bg-white/5 border-transparent"
+                      ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45"
+                      : "text-white/35 hover:text-white/55"
                     : lightSidebar
-                      ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
-                      : "text-white/80 hover:text-white hover:bg-white/5 border-transparent"
+                      ? "text-[#5F5A50] hover:text-[#1A1A2E]"
+                      : "text-white/80 hover:text-white"
               }`}>
-              <Icon size={sidebarCollapsed ? 18 : 15} />
+              <Icon size={sidebarCollapsed ? 19 : 16} />
               {!sidebarCollapsed && label}
               {!sidebarCollapsed && locked && <Lock size={11} className="ml-auto opacity-70" />}
             </Link>
@@ -229,6 +282,15 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
         })}
 
       </nav>
+
+      <SidebarAccountMenu
+        collapsed={sidebarCollapsed}
+        light={lightSidebar}
+        userName={userName}
+        userEmail={userEmail}
+        onSignOut={signOut}
+        onToggleSidebar={toggleSidebarCollapsed}
+      />
 
     </>
   );
@@ -239,7 +301,10 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
       <TrialLimitModal />
       <PermissionBoundary permissions={permissions}>
-      <div className="mohasib-app flex h-screen overflow-hidden bg-[#FAFAF6]" data-sidebar-theme={sidebarTheme}>
+      <div
+        className={`mohasib-app flex h-screen overflow-hidden ${lightSidebar ? "bg-white" : "bg-[#111621]"}`}
+        data-sidebar-theme={sidebarTheme}
+      >
 
         {/* Desktop sidebar */}
         {!freePlan && <aside
@@ -247,11 +312,6 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
           style={{ width: sidebarCollapsed ? 56 : 210, background: sidebarBackground }}
         >
           <SidebarContent />
-          <SidebarToggleButton
-            collapsed={sidebarCollapsed}
-            onToggle={toggleSidebarCollapsed}
-            light={lightSidebar}
-          />
         </aside>}
 
         {/* Main */}
@@ -261,7 +321,6 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
           }`}
         >
           <AppTopBar
-            key={pathname}
             items={topBarItems}
             primaryNav={freePlan ? [
               { href: "/factures", label: "Factures", active: isActive("/factures") },
@@ -297,20 +356,22 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
           <div className="h-16 flex-shrink-0" aria-hidden="true" />
 
           {/* Page content */}
-          <main className="flex-1 overflow-hidden flex flex-col">
-            {accountState?.is_suspended && <div className="bg-red-700 px-4 py-2 text-center text-[11px] font-semibold text-white">Ce compte est suspendu. {accountState.suspended_reason || "Contactez le support Mohasib."}</div>}
-            {!accountState?.is_suspended && accountState?.subscription_status === "grace" && <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">Votre abonnement est arrivé à échéance. Renouvelez-le pour conserver toutes les fonctionnalités.</div>}
-            {!accountState?.is_suspended && accountState?.subscription_status === "expired" && <div className="bg-red-100 px-4 py-2 text-center text-[11px] font-semibold text-red-800">Votre abonnement a expiré. Les fonctionnalités premium sont en lecture seule.</div>}
-            {!accountState?.is_suspended && isTrial && trialDays !== null && trialDays >= 0 && (
-              <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">
-                <span className="hidden sm:inline">
-                  Essai gratuit — {trialDays} jour{trialDays > 1 ? "s" : ""} restant{trialDays > 1 ? "s" : ""} · Factures {trialSummary?.invoices ?? 0}/{TRIAL_LIMITS.invoices} · Clients {trialSummary?.clients ?? 0}/{TRIAL_LIMITS.clients} · Transactions {trialSummary?.transactions ?? 0}/{TRIAL_LIMITS.transactions} · Écritures {trialSummary?.entries ?? 0}/{TRIAL_LIMITS.accounting_entries} · Rapprochements {trialSummary?.rapprochement ?? 0}/{TRIAL_LIMITS.rapprochement_sessions} ·{" "}
-                </span>
-                <span className="sm:hidden">Essai · {trialDays}j restants · </span>
-                <Link href="/tarifs" className="underline">Passer à un plan payant</Link>
-              </div>
-            )}
-            <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted reason="suspended" /> : pageAllowed ? children : <AccessRestricted reason={featureAllowed && routeAvailable ? "permission" : "plan"} />}</div>
+          <main className="app-content-frame flex-1 overflow-hidden flex flex-col">
+            <div className="app-content-surface flex min-h-0 flex-1 flex-col overflow-hidden">
+              {accountState?.is_suspended && <div className="bg-red-700 px-4 py-2 text-center text-[11px] font-semibold text-white">Ce compte est suspendu. {accountState.suspended_reason || "Contactez le support Mohasib."}</div>}
+              {!accountState?.is_suspended && accountState?.subscription_status === "grace" && <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">Votre abonnement est arrivé à échéance. Renouvelez-le pour conserver toutes les fonctionnalités.</div>}
+              {!accountState?.is_suspended && accountState?.subscription_status === "expired" && <div className="bg-red-100 px-4 py-2 text-center text-[11px] font-semibold text-red-800">Votre abonnement a expiré. Les fonctionnalités premium sont en lecture seule.</div>}
+              {!accountState?.is_suspended && isTrial && trialDays !== null && trialDays >= 0 && (
+                <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">
+                  <span className="hidden sm:inline">
+                    Essai gratuit — {trialDays} jour{trialDays > 1 ? "s" : ""} restant{trialDays > 1 ? "s" : ""} · Factures {trialSummary?.invoices ?? 0}/{TRIAL_LIMITS.invoices} · Clients {trialSummary?.clients ?? 0}/{TRIAL_LIMITS.clients} · Transactions {trialSummary?.transactions ?? 0}/{TRIAL_LIMITS.transactions} · Écritures {trialSummary?.entries ?? 0}/{TRIAL_LIMITS.accounting_entries} · Rapprochements {trialSummary?.rapprochement ?? 0}/{TRIAL_LIMITS.rapprochement_sessions} ·{" "}
+                  </span>
+                  <span className="sm:hidden">Essai · {trialDays}j restants · </span>
+                  <Link href="/tarifs" className="underline">Passer à un plan payant</Link>
+                </div>
+              )}
+              <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[18px]">{accountState?.is_suspended ? <AccessRestricted reason="suspended" /> : pageAllowed ? children : <AccessRestricted reason={featureAllowed && routeAvailable ? "permission" : "plan"} />}</div>
+            </div>
           </main>
         </div>
 

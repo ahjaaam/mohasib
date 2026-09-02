@@ -231,8 +231,8 @@ export default function AllocateTransactionModal({
                             ? `/comptable-pro/dossiers/${dossierId}/factures/${allocation.document_id}`
                             : `/factures/${allocation.document_id}`
                           : dossierId
-                            ? `/comptable-pro/dossiers/${dossierId}/boite-de-reception?document_id=${allocation.document_id}`
-                            : `/boite-de-reception?document_id=${allocation.document_id}`}
+                            ? `/comptable-pro/dossiers/${dossierId}/achats?document_id=${allocation.document_id}`
+                            : `/achats?document_id=${allocation.document_id}`}
                         className="flex min-w-0 items-center gap-1.5 font-semibold underline decoration-emerald-300 underline-offset-2 transition-colors hover:text-[#047857]"
                       >
                         <span className="truncate">{allocation.label}</span>

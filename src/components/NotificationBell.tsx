@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ensureAccountingAutomationGuideNotification } from "@/lib/notifications/actions";
 
-export default function NotificationBell({ userId, onOpen }: { userId: string; onOpen?: () => void }) {
+export default function NotificationBell({
+  userId,
+  open,
+  onToggle,
+}: {
+  userId: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
   const [messageCount, setMessageCount] = useState(0);
   const supabase = useMemo(() => createClient(), []);
 
@@ -41,19 +48,25 @@ export default function NotificationBell({ userId, onOpen }: { userId: string; o
   }, [supabase, userId]);
 
   return (
-    <Link
-      href="/notifications"
-      onClick={onOpen}
-      className="ui-control relative flex h-10 w-10 items-center justify-center border border-transparent text-[#777E8B] transition-colors hover:border-[#E1E0DA] hover:bg-[#F5F4EF] hover:text-[#1A1A2E]"
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`ui-control relative flex h-10 w-10 items-center justify-center border text-[#777E8B] transition-colors ${
+        open
+          ? "border-[#C8924A] bg-[rgba(200,146,74,0.16)]"
+          : "border-transparent bg-[rgba(200,146,74,0.08)] hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)]"
+      }`}
       title="Boîte de réception"
       aria-label={`Ouvrir la boîte de réception${messageCount ? `, ${messageCount} message${messageCount > 1 ? "s" : ""} à traiter` : ""}`}
+      aria-expanded={open}
+      aria-controls="mohasib-notifications-dock"
     >
-      <Mail size={16} />
+      <Mail size={18} />
       {messageCount > 0 && (
         <span className="absolute -right-0.5 bottom-0 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[#FCFCFA] bg-[#DC2626] px-1 text-[9px] font-bold leading-none text-white">
           {messageCount > 99 ? "99+" : messageCount}
         </span>
       )}
-    </Link>
+    </button>
   );
 }

@@ -25,7 +25,6 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
 
   const userType = entry.track === "comptable" ? "fiduciaire" : "entrepreneur";
   const accountName = entry.entreprise || owner.user_metadata?.company || entry.nom || "Mon entreprise";
-  const trialEnd = new Date(Date.now() + 7 * 86400000).toISOString();
 
   let { data: company } = await admin!.from("companies").select("*").eq("user_id", owner.id).maybeSingle();
   if (!company) {
@@ -35,9 +34,10 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       email: owner.email,
       phone: entry.telephone || owner.user_metadata?.phone || null,
       user_type: userType,
-      plan: "trial",
-      trial_ends_at: trialEnd,
-      subscription_status: "trial",
+      plan: "custom",
+      trial_ends_at: null,
+      subscription_ends_at: null,
+      subscription_status: "active",
       is_suspended: false,
     }).select().single();
     if (created.error || !created.data) {
@@ -46,9 +46,10 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     company = created.data;
   } else {
     const refreshed = await admin!.from("companies").update({
-      plan: "trial",
-      trial_ends_at: trialEnd,
-      subscription_status: "trial",
+      plan: "custom",
+      trial_ends_at: null,
+      subscription_ends_at: null,
+      subscription_status: "active",
       is_suspended: false,
     }).eq("id", company.id).select().single();
     if (refreshed.error || !refreshed.data) {
@@ -87,6 +88,15 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       return NextResponse.json({ message: membershipInsert.error.message }, { status: 400 });
     }
   }
+
+  const preferencesResult = await admin!.from("user_preferences").upsert({
+    user_id: owner.id,
+    sidebar_theme: "dark",
+  }, { onConflict: "user_id", ignoreDuplicates: true });
+  if (preferencesResult.error) {
+    return NextResponse.json({ message: preferencesResult.error.message }, { status: 400 });
+  }
+
   if (userType === "fiduciaire") {
     const cabinetUpsert = await admin!.from("cabinets").upsert({
       user_id: owner.id,
@@ -115,7 +125,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     entityId: id,
     entityLabel: entry.email,
     companyId: company.id,
-    newValues: { auth_user_id: owner.id, status: "approved", user_type: userType },
+    newValues: { auth_user_id: owner.id, status: "approved", user_type: userType, plan: "custom", subscription_status: "active" },
   });
 
   return NextResponse.json({ success: true, companyId: company.id });

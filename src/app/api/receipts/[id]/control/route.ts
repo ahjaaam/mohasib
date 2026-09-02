@@ -183,7 +183,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const supplier = updated.ocr_data?.vendor_name ?? updated.ocr_data?.vendor ?? updated.file_name ?? "Facture fournisseur";
-  const link = updated.dossier_id ? `/comptable-pro/dossiers/${updated.dossier_id}/boite-de-reception` : "/boite-de-reception";
+  const link = updated.dossier_id ? `/comptable-pro/dossiers/${updated.dossier_id}/achats` : "/achats";
   if (action === "request_approval" && updated.approver_id) {
     await admin.from("notifications").insert({
       user_id: updated.approver_id,

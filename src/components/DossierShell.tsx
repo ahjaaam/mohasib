@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "react-hot-toast";
 import {
-  LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeftRight, PenLine, LayoutTemplate,
+  LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeftRight, PenLine, Scale,
   Calculator, Download, UserRoundCog, FolderOpen, BarChart2,
   Inbox, Building2, GitMerge, Lock, Menu, CreditCard, LogOut,
   ReceiptText, Landmark,
@@ -19,9 +19,9 @@ import { FEATURES } from "@/lib/features";
 import { PlanEntitlementsProvider } from "@/hooks/usePlanEntitlements";
 import { AccountOwnerProvider } from "@/hooks/useAccountOwner";
 import AppTopBar from "@/components/AppTopBar";
-import SidebarToggleButton from "@/components/SidebarToggleButton";
 import SidebarLogo from "@/components/SidebarLogo";
 import SidebarItemTooltip from "@/components/SidebarItemTooltip";
+import SidebarAccountMenu from "@/components/SidebarAccountMenu";
 import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 
 const SIDEBAR_BACKGROUND = "#111621";
@@ -31,7 +31,7 @@ const CLIENT_PORTAL_BLOCKED_SLUGS = ["tresorerie", "transactions", "rapprochemen
 // shared wherever possible; only the dossier-prefixed href changes.
 const NAV_ITEMS = [
   { slug: "tableau-de-bord", icon: ChartNoAxesCombined, label: "Tableau de bord", permission: "report:read" },
-  { slug: "boite-de-reception", icon: Inbox, label: "Achats", permission: "document:read" },
+  { slug: "achats", icon: Inbox, label: "Achats", permission: "document:read" },
   { slug: "notes-de-frais", icon: ReceiptText, label: "Notes de frais", permission: "document:read" },
   { slug: "factures", icon: FileText, label: "Factures", permission: "invoice:read" },
   { slug: "suivi-paiements", icon: CreditCard, label: "Suivi des échéances", permission: "invoice:read" },
@@ -43,7 +43,7 @@ const NAV_ITEMS = [
   { slug: "rapprochement", icon: GitMerge, label: "Rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
   FEATURES.SAISIE_ENABLED
     ? { slug: "saisie", icon: PenLine, label: "Saisie comptable", permission: "accounting:read", feature: "saisie" as PlanFeature }
-    : { slug: "ecritures", icon: LayoutTemplate, label: "Écritures", permission: "accounting:read" },
+    : { slug: "ecritures", icon: Scale, label: "Écritures", permission: "accounting:read" },
   ...(FEATURES.GRAND_LIVRE_ENABLED
     ? [{ slug: "grand-livre", icon: BarChart2, label: "Grand Livre", permission: "report:read" }]
     : []),
@@ -80,7 +80,7 @@ interface Props {
   sidebarTheme?: "dark" | "cream";
 }
 
-export default function DossierShell({ children, dossier, dossiers = [dossier], userId, userName, userEmail, userCompany, userAvatar, permissions = null, roleLabel, isClientPortal = false, entitlements, ownerId, sidebarTheme = "cream" }: Props) {
+export default function DossierShell({ children, dossier, dossiers = [dossier], userId, userName, userEmail, userCompany, userAvatar, permissions = null, roleLabel, isClientPortal = false, entitlements, ownerId, sidebarTheme = "dark" }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { collapsed: sidebarCollapsed, toggleCollapsed: toggleSidebarCollapsed } = useSidebarCollapsed();
   const pathname = usePathname();
@@ -129,20 +129,22 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               return (
               <SidebarItemTooltip key={slug} enabled={compact} label={label}>
                 <Link href={`${base}/${slug}`} aria-label={compact ? label : undefined}
-                  className={`flex items-center py-[12px] text-[13px] transition-all border-r-2 ${
-                    compact ? "justify-center px-0" : "gap-2.5 px-[18px]"
+                  className={`sidebar-nav-item flex items-center py-[13px] text-[14px] transition-all ${
+                    compact
+                      ? "mx-2 justify-center px-0"
+                      : "mx-2 gap-3 px-[10px]"
                   } ${
                     isActive(slug)
-                      ? "text-[#C8924A] bg-[rgba(200,146,74,0.10)] border-[#C8924A]"
+                      ? "sidebar-nav-item--active text-[#C8924A]"
                       : locked
                         ? lightSidebar
-                          ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45 hover:bg-black/[0.04] border-transparent"
-                          : "text-white/35 hover:text-white/55 hover:bg-white/5 border-transparent"
+                          ? "text-[#1A1A2E]/25 hover:text-[#1A1A2E]/45"
+                          : "text-white/35 hover:text-white/55"
                         : lightSidebar
-                          ? "text-[#5F5A50] hover:text-[#1A1A2E] hover:bg-black/[0.04] border-transparent"
-                          : "text-white/80 hover:text-white hover:bg-white/5 border-transparent"
+                          ? "text-[#5F5A50] hover:text-[#1A1A2E]"
+                          : "text-white/80 hover:text-white"
                   }`}>
-                  <Icon size={compact ? 18 : 15} />
+                  <Icon size={compact ? 19 : 16} />
                   {!compact && label}
                   {!compact && locked && <Lock size={11} className="ml-auto opacity-70" />}
                 </Link>
@@ -150,6 +152,15 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               );
             })}
       </nav>
+      <SidebarAccountMenu
+        collapsed={compact}
+        light={lightSidebar}
+        userName={userName}
+        userEmail={userEmail}
+        settingsHref={`${base}/parametres`}
+        onSignOut={signOut}
+        onToggleSidebar={toggleSidebarCollapsed}
+      />
     </>
   );
 
@@ -158,7 +169,10 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
       <AccountOwnerProvider ownerId={ownerId}>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
       <PermissionBoundary permissions={permissions}>
-      <div className="mohasib-app flex h-screen overflow-hidden bg-[#FAFAF6]" data-sidebar-theme={sidebarTheme}>
+      <div
+        className={`mohasib-app flex h-screen overflow-hidden ${lightSidebar ? "bg-white" : "bg-[#111621]"}`}
+        data-sidebar-theme={sidebarTheme}
+      >
 
           {/* Desktop sidebar */}
           <aside
@@ -166,17 +180,11 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
             style={{ width: sidebarCollapsed ? 56 : 210, background: sidebarBackground }}
           >
             <SidebarContent compact={sidebarCollapsed} />
-            <SidebarToggleButton
-              collapsed={sidebarCollapsed}
-              onToggle={toggleSidebarCollapsed}
-              light={lightSidebar}
-            />
           </aside>
 
           {/* Right column: search top bar + scrollable page content */}
           <div className={`mohasib-main-column flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-[margin] duration-200 ${sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[210px]"}`}>
             <AppTopBar
-              key={pathname}
               items={topBarItems}
               userName={userName}
               userEmail={userEmail}
@@ -200,9 +208,11 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               dossierId={dossier.id}
             />
             <div className="h-16 flex-shrink-0" aria-hidden="true" />
-            <main className="flex-1 overflow-hidden flex flex-col">
-              <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[18px]">
-                {pageAllowed ? children : <AccessRestricted backHref="/comptable-pro" reason={featureAllowed ? "permission" : "plan"} />}
+            <main className="app-content-frame flex-1 overflow-hidden flex flex-col">
+              <div className="app-content-surface flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="page-fade overflow-y-auto flex-1 p-4 md:p-[24px_22px_18px] pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-[18px]">
+                  {pageAllowed ? children : <AccessRestricted backHref="/comptable-pro" reason={featureAllowed ? "permission" : "plan"} />}
+                </div>
               </div>
             </main>
           </div>

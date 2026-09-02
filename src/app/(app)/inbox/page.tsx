@@ -33,18 +33,18 @@ function addDays(date: string | null | undefined, days: number) {
 }
 
 function computeAmounts(ocr: OcrData) {
-  const ttc = Math.abs(ocr.amount ?? 0);
-  const tvaRate = ocr.tva_rate ?? 0;
-  let ht = ttc;
-  let tva = 0;
-  if (ocr.tva_amount != null && ocr.tva_amount > 0) {
-    tva = ocr.tva_amount;
-    ht = ttc - tva;
-  } else if (tvaRate > 0) {
-    ht = ttc / (1 + tvaRate / 100);
-    tva = ttc - ht;
-  }
-  return { ht, tva, ttc };
+  const amounts = computePurchaseAmounts({
+    amount: ocr.amount ?? ocr.amount_ttc ?? 0,
+    discount_amount: ocr.discount_amount ?? 0,
+    tva_amount: ocr.tva_amount ?? ocr.tax_amount ?? 0,
+    tva_rate: ocr.tva_rate ?? 0,
+  });
+  return {
+    ht: amounts.totalHt,
+    tva: amounts.tvaAmount,
+    remise: amounts.discountAmount,
+    ttc: amounts.totalTtc,
+  };
 }
 
 const ALL_CATS = TRANSACTION_CATEGORIES.expense;
@@ -62,6 +62,7 @@ interface ReceiptWithUrl extends Receipt { signedUrl?: string; }
 
 interface CardForm {
   amount: string;
+  discount_amount: string;
   category: string;
   description: string;
   date: string;
@@ -155,6 +156,7 @@ function initForm(ocr: OcrData): CardForm {
   const invoiceDate = ocr.date ?? new Date().toISOString().split("T")[0];
   return {
     amount: signedAmt,
+    discount_amount: String(ocr.discount_amount ?? ""),
     category,
     description: vendor ? (desc ? `${vendor} — ${desc}` : vendor) : desc,
     date: invoiceDate,
@@ -196,14 +198,31 @@ function SourceBadge({ provider }: { provider?: string }) {
 }
 
 function ControlBadge({ checks }: { checks?: InvoiceControlCheck[] }) {
-  const severity = highestInvoiceControlSeverity(checks ?? []);
+  const availableChecks = checks ?? [];
+  const severity = highestInvoiceControlSeverity(availableChecks);
+  const relevantChecks = availableChecks.filter(check => check.severity === severity && check.code !== "automatic_checks_complete");
+  const primaryCheck = relevantChecks[0];
+  const details = relevantChecks.map(check => `${check.title} : ${check.message}`).join("\n");
+  const extraCount = Math.max(0, relevantChecks.length - 1);
   if (severity === "critical") {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[9.5px] font-bold text-red-700"><AlertCircle size={10} /> Anomalie</span>;
+    return (
+      <span title={details} className="inline-flex max-w-[260px] items-center gap-1 rounded-full border border-[#E8C98F] bg-[#FFF7E8] px-2 py-0.5 text-[9.5px] font-bold text-[#946323]">
+        <AlertCircle size={10} className="flex-shrink-0" />
+        <span className="truncate">Anomalie : {primaryCheck?.title ?? "contrôle bloquant"}</span>
+        {extraCount > 0 && <span className="flex-shrink-0">+{extraCount}</span>}
+      </span>
+    );
   }
   if (severity === "warning") {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[9.5px] font-bold text-amber-700"><AlertCircle size={10} /> À vérifier</span>;
+    return (
+      <span title={details} className="inline-flex max-w-[260px] items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[9.5px] font-bold text-amber-700">
+        <AlertCircle size={10} className="flex-shrink-0" />
+        <span className="truncate">À vérifier : {primaryCheck?.title ?? "informations incomplètes"}</span>
+        {extraCount > 0 && <span className="flex-shrink-0">+{extraCount}</span>}
+      </span>
+    );
   }
-  return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[9.5px] font-bold text-emerald-700"><ShieldCheck size={10} /> Contrôlé</span>;
+  return <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[9.5px] font-bold text-emerald-700"><ShieldCheck size={10} /> Contrôlé</span>;
 }
 
 function ApprovalBadge({ status }: { status?: Receipt["approval_status"] }) {
@@ -230,6 +249,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   const [tab, setTab] = useState<Tab>("pending");
   const [forms, setForms] = useState<Record<string, CardForm>>({});
   const [saving, setSaving] = useState<Set<string>>(new Set());
+  const [savingEdits, setSavingEdits] = useState<Set<string>>(new Set());
+  const [dirtyReceipts, setDirtyReceipts] = useState<Set<string>>(new Set());
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -445,7 +466,13 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       return;
     }
     const tvaRate = form.tva_rate ? parseFloat(form.tva_rate) : 0;
-    const confirmedAmounts = computePurchaseAmounts({ amount: amt, tva_rate: tvaRate });
+    const discountAmount = form.discount_amount ? parseFloat(form.discount_amount) : 0;
+    if (!Number.isFinite(discountAmount) || discountAmount < 0) {
+      toast.error("Remise invalide");
+      setSaving((s) => { s.delete(id); return new Set(s); });
+      return;
+    }
+    const confirmedAmounts = computePurchaseAmounts({ amount: amt, discount_amount: discountAmount, tva_rate: tvaRate });
     const confirmedOcr = {
       ...receipt.ocr_data,
       amount: amt,
@@ -457,6 +484,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       description: form.description || receipt.ocr_data.description || null,
       tva_rate: tvaRate,
       tva_amount: confirmedAmounts.tvaAmount,
+      discount_amount: confirmedAmounts.discountAmount,
       compte: form.compte_comptable || (receipt.ocr_data as any).compte || null,
     };
     const shouldBookPurchase = shouldBookConfirmedPurchase(confirmedOcr);
@@ -505,10 +533,72 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     if (previewReceipt?.id === id) setPreviewReceipt(null);
     dismissCard(id);
     if (shouldBookPurchase) {
-      toast.success("Note de frais comptabilisée et ajoutée au suivi fournisseurs !");
+      toast.success("Facture fournisseur comptabilisée et ajoutée au suivi fournisseurs !");
     } else {
-      toast.success("Facture confirmée !");
+      toast.success("Facture fournisseur confirmée !");
     }
+  }
+
+  async function saveReceiptEdits(id: string) {
+    const receipt = receipts.find((item) => item.id === id);
+    const form = forms[id];
+    if (!receipt || !form) return;
+
+    const amount = Number.parseFloat(form.amount);
+    if (!Number.isFinite(amount)) {
+      toast.error("Montant invalide");
+      return;
+    }
+    const tvaRate = form.tva_rate ? Number.parseFloat(form.tva_rate) : 0;
+    const discountAmount = form.discount_amount ? Number.parseFloat(form.discount_amount) : 0;
+    if (!Number.isFinite(discountAmount) || discountAmount < 0) {
+      toast.error("Remise invalide");
+      return;
+    }
+
+    const amounts = computePurchaseAmounts({
+      amount,
+      discount_amount: discountAmount,
+      tva_rate: tvaRate,
+    });
+    const editedOcr: OcrData = {
+      ...receipt.ocr_data,
+      amount,
+      type: amount >= 0 ? "income" : "expense",
+      date: form.date,
+      due_date: form.due_date || receipt.ocr_data.due_date || null,
+      is_supplier_invoice: receipt.ocr_data.is_supplier_invoice ?? true,
+      category: form.category || receipt.ocr_data.category || null,
+      description: form.description || receipt.ocr_data.description || null,
+      tva_rate: tvaRate,
+      tva_amount: amounts.tvaAmount,
+      discount_amount: amounts.discountAmount,
+      compte: form.compte_comptable || receipt.ocr_data.compte || null,
+    };
+
+    setSavingEdits((current) => new Set([...current, id]));
+    const { error } = await supabase
+      .from("receipts")
+      .update({ ocr_data: editedOcr })
+      .eq("id", id);
+    setSavingEdits((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+
+    if (error) {
+      toast.error("Les modifications n’ont pas pu être enregistrées.");
+      return;
+    }
+
+    setReceipts((current) => current.map((item) => item.id === id ? { ...item, ocr_data: editedOcr } : item));
+    setDirtyReceipts((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+    toast.success("Modifications enregistrées — la facture reste à traiter.");
   }
 
   async function ignoreReceipt(id: string) {
@@ -532,6 +622,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   }
 
   function updateForm(id: string, field: keyof CardForm, val: string) {
+    setDirtyReceipts((current) => new Set([...current, id]));
     setForms((f) => {
       const updated = { ...f[id], [field]: val };
       if (field === "category") {
@@ -733,10 +824,13 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                 receipt={r}
                 form={forms[r.id] ?? initForm(r.ocr_data)}
                 saving={saving.has(r.id)}
+                savingEdits={savingEdits.has(r.id)}
+                hasUnsavedChanges={dirtyReceipts.has(r.id)}
                 dismissing={dismissing.has(r.id)}
                 previewing={previewReceipt?.id === r.id}
                 onFormChange={(field, val) => updateForm(r.id, field, val)}
                 onConfirm={() => confirmReceipt(r.id)}
+                onSave={() => saveReceiptEdits(r.id)}
                 onIgnore={() => ignoreReceipt(r.id)}
                 onPreview={() => setPreviewReceipt(previewReceipt?.id === r.id ? null : r)}
               />
@@ -754,13 +848,27 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       )}
 
       {/* ─── Preview panel ───────────────────────────────────────────────── */}
-      {previewReceipt && (
+      {previewReceipt && tab === "pending" ? (
+        <PurchaseReviewWorkspace
+          key={previewReceipt.id}
+          receipt={previewReceipt}
+          form={forms[previewReceipt.id] ?? initForm(previewReceipt.ocr_data)}
+          saving={saving.has(previewReceipt.id)}
+          savingEdits={savingEdits.has(previewReceipt.id)}
+          hasUnsavedChanges={dirtyReceipts.has(previewReceipt.id)}
+          onFormChange={(field, val) => updateForm(previewReceipt.id, field, val)}
+          onConfirm={() => confirmReceipt(previewReceipt.id)}
+          onSave={() => saveReceiptEdits(previewReceipt.id)}
+          onIgnore={() => ignoreReceipt(previewReceipt.id)}
+          onClose={closePreview}
+        />
+      ) : previewReceipt ? (
         <PreviewPanel
           key={previewReceipt.id}
           receipt={previewReceipt}
           onClose={closePreview}
         />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -986,7 +1094,7 @@ function SuppliersView({ suppliers, receipts, onSaved }: { suppliers: SupplierSu
 function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPreview: (receipt: ReceiptWithUrl) => void }) {
   const rows = receipts.map((r) => {
     const ocr = r.ocr_data;
-    const { ht, tva, ttc } = computeAmounts(ocr);
+    const { ht, tva, remise, ttc } = computeAmounts(ocr);
     const journal = ocr.type === "income" ? "VTE" : "ACH";
     return {
       id: r.id,
@@ -997,6 +1105,7 @@ function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPre
       description: (ocr.description as string | null) ?? "",
       ht,
       tva,
+      remise,
       ttc,
       tvaRate: ocr.tva_rate ?? 0,
       category: (ocr.category as string | null) ?? "",
@@ -1009,10 +1118,11 @@ function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPre
 
   const totalHt = rows.reduce((s, r) => s + r.ht, 0);
   const totalTva = rows.reduce((s, r) => s + r.tva, 0);
+  const totalDiscount = rows.reduce((s, r) => s + r.remise, 0);
   const totalTtc = rows.reduce((s, r) => s + r.ttc, 0);
 
   function exportCSV() {
-    const headers = ["Journal", "Date", "Fournisseur", "Référence", "Description", "HT (MAD)", "TVA %", "TVA (MAD)", "TTC (MAD)", "Catégorie", "Compte", "Mode paiement"];
+    const headers = ["Journal", "Date", "Fournisseur", "Référence", "Description", "HT (MAD)", "TVA %", "TVA (MAD)", "Remise TTC (MAD)", "TTC net (MAD)", "Catégorie", "Compte", "Mode paiement"];
     const csvRows = [
       headers.join(","),
       ...rows.map((r) => [
@@ -1024,6 +1134,7 @@ function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPre
         r.ht.toFixed(2),
         r.tvaRate,
         r.tva.toFixed(2),
+        r.remise.toFixed(2),
         r.ttc.toFixed(2),
         `"${r.category.replace(/"/g, '""')}"`,
         r.compte,
@@ -1069,11 +1180,12 @@ function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPre
     <div className="flex flex-col gap-4">
 
       {/* Summary metric cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {([
           { label: "Total HT", value: fmt(totalHt), sub: "MAD", color: "#1A1A2E" },
           { label: "Total TVA", value: fmt(totalTva), sub: "MAD", color: "#D97706" },
-          { label: "Total TTC", value: fmt(totalTtc), sub: "MAD", color: "#C8924A" },
+          { label: "Total remises", value: fmt(totalDiscount), sub: "MAD", color: "#7C3AED" },
+          { label: "Total TTC net", value: fmt(totalTtc), sub: "MAD", color: "#C8924A" },
           { label: "Écritures confirmées", value: String(rows.length), sub: "entrées", color: "#059669" },
         ]).map((m) => (
           <div key={m.label} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
@@ -1106,7 +1218,7 @@ function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPre
       {/* Table */}
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
         <div className="overflow-x-auto">
-          <table className="w-full text-[11.5px] border-collapse min-w-[1100px]">
+          <table className="w-full text-[11.5px] border-collapse min-w-[1180px]">
             <thead>
               <tr className="bg-[#F9F9F6] border-b border-[rgba(0,0,0,0.08)]">
                 {[
@@ -1117,7 +1229,8 @@ function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPre
                   ["Montant HT", "text-right"],
                   ["TVA %", "text-center"],
                   ["TVA MAD", "text-right"],
-                  ["TTC MAD", "text-right"],
+                  ["Remise TTC", "text-right"],
+                  ["TTC net", "text-right"],
                   ["Catégorie", "text-left"],
                   ["Compte comptable", "text-left"],
                   ["Mode de paiement", "text-left"],
@@ -1155,6 +1268,9 @@ function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPre
                   </td>
                   <td className="px-3 py-2.5 text-right text-[#9CA3AF]">
                     {row.tva > 0 ? fmt(row.tva) : <span className="text-[#D1D5DB]">—</span>}
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-[#7C3AED]">
+                    {row.remise > 0 ? fmt(row.remise) : <span className="text-[#D1D5DB]">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-right font-bold text-[#1A1A2E]">{fmt(row.ttc)}</td>
                   <td className="px-3 py-2.5">
@@ -1235,7 +1351,139 @@ function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClos
   );
 }
 
+// ─── Purchase verification workspace ─────────────────────────────────────────
+
+function PurchaseReviewWorkspace({
+  receipt,
+  form,
+  saving,
+  savingEdits,
+  hasUnsavedChanges,
+  onFormChange,
+  onConfirm,
+  onSave,
+  onIgnore,
+  onClose,
+}: {
+  receipt: ReceiptWithUrl;
+  form: CardForm;
+  saving: boolean;
+  savingEdits: boolean;
+  hasUnsavedChanges: boolean;
+  onFormChange: (field: keyof CardForm, val: string) => void;
+  onConfirm: () => void;
+  onSave: () => void;
+  onIgnore: () => void;
+  onClose: () => void;
+}) {
+  const [mobilePane, setMobilePane] = useState<"document" | "data">("document");
+  const ocr = receipt.ocr_data;
+  const isPdf = receipt.mime_type === "application/pdf";
+  const previewUrl = isPdf && receipt.storage_path
+    ? `/api/receipts/${receipt.id}/content`
+    : receipt.signedUrl;
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex flex-col bg-[#F3F4F6]" role="dialog" aria-modal="true" aria-label="Vérification de la facture fournisseur">
+      <header className="flex h-16 flex-shrink-0 items-center gap-3 border-b border-black/10 bg-white px-4 md:px-5">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-[0.7px] text-[#C8924A]">Vérification de la facture</div>
+          <div className="truncate text-[14px] font-semibold text-[#1A1A2E]">
+            {ocr.vendor_name ?? ocr.vendor ?? receipt.file_name ?? "Facture fournisseur"}
+          </div>
+        </div>
+        <div className="hidden items-center gap-2 text-[11px] text-[#8A909B] sm:flex">
+          {ocr.date && <span>{fmtDate(ocr.date)}</span>}
+          {ocr.receipt_number && <span>#{ocr.receipt_number}</span>}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-black/10 bg-white text-[#6B7280] transition-colors hover:border-[#C8924A] hover:text-[#C8924A]"
+          aria-label="Fermer la vérification"
+        >
+          <X size={16} />
+        </button>
+      </header>
+
+      <div className="grid grid-cols-2 border-b border-black/10 bg-white p-1 md:hidden">
+        {(["document", "data"] as const).map((pane) => (
+          <button
+            key={pane}
+            type="button"
+            onClick={() => setMobilePane(pane)}
+            aria-pressed={mobilePane === pane}
+            className={`min-h-10 rounded-md text-[12px] font-semibold transition-colors ${mobilePane === pane ? "bg-[#0D1526] text-white" : "text-[#6B7280]"}`}
+          >
+            {pane === "document" ? "Document" : "Données extraites"}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(0,1.15fr)_minmax(430px,0.85fr)]">
+        <section className={`${mobilePane === "document" ? "flex" : "hidden"} min-h-0 flex-col bg-[#E5E7EB] md:flex`} aria-label="Document original">
+          <div className="flex h-10 flex-shrink-0 items-center justify-between border-b border-black/10 bg-[#F9FAFB] px-4">
+            <span className="text-[10.5px] font-bold uppercase tracking-[0.55px] text-[#6B7280]">Document original</span>
+            {previewUrl && (
+              <a href={previewUrl} target="_blank" rel="noreferrer" className="text-[10.5px] font-semibold text-[#C8924A] hover:underline">
+                Ouvrir en plein écran
+              </a>
+            )}
+          </div>
+          <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto">
+            {!previewUrl ? (
+              <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                <FileText size={40} className="mb-3 text-[#9CA3AF]" />
+                <p className="text-[12.5px] text-[#6B7280]">Aucun aperçu disponible</p>
+              </div>
+            ) : isPdf ? (
+              <iframe src={previewUrl} className="h-full min-h-[520px] w-full bg-white" title="Facture fournisseur PDF" />
+            ) : (
+              <div className="flex min-h-full w-full items-start justify-center p-4 md:p-6">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={previewUrl} alt="Facture fournisseur à vérifier" className="h-auto max-w-full bg-white shadow-lg" />
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className={`${mobilePane === "data" ? "block" : "hidden"} min-h-0 overflow-y-auto border-l border-black/10 bg-[#FAFAF6] md:block`} aria-label="Données extraites à vérifier">
+          <div className="border-b border-black/10 bg-white px-4 py-3">
+            <div className="text-[12px] font-bold text-[#1A1A2E]">Comparez puis corrigez les données extraites</div>
+            <p className="mt-0.5 text-[10.5px] text-[#8A909B]">Le document reste visible à gauche pendant vos modifications.</p>
+          </div>
+          <ReceiptCard
+            receipt={receipt}
+            form={form}
+            saving={saving}
+            savingEdits={savingEdits}
+            hasUnsavedChanges={hasUnsavedChanges}
+            dismissing={false}
+            previewing
+            embedded
+            onFormChange={onFormChange}
+            onConfirm={onConfirm}
+            onSave={onSave}
+            onIgnore={onIgnore}
+            onPreview={onClose}
+          />
+        </section>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 type ReceiptControlPayload = {
+  checks: InvoiceControlCheck[];
   events: Array<{ id: string; event_type: string; message: string; created_at: string; actor_label?: string | null }>;
 };
 
@@ -1266,6 +1514,37 @@ function ReceiptControlPanel({ receipt }: { receipt: ReceiptWithUrl }) {
 
   return (
     <div className="max-h-[46%] flex-shrink-0 overflow-y-auto border-b border-black/10 bg-white px-4 py-3">
+      <div className="mb-4">
+        <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-[#0D1526]"><ShieldCheck size={12} /> Contrôles de la facture</div>
+        <div className="mt-2 space-y-2">
+          {payload.checks
+            .filter(check => check.code !== "automatic_checks_complete" || payload.checks.length === 1)
+            .map(check => (
+              <div
+                key={check.code}
+                className={`rounded-lg border px-3 py-2 ${
+                  check.severity === "critical"
+                    ? "border-red-200 bg-red-50"
+                    : check.severity === "warning"
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-emerald-200 bg-emerald-50"
+                }`}
+              >
+                <div className={`flex items-center gap-1.5 text-[10.5px] font-bold ${
+                  check.severity === "critical"
+                    ? "text-red-700"
+                    : check.severity === "warning"
+                      ? "text-amber-700"
+                      : "text-emerald-700"
+                }`}>
+                  {check.severity === "info" ? <ShieldCheck size={11} /> : <AlertCircle size={11} />}
+                  {check.title}
+                </div>
+                <p className="mt-1 text-[10px] leading-relaxed text-[#4B5563]">{check.message}</p>
+              </div>
+            ))}
+        </div>
+      </div>
       <div>
         <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-[#0D1526]"><Clock3 size={12} /> Activité</div>
         <div className="mt-2 space-y-2 border-l border-[#D8DADF] pl-3">
@@ -1348,15 +1627,19 @@ interface CardProps {
   receipt: ReceiptWithUrl;
   form: CardForm;
   saving: boolean;
+  savingEdits: boolean;
+  hasUnsavedChanges: boolean;
   dismissing: boolean;
   previewing: boolean;
   onFormChange: (field: keyof CardForm, val: string) => void;
   onConfirm: () => void;
+  onSave: () => void;
   onIgnore: () => void;
   onPreview: () => void;
+  embedded?: boolean;
 }
 
-function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormChange, onConfirm, onIgnore, onPreview }: CardProps) {
+function ReceiptCard({ receipt: r, form, saving, savingEdits, hasUnsavedChanges, dismissing, previewing, onFormChange, onConfirm, onSave, onIgnore, onPreview, embedded = false }: CardProps) {
   const [referenceTime] = useState(() => Date.now());
   const ocr = r.ocr_data;
   const amt = parseFloat(form.amount);
@@ -1366,6 +1649,7 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
   const tvaRate = Number(form.tva_rate || 0);
   const entryPreview = computePurchaseAmounts({
     amount: Number.isFinite(amt) ? amt : 0,
+    discount_amount: Number(form.discount_amount || 0),
     tva_rate: tvaRate,
   });
   const expenseAccount = form.compte_comptable || categoryToCompte[form.category] || "6111";
@@ -1373,11 +1657,11 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
 
   return (
     <div
-      className="bg-white overflow-hidden transition-all duration-300"
+      className={`bg-white overflow-hidden transition-all duration-300 ${embedded ? "min-h-full" : ""}`}
       style={{
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        border: isAvoir ? "1px solid rgba(124,58,237,0.3)" : "1px solid rgba(0,0,0,0.20)",
-        borderRadius: "12px",
+        boxShadow: embedded ? "none" : "0 1px 3px rgba(0,0,0,0.06)",
+        border: embedded ? "none" : isAvoir ? "1px solid rgba(124,58,237,0.3)" : "1px solid rgba(0,0,0,0.20)",
+        borderRadius: embedded ? 0 : "12px",
         transform: dismissing ? `translateX(${isExpense ? "-100%" : "100%"})` : "translateX(0)",
         opacity: dismissing ? 0 : 1,
         position: "relative",
@@ -1391,20 +1675,22 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           </span>
         </div>
       )}
-      <button
-        onClick={onPreview}
-        className={`absolute top-4 right-4 flex items-center gap-1 text-[12px] border rounded-md transition-colors ${
-          previewing
-            ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A] border-[rgba(200,146,74,0.3)]"
-            : "bg-white text-[#6B7280] border-[rgba(0,0,0,0.15)] hover:bg-[#FAFAF6]"
-        }`}
-        style={{ padding: "4px 10px" }}
-      >
-        <Eye size={12} /> Aperçu
-      </button>
+      {!embedded && (
+        <button
+          onClick={onPreview}
+          className={`absolute top-4 right-4 flex items-center gap-1 text-[12px] border rounded-md transition-colors ${
+            previewing
+              ? "bg-[rgba(200,146,74,0.12)] text-[#C8924A] border-[rgba(200,146,74,0.3)]"
+              : "bg-white text-[#6B7280] border-[rgba(0,0,0,0.15)] hover:bg-[#FAFAF6]"
+          }`}
+          style={{ padding: "4px 10px" }}
+        >
+          <Eye size={12} /> Vérifier
+        </button>
+      )}
 
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-        <div className="flex-1 min-w-0 pr-20">
+        <div className={`flex-1 min-w-0 ${embedded ? "" : "pr-20"}`}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[13.5px] font-bold text-[#1A1A2E] truncate">
               {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Facture sans titre"}
@@ -1428,7 +1714,7 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
 
       <div className="grid grid-cols-2 gap-2 px-4 pb-4 lg:grid-cols-6">
         <div className="lg:col-span-3">
-          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant (MAD)</label>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant TTC net (MAD)</label>
           <div className="relative">
             <input
               type="number" step="0.01"
@@ -1459,7 +1745,7 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           </label>
           <input
             type="date"
-            className={`input ${form.due_date && Math.ceil((new Date(form.due_date).getTime() - referenceTime) / 86400000) < 0 ? "border-[#FCA5A5] bg-[#FEF2F2]" : form.due_date && Math.ceil((new Date(form.due_date).getTime() - referenceTime) / 86400000) <= 7 ? "border-[#FDE68A] bg-[#FFFBEB]" : ""}`}
+            className={`input ${form.due_date && Math.ceil((new Date(form.due_date).getTime() - referenceTime) / 86400000) < 0 ? "border-[#FCA5A5]" : form.due_date && Math.ceil((new Date(form.due_date).getTime() - referenceTime) / 86400000) <= 7 ? "border-[#FDE68A] bg-[#FFFBEB]" : ""}`}
             value={form.due_date}
             onChange={(e) => onFormChange("due_date", e.target.value)}
           />
@@ -1484,22 +1770,29 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
           </select>
         </div>
 
-        <div className="col-span-2 lg:col-span-2">
+        <div className="lg:col-span-2">
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Remise TTC (MAD)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="input"
+            value={form.discount_amount}
+            onChange={(e) => onFormChange("discount_amount", e.target.value)}
+            placeholder="0,00"
+          />
+        </div>
+
+        <div className="col-span-2 lg:col-span-6">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Compte comptable</label>
           <CompteSelect value={form.compte_comptable} onChange={(val) => onFormChange("compte_comptable", val)} />
         </div>
       </div>
 
       {!isAvoir && (
-        <div className="mx-4 mb-4 overflow-hidden rounded-lg border border-[rgba(0,0,0,0.10)]">
-          <div className="flex items-center justify-between border-b border-gray-100 bg-[#FAFAF8] px-3 py-2">
-            <div>
-              <div className="text-[11px] font-bold text-[#1A1A2E]">Aperçu de l’écriture créée</div>
-              <div className="text-[10px] text-[#8A909B]">Journal AC · Achat fournisseur</div>
-            </div>
-            <div className="text-[10px] font-semibold text-[#6B7280]">Débit = Crédit</div>
-          </div>
-          <div className="overflow-x-auto">
+        <div className="mx-4 mb-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9CA3AF]">Aperçu de l’écriture créée</div>
+          <div className="overflow-x-auto rounded-lg border border-[rgba(0,0,0,0.10)]">
             <table className="w-full min-w-[520px] text-[11px]">
               <thead className="bg-white text-[9.5px] uppercase tracking-wide text-[#9CA3AF]">
                 <tr>
@@ -1511,21 +1804,29 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
               </thead>
               <tbody className="divide-y divide-gray-100">
                 <tr>
-                  <td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">{expenseAccount}</td>
+                  <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">{expenseAccount}</td>
                   <td className="px-3 py-2 text-[#4B5563]">{expenseLabel}</td>
                   <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.totalHt)} MAD</td>
                   <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
                 </tr>
                 {entryPreview.tvaAmount > 0 && (
                   <tr>
-                    <td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">3455</td>
+                    <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">3455</td>
                     <td className="px-3 py-2 text-[#4B5563]">État TVA récupérable</td>
                     <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.tvaAmount)} MAD</td>
                     <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
                   </tr>
                 )}
+                {entryPreview.discountAmount > 0 && (
+                  <tr>
+                    <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">6119</td>
+                    <td className="px-3 py-2 text-[#4B5563]">RRR obtenus sur achats</td>
+                    <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
+                    <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.discountAmount)} MAD</td>
+                  </tr>
+                )}
                 <tr>
-                  <td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">4411</td>
+                  <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">4411</td>
                   <td className="px-3 py-2 text-[#4B5563]">Fournisseurs</td>
                   <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
                   <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.totalTtc)} MAD</td>
@@ -1536,29 +1837,29 @@ function ReceiptCard({ receipt: r, form, saving, dismissing, previewing, onFormC
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-2 px-4 pb-4">
+      <div className={`flex items-center justify-end gap-2 px-4 pb-4 ${embedded ? "sticky bottom-0 z-10 border-t border-black/10 bg-white pt-3 shadow-[0_-8px_20px_rgba(13,21,38,0.06)]" : ""}`}>
         <button
           onClick={onIgnore}
-          className="text-[13px] font-medium text-[#DC2626] bg-white border border-[#DC2626] rounded-lg transition-colors cursor-pointer hover:bg-[#FEE2E2]"
-          style={{ padding: "8px 16px" }}
+          className="rounded-md border border-black/15 bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#374151]"
         >
           Ignorer
         </button>
         <button
+          type="button"
+          onClick={onSave}
+          disabled={saving || savingEdits || !hasUnsavedChanges}
+          className="inline-flex items-center gap-1 rounded-md border border-black/15 bg-[#F9FAFB] px-2.5 py-1.5 text-[11.5px] font-medium text-[#4B5563] transition-colors hover:bg-[#E5E7EB] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {savingEdits ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+          {savingEdits ? "Enregistrement…" : "Enregistrer"}
+        </button>
+        <button
           onClick={onConfirm}
-          disabled={saving || (!isAvoir && (!form.description || !form.amount))}
-          className="flex items-center gap-1.5 text-[13px] font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-          style={{
-            padding: "8px 16px",
-            color: isAvoir ? "#7C3AED" : "#15803D",
-            background: "white",
-            border: `1px solid ${isAvoir ? "#7C3AED" : "#15803D"}`,
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = isAvoir ? "rgba(124,58,237,0.06)" : "#F0FDF4")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "white")}
+          disabled={saving || savingEdits || (!isAvoir && (!form.description || !form.amount))}
+          className="inline-flex items-center gap-1 rounded-md border border-[#0D1526] bg-[#0D1526] px-2.5 py-1.5 text-[11.5px] font-semibold text-white transition-colors hover:bg-[#1C2940] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving
-            ? <Loader2 size={13} className="animate-spin" />
+            ? <Loader2 size={12} className="animate-spin" />
             : isAvoir ? "Enregistrer l'avoir" : "Confirmer"}
         </button>
       </div>

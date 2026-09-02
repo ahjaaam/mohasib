@@ -55,7 +55,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       roleLabel={access.roleLabel}
       accessScope={access.accessScope}
       entitlements={entitlements}
-      sidebarTheme={preferencesRes.data?.sidebar_theme === "dark" ? "dark" : "cream"}
+      sidebarTheme={preferencesRes.data?.sidebar_theme === "cream" ? "cream" : "dark"}
       accountState={companyRes.data}>
       {businessScopeAllowed && dossierRes.data && <DossierBanner dossier={dossierRes.data} />}
       {businessScopeAllowed ? children : (

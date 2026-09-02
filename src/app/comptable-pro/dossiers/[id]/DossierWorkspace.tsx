@@ -75,7 +75,7 @@ export default function DossierWorkspace({ dossier, initialEcritures }: Props) {
 
   const APP_ROUTES: Partial<Record<TabKey, string>> = {
     factures:     `/factures?dossier_id=${dossier.id}`,
-    achats:       `/boite-de-reception?dossier_id=${dossier.id}`,
+    achats:       `/achats?dossier_id=${dossier.id}`,
     paie:         `/paie?dossier_id=${dossier.id}`,
   };
 

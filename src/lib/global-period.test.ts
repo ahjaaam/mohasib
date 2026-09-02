@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { parseGlobalPeriod, periodForPreset } from "./global-period";
+import { defaultGlobalPeriod, parseGlobalPeriod, periodForPreset } from "./global-period";
 
 describe("periodForPreset", () => {
   const now = new Date(2026, 7, 10);
 
   it("builds the current year range", () => {
     expect(periodForPreset("this_year", now)).toEqual({ preset: "this_year", start: "2026-01-01", end: "2026-12-31" });
+  });
+
+  it("defaults a new account session to the current year", () => {
+    expect(defaultGlobalPeriod(now)).toEqual({ preset: "this_year", start: "2026-01-01", end: "2026-12-31" });
   });
 
   it("handles a previous month in the prior year", () => {
@@ -19,5 +23,9 @@ describe("periodForPreset", () => {
   it("reads the encoded period stored in the session cookie", () => {
     const value = encodeURIComponent(JSON.stringify({ preset: "this_year", start: "2026-01-01", end: "2026-12-31" }));
     expect(parseGlobalPeriod(value)).toEqual({ preset: "this_year", start: "2026-01-01", end: "2026-12-31" });
+  });
+
+  it("uses the current year when no stored period exists", () => {
+    expect(parseGlobalPeriod(null).preset).toBe("this_year");
   });
 });

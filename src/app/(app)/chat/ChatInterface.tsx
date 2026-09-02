@@ -187,7 +187,11 @@ export default function ChatInterface({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: apiHistory, conversation_id: activeId, dossier_id: dossierId }),
       });
-      if (!response.ok || !response.body) throw new Error("Chat unavailable");
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "Le service est momentanément indisponible. Veuillez réessayer dans quelques instants.");
+      }
+      if (!response.body) throw new Error("Le service est momentanément indisponible. Veuillez réessayer dans quelques instants.");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -229,7 +233,7 @@ export default function ChatInterface({
       }
       await typingFinished;
       void loadConversations();
-    } catch {
+    } catch (error) {
       if (typingTimerRef.current !== null) clearTimeout(typingTimerRef.current);
       typingTimerRef.current = null;
       pendingText = "";
@@ -237,7 +241,9 @@ export default function ChatInterface({
         const updated = [...current];
         updated[updated.length - 1] = {
           role: "assistant",
-          content: "Le service est momentanément indisponible. Veuillez réessayer dans quelques instants.",
+          content: error instanceof Error
+            ? error.message
+            : "Le service est momentanément indisponible. Veuillez réessayer dans quelques instants.",
         };
         return updated;
       });

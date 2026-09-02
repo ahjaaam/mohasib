@@ -17,6 +17,7 @@ export type InvoiceControlData = {
   amount?: number | null;
   amount_ht?: number | null;
   amount_ttc?: number | null;
+  discount_amount?: number | null;
   tva_amount?: number | null;
   tva_rate?: number | null;
   supplier_ice?: string | null;
@@ -75,6 +76,7 @@ export function evaluateInvoiceControls(
   const rate = finite(current.tva_rate);
   const tax = finite(current.tva_amount);
   const untaxed = finite(current.amount_ht);
+  const discount = finite(current.discount_amount) ?? 0;
 
   if (!supplier) {
     checks.push({
@@ -117,13 +119,15 @@ export function evaluateInvoiceControls(
     });
   }
   if (amount != null && untaxed != null && tax != null) {
-    const difference = Math.abs(untaxed + tax - amount);
+    const difference = Math.abs(untaxed + tax - discount - amount);
     if (difference > 1) {
       checks.push({
         code: "tva_total_mismatch",
         severity: "critical",
         title: "Totaux incohérents",
-        message: `HT + TVA diffère du TTC de ${difference.toLocaleString("fr-MA", { maximumFractionDigits: 2 })} MAD.`,
+        message: discount > 0
+          ? `HT + TVA - remise diffère du TTC net de ${difference.toLocaleString("fr-MA", { maximumFractionDigits: 2 })} MAD.`
+          : `HT + TVA diffère du TTC de ${difference.toLocaleString("fr-MA", { maximumFractionDigits: 2 })} MAD.`,
       });
     }
   }

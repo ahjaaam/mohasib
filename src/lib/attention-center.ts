@@ -129,7 +129,7 @@ export async function getAttentionItems(ownerId: string, period: GlobalPeriod): 
       title: "Documents à traiter",
       description: "Pièces reçues qui attendent une vérification ou une affectation.",
       count: pendingReceiptRes.count ?? 0,
-      href: "/boite-de-reception",
+      href: "/achats",
       actionLabel: "Ouvrir les documents",
       severity: "warning",
       category: "documents",

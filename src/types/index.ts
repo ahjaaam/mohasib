@@ -139,6 +139,7 @@ export interface OcrData {
   payment_status?: string | null;
   amount_ht?: number | null;
   amount_ttc?: number | null;
+  discount_amount?: number | null;
   invoice_number?: string | null;
   supplier_ice?: string | null;
   supplier_if?: string | null;

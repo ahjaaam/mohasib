@@ -1215,7 +1215,7 @@ export default function SuiviClient({
           setDateFrom={setDateFrom}
           dateTo={dateTo}
           setDateTo={setDateTo}
-          inboxHref={dossierId ? `/comptable-pro/dossiers/${dossierId}/boite-de-reception` : "/boite-de-reception"}
+          inboxHref={dossierId ? `/comptable-pro/dossiers/${dossierId}/achats` : "/achats"}
         />
       )}
 

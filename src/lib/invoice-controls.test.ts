@@ -23,6 +23,21 @@ describe("evaluateInvoiceControls", () => {
     expect(checks).toContainEqual(expect.objectContaining({ code: "tva_total_mismatch", severity: "critical" }));
   });
 
+  it("accepts a balanced invoice with a TTC discount", () => {
+    const checks = evaluateInvoiceControls({
+      vendor_name: "Géant Import et Export",
+      receipt_number: "2026/15",
+      date: "2026-01-19",
+      amount_ttc: 56079.54,
+      amount_ht: 47205,
+      tva_amount: 9441,
+      discount_amount: 566.46,
+      tva_rate: 20,
+    });
+    expect(checks).not.toContainEqual(expect.objectContaining({ code: "tva_total_mismatch" }));
+    expect(highestInvoiceControlSeverity(checks)).toBe("info");
+  });
+
   it("flags changed supplier banking details", () => {
     const checks = evaluateInvoiceControls(
       { vendor_name: "Atlas", receipt_number: "2", date: "2026-08-02", amount: 100, supplier_iban: "MA64 NEW" },

@@ -6,6 +6,7 @@ export interface CgncAccount {
 export const cgncAccounts: CgncAccount[] = [
   // Classe 6 — Charges
   { code: "6111", label: "Achats de marchandises" },
+  { code: "6119", label: "RRR obtenus sur achats de marchandises" },
   { code: "6121", label: "Achats de matières premières" },
   { code: "6123", label: "Fournitures de bureau" },
   { code: "6132", label: "Locations et charges locatives" },

@@ -54,6 +54,18 @@
   }
   * { box-sizing: border-box; }
 
+  /* Keep scroll interactions available without showing persistent scrollbars. */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
   /*
    * Tailwind radius utilities remain in component markup for semantic sizing,
    * while the design token controls their rendered shape globally. This also
@@ -149,6 +161,68 @@
   --expense-chart-color: #C58B78;
 }
 
+/* Cream top-bar controls need a quiet edge against the white shell. */
+[data-sidebar-theme="cream"] .app-topbar-workspace[aria-expanded="false"],
+[data-sidebar-theme="cream"] .app-topbar-period[aria-expanded="false"],
+[data-sidebar-theme="cream"] #app-global-search:not(:focus) {
+  border-color: rgba(13, 21, 38, 0.10) !important;
+}
+
+/* The page reads as one calm, elevated surface inside the application shell. */
+.app-content-frame {
+  background: #111621;
+}
+
+.app-content-surface {
+  background: #FAFAF6;
+}
+
+.sidebar-nav-item {
+  position: relative;
+  isolation: isolate;
+}
+
+.sidebar-nav-item::before {
+  position: absolute;
+  z-index: -1;
+  inset: 4px 0;
+  border-radius: 12px !important;
+  content: "";
+}
+
+.sidebar-nav-item--active::before {
+  background: rgba(200, 146, 74, 0.10);
+}
+
+.sidebar-nav-item:not(.sidebar-nav-item--active):is(:hover, :focus-visible)::before {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-sidebar-theme="cream"] .sidebar-nav-item:not(.sidebar-nav-item--active):is(:hover, :focus-visible)::before {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-sidebar-theme="cream"] .app-content-frame {
+  background: #FFFFFF;
+}
+
+@media (min-width: 768px) {
+  .app-content-frame {
+    padding: 0 14px 14px 0;
+  }
+
+  .app-content-surface {
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 12px !important;
+    box-shadow: 0 12px 32px rgba(3, 8, 18, 0.18);
+  }
+
+  [data-sidebar-theme="cream"] .app-content-surface {
+    border-color: rgba(13, 21, 38, 0.08);
+    box-shadow: 0 12px 32px rgba(13, 21, 38, 0.08);
+  }
+}
+
 /* Keep the fixed application header in sync with the Sombre appearance. */
 .app-topbar--dark #app-global-search {
   border-color: rgba(255, 255, 255, 0.08) !important;
@@ -197,8 +271,27 @@
 }
 
 @media (min-width: 1024px) {
-  html.mohasib-chat-open .mohasib-main-column {
-    margin-right: 400px;
+  html.mohasib-side-card-open .mohasib-main-column {
+    margin-right: 414px;
+  }
+}
+
+.mohasib-side-card {
+  border-left: 1px solid #D5D4CE;
+  background: #FAFAF6;
+  box-shadow: -12px 0 32px rgba(13, 21, 38, 0.12);
+}
+
+@media (min-width: 768px) {
+  .mohasib-side-card {
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 12px !important;
+    box-shadow: 0 12px 32px rgba(3, 8, 18, 0.20);
+  }
+
+  [data-sidebar-theme="cream"] .mohasib-side-card {
+    border-color: rgba(13, 21, 38, 0.08);
+    box-shadow: 0 12px 32px rgba(13, 21, 38, 0.10);
   }
 }
 

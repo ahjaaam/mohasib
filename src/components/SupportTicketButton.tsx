@@ -1,28 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Headset, Send, CheckCircle2 } from "lucide-react";
+import { CircleHelp, Send, CheckCircle2, X } from "lucide-react";
 
-export default function SupportTicketButton({ dossierId }: { dossierId?: string }) {
-  const [open, setOpen] = useState(false);
+export default function SupportTicketButton({
+  dossierId,
+  open,
+  onToggle,
+  onClose,
+}: {
+  dossierId?: string;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}) {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-
-  useEffect(() => {
-    function handleClick(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
 
   function reset() {
     setSubject("");
@@ -45,7 +43,7 @@ export default function SupportTicketButton({ dossierId }: { dossierId?: string 
       if (!response.ok) throw new Error();
       setSent(true);
       setTimeout(() => {
-        setOpen(false);
+        onClose();
         reset();
       }, 2500);
     } catch {
@@ -56,33 +54,49 @@ export default function SupportTicketButton({ dossierId }: { dossierId?: string 
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="flex h-10 w-10 items-center justify-center border border-transparent text-[#777E8B] transition-colors hover:border-[#E1E0DA] hover:bg-[#F5F4EF] hover:text-[#1A1A2E]"
-        title="Contacter le support"
-        aria-label="Contacter le support"
+        onClick={onToggle}
+        className={`flex h-10 w-10 items-center justify-center border text-[#777E8B] transition-colors ${
+          open
+            ? "border-[#C8924A] bg-[rgba(200,146,74,0.16)]"
+            : "border-transparent bg-[rgba(200,146,74,0.08)] hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)]"
+        }`}
+        title="Besoin d'aide"
+        aria-label="Besoin d'aide"
         aria-expanded={open}
+        aria-controls="mohasib-support-dock"
       >
-        <Headset size={16} />
+        <CircleHelp size={18} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2.5 w-[calc(100vw-24px)] max-w-[340px] overflow-hidden border border-[#DADAD5] border-t-2 border-t-[#C8924A] bg-white shadow-[0_18px_42px_rgba(13,21,38,0.15)]">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(0,0,0,0.06)]">
-            <span className="text-[12.5px] font-semibold text-[#1A1A2E]">Besoin d&apos;aide ?</span>
+        <aside
+          id="mohasib-support-dock"
+          role="dialog"
+          aria-label="Besoin d'aide"
+          className="mohasib-side-card fixed bottom-[calc(56px+env(safe-area-inset-bottom))] right-0 top-16 z-[80] flex w-full flex-col overflow-hidden sm:w-[400px] md:bottom-[14px] md:right-[14px]"
+        >
+          <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-black/[0.07] px-4">
+            <div className="flex items-center gap-2.5">
+              <CircleHelp size={16} className="text-[#C8924A]" />
+              <span className="text-[13px] font-bold text-[#1A1A2E]">Besoin d&apos;aide ?</span>
+            </div>
+            <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center text-[#6B7280] hover:bg-black/[0.04]" aria-label="Fermer l'aide">
+              <X size={16} />
+            </button>
           </div>
 
           {sent ? (
-            <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 text-center">
               <CheckCircle2 size={22} className="text-[#059669]" aria-hidden="true" />
               <p className="text-[12px] font-semibold text-[#1A1A2E]">Demande envoyée</p>
               <p className="text-[11px] text-[#6B7280]">Notre équipe vous répond rapidement.</p>
             </div>
           ) : (
-            <form onSubmit={submit} className="p-4">
-              <p className="mb-3 text-[11px] leading-snug text-[#6B7280]">
+            <form onSubmit={submit} className="flex-1 overflow-y-auto p-5">
+              <p className="mb-5 text-[12px] leading-5 text-[#6B7280]">
                 Décrivez votre problème, notre équipe reçoit votre demande immédiatement.
               </p>
               <label className="block">
@@ -118,8 +132,8 @@ export default function SupportTicketButton({ dossierId }: { dossierId?: string 
               </button>
             </form>
           )}
-        </div>
+        </aside>
       )}
-    </div>
+    </>
   );
 }

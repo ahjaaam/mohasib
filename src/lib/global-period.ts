@@ -42,7 +42,7 @@ export function periodForPreset(preset: Exclude<GlobalPeriodPreset, "custom">, n
 }
 
 export function defaultGlobalPeriod(now = new Date()) {
-  return periodForPreset("this_month", now);
+  return periodForPreset("this_year", now);
 }
 
 export function isGlobalPeriod(value: unknown): value is GlobalPeriod {

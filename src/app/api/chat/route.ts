@@ -18,6 +18,7 @@ import {
 
 const CHAT_LIMIT = 30;
 const CHAT_RATE_LIMIT = { maxAttempts: CHAT_LIMIT, windowMs: 60_000, blockMs: 5 * 60_000 };
+const MONTHLY_AGENT_CALL_LIMIT = 10;
 const CHAT_MODEL = process.env.ANTHROPIC_CHAT_MODEL || "claude-sonnet-4-6";
 const MAX_TOOL_ITERATIONS = 4;
 
@@ -508,13 +509,38 @@ export async function POST(request: NextRequest) {
       dossierId = dossier.id;
     }
 
-    let companyId: string | null = null;
-    if (!dossierId) {
-      const { data: company } = await admin.from("companies")
-        .select("id")
-        .eq("user_id", ownerId)
-        .maybeSingle();
-      companyId = company?.id ?? null;
+    const { data: company } = await admin.from("companies")
+      .select("id")
+      .eq("user_id", ownerId)
+      .maybeSingle();
+    const companyId = company?.id ?? null;
+    if (!companyId) return new Response("Account not found", { status: 403 });
+
+    const monthlyUsageResult = await admin.rpc("consume_ai_agent_monthly_call", {
+      p_company_id: companyId,
+      p_limit: MONTHLY_AGENT_CALL_LIMIT,
+    });
+    const monthlyUsage = Array.isArray(monthlyUsageResult.data)
+      ? monthlyUsageResult.data[0]
+      : monthlyUsageResult.data;
+    if (monthlyUsageResult.error || !monthlyUsage) {
+      console.error("[chat] Monthly usage counter unavailable", monthlyUsageResult.error?.message ?? "empty response");
+      return new Response("Usage counter unavailable", { status: 503 });
+    }
+    if (!monthlyUsage.allowed) {
+      return Response.json({
+        error: `Vous avez atteint la limite de ${MONTHLY_AGENT_CALL_LIMIT} appels du Mohasib Agent pour ce mois.`,
+        used: Number(monthlyUsage.used ?? MONTHLY_AGENT_CALL_LIMIT),
+        limit: MONTHLY_AGENT_CALL_LIMIT,
+        resetDate: monthlyUsage.reset_date,
+      }, {
+        status: 429,
+        headers: {
+          "X-Mohasib-Agent-Limit": String(MONTHLY_AGENT_CALL_LIMIT),
+          "X-Mohasib-Agent-Remaining": "0",
+          "X-Mohasib-Agent-Reset": String(monthlyUsage.reset_date),
+        },
+      });
     }
     const canCreateInvoice = await can(
       {

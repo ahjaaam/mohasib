@@ -24,7 +24,7 @@ export default function robots(): MetadataRoute.Robots {
           "/tableau-de-bord",
           "/parametres",
           "/journal-audit",
-          "/boite-de-reception",
+          "/achats",
           "/notes-de-frais",
           "/factures",
           "/transactions",

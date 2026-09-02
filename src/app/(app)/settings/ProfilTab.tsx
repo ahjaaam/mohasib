@@ -274,7 +274,7 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
         </div>
       </div>
 
-      <button onClick={saveProfil} disabled={saving} className="btn btn-gold w-full justify-center py-2.5 disabled:opacity-60">
+      <button onClick={saveProfil} disabled={saving} className="btn btn-gold self-start justify-center py-2.5 disabled:opacity-60">
         {saving ? "Enregistrement..." : "Enregistrer le profil"}
       </button>
     </div>

@@ -43,7 +43,7 @@ export default async function ComptableProLayout({ children }: { children: React
       roleLabel={access.roleLabel}
       accessScope={access.accessScope}
       entitlements={entitlements}
-      sidebarTheme={preferencesRes.data?.sidebar_theme === "dark" ? "dark" : "cream"}
+      sidebarTheme={preferencesRes.data?.sidebar_theme === "cream" ? "cream" : "dark"}
     >
       {isFiduciaire && scopeAllowed ? children : (
         <AccessRestricted backHref="/tableau-de-bord" message="Vous n'avez pas accès à l'espace Comptable Pro." />

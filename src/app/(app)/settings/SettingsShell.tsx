@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Toaster } from "react-hot-toast";
-import { Building2, User, Palette, CreditCard, Plug, MessageSquare, Settings, FileText, Users, CalendarDays, Lock, Package } from "lucide-react";
+import { Settings, Lock } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
 import ApparenceTab from "./ApparenceTab";
@@ -16,6 +16,7 @@ import InvoiceItemsTab from "./InvoiceItemsTab";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
+import { SETTINGS_TABS, settingsTabAllowedOnPlan } from "@/lib/settings-navigation";
 
 interface Props {
   userId: string;
@@ -27,36 +28,25 @@ interface Props {
   prefs: any;
 }
 
-const TABS = [
-  { id: "entreprise", label: "Entreprise", icon: Building2, permission: "settings:update" },
-  { id: "profil", label: "Profil personnel", icon: User, permission: "settings:update" },
-  { id: "apparence", label: "Apparence", icon: Palette, permission: "settings:update" },
-  { id: "abonnement", label: "Abonnement", icon: CreditCard, ownerOnly: true },
-  { id: "integrations", label: "Intégrations", icon: Plug, permission: "settings:update" },
-  { id: "articles",     label: "Articles & prestations", icon: Package, permission: "settings:update" },
-  { id: "tva",          label: "Déclaration TVA", icon: FileText, permission: "settings:update" },
-  { id: "echeances",    label: "Échéances",       icon: CalendarDays, permission: "settings:update" },
-  { id: "messages",     label: "Messages",     icon: MessageSquare, permission: "settings:update" },
-  { id: "equipe",       label: "Équipe",       icon: Users, permission: "settings:manage_team" },
-];
-
-const FREE_PLAN_TABS = new Set(["entreprise", "profil", "apparence", "abonnement", "articles", "messages"]);
-
 export default function SettingsShell({ userId, accountOwnerId, userEmail, companyId, profile, company, prefs }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const entitlements = usePlanEntitlements();
   const { can, isOwner } = usePermissions();
-  const planAllowsTab = (id: string) => entitlements.plan !== "free" || FREE_PLAN_TABS.has(id);
-  const visibleTabs = TABS.filter(item => planAllowsTab(item.id) && (item.id !== "equipe" || entitlements.features.multi_users));
-  const [tab, setTab] = useState(() => {
-    if (typeof window !== "undefined") {
-      const t = new URLSearchParams(window.location.search).get("tab");
-      if (TABS.some(x => x.id === t) && planAllowsTab(t ?? "")) return t!;
-    }
-    return "entreprise";
-  });
-  const activeTab = TABS.find(item => item.id === tab);
+  const planAllowsTab = (id: string) => settingsTabAllowedOnPlan(id, entitlements.plan);
+  const visibleTabs = SETTINGS_TABS.filter(item => planAllowsTab(item.id) && (item.id !== "equipe" || entitlements.features.multi_users));
+  const requestedTab = searchParams.get("tab");
+  const tab = visibleTabs.some((item) => item.id === requestedTab) ? requestedTab! : "entreprise";
+  const activeTab = SETTINGS_TABS.find(item => item.id === tab);
   const tabAllowedByPlan = planAllowsTab(tab);
   const tabAllowed = tabAllowedByPlan && (isOwner || (!activeTab?.ownerOnly && (!activeTab?.permission || can(...activeTab.permission.split(":") as [string, string]))));
+
+  function selectTab(nextTab: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", nextTab);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
 
   return (
     <>
@@ -74,58 +64,27 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 items-start">
-        {/* Left tab nav */}
-        <div className="w-full md:w-[188px] flex-shrink-0">
-          {/* Mobile: horizontal scroll */}
-          <div className="md:hidden flex gap-1 overflow-x-auto pb-1">
-            {visibleTabs.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] whitespace-nowrap transition-all flex-shrink-0 ${
-                  tab === t.id
-                    ? "bg-[#0D1526] text-white font-medium"
-                    : "bg-white text-[#6B7280] border border-[rgba(0,0,0,0.08)] hover:text-[#1A1A2E]"
-                }`}
-              >
-                <t.icon size={13} />
-                {t.label}
-                {!isOwner && (t.ownerOnly || (t.permission && !can(...t.permission.split(":") as [string, string]))) && <Lock size={10} />}
-              </button>
-            ))}
-          </div>
-
-          {/* Desktop: vertical nav */}
-          <div
-            role="tablist"
-            aria-label="Sections des paramètres"
-            className="hidden md:flex flex-col bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden"
+      {/* Mobile settings navigation; desktop navigation replaces the app sidebar. */}
+      <div className="md:hidden flex gap-1 overflow-x-auto pb-3">
+        {visibleTabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => selectTab(t.id)}
+            className={`flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-[12px] transition-all ${
+              tab === t.id
+                ? "bg-[#0D1526] text-white font-medium"
+                : "bg-white text-[#6B7280] border border-[rgba(0,0,0,0.08)] hover:text-[#1A1A2E]"
+            }`}
           >
-            {visibleTabs.map((t, i) => (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={tab === t.id}
-                onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2.5 px-4 py-3 text-[12.5px] text-left transition-all border-l-2 ${
-                  i < visibleTabs.length - 1 ? "border-b border-[rgba(0,0,0,0.06)]" : ""
-                } ${
-                  tab === t.id
-                    ? "border-l-[#C8924A] bg-[rgba(200,146,74,0.06)] text-[#1A1A2E] font-medium"
-                    : "border-l-transparent text-[#6B7280] hover:text-[#1A1A2E] hover:bg-[#FAFAF6]"
-                }`}
-              >
-                <t.icon size={14} className={tab === t.id ? "text-[#C8924A]" : ""} />
-                {t.label}
-                {!isOwner && (t.ownerOnly || (t.permission && !can(...t.permission.split(":") as [string, string]))) && <Lock size={10} className="ml-auto text-[#9CA3AF]" />}
-              </button>
-            ))}
-          </div>
-        </div>
+            <t.icon size={13} />
+            {t.label}
+            {!isOwner && (t.ownerOnly || (t.permission && !can(...t.permission.split(":") as [string, string]))) && <Lock size={10} />}
+          </button>
+        ))}
+      </div>
 
-        {/* Tab content */}
-        <div className="flex-1 min-w-0">
+      {/* Tab content */}
+      <div className="settings-content min-w-0 max-w-[900px]">
           {!tabAllowed && <AccessRestricted backHref="/parametres" reason={tabAllowedByPlan ? "permission" : "plan"} />}
           {tabAllowed && <>
           {tab === "entreprise" && <EntrepriseTab userId={accountOwnerId} company={company} />}
@@ -146,7 +105,6 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
           {tab === "messages"     && <MessagesTab userId={accountOwnerId} companyId={companyId} company={company} />}
           {tab === "equipe"       && entitlements.features.multi_users && <TeamTab />}
           </>}
-        </div>
       </div>
     </>
   );

@@ -29,9 +29,7 @@ export function CreateAccountButton({ prefill, waitlistId }: { prefill?: { email
         <label className="text-[11px] font-semibold">Raison sociale *<input name="raison_sociale" required defaultValue={prefill?.company} className="input mt-1" /></label>
         <label className="sm:col-span-2 text-[11px] font-semibold">Téléphone *<input name="phone" type="tel" autoComplete="tel" required defaultValue={prefill?.phone} placeholder="+212 6 12 34 56 78" className="input mt-1" /></label>
         <label className="text-[11px] font-semibold">Type<select name="user_type" className="input mt-1"><option value="entrepreneur">Entrepreneur</option><option value="fiduciaire">Comptable</option></select></label>
-        <input type="hidden" name="plan" value="trial" />
-        <div className="text-[11px] font-semibold">Accès initial<div className="input mt-1 flex items-center bg-[#FAFAF6] text-gray-500">Version gratuite limitée</div></div>
-        <label className="text-[11px] font-semibold">Durée essai<input name="trial_days" type="number" defaultValue="7" className="input mt-1" /></label>
+        <div className="sm:col-span-2 text-[11px] font-semibold">Accès initial<div className="input mt-1 flex items-center bg-[#FAFAF6] text-gray-500">Compte activé — hors essai</div></div>
         <label className="sm:col-span-2 text-[11px] font-semibold">Notes internes<textarea name="admin_notes" className="input mt-1 min-h-20" /></label>
         <button className="sm:col-span-2 rounded bg-[#C8924A] px-4 py-2.5 text-[12px] font-bold text-white">Créer</button>
       </form>

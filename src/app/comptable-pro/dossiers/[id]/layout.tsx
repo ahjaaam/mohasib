@@ -65,7 +65,7 @@ export default async function DossierLayout({
       isClientPortal={access.roleName === "client_portal"}
       entitlements={entitlements}
       ownerId={ownerId}
-      sidebarTheme={preferencesRes.data?.sidebar_theme === "dark" ? "dark" : "cream"}
+      sidebarTheme={preferencesRes.data?.sidebar_theme === "cream" ? "cream" : "dark"}
     >
       {children}
     </DossierShell>

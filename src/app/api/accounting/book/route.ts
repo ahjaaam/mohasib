@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
       if (!receipt) return NextResponse.json({ error: "Reçu introuvable" }, { status: 404 });
 
       const ocr = receipt.ocr_data ?? {};
-      const { totalTtc, totalHt, tvaAmount } = computePurchaseAmounts(ocr);
+      const { totalTtc, totalHt, tvaAmount, discountAmount } = computePurchaseAmounts(ocr);
       const date     = ocr.date ?? receipt.created_at?.split("T")[0] ?? new Date().toISOString().split("T")[0];
       if (totalTtc <= 0) {
         return NextResponse.json({ error: "Montant de la note de frais invalide" }, { status: 400 });
@@ -199,6 +199,7 @@ export async function POST(req: NextRequest) {
         total_ht: totalHt,
         total_ttc: totalTtc,
         tva_amount: tvaAmount,
+        discount_amount: discountAmount,
         category: ocr.category ?? null,
         expense_account: ocr.compte ?? null,
         supplier_name: ocr.vendor_name ?? ocr.vendor ?? null,
@@ -214,7 +215,7 @@ export async function POST(req: NextRequest) {
         entityType: "ecriture_comptable",
         entityId: receipt.id,
         entityLabel: ocr.vendor ?? ocr.description ?? "Achat",
-        newValues: { receipt, total_ht: totalHt, total_ttc: totalTtc, tva_amount: tvaAmount },
+        newValues: { receipt, total_ht: totalHt, total_ttc: totalTtc, tva_amount: tvaAmount, discount_amount: discountAmount },
         ...getRequestMeta(req),
       });
       await logAccountingEvent({

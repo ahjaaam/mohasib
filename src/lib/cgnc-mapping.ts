@@ -72,6 +72,7 @@ export function getAccountLabel(compte: string): string {
     "5141": "Banques",
     "5161": "Caisse",
     "6111": "Achats de marchandises",
+    "6119": "RRR obtenus sur achats de marchandises",
     "6121": "Achats de matières premières",
     "6123": "Fournitures de bureau",
     "6125": "Eau et électricité",

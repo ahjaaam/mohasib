@@ -45,7 +45,7 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Importer une facture",
         short_name: "Importer",
-        url: "/boite-de-reception?source=pwa-shortcut",
+        url: "/achats?source=pwa-shortcut",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }],
       },
       {

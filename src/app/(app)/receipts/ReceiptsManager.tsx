@@ -34,6 +34,7 @@ type StatusFilter = "all" | ReceiptStatus;
 
 interface ConfirmationForm {
   amount: string;
+  discountAmount: string;
   date: string;
   description: string;
   category: string;
@@ -215,6 +216,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     const category = receipt.ocr_data.category ?? "Achats";
     setConfirmationForm({
       amount: String(Math.abs(Number(receipt.ocr_data.amount ?? 0)) || ""),
+      discountAmount: String(receipt.ocr_data.discount_amount ?? ""),
       date: receipt.ocr_data.date ?? new Date().toISOString().slice(0, 10),
       description: receipt.ocr_data.description ?? receiptVendor(receipt),
       category,
@@ -238,14 +240,15 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
   async function confirmBooking() {
     if (!confirming || !confirmationForm) return;
     const amount = Number(confirmationForm.amount);
+    const discountAmount = Number(confirmationForm.discountAmount || 0);
     const tvaRate = Number(confirmationForm.tvaRate || 0);
-    if (!Number.isFinite(amount) || amount <= 0 || !confirmationForm.account || !confirmationForm.description) {
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(discountAmount) || discountAmount < 0 || !confirmationForm.account || !confirmationForm.description) {
       toast.error("Vérifiez le montant, la description et le compte comptable.");
       return;
     }
 
     setBooking(true);
-    const amounts = computePurchaseAmounts({ amount, tva_rate: tvaRate });
+    const amounts = computePurchaseAmounts({ amount, discount_amount: discountAmount, tva_rate: tvaRate });
     const confirmedOcr = {
       ...confirming.ocr_data,
       amount: -Math.abs(amount),
@@ -255,6 +258,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       category: confirmationForm.category,
       tva_rate: tvaRate,
       tva_amount: amounts.tvaAmount,
+      discount_amount: amounts.discountAmount,
       compte: confirmationForm.account,
       is_supplier_invoice: confirming.ocr_data.is_supplier_invoice ?? true,
     };
@@ -322,6 +326,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
   const confirmationAmounts = confirmationForm
     ? computePurchaseAmounts({
         amount: Number(confirmationForm.amount || 0),
+        discount_amount: Number(confirmationForm.discountAmount || 0),
         tva_rate: Number(confirmationForm.tvaRate || 0),
       })
     : null;
@@ -504,7 +509,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
 
             <div className="grid gap-3 p-5 sm:grid-cols-2">
               <label>
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Montant TTC (MAD)</span>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Montant TTC net (MAD)</span>
                 <input type="number" min="0" step="0.01" className="input w-full" value={confirmationForm.amount} onChange={(event) => updateConfirmationForm("amount", event.target.value)} />
               </label>
               <label>
@@ -530,6 +535,10 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
                   <option value="14">14%</option>
                   <option value="20">20%</option>
                 </select>
+              </label>
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Remise TTC (MAD)</span>
+                <input type="number" min="0" step="0.01" className="input w-full" value={confirmationForm.discountAmount} onChange={(event) => updateConfirmationForm("discountAmount", event.target.value)} placeholder="0,00" />
               </label>
               <label className="sm:col-span-2">
                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Compte de charge</span>
@@ -567,6 +576,14 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
                         <td className="px-4 py-2.5 text-[#4B5563]">État TVA récupérable</td>
                         <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.tvaAmount)}</td>
                         <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
+                      </tr>
+                    )}
+                    {confirmationAmounts.discountAmount > 0 && (
+                      <tr>
+                        <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">6119</td>
+                        <td className="px-4 py-2.5 text-[#4B5563]">RRR obtenus sur achats</td>
+                        <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
+                        <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.discountAmount)}</td>
                       </tr>
                     )}
                     <tr>

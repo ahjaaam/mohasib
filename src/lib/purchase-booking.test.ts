@@ -30,6 +30,8 @@ describe("computePurchaseAmounts", () => {
       totalHt: 1000,
       totalTtc: 1200,
       tvaAmount: 200,
+      discountAmount: 0,
+      grossTtc: 1200,
     });
   });
 
@@ -38,6 +40,8 @@ describe("computePurchaseAmounts", () => {
       totalHt: 1000,
       totalTtc: 1200,
       tvaAmount: 200,
+      discountAmount: 0,
+      grossTtc: 1200,
     });
   });
 
@@ -46,6 +50,8 @@ describe("computePurchaseAmounts", () => {
       totalHt: 100,
       totalTtc: 110,
       tvaAmount: 10,
+      discountAmount: 0,
+      grossTtc: 110,
     });
   });
 
@@ -54,6 +60,8 @@ describe("computePurchaseAmounts", () => {
       totalHt: 0,
       totalTtc: 100,
       tvaAmount: 100,
+      discountAmount: 0,
+      grossTtc: 100,
     });
   });
 
@@ -66,6 +74,22 @@ describe("computePurchaseAmounts", () => {
       totalHt: 0,
       totalTtc: 0,
       tvaAmount: 0,
+      discountAmount: 0,
+      grossTtc: 0,
+    });
+  });
+
+  it("keeps a TTC discount separate from the gross purchase and TVA", () => {
+    expect(computePurchaseAmounts({
+      amount: -56079.54,
+      discount_amount: 566.46,
+      tva_rate: 20,
+    })).toEqual({
+      totalHt: 47205,
+      totalTtc: 56079.54,
+      tvaAmount: 9441,
+      discountAmount: 566.46,
+      grossTtc: 56646,
     });
   });
 });

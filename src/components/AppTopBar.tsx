@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
+import NotificationsDock from "@/components/NotificationsDock";
 import SupportTicketButton from "@/components/SupportTicketButton";
 import GlobalPeriodSelector from "@/components/GlobalPeriodSelector";
 import ChatInterface from "@/app/(app)/chat/ChatInterface";
@@ -116,6 +117,8 @@ export default function AppTopBar({
   const [cabinetMenuOpen, setCabinetMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [recordMatches, setRecordMatches] = useState<GlobalSearchResult[]>([]);
   const [recordSearchLoading, setRecordSearchLoading] = useState(false);
   const [recordSearchFailed, setRecordSearchFailed] = useState(false);
@@ -192,6 +195,8 @@ export default function AppTopBar({
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setChatOpen(false);
+        setNotificationsOpen(false);
+        setSupportOpen(false);
         setCabinetMenuOpen(false);
         setProfileOpen(false);
         setSearchOpen(true);
@@ -199,6 +204,8 @@ export default function AppTopBar({
       }
       if (event.key === "Escape") {
         setChatOpen(false);
+        setNotificationsOpen(false);
+        setSupportOpen(false);
         setCabinetMenuOpen(false);
       }
     }
@@ -212,9 +219,10 @@ export default function AppTopBar({
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("mohasib-chat-open", chatOpen);
-    return () => document.documentElement.classList.remove("mohasib-chat-open");
-  }, [chatOpen]);
+    const sideCardOpen = chatOpen || notificationsOpen || supportOpen;
+    document.documentElement.classList.toggle("mohasib-side-card-open", sideCardOpen);
+    return () => document.documentElement.classList.remove("mohasib-side-card-open");
+  }, [chatOpen, notificationsOpen, supportOpen]);
 
   function openResult(href: string) {
     setSearchOpen(false);
@@ -226,10 +234,10 @@ export default function AppTopBar({
     <>
       <header
         ref={rootRef}
-        className={`fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between gap-2 border-b px-2 transition-colors sm:gap-4 sm:px-4 md:px-6 ${
+        className={`fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between gap-2 px-2 transition-colors sm:gap-4 sm:px-4 md:px-6 ${
           darkTopBar
-            ? "app-topbar--dark border-white/10 bg-[#111621]"
-            : "border-[#E8E8E4] bg-white"
+            ? "app-topbar--dark bg-[#111621]"
+            : "bg-white"
         }`}
       >
       <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
@@ -504,16 +512,33 @@ export default function AppTopBar({
         {userId && (
           <NotificationBell
             userId={userId}
-            onOpen={() => {
+            open={notificationsOpen}
+            onToggle={() => {
+              setNotificationsOpen((open) => !open);
+              setSupportOpen(false);
+              setChatOpen(false);
               setSearchOpen(false);
               setCabinetMenuOpen(false);
               setProfileOpen(false);
-              setChatOpen(false);
             }}
           />
         )}
 
-        {userId && <SupportTicketButton dossierId={dossierId} />}
+        {userId && (
+          <SupportTicketButton
+            dossierId={dossierId}
+            open={supportOpen}
+            onToggle={() => {
+              setSupportOpen((open) => !open);
+              setNotificationsOpen(false);
+              setChatOpen(false);
+              setSearchOpen(false);
+              setCabinetMenuOpen(false);
+              setProfileOpen(false);
+            }}
+            onClose={() => setSupportOpen(false)}
+          />
+        )}
 
         {!guestMode && cabinetMenuItems.length === 0 && (
           <GlobalPeriodSelector onOpen={() => {
@@ -521,6 +546,8 @@ export default function AppTopBar({
             setCabinetMenuOpen(false);
             setProfileOpen(false);
             setChatOpen(false);
+            setNotificationsOpen(false);
+            setSupportOpen(false);
           }} />
         )}
 
@@ -528,6 +555,8 @@ export default function AppTopBar({
           type="button"
           onClick={() => {
             setChatOpen((open) => !open);
+            setNotificationsOpen(false);
+            setSupportOpen(false);
             setSearchOpen(false);
             setCabinetMenuOpen(false);
             setProfileOpen(false);
@@ -542,7 +571,7 @@ export default function AppTopBar({
               : "border-transparent bg-[rgba(200,146,74,0.08)] hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)]"
           }`}
         >
-          <Sparkles size={16} />
+          <Sparkles size={18} />
         </button>}
 
         {guestMode ? (
@@ -563,7 +592,7 @@ export default function AppTopBar({
               Se connecter
             </Link>
           </>
-        ) : <div className="relative ml-0.5 flex-shrink-0 border-l border-[#E6E6E1] pl-1.5 sm:ml-2 sm:pl-3">
+        ) : <div className={`relative ml-0.5 flex-shrink-0 border-l border-[#E6E6E1] pl-1.5 sm:ml-2 sm:pl-3 ${invoicingOnly ? "" : "md:hidden"}`}>
           <button
             type="button"
             onClick={() => {
@@ -653,7 +682,7 @@ export default function AppTopBar({
           id="mohasib-chat-dock"
           role="dialog"
           aria-label="Mohasib Agent"
-          className="fixed bottom-[calc(56px+env(safe-area-inset-bottom))] right-0 top-16 z-[80] w-full overflow-hidden border-l border-[#D5D4CE] bg-white shadow-[-12px_0_32px_rgba(13,21,38,0.12)] sm:w-[400px] md:bottom-0"
+          className="mohasib-side-card fixed bottom-[calc(56px+env(safe-area-inset-bottom))] right-0 top-16 z-[80] w-full overflow-hidden sm:w-[400px] md:bottom-[14px] md:right-[14px]"
         >
           <ChatInterface
             mode="dock"
@@ -664,6 +693,8 @@ export default function AppTopBar({
           />
         </div>
       )}
+
+      <NotificationsDock open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </>
   );
 }
