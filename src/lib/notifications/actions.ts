@@ -3,6 +3,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createHash } from "node:crypto";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { getAttentionItems } from "@/lib/attention-center";
+import { periodForPreset } from "@/lib/global-period";
 
 export interface Notification {
   id: string;
@@ -280,6 +283,35 @@ export async function fetchAllNotifications(): Promise<Notification[]> {
     .order("created_at", { ascending: false });
 
   return (data ?? []) as Notification[];
+}
+
+export async function fetchInboxNotifications(): Promise<Notification[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const ownerId = await resolveAccountOwnerId(user.id);
+  const [notifications, attentionItems] = await Promise.all([
+    fetchAllNotifications(),
+    getAttentionItems(ownerId, periodForPreset("all")),
+  ]);
+  const attentionMessages: Notification[] = attentionItems
+    .filter((item) => item.count > 0)
+    .map((item) => ({
+      id: `attention-${item.id}`,
+      user_id: user.id,
+      type: "attention_action",
+      title: `${item.title} · ${item.count}`,
+      message: `${item.description}\n${item.count} action${item.count > 1 ? "s" : ""} à traiter.`,
+      link: item.href,
+      is_read: true,
+      is_dismissed: false,
+      priority: item.severity === "critical" ? "high" : "normal",
+      unique_key: `attention-${item.id}`,
+      created_at: new Date().toISOString(),
+    }));
+
+  return [...attentionMessages, ...notifications];
 }
 
 export async function markAllRead() {

@@ -13,6 +13,7 @@ import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceCon
 import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,49 @@ function computeAmounts(ocr: OcrData) {
     remise: amounts.discountAmount,
     ttc: amounts.totalTtc,
   };
+}
+
+function matchesInvoiceSearch(receipt: Receipt, query: string) {
+  if (!query) return true;
+  const ocr = receipt.ocr_data;
+  const searchable = [
+    receipt.file_name,
+    ocr.vendor_name,
+    ocr.vendor,
+    ocr.receipt_number,
+    ocr.invoice_number,
+    ocr.description,
+    ocr.supplier_ice,
+    ocr.supplier_if,
+    ocr.date,
+    ocr.due_date,
+    ocr.amount,
+    ocr.amount_ttc,
+  ]
+    .filter((value) => value !== null && value !== undefined && value !== "")
+    .join(" ")
+    .toLocaleLowerCase("fr");
+  return searchable.includes(query);
+}
+
+function invoiceSource(receipt: Receipt) {
+  const provider = (receipt.ocr_data as Record<string, unknown>).email_provider;
+  return provider === "gmail"
+    ? "Gmail"
+    : provider === "outlook"
+      ? "Outlook"
+      : provider === "inbound"
+        ? "Email reçu"
+        : "Import manuel";
+}
+
+function matchesInvoiceFilters(receipt: Receipt, query: string, source: string, dateFrom: string, dateTo: string) {
+  if (!matchesInvoiceSearch(receipt, query)) return false;
+  if (source !== "all" && invoiceSource(receipt) !== source) return false;
+  const invoiceDate = receipt.ocr_data.date ?? receipt.created_at.slice(0, 10);
+  if (dateFrom && invoiceDate < dateFrom) return false;
+  if (dateTo && invoiceDate > dateTo) return false;
+  return true;
 }
 
 const ALL_CATS = TRANSACTION_CATEGORIES.expense;
@@ -240,6 +284,7 @@ function ApprovalBadge({ status }: { status?: Receipt["approval_status"] }) {
 
 export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: string; inboxEmail?: string | null } = {}) {
   const ownerId = useAccountOwnerId();
+  const { period: globalPeriod } = useGlobalPeriod();
   const supabase = createClient();
   const router = useRouter();
   const [userId, setUserId] = useState("");
@@ -247,6 +292,10 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState<Tab>("pending");
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const [invoiceSourceFilter, setInvoiceSourceFilter] = useState("all");
+  const [invoiceDateFrom, setInvoiceDateFrom] = useState("");
+  const [invoiceDateTo, setInvoiceDateTo] = useState("");
   const [forms, setForms] = useState<Record<string, CardForm>>({});
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [savingEdits, setSavingEdits] = useState<Set<string>>(new Set());
@@ -304,6 +353,16 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   }, [dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const requestedSearch = new URLSearchParams(window.location.search).get("search");
+    if (requestedSearch) setInvoiceSearch(requestedSearch);
+  }, []);
+
+  useEffect(() => {
+    setInvoiceDateFrom(globalPeriod.start);
+    setInvoiceDateTo(globalPeriod.end);
+  }, [globalPeriod.start, globalPeriod.end]);
 
   useEffect(() => {
     if (loading || previewReceipt) return;
@@ -638,7 +697,12 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   const matched = receipts.filter((r) => r.status === "matched");
   const ignored = receipts.filter((r) => r.status === "ignored");
   const suppliers = supplierSummaries(receipts);
-  const tabItems = tab === "pending" ? pending : tab === "ignored" ? ignored : [];
+  const normalizedInvoiceSearch = invoiceSearch.trim().toLocaleLowerCase("fr");
+  const filteredPending = pending.filter((receipt) => matchesInvoiceFilters(receipt, normalizedInvoiceSearch, invoiceSourceFilter, invoiceDateFrom, invoiceDateTo));
+  const filteredMatched = matched.filter((receipt) => matchesInvoiceFilters(receipt, normalizedInvoiceSearch, invoiceSourceFilter, invoiceDateFrom, invoiceDateTo));
+  const filteredIgnored = ignored.filter((receipt) => matchesInvoiceFilters(receipt, normalizedInvoiceSearch, invoiceSourceFilter, invoiceDateFrom, invoiceDateTo));
+  const tabItems = tab === "pending" ? filteredPending : tab === "ignored" ? filteredIgnored : [];
+  const hasActiveInvoiceFilters = Boolean(normalizedInvoiceSearch || invoiceSourceFilter !== "all" || invoiceDateFrom || invoiceDateTo);
 
   return (
     <div>
@@ -753,6 +817,44 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         </>
       )}
 
+      {/* ─── Invoice search ─────────────────────────────────────────────── */}
+      {tab !== "suppliers" && (
+        <div className="mb-4 border border-[rgba(0,0,0,0.08)] bg-white p-3.5">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1fr)_150px_145px_145px]">
+            <label className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" aria-hidden="true" />
+              <input
+                type="search"
+                className="input w-full pl-9 pr-9"
+                value={invoiceSearch}
+                onChange={(event) => setInvoiceSearch(event.target.value)}
+                placeholder="Fournisseur, fichier, référence…"
+                aria-label="Rechercher dans les factures d'achat"
+              />
+              {invoiceSearch && (
+                <button
+                  type="button"
+                  onClick={() => setInvoiceSearch("")}
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-[#9CA3AF] transition-colors hover:text-[#1A1A2E]"
+                  aria-label="Effacer la recherche"
+                >
+                  <X size={13} aria-hidden="true" />
+                </button>
+              )}
+            </label>
+            <select className="input" value={invoiceSourceFilter} onChange={(event) => setInvoiceSourceFilter(event.target.value)} aria-label="Filtrer par source">
+              <option value="all">Toutes les sources</option>
+              <option>Import manuel</option>
+              <option>Gmail</option>
+              <option>Outlook</option>
+              <option>Email reçu</option>
+            </select>
+            <input aria-label="Date de début" type="date" className="input" value={invoiceDateFrom} onChange={(event) => setInvoiceDateFrom(event.target.value)} />
+            <input aria-label="Date de fin" type="date" className="input" value={invoiceDateTo} onChange={(event) => setInvoiceDateTo(event.target.value)} />
+          </div>
+        </div>
+      )}
+
       {/* ─── Loading ─────────────────────────────────────────────────────── */}
       {loading && (
         <div className="flex flex-col gap-2">
@@ -762,7 +864,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
       {/* ─── Traités: accounting ledger ──────────────────────────────────── */}
       {!loading && tab === "matched" && (
-        <LedgerView receipts={matched} onPreview={setPreviewReceipt} />
+        <LedgerView receipts={filteredMatched} onPreview={setPreviewReceipt} hasActiveFilters={hasActiveInvoiceFilters} />
       )}
 
       {/* ─── Suppliers: consolidated purchase directory ─────────────────── */}
@@ -773,6 +875,18 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       {/* ─── Pending / Ignored: empty state ─────────────────────────────── */}
       {!loading && (tab === "pending" || tab === "ignored") && tabItems.length === 0 && (
         <div className="empty-state">
+          {hasActiveInvoiceFilters ? (
+            <>
+              <div className="mb-3 flex justify-center text-[#9CA3AF]"><Search size={36} /></div>
+              <p className="text-[13px] font-medium text-[#6B7280]">
+                Aucune facture ne correspond aux filtres sélectionnés.
+              </p>
+              <p className="mt-1 text-[11.5px] text-[#9CA3AF]">
+                Modifiez la recherche, la source ou la période.
+              </p>
+            </>
+          ) : (
+          <>
           <div className="mb-3 flex justify-center text-[#9CA3AF]">
             {tab === "pending" ? (dossierId && inboxEmail ? <Mail size={36} /> : <Inbox size={36} />) : <FolderOpen size={36} />}
           </div>
@@ -810,6 +924,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                 </button>
               )}
             </>
+          )}
+          </>
           )}
         </div>
       )}
@@ -980,45 +1096,47 @@ function SuppliersView({ suppliers, receipts, onSaved }: { suppliers: SupplierSu
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-[390px]">
-        <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A909B]" />
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="input w-full pl-9"
-          placeholder="Rechercher un fournisseur, ICE, IF ou RIB…"
-        />
-      </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative w-full lg:max-w-[390px] lg:flex-none">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A909B]" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="input w-full pl-9"
+            placeholder="Rechercher un fournisseur, ICE, IF ou RIB…"
+          />
+        </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.5px] text-[#6B7280]">Trier par</span>
-        {([
-          ["name", "Nom"],
-          ["total", "Total achats"],
-          ["count", "Factures"],
-          ["latest", "Dernière facture"],
-        ] as [SupplierSortKey, string][]).map(([key, label]) => {
-          const active = sortKey === key;
-          const SortIcon = sortAscending ? ArrowUp : ArrowDown;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => selectSort(key)}
-              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-semibold transition ${active ? "border-[#C8924A]/40 bg-[#FFF7ED] text-[#C8924A]" : "border-[rgba(0,0,0,0.16)] bg-[#FAFAF6] text-[#6B7280] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:border-[#C8924A]/30 hover:bg-[#F0EDE5] hover:text-[#C8924A]"}`}
-            >
-              {label}
-              {active && <SortIcon size={11} />}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.5px] text-[#6B7280]">Trier par</span>
+          {([
+            ["name", "Nom"],
+            ["total", "Total achats"],
+            ["count", "Factures"],
+            ["latest", "Dernière facture"],
+          ] as [SupplierSortKey, string][]).map(([key, label]) => {
+            const active = sortKey === key;
+            const SortIcon = sortAscending ? ArrowUp : ArrowDown;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => selectSort(key)}
+                className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-semibold transition ${active ? "border-[#C8924A]/40 bg-[#FFF7ED] text-[#C8924A]" : "border-[rgba(0,0,0,0.16)] bg-[#FAFAF6] text-[#6B7280] shadow-[0_1px_2px_rgba(13,21,38,0.05)] hover:border-[#C8924A]/30 hover:bg-[#F0EDE5] hover:text-[#C8924A]"}`}
+              >
+                {label}
+                {active && <SortIcon size={11} />}
+              </button>
+            );
+          })}
+          <div className="ui-control ml-auto flex h-8 items-center border border-[rgba(0,0,0,0.16)] bg-[#F1F2F3] p-0.5" aria-label="Mode d’affichage">
+            <button type="button" onClick={() => setViewMode("cards")} aria-label="Afficher en cartes" aria-pressed={viewMode === "cards"} title="Vue cartes" className={`flex h-7 w-8 items-center justify-center transition-colors ${viewMode === "cards" ? "bg-white text-[#C8924A] shadow-sm" : "text-[#777E8B] hover:text-[#1A1A2E]"}`}>
+              <LayoutGrid size={14} />
             </button>
-          );
-        })}
-        <div className="ui-control ml-auto flex h-8 items-center border border-[rgba(0,0,0,0.16)] bg-[#F1F2F3] p-0.5" aria-label="Mode d’affichage">
-          <button type="button" onClick={() => setViewMode("cards")} aria-label="Afficher en cartes" aria-pressed={viewMode === "cards"} title="Vue cartes" className={`flex h-7 w-8 items-center justify-center transition-colors ${viewMode === "cards" ? "bg-white text-[#C8924A] shadow-sm" : "text-[#777E8B] hover:text-[#1A1A2E]"}`}>
-            <LayoutGrid size={14} />
-          </button>
-          <button type="button" onClick={() => setViewMode("rows")} aria-label="Afficher horizontalement" aria-pressed={viewMode === "rows"} title="Vue horizontale" className={`flex h-7 w-8 items-center justify-center transition-colors ${viewMode === "rows" ? "bg-white text-[#C8924A] shadow-sm" : "text-[#777E8B] hover:text-[#1A1A2E]"}`}>
-            <Rows3 size={14} />
-          </button>
+            <button type="button" onClick={() => setViewMode("rows")} aria-label="Afficher horizontalement" aria-pressed={viewMode === "rows"} title="Vue horizontale" className={`flex h-7 w-8 items-center justify-center transition-colors ${viewMode === "rows" ? "bg-white text-[#C8924A] shadow-sm" : "text-[#777E8B] hover:text-[#1A1A2E]"}`}>
+              <Rows3 size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1091,7 +1209,7 @@ function SuppliersView({ suppliers, receipts, onSaved }: { suppliers: SupplierSu
 
 // ─── Accounting Ledger View ───────────────────────────────────────────────────
 
-function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPreview: (receipt: ReceiptWithUrl) => void }) {
+function LedgerView({ receipts, onPreview, hasActiveFilters }: { receipts: ReceiptWithUrl[]; onPreview: (receipt: ReceiptWithUrl) => void; hasActiveFilters?: boolean }) {
   const rows = receipts.map((r) => {
     const ocr = r.ocr_data;
     const { ht, tva, remise, ttc } = computeAmounts(ocr);
@@ -1169,9 +1287,13 @@ function LedgerView({ receipts, onPreview }: { receipts: ReceiptWithUrl[]; onPre
   if (receipts.length === 0) {
     return (
       <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-12 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <CheckCircle size={32} className="mx-auto mb-3 text-[#059669]" aria-hidden="true" />
-        <p className="text-[13px] font-medium text-[#6B7280]">Aucune facture traitée</p>
-        <p className="text-[11.5px] text-[#9CA3AF] mt-1">Importez vos factures fournisseurs pour les traiter.</p>
+        {hasActiveFilters ? <Search size={32} className="mx-auto mb-3 text-[#9CA3AF]" aria-hidden="true" /> : <CheckCircle size={32} className="mx-auto mb-3 text-[#059669]" aria-hidden="true" />}
+        <p className="text-[13px] font-medium text-[#6B7280]">
+          {hasActiveFilters ? "Aucune facture traitée ne correspond aux filtres sélectionnés." : "Aucune facture traitée"}
+        </p>
+        <p className="text-[11.5px] text-[#9CA3AF] mt-1">
+          {hasActiveFilters ? "Modifiez la recherche, la source ou la période." : "Importez vos factures fournisseurs pour les traiter."}
+        </p>
       </div>
     );
   }

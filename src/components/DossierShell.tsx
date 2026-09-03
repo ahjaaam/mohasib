@@ -40,7 +40,9 @@ const NAV_ITEMS = [
     ? [{ slug: "tresorerie", icon: Landmark, label: "Trésorerie", permission: "report:read" }]
     : []),
   { slug: "transactions", icon: ArrowLeftRight, label: "Transactions", permission: "accounting:read" },
-  { slug: "rapprochement", icon: GitMerge, label: "Rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
+  ...(FEATURES.RAPPROCHEMENT_ENABLED
+    ? [{ slug: "rapprochement", icon: GitMerge, label: "Rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature }]
+    : []),
   FEATURES.SAISIE_ENABLED
     ? { slug: "saisie", icon: PenLine, label: "Saisie comptable", permission: "accounting:read", feature: "saisie" as PlanFeature }
     : { slug: "ecritures", icon: Scale, label: "Écritures", permission: "accounting:read" },
@@ -129,7 +131,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               return (
               <SidebarItemTooltip key={slug} enabled={compact} label={label}>
                 <Link href={`${base}/${slug}`} aria-label={compact ? label : undefined}
-                  className={`sidebar-nav-item flex items-center py-[13px] text-[14px] transition-all ${
+                  className={`sidebar-nav-item flex items-center py-[13px] text-[13px] transition-all ${
                     compact
                       ? "mx-2 justify-center px-0"
                       : "mx-2 gap-3 px-[10px]"

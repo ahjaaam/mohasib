@@ -40,7 +40,9 @@ const NAV_MAIN = [
     ? [{ href: "/tresorerie", icon: Landmark, label: "Trésorerie", key: "tresorerie", permission: "report:read" }]
     : []),
   { href: "/transactions", icon: ArrowLeftRight,  label: "Transactions",       key: "transactions", permission: "accounting:read" },
-  { href: "/rapprochement", icon: GitMerge,       label: "Rapprochement",      key: "rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature },
+  ...(FEATURES.RAPPROCHEMENT_ENABLED
+    ? [{ href: "/rapprochement", icon: GitMerge, label: "Rapprochement", key: "rapprochement", permission: "accounting:read", feature: "bank_import" as PlanFeature }]
+    : []),
   FEATURES.SAISIE_ENABLED
     ? { href: "/saisie", icon: PenLine, label: "Saisie comptable", key: "saisie", permission: "accounting:read", feature: "saisie" as PlanFeature }
     : { href: "/ecritures", icon: Scale, label: "Écritures", key: "ecritures", permission: "accounting:read" },
@@ -364,7 +366,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
               {!accountState?.is_suspended && isTrial && trialDays !== null && trialDays >= 0 && (
                 <div className="bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">
                   <span className="hidden sm:inline">
-                    Essai gratuit — {trialDays} jour{trialDays > 1 ? "s" : ""} restant{trialDays > 1 ? "s" : ""} · Factures {trialSummary?.invoices ?? 0}/{TRIAL_LIMITS.invoices} · Clients {trialSummary?.clients ?? 0}/{TRIAL_LIMITS.clients} · Transactions {trialSummary?.transactions ?? 0}/{TRIAL_LIMITS.transactions} · Écritures {trialSummary?.entries ?? 0}/{TRIAL_LIMITS.accounting_entries} · Rapprochements {trialSummary?.rapprochement ?? 0}/{TRIAL_LIMITS.rapprochement_sessions} ·{" "}
+                    Essai gratuit — {trialDays} jour{trialDays > 1 ? "s" : ""} restant{trialDays > 1 ? "s" : ""} · Factures {trialSummary?.invoices ?? 0}/{TRIAL_LIMITS.invoices} · Clients {trialSummary?.clients ?? 0}/{TRIAL_LIMITS.clients} · Transactions {trialSummary?.transactions ?? 0}/{TRIAL_LIMITS.transactions} · Écritures {trialSummary?.entries ?? 0}/{TRIAL_LIMITS.accounting_entries} ·{" "}
                   </span>
                   <span className="sm:hidden">Essai · {trialDays}j restants · </span>
                   <Link href="/tarifs" className="underline">Passer à un plan payant</Link>

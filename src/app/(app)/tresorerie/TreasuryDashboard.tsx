@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   CalendarClock,
   CircleDollarSign,
-  GitMerge,
   Landmark,
   ReceiptText,
   WalletCards,
@@ -191,7 +190,6 @@ export default function TreasuryDashboard({
           </p>
           <div className="mt-5 space-y-2">
             <Link href={`${basePath}/transactions`} className="flex items-center justify-between border border-white/10 px-3 py-2.5 text-[11px] font-semibold hover:bg-white/5"><span className="flex items-center gap-2"><ReceiptText size={14} />Transactions</span><ArrowRight size={12} /></Link>
-            <Link href={`${basePath}/rapprochement`} className="flex items-center justify-between border border-white/10 px-3 py-2.5 text-[11px] font-semibold hover:bg-white/5"><span className="flex items-center gap-2"><GitMerge size={14} />Rapprochement</span><ArrowRight size={12} /></Link>
           </div>
         </aside>
       </div>

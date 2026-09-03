@@ -20,7 +20,7 @@ const NUMERIC_LIMITS = [
 ] as const;
 
 const FEATURE_LIMITS = [
-  ["has_bank_import", "Import et rapprochement bancaire"],
+  ["has_bank_import", "Import bancaire"],
   ["has_saisie", "Saisie et écritures automatiques"],
   ["has_paie", "Paie"],
   ["has_export_fiduciaire", "Exports comptables"],

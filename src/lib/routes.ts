@@ -31,7 +31,6 @@ export const ROUTES = {
   SAISIE: "/saisie",
   ECRITURES: "/ecritures",
   ASSISTANT: "/assistant",
-  NOTIFICATIONS: "/notifications",
   FACTURE_PUBLIQUE: (shortId: string) => `/f/${shortId}`,
   COMPTABLE_PRO: "/comptable-pro",
   COMPTABLE_PRO_DOSSIERS: "/comptable-pro/dossiers",

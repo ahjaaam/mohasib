@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/server";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { Invoice, Transaction } from "@/types";
 import DashboardNews from "./DashboardNews";
 import DashboardGreeting from "./DashboardGreeting";
@@ -34,10 +34,10 @@ const STATUS_BADGE: Record<string, [string, string, string]> = {
 
 function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="mb-3 flex h-[18px] items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         <div className="h-4 w-[3px] flex-shrink-0 rounded-full bg-[#C8924A]" />
-        <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#6B7280]">{children}</span>
+        <h2 className="text-[11px] font-semibold uppercase tracking-[1px] text-[#6B7280]">{children}</h2>
       </div>
       {action}
     </div>
@@ -135,6 +135,22 @@ export default async function DashboardPage() {
     const dueDate = item.ocr_data?.due_date;
     return dueDate && dueDate < todayStr;
   });
+  const oldestOverdueSupplier = [...overdueSuppliers].sort((a: any, b: any) =>
+    String(a.ocr_data?.due_date ?? "").localeCompare(String(b.ocr_data?.due_date ?? "")),
+  )[0] ?? null;
+  const oldestOverdueSupplierData = oldestOverdueSupplier?.ocr_data ?? null;
+  const oldestOverdueSupplierName = oldestOverdueSupplierData?.vendor_name
+    ?? oldestOverdueSupplierData?.vendor
+    ?? "Facture fournisseur";
+  const oldestOverdueSupplierReference = oldestOverdueSupplierData?.invoice_number
+    ?? oldestOverdueSupplierData?.receipt_number
+    ?? null;
+  const oldestOverdueSupplierBalance = oldestOverdueSupplier
+    ? Math.max(supplierTotal(oldestOverdueSupplier) - supplierPaid(oldestOverdueSupplier), 0)
+    : 0;
+  const oldestOverdueSupplierDate = oldestOverdueSupplierData?.due_date
+    ? new Date(`${oldestOverdueSupplierData.due_date}T12:00:00`).toLocaleDateString("fr-MA", { day: "numeric", month: "short" })
+    : null;
   const chartData = buildFinanceChartData(periodTransactions, selectedPeriod);
 
   return (
@@ -158,20 +174,51 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Revenus/dépenses + Prochaines échéances side by side */}
+      {/* Actions rapides + Prochaines échéances side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">
-        {/* Revenus et dépenses */}
-        <div>
-          <SectionLabel action={(
-            <Link href="/transactions" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
-              <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
+        {/* Quick actions */}
+        <div className="flex flex-col">
+          <SectionLabel>Actions rapides</SectionLabel>
+          <div className="grid flex-1 grid-cols-1 grid-rows-4 gap-2.5 sm:grid-cols-2 sm:grid-rows-2">
+            <Link data-permission="invoice:create" href="/factures/nouvelle" className="qa-card">
+              <span className="flex-shrink-0 text-[18px] leading-none" aria-hidden="true">🧾</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold leading-tight text-[#1A1A2E]">Créer une facture</div>
+                <div className="text-[11px] leading-snug text-[#6B7280]">ICE, TVA et WhatsApp intégrés</div>
+              </div>
+              <ArrowUpRight size={13} className="flex-shrink-0 text-[#0C1526]" />
             </Link>
-          )}>Revenus et dépenses</SectionLabel>
-          <RevenueExpenseChart data={chartData} periodLabel={selectedPeriodLabel} />
+            <Link href="/transactions?action=expense" className="qa-card">
+              <span className="flex-shrink-0 text-[18px] leading-none" aria-hidden="true">💸</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold leading-tight text-[#1A1A2E]">Enregistrer une dépense</div>
+                <div className="text-[11px] leading-snug text-[#6B7280]">Ajout rapide au journal</div>
+              </div>
+              <ArrowUpRight size={13} className="flex-shrink-0 text-[#0C1526]" />
+            </Link>
+            <Link href="/factures" className="qa-card">
+              <span className="flex-shrink-0 text-[18px] leading-none" aria-hidden="true">📄</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold leading-tight text-[#1A1A2E]">Voir les factures</div>
+                <div className="text-[11px] leading-snug text-[#6B7280]">
+                  {pendingInvs.length > 0 ? `${pendingInvs.length} en attente de paiement` : "Toutes à jour"}
+                </div>
+              </div>
+              <ArrowUpRight size={13} className="flex-shrink-0 text-[#0C1526]" />
+            </Link>
+            <Link href="/archive" className="qa-card">
+              <span className="flex-shrink-0 text-[18px] leading-none" aria-hidden="true">🗂️</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold leading-tight text-[#1A1A2E]">Gérer l&apos;archive</div>
+                <div className="text-[11px] leading-snug text-[#6B7280]">Consulter et classer les documents</div>
+              </div>
+              <ArrowUpRight size={13} className="flex-shrink-0 text-[#0C1526]" />
+            </Link>
+          </div>
         </div>
 
         {/* Prochaines échéances */}
-        <div>
+        <div className="flex flex-col">
           <SectionLabel action={(
             <Link href="/parametres?tab=echeances" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
               <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
@@ -185,36 +232,47 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="mb-8">
-        <SectionLabel>Vue d&apos;ensemble</SectionLabel>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-          <div className="kpi">
-            <div className="kpi-label">Chiffre d&apos;affaires</div>
-            <div className="kpi-value">{fmt(revenue)}</div>
-            <div className="truncate text-[11px] text-[#6B7280]" title={selectedPeriodLabel}>{selectedPeriodLabel}</div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-label">TVA à déclarer</div>
-            <div className="kpi-value">{fmt(Math.round(tvaEstimate))}</div>
-            <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
-              Échéance <span className="tag tag-warn">20 {nextMonth.toLocaleDateString("fr-MA", { month: "short" })}</span>
+      {/* Overview + financial report */}
+      <div className="mb-8 grid grid-cols-1 gap-7 md:grid-cols-2">
+        <div>
+          <SectionLabel>Vue d&apos;ensemble</SectionLabel>
+          <div className="grid grid-cols-1 grid-rows-4 gap-2.5 sm:h-[210px] sm:grid-cols-2 sm:grid-rows-2">
+            <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
+              <div className="kpi-label !mb-2">Chiffre d&apos;affaires</div>
+              <div className="kpi-value !mb-1.5" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>{fmt(revenue)}</div>
+              <div className="truncate text-[11px] text-[#6B7280]" title={selectedPeriodLabel}>{selectedPeriodLabel}</div>
+            </div>
+            <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
+              <div className="kpi-label !mb-2">TVA à déclarer</div>
+              <div className="kpi-value !mb-1.5" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>{fmt(Math.round(tvaEstimate))}</div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
+                Échéance <span className="tag tag-warn">20 {nextMonth.toLocaleDateString("fr-MA", { month: "short" })}</span>
+              </div>
+            </div>
+            <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
+              <div className="kpi-label !mb-2">Factures en attente</div>
+              <div className="kpi-value !mb-1.5" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>{pendingInvs.length}</div>
+              <div className="text-[11px] text-[#6B7280]">
+                {pendingInvs.length > 0 ? fmt(pendingTotal) : "Aucune en attente"}
+              </div>
+            </div>
+            <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
+              <div className="kpi-label !mb-2">Clients actifs</div>
+              <div className="kpi-value !mb-1.5" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>{clientCount}</div>
+              <div className="text-[11px] text-[#6B7280]">
+                {clientCount === 0 ? "Aucun client" : `${clientCount} client${clientCount > 1 ? "s" : ""} actif${clientCount > 1 ? "s" : ""}`}
+              </div>
             </div>
           </div>
-          <div className="kpi">
-            <div className="kpi-label">Factures en attente</div>
-            <div className="kpi-value">{pendingInvs.length}</div>
-            <div className="text-[11px] text-[#6B7280]">
-              {pendingInvs.length > 0 ? fmt(pendingTotal) : "Aucune en attente"}
-            </div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-label">Clients actifs</div>
-            <div className="kpi-value">{clientCount}</div>
-            <div className="text-[11px] text-[#6B7280]">
-              {clientCount === 0 ? "Aucun client" : `${clientCount} client${clientCount > 1 ? "s" : ""} actif${clientCount > 1 ? "s" : ""}`}
-            </div>
-          </div>
+        </div>
+
+        <div>
+          <SectionLabel action={(
+            <Link href="/transactions" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+              <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
+            </Link>
+          )}>Revenus et dépenses</SectionLabel>
+          <RevenueExpenseChart data={chartData} periodLabel={selectedPeriodLabel} />
         </div>
       </div>
 
@@ -224,7 +282,7 @@ export default async function DashboardPage() {
         <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 flex items-center gap-6 flex-wrap" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div className="flex-1 min-w-[160px]">
             <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-1">Clients — À encaisser</div>
-            <div className="text-[18px] font-bold text-[#1A1A2E]">{fmt(totalAEncaisser)}</div>
+            <div className="leading-none text-[#1A1A2E]" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>{fmt(totalAEncaisser)}</div>
             {overdueCount > 0 ? (
               <div className="text-[11px] text-[#DC2626] mt-0.5 font-semibold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] inline-block animate-pulse" />
@@ -237,12 +295,26 @@ export default async function DashboardPage() {
           <div className="w-px h-10 bg-[rgba(0,0,0,0.08)] hidden md:block" />
           <div className="flex-1 min-w-[160px]">
             <div className="text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-1">Fournisseurs — À payer</div>
-            <div className="text-[18px] font-bold text-[#1A1A2E]">{fmt(totalAPayer)}</div>
+            <div className="leading-none text-[#1A1A2E]" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>{fmt(totalAPayer)}</div>
             {overdueSuppliers.length > 0 ? (
-              <div className="text-[11px] text-[#DC2626] mt-0.5 font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] inline-block animate-pulse" />
-                {overdueSuppliers.length} facture{overdueSuppliers.length > 1 ? "s" : ""} en retard
-              </div>
+              <>
+                <div className="text-[11px] text-[#DC2626] mt-0.5 font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] inline-block animate-pulse" />
+                  {overdueSuppliers.length} facture{overdueSuppliers.length > 1 ? "s" : ""} en retard
+                </div>
+                {oldestOverdueSupplier && (
+                  <Link
+                    href={`/achats?document_id=${oldestOverdueSupplier.id}`}
+                    className="mt-1 block max-w-full truncate text-[10.5px] font-medium text-[#525866] hover:text-[#1A1A2E] hover:underline"
+                    title={`Plus ancienne : ${oldestOverdueSupplierName}${oldestOverdueSupplierReference ? ` · ${oldestOverdueSupplierReference}` : ""} · ${fmt(oldestOverdueSupplierBalance)}${oldestOverdueSupplierDate ? ` · échue le ${oldestOverdueSupplierDate}` : ""}`}
+                  >
+                    Plus ancienne : {oldestOverdueSupplierName}
+                    {oldestOverdueSupplierReference ? ` · ${oldestOverdueSupplierReference}` : ""}
+                    {` · ${fmt(oldestOverdueSupplierBalance)}`}
+                    {oldestOverdueSupplierDate ? ` · ${oldestOverdueSupplierDate}` : ""}
+                  </Link>
+                )}
+              </>
             ) : unpaidSuppliers.length > 0 ? (
               <div className="text-[11px] text-[#D97706] mt-0.5">
                 {unpaidSuppliers.length} facture{unpaidSuppliers.length > 1 ? "s" : ""} à payer

@@ -35,6 +35,8 @@ export default function RevenueExpenseChart({
   data: FinanceChartPoint[];
   periodLabel: string;
 }) {
+  const highestValue = Math.max(0, ...data.flatMap((point) => [point.revenue, point.expenses]));
+
   return (
     <div
       className="revenue-expense-chart h-[210px] border border-[rgba(0,0,0,0.08)] bg-white p-3"
@@ -42,7 +44,7 @@ export default function RevenueExpenseChart({
       aria-label={`Revenus et dépenses pour ${periodLabel}`}
     >
       <div className="mb-2 flex h-5 items-center justify-between gap-3">
-        <div className="flex items-center gap-3 text-[10px] font-medium text-[#6B7280]">
+        <div className="flex items-center gap-3 text-[10.5px] font-medium text-[#6B7280]">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 bg-[var(--revenue-chart-color)]" aria-hidden="true" />
             Revenus
@@ -53,7 +55,7 @@ export default function RevenueExpenseChart({
           </span>
         </div>
 
-        <span className="max-w-[130px] truncate text-[9px] font-semibold text-[#8A5E25]">{periodLabel}</span>
+        <span className="max-w-[130px] truncate text-[10px] font-semibold text-[#8A5E25]">{periodLabel}</span>
       </div>
 
       <div className="h-[158px] w-full">
@@ -70,7 +72,7 @@ export default function RevenueExpenseChart({
               axisLine={false}
               tickLine={false}
               interval={data.length > 16 ? 2 : data.length > 9 ? 1 : 0}
-              tick={{ fill: "#6B7280", fontSize: 9 }}
+              tick={{ fill: "#6B7280", fontSize: 10 }}
             />
             <YAxis
               axisLine={false}
@@ -78,8 +80,8 @@ export default function RevenueExpenseChart({
               width={46}
               domain={[0, "auto"]}
               tickCount={3}
-              tick={{ fill: "#9CA3AF", fontSize: 8 }}
-              tickFormatter={compactMad}
+              tick={{ fill: "#6B7280", fontSize: 10 }}
+              tickFormatter={(value: number) => value > highestValue ? "" : compactMad(value)}
             />
             <Tooltip
               cursor={{ fill: "rgba(13,21,38,0.035)" }}

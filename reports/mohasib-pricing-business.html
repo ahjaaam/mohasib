@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mohasib Business pricing</title><link rel="stylesheet" href="mohasib-pricing.css"></head>
+<body><main>
+  <a class="back" href="mohasib-pricing-dext-model.html">← All packages</a>
+  <div class="intro"><h1>Business</h1><p class="muted">One package for one company. Increase the allowance by adding users.</p></div>
+  <div class="detail">
+    <div class="summary"><h2>Business</h2><div class="price">299 DH <small>/ month</small></div><ul>
+      <li>Invoices, quotes, credit notes and reminders</li><li>Document capture and OCR</li><li>Bank import and reconciliation</li><li>Automatic entries, CGNC and VAT</li><li>Dashboard, cash flow, bilan and CPC</li><li>Accounting access and exports</li>
+    </ul></div>
+    <div class="calculator">
+      <div class="slider-row"><div><h3>Users</h3><span class="muted">Drag to increase all allowances</span></div><output id="users-output">1 user</output></div>
+      <input id="users" type="range" min="1" max="20" step="1" value="1" aria-label="Business users">
+      <div class="metrics"><div class="metric"><strong id="documents">100</strong><span>OCR documents / month</span></div><div class="metric"><strong id="storage">5 GB</strong><span>secure storage</span></div><div class="metric"><strong id="credits">10</strong><span>extraction credits</span></div></div>
+      <div class="calculation"><div class="line"><span>Business package</span><span>299 DH</span></div><div class="line"><span id="extra-label">No additional users</span><span id="extra-price">0 DH</span></div><div class="line total"><span>Monthly total</span><span id="total">299 DH</span></div></div>
+    </div>
+  </div>
+  <section class="addons-section"><h2>Add-ons</h2><table><thead><tr><th>Add-on</th><th>What it adds</th><th>Price</th></tr></thead><tbody>
+    <tr><td>Mohasib AI Agent</td><td>Answers questions, explains figures, flags exceptions and assists accounting workflows.</td><td>Price to confirm / account / month</td></tr>
+    <tr><td>Payroll</td><td>Payroll, payslips, CNSS, validation and employee archive.</td><td>49 DH/month + 12 DH/employee</td></tr>
+    <tr><td>Extra extraction</td><td>OCR above the included allowance.</td><td>Usage-based</td></tr>
+    <tr><td>Extra storage</td><td>Additional secure storage.</td><td>10 DH per 5 GB/month</td></tr>
+  </tbody></table></section>
+</main>
+<script>const input=document.getElementById('users'),format=value=>new Intl.NumberFormat('en-US').format(value);function render(){const count=Number(input.value),extra=count-1;document.getElementById('users-output').textContent=`${count} user${count===1?'':'s'}`;document.getElementById('documents').textContent=format(100+extra*50);document.getElementById('storage').textContent=`${5+extra*5} GB`;document.getElementById('credits').textContent=format(10+extra*5);document.getElementById('extra-label').textContent=extra?`${extra} additional user${extra===1?'':'s'}`:'No additional users';document.getElementById('extra-price').textContent=`${format(extra*99)} DH`;document.getElementById('total').textContent=`${format(299+extra*99)} DH`;}input.addEventListener('input',render);render();</script>
+</body></html>

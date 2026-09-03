@@ -17,7 +17,7 @@ const NEEDS: Record<string, string> = {
   "vue-ensemble": "Vue d’ensemble de Mohasib",
   facturation: "Facturation et suivi des échéances",
   documents: "Documents, e-mails et OCR",
-  comptabilite: "Comptabilité et rapprochement",
+  comptabilite: "Comptabilité et écritures",
   declarations: "TVA, paie et déclarations",
   cabinet: "Gestion d’un cabinet comptable",
 };

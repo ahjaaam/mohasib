@@ -22,7 +22,7 @@ import styles from "./page.module.css";
 export const metadata: Metadata = seoMetadata({
   title: "Solutions Mohasib — Automatisez vos opérations comptables",
   description:
-    "Découvrez comment Mohasib centralise vos documents, prépare vos écritures, rapproche vos paiements et simplifie le contrôle comptable.",
+    "Découvrez comment Mohasib centralise vos documents, prépare vos écritures, organise vos transactions et simplifie le contrôle comptable.",
   path: "/solutions",
 });
 
@@ -31,7 +31,7 @@ const solutionPillars = [
     id: "automatisation",
     title: "Automatisation",
     description:
-      "Mohasib prépare les tâches répétitives : extraction, classement, rapprochement, relances et écritures comptables.",
+      "Mohasib prépare les tâches répétitives : extraction, classement, suivi des transactions, relances et écritures comptables.",
     result: "Moins de préparation manuelle",
     icon: Sparkles,
   },
@@ -67,13 +67,13 @@ const workflows = [
   },
   {
     number: "02",
-    title: "Rapprochement bancaire",
-    summary: "Transactions, notes de frais et écarts réunis dans le même écran de contrôle.",
+    title: "Transactions bancaires",
+    summary: "Vos mouvements bancaires réunis dans un même écran de suivi.",
     before:
-      "Vous importez les relevés, recherchez les notes de frais et comparez chaque montant ligne par ligne.",
+      "Vous téléchargez les relevés, recopiez les mouvements et les reclassez dans plusieurs tableaux.",
     withMohasib:
-      "Mohasib importe les mouvements, recherche les notes de frais et suggère les correspondances. Vous confirmez les cas incertains.",
-    decision: "Vous arbitrez uniquement les rapprochements ambigus ou incomplets.",
+      "Mohasib importe les mouvements et les organise dans un espace unique. Vous complétez les informations qui demandent votre attention.",
+    decision: "Vous contrôlez la catégorie et le traitement des mouvements importants.",
     icon: Landmark,
   },
   {

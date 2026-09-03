@@ -26,7 +26,7 @@ interface Props {
   totalCount: number;
 }
 
-export default function NotificationsFeed({ initial, totalCount }: Props) {
+export default function NotificationsFeed({ initial }: Props) {
   const [items, setItems] = useState<Notification[]>(initial);
   const [, startTransition] = useTransition();
 
@@ -90,17 +90,6 @@ export default function NotificationsFeed({ initial, totalCount }: Props) {
         </div>
       )}
 
-      {/* See all */}
-      {totalCount > 10 && (
-        <div className="mt-2 text-center">
-          <Link
-            href="/notifications"
-            className="text-[11.5px] text-[#C8924A] hover:underline"
-          >
-            Voir toutes les notifications ({totalCount}) →
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

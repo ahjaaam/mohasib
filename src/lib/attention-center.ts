@@ -140,7 +140,7 @@ export async function getAttentionItems(ownerId: string, period: GlobalPeriod): 
       description: "Mouvements bancaires sans facture ou document associé.",
       count: Math.max(0, bankTransactionIds.length - matchedBankTransactionCount),
       href: "/transactions",
-      actionLabel: "Faire les rapprochements",
+      actionLabel: "Affecter les transactions",
       severity: "warning",
       category: "bank",
     },

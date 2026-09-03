@@ -1,12 +1,12 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Archive,
+  BarChart3,
   BookOpenText,
   Bot,
   Boxes,
   Calculator,
   CalendarClock,
-  FileCheck2,
   FileText,
   Inbox,
   Landmark,
@@ -53,9 +53,9 @@ const capabilities: Capability[] = [
     icon: Landmark,
   },
   {
-    title: "Rapprochement",
-    description: "Correspondances proposées par l’IA",
-    icon: FileCheck2,
+    title: "Pilotage financier",
+    description: "Indicateurs et écarts importants à suivre",
+    icon: BarChart3,
   },
   {
     title: "Écritures comptables",

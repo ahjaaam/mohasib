@@ -4,7 +4,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
-import { AlertTriangle, Ban, Check, ExternalLink, FileSpreadsheet, FileText, Image, Loader2, Search, Trash2, Upload, X, XCircle } from "lucide-react";
+import { BANK_STATEMENT_PDF_MAX_PAGES, countBankStatementPdfPages } from "@/lib/bank-import-limits";
+import { AlertTriangle, Ban, Check, Clock3, Download, ExternalLink, FileSpreadsheet, FileText, Image as ImageIcon, Loader2, Search, Trash2, Upload, X, XCircle } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,24 +42,9 @@ const ALL_CATEGORIES = [
   "Transport", "Communication", "Fiscalité", "Banque", "Autre dépense",
 ];
 
-const PROCESSING_STEPS = [
-  "Lecture du document...",
-  "Extraction des transactions...",
-  "Catégorisation par IA...",
-  "Analyse terminée !",
-];
-
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // ─── Client-side file validation helpers ─────────────────────────────────────
-
-async function countPDFPages(f: File): Promise<number> {
-  const buffer = await f.arrayBuffer();
-  const text = new TextDecoder("latin1").decode(new Uint8Array(buffer));
-  const countMatches = [...text.matchAll(/\/Count\s+(\d+)/g)];
-  if (countMatches.length > 0) return Math.max(...countMatches.map((m) => parseInt(m[1], 10)));
-  return text.match(/\/Type\s*\/Page[^s]/g)?.length ?? 1;
-}
 
 async function countCSVRows(f: File): Promise<number> {
   const text = await f.text();
@@ -77,10 +63,48 @@ function fmt(n: number) {
   return Math.abs(n).toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD";
 }
 
-function fmtDate(d: string) {
-  return new Date(d + "T00:00:00").toLocaleDateString("fr-MA", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
+function fmtElapsed(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function StatementPreview({ file, url }: { file: File | null; url: string | null }) {
+  const isPdf = file?.type === "application/pdf" || file?.name.toLowerCase().endsWith(".pdf");
+  const isImage = Boolean(file?.type.startsWith("image/"));
+
+  return (
+    <section className="flex min-h-0 flex-1 flex-col bg-[#E5E7EB]" aria-label="Relevé bancaire original">
+      <div className="flex h-10 flex-shrink-0 items-center justify-between border-b border-black/10 bg-[#F9FAFB] px-4">
+        <span className="text-[10.5px] font-bold uppercase tracking-[0.55px] text-[#6B7280]">Document original</span>
+        {url && (
+          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#C8924A] hover:underline">
+            <ExternalLink size={11} /> Ouvrir en plein écran
+          </a>
+        )}
+      </div>
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto">
+        {!file || !url ? (
+          <div className="p-8 text-center text-[12px] text-[#6B7280]">Aucun aperçu disponible</div>
+        ) : isPdf ? (
+          <iframe src={url} className="h-full min-h-[520px] w-full bg-white" title="Relevé bancaire PDF" />
+        ) : isImage ? (
+          <div className="flex min-h-full w-full items-start justify-center p-5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt="Relevé bancaire à vérifier" className="h-auto max-w-full bg-white shadow-lg" />
+          </div>
+        ) : (
+          <div className="m-6 flex max-w-sm flex-col items-center rounded-xl border border-black/10 bg-white p-7 text-center shadow-sm">
+            <FileSpreadsheet size={38} className="mb-3 text-[#C8924A]" />
+            <p className="max-w-full truncate text-[13px] font-semibold text-[#1A1A2E]">{file.name}</p>
+            <p className="mt-1 text-[11.5px] text-[#8A909B]">L’aperçu intégré n’est pas disponible pour ce format.</p>
+            <a href={url} download={file.name} className="btn btn-outline mt-4 inline-flex items-center gap-1.5">
+              <Download size={13} /> Télécharger le fichier
+            </a>
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 // ─── Step indicator ───────────────────────────────────────────────────────────
@@ -135,16 +159,23 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
   const [limitReached, setLimitReached] = useState<{ used: number; limit: number; resetDate: string } | null>(null);
 
   // Processing
-  const [processingStep, setProcessingStep] = useState(0);
+  const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Review
   const [transactions, setTransactions] = useState<ExtractedTx[]>([]);
   const [period, setPeriod] = useState<string | null>(null);
+  const [analysisUsage, setAnalysisUsage] = useState<{
+    totalTokens: number;
+    estimatedCostUsd: number;
+  } | null>(null);
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const [importing, setImporting] = useState(false);
+  const [mobileReviewPane, setMobileReviewPane] = useState<"document" | "data">("document");
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
 
   // Success
   const [importedStats, setImportedStats] = useState<{
@@ -164,14 +195,36 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
   const [fileValidation, setFileValidation] = useState<FileValidation | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const analysisAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setFilePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setFilePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  useEffect(() => {
+    if (step !== 2 || analysisStartedAt === null) return;
+    const updateElapsed = () => setElapsedSeconds(Math.floor((Date.now() - analysisStartedAt) / 1000));
+    updateElapsed();
+    const interval = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(interval);
+  }, [step, analysisStartedAt]);
 
   // Reset when modal closes
   useEffect(() => {
     if (!open) {
+      analysisAbortRef.current?.abort();
+      analysisAbortRef.current = null;
       setTimeout(() => {
         setStep(1); setFile(null); setBank(""); setApiError(null);
-        setProcessingStep(0); setTransactions([]); setPeriod(null);
+        setAnalysisStartedAt(null); setElapsedSeconds(0); setTransactions([]); setPeriod(null); setAnalysisUsage(null);
         setFilter("all"); setSearch(""); setEditingId(null);
+        setMobileReviewPane("document");
         setImportedStats(null); setFileValidation(null); setValidating(false); setLimitReached(null);
       }, 200);
     }
@@ -202,8 +255,8 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
     try {
       const sizeMB = (f.size / 1024 / 1024).toFixed(1);
       if (isPDF) {
-        const pages = await countPDFPages(f);
-        setFileValidation({ valid: pages <= 8, type: "pdf", count: pages, limit: 8, sizeMB });
+        const pages = countBankStatementPdfPages(await f.arrayBuffer());
+        setFileValidation({ valid: pages <= BANK_STATEMENT_PDF_MAX_PAGES, type: "pdf", count: pages, limit: BANK_STATEMENT_PDF_MAX_PAGES, sizeMB });
       } else if (isXLSX || isXLS) {
         const rows = await countExcelRows(f);
         setFileValidation({ valid: rows <= 200, type: "xlsx", count: rows, limit: 200, sizeMB });
@@ -215,7 +268,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       }
     } catch {
       // validation failed — allow through
-      setFileValidation({ valid: true, type: isPDF ? "pdf" : "csv", count: 0, limit: 8, sizeMB: (f.size / 1024 / 1024).toFixed(1) });
+      setFileValidation({ valid: true, type: isPDF ? "pdf" : "csv", count: 0, limit: isPDF ? BANK_STATEMENT_PDF_MAX_PAGES : 200, sizeMB: (f.size / 1024 / 1024).toFixed(1) });
     } finally {
       setValidating(false);
     }
@@ -230,20 +283,36 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
 
   // ── Analyze ────────────────────────────────────────────────────────────────
 
+  function closeModal() {
+    analysisAbortRef.current?.abort();
+    analysisAbortRef.current = null;
+    onClose();
+  }
+
   async function analyze() {
     if (!file) return;
     setStep(2);
     setApiError(null);
-    setProcessingStep(0);
-
-    const t1 = setTimeout(() => setProcessingStep(1), 700);
-    const t2 = setTimeout(() => setProcessingStep(2), 2800);
+    setElapsedSeconds(0);
+    setAnalysisStartedAt(Date.now());
 
     const fd = new FormData();
     fd.append("file", file);
     if (bank) fd.append("bank", bank);
 
-    const res = await fetch("/api/import/bank-statement", { method: "POST", body: fd });
+    let res: Response;
+    const controller = new AbortController();
+    analysisAbortRef.current = controller;
+    try {
+      res = await fetch("/api/import/bank-statement", { method: "POST", body: fd, signal: controller.signal });
+    } catch {
+      if (controller.signal.aborted) return;
+      setAnalysisStartedAt(null);
+      setApiError("Connexion interrompue pendant l’analyse. Réessayez.");
+      setStep(1);
+      return;
+    }
+    analysisAbortRef.current = null;
     let result: any;
     try {
       result = await res.json();
@@ -251,27 +320,22 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       result = { error: "Erreur serveur inattendue. Réessayez." };
     }
 
-    clearTimeout(t1);
-    clearTimeout(t2);
-
     if (!res.ok || result.error) {
       if (result.error === "limit_reached") {
         setLimitReached({ used: result.used, limit: result.limit, resetDate: result.resetDate });
-        setProcessingStep(0);
+        setAnalysisStartedAt(null);
         await sleep(400);
         setStep(1);
         return;
       }
       setApiError(result.error || "Erreur d'analyse.");
-      setProcessingStep(0);
+      setAnalysisStartedAt(null);
       await sleep(600);
       setStep(1);
       return;
     }
 
-    setProcessingStep(3); // categorizing
     await sleep(700);
-    setProcessingStep(4); // done
     await sleep(500);
 
     // Fetch existing transactions to detect duplicates
@@ -305,6 +369,12 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
 
     setTransactions(txs);
     setPeriod(result.period ?? null);
+    setAnalysisUsage(result.processing ? {
+      totalTokens: Number(result.processing.total_tokens ?? 0),
+      estimatedCostUsd: Number(result.processing.estimated_cost_usd ?? 0),
+    } : null);
+    setAnalysisStartedAt(null);
+    setMobileReviewPane("document");
     setStep(3);
   }
 
@@ -326,10 +396,16 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
     setTransactions((prev) => prev.filter((t) => t._id !== id));
   }
 
-  function updateField(id: string, field: "description" | "category", value: string) {
+  function updateField(id: string, field: "date" | "description" | "category" | "reference", value: string) {
     setTransactions((prev) =>
       prev.map((t) => (t._id === id ? { ...t, [field]: value } : t))
     );
+  }
+
+  function updateAmount(id: string, value: string) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return;
+    setTransactions((prev) => prev.map((t) => (t._id === id ? { ...t, amount } : t)));
   }
 
   function startEdit(id: string, value: string) {
@@ -446,7 +522,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={{ backgroundColor: "rgba(13,21,38,0.6)", backdropFilter: "blur(4px)" }}
     >
-      <div className="flex h-[100dvh] w-full flex-col bg-white shadow-2xl sm:h-[min(92vh,920px)] sm:max-w-[920px] sm:rounded-xl">
+      <div className={`flex h-[100dvh] w-full flex-col bg-white shadow-2xl ${step === 2 || step === 3 ? "" : "sm:h-[min(92vh,920px)] sm:max-w-[920px] sm:rounded-xl"}`}>
 
         {/* Header */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-[rgba(0,0,0,0.08)] px-4 py-3 sm:px-6 sm:py-4">
@@ -458,7 +534,12 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               <p className="text-[11.5px] text-[#C8924A] font-medium mt-0.5">{period}</p>
             )}
           </div>
-          <button onClick={onClose} className="text-[#6B7280] hover:text-[#1A1A2E] transition-colors">
+          <button
+            onClick={closeModal}
+            className="text-[#6B7280] transition-colors hover:text-[#1A1A2E]"
+            aria-label={step === 2 ? "Annuler l’analyse et fermer" : "Fermer"}
+            title={step === 2 ? "Annuler l’analyse et fermer" : "Fermer"}
+          >
             <X size={16} />
           </button>
         </div>
@@ -486,9 +567,9 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg px-4 py-3 text-[#1E40AF]">
                 <p className="text-[12.5px] font-semibold mb-1">Formats acceptés :</p>
                 <ul className="text-[12px] flex flex-col gap-0.5">
-                  <li className="flex items-center gap-1.5"><FileText size={13} /> PDF — maximum 8 pages</li>
+                  <li className="flex items-center gap-1.5"><FileText size={13} /> PDF — maximum {BANK_STATEMENT_PDF_MAX_PAGES} pages</li>
                   <li className="flex items-center gap-1.5"><FileSpreadsheet size={13} /> CSV / Excel — maximum 200 lignes</li>
-                  <li className="flex items-center gap-1.5"><Image size={13} /> Image (JPG, PNG) — 1 page max</li>
+                  <li className="flex items-center gap-1.5"><ImageIcon size={13} /> Image (JPG, PNG) — 1 page max</li>
                 </ul>
               </div>
 
@@ -616,48 +697,105 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
 
           {/* ── STEP 2: Processing ────────────────────────────────────────── */}
           {step === 2 && (
-            <div className="flex-1 flex flex-col items-center justify-center gap-8 p-8">
-              <div className="w-16 h-16 rounded-full bg-[#0D1526] flex items-center justify-center">
-                <Loader2 size={28} className="text-[#C8924A] animate-spin" />
+            <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
+              <div className="hidden min-h-0 md:flex md:flex-col">
+                <StatementPreview file={file} url={filePreviewUrl} />
               </div>
 
-              <div className="flex flex-col gap-3 w-full max-w-xs">
-                {PROCESSING_STEPS.map((label, i) => {
-                  const done = processingStep > i;
-                  const active = processingStep === i;
-                  return (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-3 text-[13px] transition-all ${
-                        done ? "text-[#059669]" : active ? "text-[#1A1A2E] font-medium" : "text-[#9CA3AF]"
-                      }`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] ${
-                          done
-                            ? "bg-[#059669] text-white"
-                            : active
-                            ? "bg-[#C8924A] text-white"
-                            : "bg-[#F3F4F6]"
-                        }`}
-                      >
-                        {done ? <Check size={10} /> : active ? <Loader2 size={9} className="animate-spin" /> : i + 1}
+              <section className="flex min-h-0 flex-col items-center justify-center overflow-y-auto border-l border-black/10 bg-[#F5F5F2] p-6 sm:p-10" aria-live="polite" aria-label="Progression de l’analyse IA">
+                <div className="w-full max-w-lg overflow-hidden rounded-xl border border-black/10 bg-white shadow-[0_12px_35px_rgba(13,21,38,0.08)]">
+                  <div className="h-1 bg-[#10B981]" aria-hidden="true" />
+                  <div className="p-6 sm:p-7">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.65px] text-[#047857]">
+                        <span className="h-2 w-2 rounded-full bg-[#10B981]" /> Analyse active
                       </div>
-                      {label}
+                      <div className="flex items-center gap-1.5 rounded-md border border-black/10 bg-[#FAFAFA] px-2.5 py-1.5 font-mono text-[12px] font-semibold text-[#374151]">
+                        <Clock3 size={13} /> {fmtElapsed(elapsedSeconds)}
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
 
-              <p className="text-[11.5px] text-[#9CA3AF] text-center max-w-xs">
-                L'IA analyse votre relevé. Cette opération peut prendre jusqu'à 30 secondes.
-              </p>
+                    <h3 className="mt-5 text-[18px] font-semibold tracking-[-0.2px] text-[#1A1A2E]">
+                      Lecture de votre relevé bancaire
+                    </h3>
+                    <p className="mt-1.5 text-[12px] leading-5 text-[#6B7280]">
+                      Nous extrayons les opérations, contrôlons les montants et proposons une catégorie pour chaque ligne.
+                    </p>
+
+                    <div className="mt-5 flex items-center gap-3 rounded-lg border border-black/10 bg-[#FAFAF8] px-3.5 py-3">
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-black/10 bg-white text-[#6B7280]">
+                        <FileText size={17} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-semibold text-[#1A1A2E]">{file?.name ?? "Relevé bancaire"}</p>
+                        <p className="mt-0.5 text-[10.5px] text-[#8A909B]">
+                          {fileValidation?.type === "pdf" && fileValidation.count > 0
+                            ? `${fileValidation.count} pages · ${Math.ceil(fileValidation.count / 4)} groupes d’analyse`
+                            : fileValidation?.type === "image"
+                            ? "Image · 1 page"
+                            : fileValidation ? `${fileValidation.count.toLocaleString("fr-MA")} ligne${fileValidation.count > 1 ? "s" : ""}` : "Document en cours de lecture"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 divide-y divide-black/5 border-y border-black/5">
+                      <div className="flex items-center gap-3 py-3.5 text-[13px] font-semibold text-[#374151]">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ECFDF5] text-[#059669]"><Check size={12} /></span>
+                        <span>Fichier reçu</span>
+                        <span className="ml-auto text-[11px] font-bold text-[#059669]">Terminé</span>
+                      </div>
+                      <div className="flex items-center gap-3 py-3.5 text-[13px] font-semibold text-[#1A1A2E]">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FFF7ED] text-[#B7791F]"><Loader2 size={12} className="animate-spin" /></span>
+                        <span>
+                          {elapsedSeconds < 30
+                            ? "Préparation et lecture du document"
+                            : elapsedSeconds < 180
+                            ? "Extraction et catégorisation"
+                            : "Analyse détaillée des opérations"}
+                        </span>
+                        <span className="ml-auto text-[11px] font-bold text-[#B7791F]">En cours</span>
+                      </div>
+                      <div className="flex items-center gap-3 py-3.5 text-[13px] font-semibold text-[#8A909B]">
+                        <span className="h-5 w-5 rounded-full border border-[#D1D5DB]" />
+                        <span>Vérification des transactions</span>
+                        <span className="ml-auto text-[11px] font-bold">À suivre</span>
+                      </div>
+                    </div>
+
+                    <p className="mt-5 text-[11px] leading-5 text-[#7C838D]">
+                      {fileValidation?.type === "pdf" && fileValidation.count > 4
+                        ? "Les relevés longs peuvent prendre jusqu’à 10 minutes. Gardez cette fenêtre ouverte; le résultat s’affichera automatiquement."
+                        : "Gardez cette fenêtre ouverte; le résultat s’affichera automatiquement dès que l’analyse sera terminée."}
+                    </p>
+                  </div>
+                </div>
+              </section>
             </div>
           )}
 
           {/* ── STEP 3: Review ────────────────────────────────────────────── */}
           {step === 3 && (
             <div className="flex-1 flex flex-col min-h-0">
+              <div className="grid grid-cols-2 border-b border-black/10 bg-white p-1 md:hidden">
+                {(["document", "data"] as const).map((pane) => (
+                  <button
+                    key={pane}
+                    type="button"
+                    onClick={() => setMobileReviewPane(pane)}
+                    aria-pressed={mobileReviewPane === pane}
+                    className={`min-h-10 rounded-md text-[12px] font-semibold transition-colors ${mobileReviewPane === pane ? "bg-[#0D1526] text-white" : "text-[#6B7280]"}`}
+                  >
+                    {pane === "document" ? "Document" : `Transactions (${transactions.length})`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(360px,0.9fr)_minmax(620px,1.35fr)]">
+                <div className={`${mobileReviewPane === "document" ? "flex" : "hidden"} min-h-0 flex-col md:flex`}>
+                  <StatementPreview file={file} url={filePreviewUrl} />
+                </div>
+
+                <section className={`${mobileReviewPane === "data" ? "flex" : "hidden"} min-h-0 flex-col border-l border-black/10 bg-white md:flex`} aria-label="Transactions extraites à vérifier">
               {/* Summary header */}
               <div className="px-5 py-3 bg-[#FAFAF6] border-b border-[rgba(0,0,0,0.07)] flex-shrink-0">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
@@ -686,7 +824,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               )}
 
               {/* Toolbar */}
-              <div className="px-5 py-2.5 flex items-center gap-2 flex-shrink-0 border-b border-[rgba(0,0,0,0.06)]">
+              <div className="px-5 py-2.5 flex flex-wrap items-center gap-2 flex-shrink-0 border-b border-[rgba(0,0,0,0.06)]">
                 <div className="relative flex-1 max-w-[260px]">
                   <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                   <input
@@ -696,18 +834,31 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                <div className="flex rounded-lg overflow-hidden border border-[rgba(0,0,0,0.1)]">
-                  {(["all", "income", "expense"] as const).map((f) => (
+                <div className="flex items-center gap-1 overflow-hidden rounded-full bg-[#F3F4F6] p-1" role="group" aria-label="Filtrer les transactions">
+                  {(["all", "income", "expense"] as const).map((f) => {
+                    const count = f === "all"
+                      ? transactions.length
+                      : transactions.filter((tx) => f === "income" ? tx.amount >= 0 : tx.amount < 0).length;
+                    const activeClass = f === "all"
+                      ? "bg-white text-[#1A1A2E] shadow-sm ring-1 ring-black/5"
+                      : f === "income"
+                      ? "bg-[#ECFDF5] text-[#047857] shadow-sm ring-1 ring-[#A7F3D0]"
+                      : "bg-[#FEF2F2] text-[#B91C1C] shadow-sm ring-1 ring-[#FECACA]";
+                    return (
                     <button
                       key={f}
+                      type="button"
                       onClick={() => setFilter(f)}
-                      className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                        filter === f ? "bg-[#0D1526] text-[#C8924A]" : "text-[#6B7280] hover:bg-[#F9FAFB]"
-                      }`}
+                      aria-pressed={filter === f}
+                      className={`flex min-h-8 items-center gap-1.5 rounded-full px-3 text-[11.5px] font-semibold transition-all ${filter === f ? activeClass : "text-[#6B7280] hover:bg-white/80 hover:text-[#374151]"}`}
                     >
-                      {f === "all" ? "Tous" : f === "income" ? "Revenus" : "Dépenses"}
+                      <span>{f === "all" ? "Tous" : f === "income" ? "Revenus" : "Dépenses"}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 text-[9.5px] leading-none ${filter === f ? "bg-white/70" : "bg-white text-[#8A909B]"}`}>
+                        {count.toLocaleString("fr-MA")}
+                      </span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="ml-auto flex gap-2">
                   <button
@@ -727,14 +878,15 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               </div>
 
               {/* Table */}
-              <div className="flex-1 overflow-y-auto">
-                <table className="w-full text-[12px]">
+              <div className="flex-1 overflow-auto">
+                <table className="w-full min-w-[850px] text-[12px]">
                   <thead className="sticky top-0 bg-white border-b border-[rgba(0,0,0,0.07)] z-10">
                     <tr>
                       <th className="w-8 px-3 py-2.5"></th>
                       <th className="px-3 py-2.5 text-left text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] w-24">Date</th>
                       <th className="px-3 py-2.5 text-left text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px]">Description</th>
                       <th className="px-3 py-2.5 text-left text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] w-40">Catégorie</th>
+                      <th className="px-3 py-2.5 text-left text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] w-28">Référence</th>
                       <th className="px-3 py-2.5 text-right text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] w-32">Montant</th>
                       <th className="w-8 px-2 py-2.5"></th>
                     </tr>
@@ -759,7 +911,13 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
 
                         {/* Date */}
                         <td className="px-3 py-2 text-[#6B7280] whitespace-nowrap">
-                          {fmtDate(tx.date)}
+                          <input
+                            type="date"
+                            value={tx.date}
+                            onChange={(e) => updateField(tx._id, "date", e.target.value)}
+                            className="w-[116px] rounded border border-transparent bg-transparent px-1 py-1 text-[11px] outline-none hover:border-black/10 focus:border-[#C8924A] focus:bg-white"
+                            aria-label={`Date de ${tx.description}`}
+                          />
                           {tx.isDuplicate && (
                             <span className="ml-1 text-[#D97706]" title="Transaction déjà importée"><AlertTriangle size={10} /></span>
                           )}
@@ -798,11 +956,27 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
                           </select>
                         </td>
 
+                        {/* Bank reference */}
+                        <td className="px-3 py-2">
+                          <input
+                            value={tx.reference ?? ""}
+                            onChange={(e) => updateField(tx._id, "reference", e.target.value)}
+                            placeholder="—"
+                            className="w-full rounded border border-transparent bg-transparent px-1 py-1 text-[11px] text-[#6B7280] outline-none hover:border-black/10 focus:border-[#C8924A] focus:bg-white"
+                            aria-label={`Référence de ${tx.description}`}
+                          />
+                        </td>
+
                         {/* Amount */}
-                        <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${
-                          tx.amount >= 0 ? "text-[#059669]" : "text-[#DC2626]"
-                        }`}>
-                          {tx.amount >= 0 ? "+" : "−"}{fmt(tx.amount)}
+                        <td className="px-3 py-2 text-right whitespace-nowrap">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={tx.amount}
+                            onChange={(e) => updateAmount(tx._id, e.target.value)}
+                            className={`w-[112px] rounded border border-transparent bg-transparent px-1 py-1 text-right text-[11.5px] font-semibold outline-none hover:border-black/10 focus:border-[#C8924A] focus:bg-white ${tx.amount >= 0 ? "text-[#059669]" : "text-[#DC2626]"}`}
+                            aria-label={`Montant de ${tx.description}`}
+                          />
                         </td>
 
                         {/* Delete */}
@@ -818,7 +992,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
                     ))}
                     {filteredTxs.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="text-center py-8 text-[#9CA3AF] text-[12px]">
+                        <td colSpan={7} className="text-center py-8 text-[#9CA3AF] text-[12px]">
                           Aucune transaction correspondante
                         </td>
                       </tr>
@@ -828,7 +1002,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               </div>
 
               {/* Bottom bar */}
-              <div className="px-5 py-3.5 border-t border-[rgba(0,0,0,0.08)] flex items-center justify-between flex-shrink-0 bg-white">
+              <div className="px-4 py-3.5 border-t border-[rgba(0,0,0,0.08)] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between flex-shrink-0 bg-white sm:px-5">
                 <div className="text-[12px] text-[#6B7280]">
                   Sélection: <span className="font-semibold text-[#1A1A2E]">{selectedTxs.length}</span> transaction{selectedTxs.length !== 1 ? "s" : ""}
                   {selectedTxs.length > 0 && (
@@ -839,7 +1013,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
                     </span>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 sm:justify-end">
                   <button onClick={() => setStep(1)} className="btn btn-outline">
                     ← Retour
                   </button>
@@ -854,6 +1028,8 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
                     }
                   </button>
                 </div>
+              </div>
+                </section>
               </div>
             </div>
           )}
@@ -871,6 +1047,11 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
                 </p>
                 <p className="mt-1 text-[11.5px] text-[#6B7280]">Confirmez chaque transaction dans la liste avant de créer son écriture comptable.</p>
                 {period && <p className="text-[12.5px] text-[#C8924A] font-medium mt-1">{period}</p>}
+                {analysisUsage && (
+                  <p className="mt-1 text-[10.5px] text-[#9CA3AF]">
+                    Analyse IA : {analysisUsage.totalTokens.toLocaleString("fr-MA")} jetons · coût estimé ${analysisUsage.estimatedCostUsd.toFixed(2)} USD
+                  </p>
+                )}
               </div>
 
               <div className="bg-[#FAFAF6] rounded-xl border border-[rgba(0,0,0,0.08)] p-5 w-full max-w-sm flex flex-col gap-2.5">
@@ -904,7 +1085,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
               </div>
 
               <button
-                onClick={onClose}
+                onClick={closeModal}
                 className="btn btn-gold px-8"
               >
                 Voir les transactions →

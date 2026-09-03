@@ -9,6 +9,8 @@ export type InvoiceControlCheck = {
 };
 
 export type InvoiceControlData = {
+  document_type?: "invoice" | "receipt" | "purchase_order" | "delivery_note" | "avoir" | "bank_statement" | "other" | null;
+  is_supplier_invoice?: boolean | null;
   vendor?: string | null;
   vendor_name?: string | null;
   receipt_number?: string | null;
@@ -70,6 +72,10 @@ export function evaluateInvoiceControls(
   priorDocuments: PriorSupplierDocument[] = [],
 ): InvoiceControlCheck[] {
   const checks: InvoiceControlCheck[] = [];
+  const documentType = current.document_type ?? null;
+  const unsupportedDocumentType = documentType != null
+    && !["invoice", "receipt", "avoir"].includes(documentType);
+  const outgoingInvoice = documentType === "invoice" && current.is_supplier_invoice === false;
   const supplier = supplierName(current);
   const reference = invoiceReference(current);
   const amount = finite(current.amount_ttc ?? current.amount);
@@ -77,6 +83,17 @@ export function evaluateInvoiceControls(
   const tax = finite(current.tva_amount);
   const untaxed = finite(current.amount_ht);
   const discount = finite(current.discount_amount) ?? 0;
+
+  if (unsupportedDocumentType || outgoingInvoice) {
+    checks.push({
+      code: "not_supplier_invoice",
+      severity: "critical",
+      title: "Document non-facture",
+      message: outgoingInvoice
+        ? "Ce document semble être une facture émise par votre entreprise, et non une facture fournisseur. Vérifiez-le ou ignorez-le."
+        : "Ce document ne semble pas être une facture, un reçu ou un avoir fournisseur. Vérifiez-le ou ignorez-le.",
+    });
+  }
 
   if (!supplier) {
     checks.push({

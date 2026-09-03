@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mohasib Accounting Firm pricing</title><link rel="stylesheet" href="mohasib-pricing.css"></head>
+<body><main>
+  <a class="back" href="mohasib-pricing-dext-model.html">← All packages</a>
+  <div class="intro"><h1>Accounting firm</h1><p class="muted">One package for client dossiers managed internally by the firm.</p></div>
+  <div class="detail">
+    <div class="summary"><h2>Firm</h2><div class="price">49 DH <small>/ active client / month</small></div><p class="muted">10-client minimum · 490 DH/month</p><ul>
+      <li>Multi-channel document capture</li><li>OCR and supplier rules</li><li>Bank reconciliation and suggested entries</li><li>Missing-document tracking</li><li>VAT controls and accounting exports</li><li>Portfolio dashboard</li>
+    </ul></div>
+    <div class="calculator">
+      <div class="slider-row"><div><h3>Active client dossiers</h3><span class="muted">Drag to increase the firm allowance</span></div><output id="clients-output">10 clients</output></div>
+      <input id="clients" type="range" min="10" max="150" step="1" value="10" aria-label="Active client dossiers">
+      <div class="metrics"><div class="metric"><strong id="documents">500</strong><span>OCR documents / month</span></div><div class="metric"><strong id="storage">50 GB</strong><span>secure storage</span></div><div class="metric"><strong id="collaborators">2</strong><span>firm collaborators</span></div></div>
+      <div class="calculation"><div class="line"><span id="client-label">10 active client dossiers</span><span>× 49 DH</span></div><div class="line total"><span>Monthly total</span><span id="total">490 DH</span></div></div>
+    </div>
+  </div>
+  <section class="addons-section"><h2>Add-ons</h2><table><thead><tr><th>Add-on</th><th>What it adds</th><th>Price</th></tr></thead><tbody>
+    <tr><td>Mohasib AI Agent</td><td>Dossier review, missing information, exception detection and workflow preparation.</td><td>Price to confirm / client / month</td></tr>
+    <tr><td>Client payroll</td><td>Payroll on selected client dossiers.</td><td>12 DH/active employee/month</td></tr>
+    <tr><td>Extra volume</td><td>Additional extraction capacity.</td><td>Usage-based or monthly bundle</td></tr>
+    <tr><td>Extra collaborator</td><td>Additional firm access.</td><td>99 DH/collaborator/month</td></tr>
+  </tbody></table></section>
+</main>
+<script>const input=document.getElementById('clients'),format=value=>new Intl.NumberFormat('en-US').format(value);function render(){const count=Number(input.value);document.getElementById('clients-output').textContent=`${count} clients`;document.getElementById('documents').textContent=format(count*50);document.getElementById('storage').textContent=`${count*5} GB`;document.getElementById('collaborators').textContent=format(Math.max(2,Math.ceil(count/10)));document.getElementById('client-label').textContent=`${count} active client dossiers`;document.getElementById('total').textContent=`${format(count*49)} DH`;}input.addEventListener('input',render);render();</script>
+</body></html>

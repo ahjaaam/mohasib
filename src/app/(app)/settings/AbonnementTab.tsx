@@ -155,8 +155,6 @@ export default function AbonnementTab({ userId: _userId, userEmail: _userEmail, 
                 ["Clients", Number(company.trial_clients_used ?? 0), TRIAL_LIMITS.clients],
                 ["Transactions", Number(company.trial_transactions_used ?? 0), TRIAL_LIMITS.transactions],
                 ["Écritures", Number(company.trial_accounting_entries_used ?? 0), TRIAL_LIMITS.accounting_entries],
-                ["Rapprochements", Number(company.trial_rapprochement_sessions_used ?? 0), TRIAL_LIMITS.rapprochement_sessions],
-                ["Lignes rapprochées", Number(company.trial_rapprochement_matches_used ?? 0), TRIAL_LIMITS.rapprochement_matches],
               ].map(([label, used, limit]) => {
                 const ratio = Math.min(1, Number(used) / Number(limit));
                 return (

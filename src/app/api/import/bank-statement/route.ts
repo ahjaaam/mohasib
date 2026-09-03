@@ -6,19 +6,29 @@ import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
 import { authorizePermission } from "@/lib/api-permissions";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { BANK_STATEMENT_PDF_MAX_PAGES, countBankStatementPdfPages } from "@/lib/bank-import-limits";
+import {
+  BANK_STATEMENT_PDF_CHUNK_PAGES,
+  BANK_STATEMENT_PDF_CONCURRENCY,
+  addTokenUsage,
+  estimateSonnet46CostUsd,
+  mapWithConcurrency,
+  splitBankStatementPdf,
+  type BankStatementPdfChunk,
+  type BankStatementTokenUsage,
+} from "@/lib/bank-statement-chunks";
+import {
+  BANK_EXPENSE_CATEGORIES,
+  BANK_INCOME_CATEGORIES,
+  resolveBankTransactionCategory,
+} from "@/lib/bank-transaction-category";
 
 const IMPORT_LIMIT = 20;
 const IMPORT_OPTS = { maxAttempts: IMPORT_LIMIT, windowMs: 5 * 60_000, blockMs: 10 * 60_000 };
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const anthropic = new Anthropic();
-
-const CATEGORIES_INCOME = ["Ventes", "Services", "Remboursement", "Autre revenu"];
-const CATEGORIES_EXPENSE = [
-  "Achats", "Salaires", "Loyer", "Fournitures",
-  "Transport", "Communication", "Fiscalité", "Banque", "Autre dépense",
-];
 
 function normalizeDate(d: string | null | undefined): string {
   if (!d) return new Date().toISOString().split("T")[0];
@@ -42,12 +52,6 @@ function normalizeAmount(v: any): number | null {
     .replace(",", ".");          // comma decimal → dot
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
-}
-
-function normalizeCategory(cat: string | null | undefined, amount: number): string {
-  const all = [...CATEGORIES_INCOME, ...CATEGORIES_EXPENSE];
-  if (cat && all.includes(cat)) return cat;
-  return amount >= 0 ? "Autre revenu" : "Autre dépense";
 }
 
 // Robustly extract the first valid JSON object or array from any text
@@ -107,7 +111,8 @@ Return ONLY a valid JSON object with this structure (no markdown, no explanation
       "reference": "reference/operation code if visible, or null",
       "debit": 1500.00,
       "credit": null,
-      "balance": 45000.00
+      "balance": 45000.00,
+      "category": "one allowed category"
     }
   ]
 }
@@ -119,12 +124,30 @@ Rules:
 - Convert "1.500,00" → 1500.00 (European thousands dot + comma decimal)
 - Include EVERY row with a date and amount — do not omit any
 - Copy description text exactly as shown, including Arabic if present
+- Categorize every transaction from its description and operation context.
+- For credits, category MUST be exactly one of: ${BANK_INCOME_CATEGORIES.join(", ")}.
+- For debits, category MUST be exactly one of: ${BANK_EXPENSE_CATEGORIES.join(", ")}.
+- Prefer a specific category whenever the description supports it. Use "Autre revenu" or "Autre dépense" only when no specific category is reasonably supported.
+- Examples: bank fees/commissions/agios → Banque; DGI/TVA/taxes/CNSS → Fiscalité; salaries/payroll → Salaires; fuel/tolls/ONCF/taxi → Transport; Maroc Telecom/Orange/Inwi/internet → Communication; rent/lease → Loyer; supplier purchases/stock → Achats; office supplies → Fournitures; customer settlements/sales receipts → Ventes; consulting/services/honoraires → Services; refunds → Remboursement.
 - Return ONLY the JSON object — nothing else`;
+
+class ExtractionResponseError extends Error {
+  constructor(message: string, readonly usage: BankStatementTokenUsage) {
+    super(message);
+  }
+}
+
+class TruncatedExtractionError extends ExtractionResponseError {
+  constructor(usage: BankStatementTokenUsage) {
+    super("TRUNCATED", usage);
+  }
+}
 
 async function callClaude(
   messages: Anthropic.MessageParam[],
-  bank?: string
-): Promise<{ period: string | null; transactions: any[] }> {
+  bank?: string,
+  context?: { startPage: number; endPage: number; attempt?: number },
+): Promise<{ period: string | null; transactions: any[]; usage: BankStatementTokenUsage }> {
   // Inject bank name hint if provided
   const prompt = bank
     ? EXTRACTION_PROMPT.replace("Moroccan bank statements", `Moroccan bank statements — this one is from ${bank}`)
@@ -148,24 +171,135 @@ async function callClaude(
 
   // Sonnet for document/image blocks; Haiku for plain text (CSV/Excel)
   const isTextOnly = finalMessages.every((m) => typeof m.content === "string");
+  const requestedMaxTokens = isTextOnly ? 8192 : 16000;
+  const startedAt = Date.now();
   const stream = anthropic.messages.stream({
     model: isTextOnly ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-6",
-    max_tokens: isTextOnly ? 8192 : 16000,
+    max_tokens: requestedMaxTokens,
     messages: finalMessages,
   });
   const response = await stream.finalMessage();
 
+  console.info("[bank-statement] extraction completed", {
+    pages: context ? `${context.startPage}-${context.endPage}` : undefined,
+    attempt: context?.attempt ?? 1,
+    requestedMaxTokens,
+    stopReason: response.stop_reason,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    durationMs: Date.now() - startedAt,
+  });
+
   const rawText = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+  const usage = {
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  };
   if (response.stop_reason === "max_tokens") {
-    throw new Error("TRUNCATED");
+    throw new TruncatedExtractionError(usage);
   }
-  const parsed = extractJSON(rawText);
+  let parsed: any;
+  try {
+    parsed = extractJSON(rawText);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new ExtractionResponseError(message, usage);
+  }
 
   // Accept both { transactions: [] } and bare []
   const rawTxs: any[] = Array.isArray(parsed) ? parsed : (parsed.transactions ?? []);
   const period: string | null = parsed.period ?? null;
 
-  return { period, transactions: rawTxs };
+  return { period, transactions: rawTxs, usage };
+}
+
+async function pdfMessages(bytes: Uint8Array): Promise<Anthropic.MessageParam[]> {
+  return [{
+    role: "user",
+    content: [
+      {
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: Buffer.from(bytes).toString("base64"),
+        },
+      } as any,
+      { type: "text" as const, text: EXTRACTION_PROMPT },
+    ] as Anthropic.ContentBlockParam[],
+  }];
+}
+
+async function extractPdfChunk(
+  chunk: BankStatementPdfChunk,
+  bank?: string,
+): Promise<{ period: string | null; transactions: any[]; calls: number; usage: BankStatementTokenUsage }> {
+  try {
+    let lastError: unknown;
+    let failedUsage: BankStatementTokenUsage = { inputTokens: 0, outputTokens: 0 };
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const result = await callClaude(await pdfMessages(chunk.bytes), bank, {
+          startPage: chunk.startPage,
+          endPage: chunk.endPage,
+          attempt,
+        });
+        return { ...result, calls: attempt, usage: addTokenUsage(failedUsage, result.usage) };
+      } catch (error) {
+        if (error instanceof TruncatedExtractionError) throw error;
+        if (error instanceof ExtractionResponseError) {
+          failedUsage = addTokenUsage(failedUsage, error.usage);
+        }
+        lastError = error;
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 1_000));
+      }
+    }
+    throw lastError;
+  } catch (error) {
+    if (!(error instanceof TruncatedExtractionError)) throw error;
+
+    const pageCount = chunk.endPage - chunk.startPage + 1;
+    if (pageCount === 1) {
+      throw new Error(`PAGE_TRUNCATED:${chunk.startPage}`);
+    }
+
+    const smallerChunks = await splitBankStatementPdf(
+      chunk.bytes,
+      Math.ceil(pageCount / 2),
+      chunk.startPage - 1,
+    );
+    console.warn("[bank-statement] splitting truncated PDF chunk", {
+      pages: `${chunk.startPage}-${chunk.endPage}`,
+      nextChunks: smallerChunks.map(item => `${item.startPage}-${item.endPage}`),
+    });
+
+    const results = [];
+    for (const smallerChunk of smallerChunks) {
+      results.push(await extractPdfChunk(smallerChunk, bank));
+    }
+    return {
+      period: results.find(result => result.period)?.period ?? null,
+      transactions: results.flatMap(result => result.transactions),
+      calls: 1 + results.reduce((total, result) => total + result.calls, 0),
+      usage: addTokenUsage(error.usage, ...results.map(result => result.usage)),
+    };
+  }
+}
+
+async function extractPdfInChunks(bytes: Uint8Array, bank?: string) {
+  const chunks = await splitBankStatementPdf(bytes, BANK_STATEMENT_PDF_CHUNK_PAGES);
+  const results = await mapWithConcurrency(
+    chunks,
+    BANK_STATEMENT_PDF_CONCURRENCY,
+    chunk => extractPdfChunk(chunk, bank),
+  );
+  return {
+    period: results.find(result => result.period)?.period ?? null,
+    transactions: results.flatMap(result => result.transactions),
+    initialChunkCount: chunks.length,
+    aiCallCount: results.reduce((total, result) => total + result.calls, 0),
+    usage: addTokenUsage(...results.map(result => result.usage)),
+  };
 }
 
 function normalizeTxs(rawTxs: any[]): any[] {
@@ -187,11 +321,12 @@ function normalizeTxs(rawTxs: any[]): any[] {
         amount = normalizeAmount(t.amount) ?? 0;
       }
 
+      const description = String(t.description ?? "").trim() || "Transaction";
       return {
         date: normalizeDate(t.date),
-        description: String(t.description ?? "").trim() || "Transaction",
+        description,
         amount,
-        category: normalizeCategory(t.category, amount),
+        category: resolveBankTransactionCategory(t.category, amount, description),
         reference: t.reference ? String(t.reference).trim() : null,
       };
     })
@@ -257,20 +392,80 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Build base messages
+  // PDFs are split before extraction so one large statement never depends on a
+  // single, very large JSON response. A truncated chunk is split recursively.
+  if (isPDF) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const pages = countBankStatementPdfPages(bytes);
+    if (pages > BANK_STATEMENT_PDF_MAX_PAGES) {
+      return NextResponse.json(
+        { error: `Ce relevé contient ${pages} pages. Maximum autorisé : ${BANK_STATEMENT_PDF_MAX_PAGES} pages par import.` },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const result = await extractPdfInChunks(bytes, bank);
+      // Chunks never overlap, so retain identical-looking rows: two legitimate
+      // bank operations can have the same date, amount, description, and reference.
+      const transactions = normalizeTxs(result.transactions);
+      if (transactions.length === 0) {
+        return NextResponse.json(
+          { error: "Aucune transaction valide détectée. Vérifiez que le document est bien un relevé bancaire ou importez manuellement." },
+          { status: 422 },
+        );
+      }
+
+      if (company) {
+        await incrementUploadCount(company.id, user.id, {
+          fileName: file.name,
+          fileType: file.type,
+          pageCount: pages,
+          source: "bank_import",
+        });
+      }
+      const estimatedCostUsd = estimateSonnet46CostUsd(result.usage);
+      return NextResponse.json({
+        transactions,
+        period: result.period,
+        count: transactions.length,
+        processing: {
+          pages,
+          initial_chunks: result.initialChunkCount,
+          ai_calls: result.aiCallCount,
+          input_tokens: result.usage.inputTokens,
+          output_tokens: result.usage.outputTokens,
+          total_tokens: result.usage.inputTokens + result.usage.outputTokens,
+          estimated_cost_usd: Number(estimatedCostUsd.toFixed(4)),
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[bank-statement] PDF extraction failed", { pages, message });
+      if (message.toLowerCase().includes("password") || message.toLowerCase().includes("encrypt")) {
+        return NextResponse.json(
+          { error: "Ce PDF est protégé par un mot de passe. Téléchargez une version sans protection depuis votre banque." },
+          { status: 422 },
+        );
+      }
+      if (message.startsWith("PAGE_TRUNCATED:")) {
+        const page = message.split(":")[1];
+        return NextResponse.json(
+          { error: `La page ${page} contient trop de lignes pour être extraite complètement. Exportez le relevé en CSV ou importez cette page séparément.` },
+          { status: 422 },
+        );
+      }
+      return NextResponse.json(
+        { error: `Erreur d'analyse du relevé (${message.slice(0, 100)}).` },
+        { status: 422 },
+      );
+    }
+  }
+
+  // Build base messages for CSV, Excel, and images.
   let baseMessages: Anthropic.MessageParam[];
 
-  if (isPDF) {
-    const bytes = await file.arrayBuffer();
-    const base64 = Buffer.from(bytes).toString("base64");
-    baseMessages = [{
-      role: "user",
-      content: [
-        { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } } as any,
-        { type: "text" as const, text: EXTRACTION_PROMPT },
-      ] as Anthropic.ContentBlockParam[],
-    }];
-  } else if (isCSV || isXLSX || isXLS) {
+  if (isCSV || isXLSX || isXLS) {
     let csvText: string;
     if (isXLSX || isXLS) {
       const bytes = await file.arrayBuffer();
@@ -347,6 +542,7 @@ export async function POST(req: NextRequest) {
         ? "Format de réponse inattendu."
         : `Erreur d'analyse (${msg.slice(0, 80)})`;
 
+      if (msg === "TRUNCATED") break;
       if (attempt < MAX_ATTEMPTS) await sleep(1000);
     }
   }

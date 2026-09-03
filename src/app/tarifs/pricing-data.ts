@@ -39,7 +39,7 @@ export const PRICING_PACKAGES: PricingPackage[] = [
     features: [
       "Factures, devis, avoirs et relances",
       "Capture de documents et OCR",
-      "Import bancaire et rapprochement",
+      "Import bancaire et suivi des transactions",
       "Écritures automatiques, CGNC et TVA",
       "Tableau de bord, trésorerie, bilan et CPC",
       "Accès comptable et exports",
@@ -70,7 +70,7 @@ export const PRICING_PACKAGES: PricingPackage[] = [
     features: [
       "Collecte multicanale des documents",
       "OCR et règles fournisseurs",
-      "Rapprochement bancaire et écritures suggérées",
+      "Transactions bancaires et écritures suggérées",
       "Suivi des pièces manquantes",
       "Contrôles TVA et exports comptables",
       "Tableau de bord du portefeuille",

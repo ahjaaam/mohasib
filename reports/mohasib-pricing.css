@@ -1,0 +1,54 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: #fff; color: #111; font: 14px/1.45 Arial, Helvetica, sans-serif; }
+main { width: min(920px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0 80px; }
+h1, h2, h3, p { margin-top: 0; }
+h1 { margin-bottom: 8px; font-size: 26px; font-weight: 600; letter-spacing: -.03em; }
+h2 { margin-bottom: 6px; font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+h3 { margin-bottom: 5px; font-size: 15px; font-weight: 600; }
+.muted { color: #777; }
+.intro { max-width: 620px; margin-bottom: 38px; }
+.intro p { margin-bottom: 0; }
+.back { display: inline-block; margin-bottom: 36px; color: #555; font-size: 12px; text-decoration: none; }
+.back:hover { text-decoration: underline; }
+.package-list { border-top: 1px solid #d8d8d8; }
+.package-card { display: grid; grid-template-columns: 180px 1fr auto; gap: 24px; align-items: center; min-height: 148px; border-bottom: 1px solid #d8d8d8; padding: 24px 12px; color: inherit; text-decoration: none; }
+.package-card:hover { background: #fafafa; }
+.package-card h2, .package-card p { margin: 0; }
+.package-card p { max-width: 480px; color: #777; font-size: 12px; }
+.package-price { text-align: right; font-size: 19px; font-weight: 600; }
+.package-price small { display: block; margin-top: 3px; color: #777; font-size: 10px; font-weight: 400; }
+.detail { border: 1px solid #d8d8d8; display: grid; grid-template-columns: 1fr 1fr; }
+.summary, .calculator { padding: 28px; }
+.calculator { border-left: 1px solid #d8d8d8; }
+.price { margin: 24px 0; font-size: 36px; font-weight: 600; letter-spacing: -.04em; }
+.price small { color: #777; font-size: 12px; font-weight: 400; letter-spacing: 0; }
+ul { margin: 18px 0 0; padding-left: 18px; }
+li + li { margin-top: 6px; }
+.slider-row { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
+output { font-weight: 600; }
+input[type="range"] { width: 100%; margin: 18px 0 22px; accent-color: #111; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #ddd; }
+.metric { padding: 14px; }
+.metric + .metric { border-left: 1px solid #ddd; }
+.metric strong { display: block; font-size: 17px; font-weight: 600; }
+.metric span { color: #777; font-size: 11px; }
+.calculation { margin-top: 22px; border-top: 1px solid #ddd; padding-top: 14px; }
+.line { display: flex; justify-content: space-between; gap: 20px; padding: 5px 0; }
+.line.total { margin-top: 8px; border-top: 1px solid #111; padding-top: 12px; font-weight: 600; }
+.addons-section { margin-top: 32px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid #d8d8d8; padding: 13px 14px; text-align: left; vertical-align: top; }
+th { background: #fafafa; font-size: 12px; font-weight: 600; }
+td { font-size: 13px; }
+td:first-child { width: 25%; font-weight: 600; }
+td:last-child { width: 30%; }
+.note { margin-top: 36px; border-top: 1px solid #ddd; padding-top: 14px; color: #777; font-size: 11px; }
+@media (max-width: 700px) {
+  main { padding-top: 28px; }
+  .package-card { grid-template-columns: 1fr; gap: 8px; }
+  .package-price { text-align: left; }
+  .detail { grid-template-columns: 1fr; }
+  .calculator { border-left: 0; border-top: 1px solid #d8d8d8; }
+  .metrics { grid-template-columns: 1fr; }
+  .metric + .metric { border-left: 0; border-top: 1px solid #ddd; }
+}

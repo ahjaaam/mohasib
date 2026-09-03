@@ -48,7 +48,7 @@ const sections: LegalSection[] = [
           <li>OCR et extraction de données depuis des documents ;</li>
           <li>aide au calcul des déclarations TVA ;</li>
           <li>gestion de la paie et préparation de bulletins ;</li>
-          <li>rapprochement bancaire ;</li>
+          <li>import et suivi des transactions bancaires ;</li>
           <li>exports comptables ;</li>
           <li>assistant IA et assistant WhatsApp lorsque ces fonctionnalités sont activées.</li>
         </ul>

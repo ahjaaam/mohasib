@@ -74,7 +74,6 @@ const FREE_PLAN_ROUTES = [
   "/clients",
   "/parametres",
   "/settings",
-  "/notifications",
 ] as const;
 
 export function isFreePlan(plan: string | null | undefined) {

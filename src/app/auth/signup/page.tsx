@@ -17,7 +17,7 @@ const NEED_OPTIONS = [
   "Achats et OCR",
   "TVA et déclarations",
   "Suivi des échéances",
-  "Transactions et rapprochement",
+  "Transactions bancaires",
   "Écritures automatiques",
   "Paie",
   "Archivage et exports",

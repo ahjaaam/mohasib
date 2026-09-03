@@ -17,6 +17,7 @@ import SortableTh, { compareValues, nextSort, type SortDirection } from "@/compo
 import RevenueExpenseChart from "@/app/(app)/dashboard/RevenueExpenseChart";
 import { buildFinanceChartData } from "@/lib/finance-chart";
 import { periodForPreset } from "@/lib/global-period";
+import { BANK_STATEMENT_PDF_MAX_PAGES } from "@/lib/bank-import-limits";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
@@ -36,12 +37,13 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const entitlements = usePlanEntitlements();
   const searchParams = useSearchParams();
   const requestedSearch = searchParams.get("search") ?? "";
+  const requestedAction = searchParams.get("action");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [addTransactionOpen, setAddTransactionOpen] = useState(false);
+  const [addTransactionOpen, setAddTransactionOpen] = useState(requestedAction === "expense");
   const [bankImportOpen, setBankImportOpen] = useState(false);
   const [allocationTransaction, setAllocationTransaction] = useState<Transaction | null>(null);
   const [allocationCounts, setAllocationCounts] = useState<Record<string, number>>({});
@@ -72,7 +74,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [form, setForm] = useState({
     date: today,
     desc: "",
-    cat: "Revenu",
+    cat: requestedAction === "expense" ? "Autre dépense" : "Revenu",
     amount: "",
     piece: "",
   });
@@ -468,7 +470,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
               <Plus size={13} /> Importer un relevé
             </button>
             <div className="absolute right-0 top-full mt-1.5 bg-[#0D1526] text-white text-[11px] rounded-md px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-              PDF max 8 pages · CSV max 200 lignes
+              PDF max {BANK_STATEMENT_PDF_MAX_PAGES} pages · CSV max 200 lignes
             </div>
           </div>}
         </div>

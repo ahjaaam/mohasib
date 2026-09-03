@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mohasib Collaborative pricing</title><link rel="stylesheet" href="mohasib-pricing.css"></head>
+<body><main>
+  <a class="back" href="mohasib-pricing-dext-model.html">← All packages</a>
+  <div class="intro"><h1>Collaborative</h1><p class="muted">One shared account where the company and its accountant work on the same data.</p></div>
+  <div class="detail">
+    <div class="summary"><h2>Collaborative workspace</h2><div class="price">149 DH <small>/ workspace / month</small></div><ul>
+      <li>Company invoicing and payment tracking</li><li>Shared document inbox and OCR</li><li>Bank reconciliation and suggested entries</li><li>Company review and accountant validation</li><li>VAT preparation and accounting exports</li><li>Roles, approvals and activity history</li>
+    </ul></div>
+    <div class="calculator">
+      <div class="slider-row"><div><h3>Shared company accounts</h3><span class="muted">One payer per workspace — never both</span></div><output id="workspaces-output">1 workspace</output></div>
+      <input id="workspaces" type="range" min="1" max="100" step="1" value="1" aria-label="Shared workspaces">
+      <div class="metrics"><div class="metric"><strong id="documents">100</strong><span>OCR documents / month</span></div><div class="metric"><strong id="company-users">1</strong><span>company user / workspace</span></div><div class="metric"><strong>Included</strong><span>accountant access</span></div></div>
+      <div class="calculation"><div class="line"><span id="workspace-label">1 shared workspace</span><span>× 149 DH</span></div><div class="line total"><span>Monthly total</span><span id="total">149 DH</span></div></div>
+    </div>
+  </div>
+  <section class="addons-section"><h2>Add-ons</h2><table><thead><tr><th>Add-on</th><th>What it adds</th><th>Price</th></tr></thead><tbody>
+    <tr><td>Mohasib AI Agent</td><td>Answers the company and accountant from the same shared data with role-aware guidance.</td><td>Price to confirm / workspace / month</td></tr>
+    <tr><td>Payroll</td><td>Payroll enabled for the shared company.</td><td>49 DH/month + 12 DH/employee</td></tr>
+    <tr><td>Extra company user</td><td>Additional operational access.</td><td>99 DH/user/month</td></tr>
+    <tr><td>Extra volume</td><td>OCR above the included allowance.</td><td>Usage-based</td></tr>
+  </tbody></table></section>
+</main>
+<script>const input=document.getElementById('workspaces'),format=value=>new Intl.NumberFormat('en-US').format(value);function render(){const count=Number(input.value);document.getElementById('workspaces-output').textContent=`${count} workspace${count===1?'':'s'}`;document.getElementById('documents').textContent=format(count*100);document.getElementById('company-users').textContent=format(count);document.getElementById('workspace-label').textContent=`${count} shared workspace${count===1?'':'s'}`;document.getElementById('total').textContent=`${format(count*149)} DH`;}input.addEventListener('input',render);render();</script>
+</body></html>

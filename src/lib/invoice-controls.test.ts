@@ -2,6 +2,45 @@ import { describe, expect, it } from "vitest";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity } from "./invoice-controls";
 
 describe("evaluateInvoiceControls", () => {
+  it("flags a non-invoice document uploaded to purchases as an anomaly", () => {
+    const checks = evaluateInvoiceControls({
+      document_type: "delivery_note",
+      vendor_name: "Atlas SARL",
+      date: "2026-08-01",
+      amount: 1200,
+    });
+    expect(checks).toContainEqual(expect.objectContaining({
+      code: "not_supplier_invoice",
+      severity: "critical",
+      title: "Document non-facture",
+    }));
+    expect(highestInvoiceControlSeverity(checks)).toBe("critical");
+  });
+
+  it("flags an outgoing invoice uploaded to purchases as an anomaly", () => {
+    const checks = evaluateInvoiceControls({
+      document_type: "invoice",
+      is_supplier_invoice: false,
+      vendor_name: "ACME SARL",
+      receipt_number: "FAC-1",
+      date: "2026-08-01",
+      amount: 1200,
+    });
+    expect(checks).toContainEqual(expect.objectContaining({ code: "not_supplier_invoice", severity: "critical" }));
+  });
+
+  it("accepts receipts used as expense evidence", () => {
+    const checks = evaluateInvoiceControls({
+      document_type: "receipt",
+      is_supplier_invoice: false,
+      vendor_name: "Café Atlas",
+      receipt_number: "T-42",
+      date: "2026-08-01",
+      amount: 80,
+    });
+    expect(checks).not.toContainEqual(expect.objectContaining({ code: "not_supplier_invoice" }));
+  });
+
   it("detects a duplicate supplier invoice number", () => {
     const checks = evaluateInvoiceControls(
       { vendor_name: "Atlas SARL", receipt_number: "FA-2026-18", date: "2026-08-01", amount: -1200, tva_rate: 20 },

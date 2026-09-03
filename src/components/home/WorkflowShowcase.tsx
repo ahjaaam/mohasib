@@ -32,17 +32,17 @@ function SupplierVisual() {
   );
 }
 
-function BankVisual() {
+function TransactionsVisual() {
   return (
     <div className={styles.visualStack}>
       <div className={styles.panel}>
         <div className={styles.panelHeading}><span>Relevé — Attijariwafa</span><span>Août</span></div>
-        <div className={styles.transaction}><span>Virement Sotrafil</span><strong>-14 400,00</strong><Status tone="success">Rapproché</Status></div>
-        <div className={`${styles.transaction} ${styles.highlight}`}><span>Paiement TPE 04/08</span><strong>-2 180,00</strong><Status tone="warning">Suggéré</Status></div>
-        <div className={styles.transaction}><span>Prélèvement CNSS</span><strong>-8 940,00</strong><Status tone="neutral">À vérifier</Status></div>
+        <div className={styles.transaction}><span>Virement Sotrafil</span><strong>-14 400,00</strong><Status tone="success">Classée</Status></div>
+        <div className={`${styles.transaction} ${styles.highlight}`}><span>Paiement TPE 04/08</span><strong>-2 180,00</strong><Status tone="warning">À catégoriser</Status></div>
+        <div className={styles.transaction}><span>Prélèvement CNSS</span><strong>-8 940,00</strong><Status tone="neutral">Importée</Status></div>
       </div>
       <div className={`${styles.darkPanel} ${styles.matchLine}`}>
-        <Landmark size={14} /><span>Paiement TPE ↔ Reçu R-2026-118</span><small>96 %</small>
+        <Landmark size={14} /><span>128 mouvements importés</span><small>Août</small>
       </div>
     </div>
   );
@@ -128,7 +128,7 @@ function PayrollVisual() {
 
 const workflows = [
   { label: "Achats et notes de frais", title: "Passez de la facture reçue à l’écriture préparée", description: "Mohasib collecte vos pièces, extrait les données utiles et prépare la saisie. Vous contrôlez avant validation.", icon: Mail, visual: SupplierVisual },
-  { label: "Rapprochement bancaire", title: "Retrouvez la note de frais de chaque transaction", description: "Mohasib rapproche relevés, paiements et pièces, puis vous présente uniquement les correspondances à confirmer.", icon: Landmark, visual: BankVisual },
+  { label: "Transactions bancaires", title: "Centralisez et organisez vos mouvements bancaires", description: "Mohasib importe vos transactions et rassemble les informations utiles pour faciliter leur suivi et leur classement.", icon: Landmark, visual: TransactionsVisual },
   { label: "Facturation et recouvrement", title: "Suivez chaque facture jusqu’au paiement", description: "Créez vos factures, suivez leurs échéances et préparez vos relances dans le même espace.", icon: FileText, visual: BillingVisual },
   { label: "Pilotage financier", title: "Repérez rapidement ce qui mérite votre attention", description: "Suivez vos indicateurs à jour et identifiez les écarts à analyser sans reconstruire vos tableaux à la main.", icon: BarChart3, visual: FinanceVisual },
   { label: "TVA et exports comptables", title: "Préparez une TVA plus simple à contrôler", description: "Mohasib vérifie les écritures, réunit les pièces et prépare les exports avant votre validation.", icon: ShieldCheck, visual: VatVisual },

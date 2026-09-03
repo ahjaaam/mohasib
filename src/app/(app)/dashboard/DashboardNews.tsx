@@ -30,11 +30,12 @@ export default function DashboardNews({
       const dueDate = parseDeadlineDate(item.date);
       return { ...item, dueDate, daysUntil: daysUntilDate(dueDate, now) };
     })
+    .filter(item => item.daysUntil >= 0)
     .sort((a, b) => a.daysUntil - b.daysUntil)
-    .slice(0, 6);
+    .slice(0, 4);
 
   return (
-    <div className="grid h-[210px] auto-rows-fr grid-cols-2 overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white">
+    <div className="grid flex-1 auto-rows-fr grid-cols-2 overflow-hidden border border-[rgba(0,0,0,0.08)] bg-white">
       {deadlines.length === 0 && (
         <div className="col-span-2 flex h-full flex-col items-center justify-center px-4 text-center">
           <div className="text-[12px] font-semibold text-[#1A1A2E]">Aucune échéance à venir</div>
@@ -51,23 +52,13 @@ export default function DashboardNews({
           : approaching
             ? "bg-[#FFF7E8] text-[#9A631C]"
             : "bg-[#F1F3F6] text-[#39445A]";
-        const statusLabel = days < 0
-          ? "En retard"
-          : days === 0
-            ? "Aujourd'hui"
-            : `-${days}j`;
-
-        return (
-          <a
-            key={d.id}
-            href={d.link || undefined}
-            target={d.link ? "_blank" : undefined}
-            rel={d.link ? "noopener noreferrer" : undefined}
-            className={`flex min-w-0 items-center gap-2.5 px-3 py-2 no-underline transition-colors hover:bg-[#FAFAF6] ${
-              index % 2 === 1 ? "border-l border-[rgba(0,0,0,0.07)]" : ""
-            } ${index >= 2 ? "border-t border-[rgba(0,0,0,0.07)]" : ""}`}
-            aria-label={`${d.title}, ${d.dueDate.toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" })}, ${statusLabel}`}
-          >
+        const statusLabel = days === 0 ? "Aujourd'hui" : `J-${days}`;
+        const cardClassName = `flex min-w-0 items-center gap-2.5 px-3 py-2 no-underline transition-colors ${
+          index % 2 === 1 ? "border-l border-[rgba(0,0,0,0.07)]" : ""
+        } ${index >= 2 ? "border-t border-[rgba(0,0,0,0.07)]" : ""}`;
+        const accessibleLabel = `${d.title}, ${d.dueDate.toLocaleDateString("fr-MA", { day: "numeric", month: "long", year: "numeric" })}, ${statusLabel}`;
+        const content = (
+          <>
             <time
               dateTime={d.date}
               className="flex h-10 w-10 flex-shrink-0 flex-col items-center justify-center leading-none"
@@ -92,7 +83,24 @@ export default function DashboardNews({
                 {statusLabel}
               </span>
             </div>
+          </>
+        );
+
+        return d.link ? (
+          <a
+            key={d.id}
+            href={d.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${cardClassName} cursor-pointer hover:bg-[#FAFAF6]`}
+            aria-label={accessibleLabel}
+          >
+            {content}
           </a>
+        ) : (
+          <div key={d.id} className={`${cardClassName} cursor-default`} aria-label={accessibleLabel}>
+            {content}
+          </div>
         );
       })}
     </div>

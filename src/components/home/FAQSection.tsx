@@ -14,12 +14,12 @@ const questions = [
   {
     question: "L’IA remplace-t-elle mon comptable ?",
     answer:
-      "Non. L’IA prépare les tâches répétitives comme la lecture des pièces, le classement et les rapprochements suggérés. Vous gardez la responsabilité des validations et votre comptable reste votre interlocuteur pour le contrôle et le conseil.",
+      "Non. L’IA prépare les tâches répétitives comme la lecture des pièces, le classement et la préparation des écritures. Vous gardez la responsabilité des validations et votre comptable reste votre interlocuteur pour le contrôle et le conseil.",
   },
   {
     question: "Puis-je suivre mes paiements et mes échéances ?",
     answer:
-      "Oui. Mohasib réunit factures, règlements et transactions pour faire ressortir les montants dus, les échéances à venir et les paiements à rapprocher.",
+      "Oui. Mohasib réunit factures, règlements et transactions pour faire ressortir les montants dus, les échéances à venir et les paiements à enregistrer.",
   },
   {
     question: "Puis-je collaborer avec mon expert-comptable ?",

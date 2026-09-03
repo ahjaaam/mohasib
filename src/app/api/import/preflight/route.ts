@@ -2,24 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { authorizePermission } from "@/lib/api-permissions";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { BANK_STATEMENT_PDF_MAX_PAGES, countBankStatementPdfPages } from "@/lib/bank-import-limits";
 
-const PDF_MAX_PAGES = 8;
 const CSV_MAX_ROWS = 200;
 const TOKENS_PER_PAGE = 2000;
 const HAIKU_COST_PER_M = 0.80; // USD per million input tokens
 const MAD_PER_USD = 10;
-
-function countPDFPages(buffer: Buffer): number {
-  const str = buffer.toString("latin1");
-  // Highest /Count value in the page tree = total pages
-  const countMatches = [...str.matchAll(/\/Count\s+(\d+)/g)];
-  if (countMatches.length > 0) {
-    return Math.max(...countMatches.map((m) => parseInt(m[1], 10)));
-  }
-  // Fallback: count /Type /Page objects (not /Pages catalog)
-  const pageMatches = str.match(/\/Type\s*\/Page[^s]/g);
-  return pageMatches?.length ?? 1;
-}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -86,20 +74,19 @@ export async function POST(req: NextRequest) {
 
   // PDF: count pages
   if (isPDF) {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const pages = countPDFPages(buffer);
+    const pages = countBankStatementPdfPages(await file.arrayBuffer());
     const estimatedTransactions = Math.round(pages * 8);
     const costUSD = (pages * TOKENS_PER_PAGE / 1_000_000) * HAIKU_COST_PER_M;
     const costMAD = costUSD * MAD_PER_USD;
     const estimatedCostMAD = costMAD < 0.01 ? "< 0,01" : costMAD.toFixed(2);
 
-    if (pages > PDF_MAX_PAGES) {
+    if (pages > BANK_STATEMENT_PDF_MAX_PAGES) {
       return NextResponse.json({
         type: "pdf",
         pages,
         withinLimits: false,
         error: "too_large",
-        message: `Ce relevé contient ${pages} pages. Maximum recommandé : ${PDF_MAX_PAGES} pages par import. Importez par trimestre plutôt qu'à l'annuel.`,
+        message: `Ce relevé contient ${pages} pages. Maximum autorisé : ${BANK_STATEMENT_PDF_MAX_PAGES} pages par import. Divisez le fichier en plusieurs imports.`,
       });
     }
 
