@@ -375,7 +375,6 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
   const [docs, setDocs] = useState<ArchiveDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ArchiveDoc | null>(null);
-  const [resolving, setResolving] = useState(false);
   const [tab, setTab] = useState<TabKey>("all");
   const [searchState, setSearchState] = useState({ source: requestedSearch, value: requestedSearch });
   const search = searchState.source === requestedSearch ? searchState.value : requestedSearch;
@@ -425,7 +424,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         name: vendor ? `${vendor} — ${new Date(rec.created_at).toLocaleDateString("fr-MA")}` : (rec.file_name ?? "Reçu"),
         type: "recu",
         date: rec.created_at,
-        url: null, // resolved on select
+        url: `/api/receipts/${rec.id}/content`,
         mime_type: rec.mime_type ?? undefined,
         amount: amount ?? undefined,
         status: rec.status,
@@ -483,24 +482,8 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
     }
   }
 
-  // ── Resolve URL on select ─────────────────────────────────────────────────
-
-  async function selectDoc(doc: ArchiveDoc) {
+  function selectDoc(doc: ArchiveDoc) {
     setSelected(doc);
-    if (doc.url) return; // already resolved
-
-    setResolving(true);
-    try {
-      if (doc.type === "recu" && doc.storage_path) {
-        const { data } = await supabase.storage.from("receipts")
-          .createSignedUrl(doc.storage_path, 5 * 60);
-        const resolved = { ...doc, url: data?.signedUrl ?? null };
-        setDocs((prev) => prev.map((d) => d.id === doc.id ? resolved : d));
-        setSelected(resolved);
-      }
-    } finally {
-      setResolving(false);
-    }
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────
@@ -706,18 +689,11 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         {/* ── Right Panel ─────────────────────────────────────────────────── */}
         <div className={`${selected ? "block" : "hidden md:block"} min-w-0 flex-1 overflow-hidden`}>
           {selected ? (
-            resolving ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3">
-                <Loader2 size={28} className="animate-spin text-[#C8924A]" />
-                <p className="text-[12.5px] text-[#6B7280]">Chargement de l'aperçu...</p>
-              </div>
-            ) : (
             <PreviewPanel
               doc={selected}
               onClose={() => setSelected(null)}
               onDelete={deleteDoc}
             />
-            )
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
               <FolderOpen size={56} className="text-[#6B7280]/20 mb-4" />

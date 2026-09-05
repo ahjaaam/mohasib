@@ -1,9 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import ReceiptsManager from "@/app/(app)/receipts/ReceiptsManager";
+import InboxPage from "@/app/(app)/inbox/page";
 
 export default function DossierReceiptsPage() {
   const params = useParams();
-  return <ReceiptsManager dossierId={params.id as string} />;
+  return <InboxPage dossierId={params.id as string} workspace="expenses" />;
 }

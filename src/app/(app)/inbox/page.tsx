@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { visibleDocumentAreas } from "@/lib/document-area";
 import type { Receipt, OcrData } from "@/types";
-import { TRANSACTION_CATEGORIES } from "@/lib/utils";
-import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
+import { normalizeExpenseCategory, TRANSACTION_CATEGORIES } from "@/lib/utils";
+import { cgncAccounts, categoryToCompte, expenseNoteCategoryToCompte } from "@/lib/cgnc-accounts";
 import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "@/lib/purchase-booking";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceControlCheck } from "@/lib/invoice-controls";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
@@ -105,6 +105,7 @@ type Tab = "pending" | "matched" | "suppliers" | "ignored";
 interface ReceiptWithUrl extends Receipt { signedUrl?: string; }
 
 interface CardForm {
+  supplier: string;
   amount: string;
   discount_amount: string;
   category: string;
@@ -135,11 +136,11 @@ interface SupplierSummary {
   latestDate: string;
 }
 
-function supplierSummaries(receipts: ReceiptWithUrl[]): SupplierSummary[] {
+function supplierSummaries(receipts: ReceiptWithUrl[], includeNonSupplier = false): SupplierSummary[] {
   const suppliers = new Map<string, SupplierSummary>();
 
   for (const receipt of receipts) {
-    if (receipt.status === "ignored" || receipt.ocr_data.is_supplier_invoice === false) continue;
+    if (receipt.status === "ignored" || (!includeNonSupplier && receipt.ocr_data.is_supplier_invoice === false)) continue;
     const name = (receipt.ocr_data.vendor_name ?? receipt.ocr_data.vendor ?? "").trim();
     if (!name) continue;
 
@@ -186,7 +187,7 @@ function supplierSummaries(receipts: ReceiptWithUrl[]): SupplierSummary[] {
 }
 
 
-function initForm(ocr: OcrData): CardForm {
+function initForm(ocr: OcrData, expenseNotes = false): CardForm {
   const vendor = ocr.vendor_name ?? ocr.vendor ?? "";
   const desc = ocr.description ?? "";
   const signedAmt = typeof ocr.amount === "number"
@@ -194,17 +195,19 @@ function initForm(ocr: OcrData): CardForm {
     : ocr.type === "expense" && ocr.amount != null
       ? String(-Math.abs(ocr.amount))
       : String(ocr.amount ?? "");
-  const category = ocr.category ?? "Achats";
-  const compte = ocr.compte ?? categoryToCompte[category] ?? "";
-  const tvaRate = ocr.tva_rate ?? (ocr.amount != null ? 20 : null);
+  const category = expenseNotes ? normalizeExpenseCategory(ocr.category) : ocr.category ?? "Achats";
+  const categoryAccount = (expenseNotes ? expenseNoteCategoryToCompte : categoryToCompte)[category] ?? "";
+  const compte = expenseNotes && ocr.compte === "6111" ? categoryAccount : ocr.compte ?? categoryAccount;
+  const tvaRate = ocr.tva_rate ?? (!expenseNotes && ocr.amount != null ? 20 : null);
   const invoiceDate = ocr.date ?? new Date().toISOString().split("T")[0];
   return {
+    supplier: vendor,
     amount: signedAmt,
     discount_amount: String(ocr.discount_amount ?? ""),
     category,
     description: vendor ? (desc ? `${vendor} — ${desc}` : vendor) : desc,
     date: invoiceDate,
-    due_date: ocr.due_date ?? addDays(invoiceDate, 60),
+    due_date: ocr.due_date ?? (expenseNotes ? "" : addDays(invoiceDate, 60)),
     tva_rate: String(tvaRate ?? ""),
     compte_comptable: compte,
   };
@@ -282,7 +285,18 @@ function ApprovalBadge({ status }: { status?: Receipt["approval_status"] }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: string; inboxEmail?: string | null } = {}) {
+type InboxWorkspace = "purchases" | "expenses";
+
+export default function InboxPage({
+  dossierId,
+  inboxEmail,
+  workspace = "purchases",
+}: {
+  dossierId?: string;
+  inboxEmail?: string | null;
+  workspace?: InboxWorkspace;
+} = {}) {
+  const isExpenseNotes = workspace === "expenses";
   const ownerId = useAccountOwnerId();
   const { period: globalPeriod } = useGlobalPeriod();
   const supabase = createClient();
@@ -315,7 +329,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     const receiptsQuery = supabase
       .from("receipts")
       .select("*")
-      .in("document_area", visibleDocumentAreas("purchases"))
+      .in("document_area", visibleDocumentAreas(workspace))
       .order("created_at", { ascending: false });
     const { data } = await (dossierId
       ? receiptsQuery.eq("dossier_id", dossierId)
@@ -325,7 +339,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       let signedUrl: string | undefined;
       if (r.storage_path) {
         const { data: urlData } = await supabase.storage
-          .from("receipts").createSignedUrl(r.storage_path, 5 * 60);
+          .from("receipts").createSignedUrl(r.storage_path, 60 * 60);
         signedUrl = urlData?.signedUrl ?? undefined;
       }
       return {
@@ -336,21 +350,21 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
           r.ocr_data,
           list.filter(item => item.id !== r.id && String(item.created_at ?? "") < String(r.created_at ?? "")),
         ),
-        signedUrl: signedUrl ?? sessionLocalUrls[r.id],
+        signedUrl: sessionLocalUrls[r.id] ?? signedUrl,
       };
     }));
     setReceipts(withUrls);
     setForms((prev) => {
       const next = { ...prev };
       withUrls.filter((r) => r.status === "pending").forEach((r) => {
-        if (!next[r.id]) next[r.id] = initForm(r.ocr_data);
+        if (!next[r.id]) next[r.id] = initForm(r.ocr_data, isExpenseNotes);
       });
       return next;
     });
 
 
     setLoading(false);
-  }, [dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dossierId, workspace]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -408,7 +422,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "processing" } : f));
         const fd = new FormData();
         fd.append("file", file);
-        fd.append("document_area", "purchase");
+        fd.append("document_area", isExpenseNotes ? "supporting_document" : "purchase");
         if (dossierId) fd.append("dossier_id", dossierId);
         const res = await fetch("/api/ocr", { method: "POST", body: fd });
         const json = await res.json();
@@ -473,7 +487,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     }
     setSaving((s) => new Set([...s, id]));
 
-    const isAvoir = (receipt.ocr_data as any).document_type === "avoir";
+    const isAvoir = !isExpenseNotes && (receipt.ocr_data as any).document_type === "avoir";
 
     if (isAvoir) {
       const { ht, tva, ttc } = computeAmounts(receipt.ocr_data);
@@ -493,7 +507,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         user_id: userId,
         ...(dossierId ? { dossier_id: dossierId } : {}),
         numero_interne: numero,
-        fournisseur: receipt.ocr_data.vendor_name ?? receipt.ocr_data.vendor ?? form.description ?? "Fournisseur",
+        fournisseur: form.supplier || receipt.ocr_data.vendor_name || receipt.ocr_data.vendor || form.description || "Fournisseur",
         ref_fournisseur: receipt.ocr_data.receipt_number ?? null,
         date: form.date,
         montant_ht: ht,
@@ -510,9 +524,16 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         setSaving((s) => { s.delete(id); return new Set(s); });
         return;
       }
-      await supabase.from("receipts").update({ status: "matched" }).eq("id", id);
+      await supabase.from("receipts").update({
+        status: "matched",
+        ocr_data: {
+          ...receipt.ocr_data,
+          vendor_name: form.supplier.trim() || null,
+          vendor: form.supplier.trim() || null,
+        },
+      }).eq("id", id);
       setSaving((s) => { s.delete(id); return new Set(s); });
-      if (previewReceipt?.id === id) setPreviewReceipt(null);
+      advanceReviewAfterAction(id);
       dismissCard(id);
       toast.success(`Avoir fournisseur ${numero} enregistré !`);
       return;
@@ -531,9 +552,16 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
+    if (isExpenseNotes && !form.compte_comptable) {
+      toast.error("Sélectionnez le compte comptable correspondant à la nature de la dépense.");
+      setSaving((s) => { s.delete(id); return new Set(s); });
+      return;
+    }
     const confirmedAmounts = computePurchaseAmounts({ amount: amt, discount_amount: discountAmount, tva_rate: tvaRate });
     const confirmedOcr = {
       ...receipt.ocr_data,
+      vendor_name: form.supplier.trim() || null,
+      vendor: form.supplier.trim() || null,
       amount: amt,
       type: amt >= 0 ? "income" : "expense",
       date: form.date,
@@ -546,7 +574,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       discount_amount: confirmedAmounts.discountAmount,
       compte: form.compte_comptable || (receipt.ocr_data as any).compte || null,
     };
-    const shouldBookPurchase = shouldBookConfirmedPurchase(confirmedOcr);
+    const shouldBookPurchase = isExpenseNotes || shouldBookConfirmedPurchase(confirmedOcr);
     const { error: ocrUpdateError } = await supabase
       .from("receipts")
       .update({ ocr_data: confirmedOcr })
@@ -581,7 +609,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       .update({ status: "matched" })
       .eq("id", id);
     if (statusUpdateError) {
-      toast.error("La note de frais est comptabilisée, mais son statut n'a pas pu être mis à jour.");
+      toast.error(`${isExpenseNotes ? "La note de frais" : "La facture"} est comptabilisée, mais son statut n'a pas pu être mis à jour.`);
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
@@ -589,12 +617,12 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
     }
     setSaving((s) => { s.delete(id); return new Set(s); });
-    if (previewReceipt?.id === id) setPreviewReceipt(null);
+    advanceReviewAfterAction(id);
     dismissCard(id);
     if (shouldBookPurchase) {
-      toast.success("Facture fournisseur comptabilisée et ajoutée au suivi fournisseurs !");
+      toast.success(isExpenseNotes ? "Note de frais comptabilisée !" : "Facture fournisseur comptabilisée et ajoutée au suivi fournisseurs !");
     } else {
-      toast.success("Facture fournisseur confirmée !");
+      toast.success(isExpenseNotes ? "Note de frais confirmée !" : "Facture fournisseur confirmée !");
     }
   }
 
@@ -622,6 +650,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     });
     const editedOcr: OcrData = {
       ...receipt.ocr_data,
+      vendor_name: form.supplier.trim() || null,
+      vendor: form.supplier.trim() || null,
       amount,
       type: amount >= 0 ? "income" : "expense",
       date: form.date,
@@ -657,12 +687,17 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       next.delete(id);
       return next;
     });
-    toast.success("Modifications enregistrées — la facture reste à traiter.");
+    toast.success(`Modifications enregistrées — ${isExpenseNotes ? "la note de frais" : "la facture"} reste à traiter.`);
+    advanceReviewAfterAction(id);
   }
 
   async function ignoreReceipt(id: string) {
-    await supabase.from("receipts").update({ status: "ignored" }).eq("id", id);
-    if (previewReceipt?.id === id) setPreviewReceipt(null);
+    const { error } = await supabase.from("receipts").update({ status: "ignored" }).eq("id", id);
+    if (error) {
+      toast.error(`${isExpenseNotes ? "La note de frais" : "La facture"} n’a pas pu être ignorée.`);
+      return;
+    }
+    advanceReviewAfterAction(id);
     dismissCard(id);
   }
 
@@ -685,7 +720,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
     setForms((f) => {
       const updated = { ...f[id], [field]: val };
       if (field === "category") {
-        updated.compte_comptable = categoryToCompte[val] ?? f[id]?.compte_comptable ?? "";
+        const categoryAccounts = isExpenseNotes ? expenseNoteCategoryToCompte : categoryToCompte;
+        updated.compte_comptable = categoryAccounts[val] ?? f[id]?.compte_comptable ?? "";
       }
       return { ...f, [id]: updated };
     });
@@ -696,13 +732,36 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
   const pending = receipts.filter((r) => r.status === "pending");
   const matched = receipts.filter((r) => r.status === "matched");
   const ignored = receipts.filter((r) => r.status === "ignored");
-  const suppliers = supplierSummaries(receipts);
+  const suppliers = supplierSummaries(receipts, isExpenseNotes);
   const normalizedInvoiceSearch = invoiceSearch.trim().toLocaleLowerCase("fr");
-  const filteredPending = pending.filter((receipt) => matchesInvoiceFilters(receipt, normalizedInvoiceSearch, invoiceSourceFilter, invoiceDateFrom, invoiceDateTo));
+  const filteredPending = pending;
   const filteredMatched = matched.filter((receipt) => matchesInvoiceFilters(receipt, normalizedInvoiceSearch, invoiceSourceFilter, invoiceDateFrom, invoiceDateTo));
   const filteredIgnored = ignored.filter((receipt) => matchesInvoiceFilters(receipt, normalizedInvoiceSearch, invoiceSourceFilter, invoiceDateFrom, invoiceDateTo));
   const tabItems = tab === "pending" ? filteredPending : tab === "ignored" ? filteredIgnored : [];
-  const hasActiveInvoiceFilters = Boolean(normalizedInvoiceSearch || invoiceSourceFilter !== "all" || invoiceDateFrom || invoiceDateTo);
+  const hasActiveInvoiceFilters = tab !== "pending" && Boolean(normalizedInvoiceSearch || invoiceSourceFilter !== "all" || invoiceDateFrom || invoiceDateTo);
+  const reviewReceipts = previewReceipt?.status === "pending" && !filteredPending.some((receipt) => receipt.id === previewReceipt.id)
+    ? [previewReceipt, ...filteredPending]
+    : filteredPending;
+  const previewPendingIndex = previewReceipt ? reviewReceipts.findIndex((receipt) => receipt.id === previewReceipt.id) : -1;
+
+  function moveReview(direction: -1 | 1) {
+    if (previewPendingIndex < 0) return;
+    const adjacentReceipt = reviewReceipts[previewPendingIndex + direction];
+    if (adjacentReceipt) setPreviewReceipt(adjacentReceipt);
+  }
+
+  function advanceReviewAfterAction(id: string) {
+    if (previewReceipt?.id !== id) return;
+    const currentIndex = reviewReceipts.findIndex((receipt) => receipt.id === id);
+    const nextReceipt = currentIndex >= 0
+      ? reviewReceipts[currentIndex + 1] ?? reviewReceipts.find((receipt) => receipt.id !== id)
+      : undefined;
+    if (nextReceipt) {
+      setPreviewReceipt(nextReceipt);
+    } else {
+      closePreview();
+    }
+  }
 
   return (
     <div>
@@ -713,8 +772,10 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
           <Inbox size={18} className="text-[#C8924A]" />
         </div>
         <div>
-          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Achats</h1>
-          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Factures fournisseurs — importez, vérifiez et confirmez</p>
+          <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">{isExpenseNotes ? "Notes de frais" : "Achats"}</h1>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">
+            {isExpenseNotes ? "Justificatifs de dépenses — importez, vérifiez et confirmez" : "Factures fournisseurs — importez, vérifiez et confirmez"}
+          </p>
         </div>
       </div>
 
@@ -723,7 +784,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         {([
           ["pending", "À traiter", pending.length],
           ["matched", "Traités", matched.length],
-          ["suppliers", "Fournisseurs", suppliers.length],
+          ...(!isExpenseNotes ? [["suppliers", "Fournisseurs", suppliers.length] as const] : []),
           ["ignored", "Ignorés", ignored.length],
         ] as const).map(([key, label, count]) => (
           <button key={key} onClick={() => setTab(key)}
@@ -755,13 +816,19 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 text-left">
-                <div className="mb-0.5 text-[13.5px] font-semibold text-[#1A1A2E]">Importez vos factures fournisseurs</div>
-                <div className="text-[11.5px] text-[#8A909B]">L&apos;IA extrait automatiquement le fournisseur, le montant, la TVA et la date.</div>
+                <div className="mb-0.5 text-[13.5px] font-semibold text-[#1A1A2E]">
+                  {isExpenseNotes ? "Importez vos notes de frais" : "Importez vos factures fournisseurs"}
+                </div>
+                <div className="text-[11.5px] text-[#8A909B]">
+                  {isExpenseNotes
+                    ? "L’IA dédiée aux notes de frais extrait le commerçant, le montant payé, la TVA visible et la date."
+                    : "L’IA extrait automatiquement le fournisseur, le montant, la TVA et la date."}
+                </div>
                 <div className="mt-1 text-[10px] text-[#A1A6B0]">JPG · PNG · PDF · WebP · 10 Mo max · Import multiple</div>
               </div>
 
               <div className="flex flex-wrap gap-2 lg:flex-shrink-0 lg:justify-end">
-                {!dossierId && (
+                {!dossierId && !isExpenseNotes && (
                   <button data-permission="document:create" onClick={handleEmailSync} disabled={syncing}
                     className="flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2 text-[12px] font-medium transition-colors disabled:opacity-50"
                     style={{ backgroundColor: "#0D1526", color: "#fff", border: "none" }}>
@@ -818,7 +885,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
       )}
 
       {/* ─── Invoice search ─────────────────────────────────────────────── */}
-      {tab !== "suppliers" && (
+      {(tab === "matched" || tab === "ignored") && (
         <div className="mb-4 border border-[rgba(0,0,0,0.08)] bg-white p-3.5">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1fr)_150px_145px_145px]">
             <label className="relative">
@@ -828,8 +895,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                 className="input w-full pl-9 pr-9"
                 value={invoiceSearch}
                 onChange={(event) => setInvoiceSearch(event.target.value)}
-                placeholder="Fournisseur, fichier, référence…"
-                aria-label="Rechercher dans les factures d'achat"
+                placeholder={isExpenseNotes ? "Commerçant, fichier, référence…" : "Fournisseur, fichier, référence…"}
+                aria-label={isExpenseNotes ? "Rechercher dans les notes de frais" : "Rechercher dans les factures d'achat"}
               />
               {invoiceSearch && (
                 <button
@@ -864,7 +931,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
 
       {/* ─── Traités: accounting ledger ──────────────────────────────────── */}
       {!loading && tab === "matched" && (
-        <LedgerView receipts={filteredMatched} onPreview={setPreviewReceipt} hasActiveFilters={hasActiveInvoiceFilters} />
+        <LedgerView receipts={filteredMatched} onPreview={setPreviewReceipt} hasActiveFilters={hasActiveInvoiceFilters} expenseNotes={isExpenseNotes} />
       )}
 
       {/* ─── Suppliers: consolidated purchase directory ─────────────────── */}
@@ -879,7 +946,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
             <>
               <div className="mb-3 flex justify-center text-[#9CA3AF]"><Search size={36} /></div>
               <p className="text-[13px] font-medium text-[#6B7280]">
-                Aucune facture ne correspond aux filtres sélectionnés.
+                {isExpenseNotes ? "Aucune note de frais ne correspond aux filtres sélectionnés." : "Aucune facture ne correspond aux filtres sélectionnés."}
               </p>
               <p className="mt-1 text-[11.5px] text-[#9CA3AF]">
                 Modifiez la recherche, la source ou la période.
@@ -891,7 +958,9 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
             {tab === "pending" ? (dossierId && inboxEmail ? <Mail size={36} /> : <Inbox size={36} />) : <FolderOpen size={36} />}
           </div>
           <p className="text-[13px] font-medium text-[#6B7280]">
-            {tab === "pending" ? "Aucune facture reçue" : "Aucune facture ignorée"}
+            {tab === "pending"
+              ? isExpenseNotes ? "Aucune note de frais reçue" : "Aucune facture reçue"
+              : isExpenseNotes ? "Aucune note de frais ignorée" : "Aucune facture ignorée"}
           </p>
           {tab === "pending" && dossierId && inboxEmail ? (
             <>
@@ -915,12 +984,12 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
             <>
               <p className="text-[11.5px] text-[#9CA3AF] mt-1">
                 {tab === "pending"
-                  ? "Toutes vos factures fournisseurs ont été traitées !"
-                  : "Les factures ignorées apparaissent ici."}
+                  ? isExpenseNotes ? "Toutes vos notes de frais ont été traitées !" : "Toutes vos factures fournisseurs ont été traitées !"
+                  : isExpenseNotes ? "Les notes de frais ignorées apparaissent ici." : "Les factures ignorées apparaissent ici."}
               </p>
               {tab === "pending" && (
                 <button onClick={() => fileInputRef.current?.click()} className="btn btn-gold mt-4 text-[12px]">
-                  <Upload size={12} /> Importer une facture
+                  <Upload size={12} /> {isExpenseNotes ? "Importer une note de frais" : "Importer une facture"}
                 </button>
               )}
             </>
@@ -938,7 +1007,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
               <ReceiptCard
                 key={r.id}
                 receipt={r}
-                form={forms[r.id] ?? initForm(r.ocr_data)}
+                suppliers={suppliers}
+                form={forms[r.id] ?? initForm(r.ocr_data, isExpenseNotes)}
                 saving={saving.has(r.id)}
                 savingEdits={savingEdits.has(r.id)}
                 hasUnsavedChanges={dirtyReceipts.has(r.id)}
@@ -949,6 +1019,7 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
                 onSave={() => saveReceiptEdits(r.id)}
                 onIgnore={() => ignoreReceipt(r.id)}
                 onPreview={() => setPreviewReceipt(previewReceipt?.id === r.id ? null : r)}
+                expenseNotes={isExpenseNotes}
               />
             ) : (
               <ProcessedCard
@@ -968,7 +1039,8 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
         <PurchaseReviewWorkspace
           key={previewReceipt.id}
           receipt={previewReceipt}
-          form={forms[previewReceipt.id] ?? initForm(previewReceipt.ocr_data)}
+          suppliers={suppliers}
+          form={forms[previewReceipt.id] ?? initForm(previewReceipt.ocr_data, isExpenseNotes)}
           saving={saving.has(previewReceipt.id)}
           savingEdits={savingEdits.has(previewReceipt.id)}
           hasUnsavedChanges={dirtyReceipts.has(previewReceipt.id)}
@@ -977,6 +1049,13 @@ export default function InboxPage({ dossierId, inboxEmail }: { dossierId?: strin
           onSave={() => saveReceiptEdits(previewReceipt.id)}
           onIgnore={() => ignoreReceipt(previewReceipt.id)}
           onClose={closePreview}
+          onPrevious={() => moveReview(-1)}
+          onNext={() => moveReview(1)}
+          hasPrevious={previewPendingIndex > 0}
+          hasNext={previewPendingIndex >= 0 && previewPendingIndex < reviewReceipts.length - 1}
+          position={previewPendingIndex + 1}
+          total={reviewReceipts.length}
+          expenseNotes={isExpenseNotes}
         />
       ) : previewReceipt ? (
         <PreviewPanel
@@ -1209,7 +1288,7 @@ function SuppliersView({ suppliers, receipts, onSaved }: { suppliers: SupplierSu
 
 // ─── Accounting Ledger View ───────────────────────────────────────────────────
 
-function LedgerView({ receipts, onPreview, hasActiveFilters }: { receipts: ReceiptWithUrl[]; onPreview: (receipt: ReceiptWithUrl) => void; hasActiveFilters?: boolean }) {
+function LedgerView({ receipts, onPreview, hasActiveFilters, expenseNotes = false }: { receipts: ReceiptWithUrl[]; onPreview: (receipt: ReceiptWithUrl) => void; hasActiveFilters?: boolean; expenseNotes?: boolean }) {
   const rows = receipts.map((r) => {
     const ocr = r.ocr_data;
     const { ht, tva, remise, ttc } = computeAmounts(ocr);
@@ -1289,10 +1368,14 @@ function LedgerView({ receipts, onPreview, hasActiveFilters }: { receipts: Recei
       <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-12 text-center" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
         {hasActiveFilters ? <Search size={32} className="mx-auto mb-3 text-[#9CA3AF]" aria-hidden="true" /> : <CheckCircle size={32} className="mx-auto mb-3 text-[#059669]" aria-hidden="true" />}
         <p className="text-[13px] font-medium text-[#6B7280]">
-          {hasActiveFilters ? "Aucune facture traitée ne correspond aux filtres sélectionnés." : "Aucune facture traitée"}
+          {hasActiveFilters
+            ? expenseNotes ? "Aucune note de frais traitée ne correspond aux filtres sélectionnés." : "Aucune facture traitée ne correspond aux filtres sélectionnés."
+            : expenseNotes ? "Aucune note de frais traitée" : "Aucune facture traitée"}
         </p>
         <p className="text-[11.5px] text-[#9CA3AF] mt-1">
-          {hasActiveFilters ? "Modifiez la recherche, la source ou la période." : "Importez vos factures fournisseurs pour les traiter."}
+          {hasActiveFilters
+            ? "Modifiez la recherche, la source ou la période."
+            : expenseNotes ? "Importez vos notes de frais pour les traiter." : "Importez vos factures fournisseurs pour les traiter."}
         </p>
       </div>
     );
@@ -1430,7 +1513,7 @@ function LedgerView({ receipts, onPreview, hasActiveFilters }: { receipts: Recei
 function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClose: () => void }) {
   const ocr = r.ocr_data;
   const isPdf = r.mime_type === "application/pdf";
-  const previewUrl = isPdf && r.storage_path ? `/api/receipts/${r.id}/content` : r.signedUrl;
+  const previewUrl = r.signedUrl ?? (r.storage_path ? `/api/receipts/${r.id}/content` : undefined);
 
   return (
     <>
@@ -1477,6 +1560,7 @@ function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClos
 
 function PurchaseReviewWorkspace({
   receipt,
+  suppliers,
   form,
   saving,
   savingEdits,
@@ -1486,8 +1570,16 @@ function PurchaseReviewWorkspace({
   onSave,
   onIgnore,
   onClose,
+  onPrevious,
+  onNext,
+  hasPrevious,
+  hasNext,
+  position,
+  total,
+  expenseNotes,
 }: {
   receipt: ReceiptWithUrl;
+  suppliers: SupplierSummary[];
   form: CardForm;
   saving: boolean;
   savingEdits: boolean;
@@ -1497,13 +1589,19 @@ function PurchaseReviewWorkspace({
   onSave: () => void;
   onIgnore: () => void;
   onClose: () => void;
+  onPrevious: () => void;
+  onNext: () => void;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  position: number;
+  total: number;
+  expenseNotes: boolean;
 }) {
   const [mobilePane, setMobilePane] = useState<"document" | "data">("document");
   const ocr = receipt.ocr_data;
   const isPdf = receipt.mime_type === "application/pdf";
-  const previewUrl = isPdf && receipt.storage_path
-    ? `/api/receipts/${receipt.id}/content`
-    : receipt.signedUrl;
+  const previewUrl = receipt.signedUrl
+    ?? (receipt.storage_path ? `/api/receipts/${receipt.id}/content` : undefined);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -1514,17 +1612,42 @@ function PurchaseReviewWorkspace({
   }, [onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex flex-col bg-[#F3F4F6]" role="dialog" aria-modal="true" aria-label="Vérification de la facture fournisseur">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-[#F3F4F6]" role="dialog" aria-modal="true" aria-label={expenseNotes ? "Vérification de la note de frais" : "Vérification de la facture fournisseur"}>
       <header className="flex h-16 flex-shrink-0 items-center gap-3 border-b border-black/10 bg-white px-4 md:px-5">
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-bold uppercase tracking-[0.7px] text-[#C8924A]">Vérification de la facture</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.7px] text-[#C8924A]">{expenseNotes ? "Vérification de la note de frais" : "Vérification de la facture"}</div>
           <div className="truncate text-[14px] font-semibold text-[#1A1A2E]">
-            {ocr.vendor_name ?? ocr.vendor ?? receipt.file_name ?? "Facture fournisseur"}
+            {ocr.vendor_name ?? ocr.vendor ?? receipt.file_name ?? (expenseNotes ? "Note de frais" : "Facture fournisseur")}
           </div>
         </div>
-        <div className="hidden items-center gap-2 text-[11px] text-[#8A909B] sm:flex">
+        <div className="hidden items-center gap-2 text-[11px] text-[#8A909B] lg:flex">
           {ocr.date && <span>{fmtDate(ocr.date)}</span>}
           {ocr.receipt_number && <span>#{ocr.receipt_number}</span>}
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onPrevious}
+            disabled={!hasPrevious}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/10 bg-white text-[#6B7280] transition-colors hover:border-[#C8924A] hover:text-[#C8924A] disabled:cursor-not-allowed disabled:opacity-35"
+            aria-label={expenseNotes ? "Note de frais précédente" : "Facture précédente"}
+            title={expenseNotes ? "Note de frais précédente" : "Facture précédente"}
+          >
+            <ChevronLeft size={17} />
+          </button>
+          <span className="min-w-[48px] text-center text-[10.5px] font-semibold tabular-nums text-[#8A909B]" aria-live="polite">
+            {position} / {total}
+          </span>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!hasNext}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/10 bg-white text-[#6B7280] transition-colors hover:border-[#C8924A] hover:text-[#C8924A] disabled:cursor-not-allowed disabled:opacity-35"
+            aria-label={expenseNotes ? "Note de frais suivante" : "Facture suivante"}
+            title={expenseNotes ? "Note de frais suivante" : "Facture suivante"}
+          >
+            <ChevronRight size={17} />
+          </button>
         </div>
         <button
           type="button"
@@ -1567,11 +1690,11 @@ function PurchaseReviewWorkspace({
                 <p className="text-[12.5px] text-[#6B7280]">Aucun aperçu disponible</p>
               </div>
             ) : isPdf ? (
-              <iframe src={previewUrl} className="h-full min-h-[520px] w-full bg-white" title="Facture fournisseur PDF" />
+              <iframe src={previewUrl} className="h-full min-h-[520px] w-full bg-white" title={expenseNotes ? "Note de frais PDF" : "Facture fournisseur PDF"} />
             ) : (
               <div className="flex min-h-full w-full items-start justify-center p-4 md:p-6">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={previewUrl} alt="Facture fournisseur à vérifier" className="h-auto max-w-full bg-white shadow-lg" />
+                <img src={previewUrl} alt={expenseNotes ? "Note de frais à vérifier" : "Facture fournisseur à vérifier"} className="h-auto max-w-full bg-white shadow-lg" />
               </div>
             )}
           </div>
@@ -1584,6 +1707,7 @@ function PurchaseReviewWorkspace({
           </div>
           <ReceiptCard
             receipt={receipt}
+            suppliers={suppliers}
             form={form}
             saving={saving}
             savingEdits={savingEdits}
@@ -1596,6 +1720,7 @@ function PurchaseReviewWorkspace({
             onSave={onSave}
             onIgnore={onIgnore}
             onPreview={onClose}
+            expenseNotes={expenseNotes}
           />
         </section>
       </div>
@@ -1747,6 +1872,7 @@ function CompteSelect({ value, onChange }: { value: string; onChange: (val: stri
 
 interface CardProps {
   receipt: ReceiptWithUrl;
+  suppliers: SupplierSummary[];
   form: CardForm;
   saving: boolean;
   savingEdits: boolean;
@@ -1759,14 +1885,72 @@ interface CardProps {
   onIgnore: () => void;
   onPreview: () => void;
   embedded?: boolean;
+  expenseNotes?: boolean;
 }
 
-function ReceiptCard({ receipt: r, form, saving, savingEdits, hasUnsavedChanges, dismissing, previewing, onFormChange, onConfirm, onSave, onIgnore, onPreview, embedded = false }: CardProps) {
+function SupplierSelect({
+  receiptId,
+  suppliers,
+  value,
+  onChange,
+  expenseNotes = false,
+}: {
+  receiptId: string;
+  suppliers: SupplierSummary[];
+  value: string;
+  onChange: (value: string) => void;
+  expenseNotes?: boolean;
+}) {
+  const normalize = (name: string) => name.trim().toLocaleLowerCase("fr").replace(/\s+/g, " ");
+  const existingSuppliers = suppliers.filter((supplier) => supplier.receiptIds.some((id) => id !== receiptId));
+  const selectedSupplier = existingSuppliers.find((supplier) => supplier.receiptIds.includes(receiptId))
+    ?? existingSuppliers.find((supplier) => normalize(supplier.name) === normalize(value));
+  const [addingNew, setAddingNew] = useState(() => Boolean(value) && !selectedSupplier);
+
+  return (
+    <div className={`grid gap-2 ${addingNew ? "sm:grid-cols-2" : "grid-cols-1"}`}>
+      <select
+        className="input h-9 py-0"
+        value={addingNew ? "__new__" : selectedSupplier?.name ?? ""}
+        onChange={(event) => {
+          if (event.target.value === "__new__") {
+            setAddingNew(true);
+            onChange("");
+            return;
+          }
+          setAddingNew(false);
+          onChange(event.target.value);
+        }}
+        aria-label={expenseNotes ? "Sélectionner un commerçant ou bénéficiaire" : "Sélectionner un fournisseur"}
+      >
+        <option value="">{expenseNotes ? "Sélectionner un commerçant…" : "Sélectionner un fournisseur…"}</option>
+        {existingSuppliers.map((supplier) => (
+          <option key={supplier.key} value={supplier.name}>{supplier.name}</option>
+        ))}
+        <option value="__new__">{expenseNotes ? "+ Nouveau commerçant" : "+ Nouveau fournisseur"}</option>
+      </select>
+
+      {addingNew && (
+        <input
+          className="input h-9 py-0"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={expenseNotes ? "Nom du nouveau commerçant" : "Nom du nouveau fournisseur"}
+          aria-label={expenseNotes ? "Nom du nouveau commerçant" : "Nom du nouveau fournisseur"}
+          autoFocus={!value}
+        />
+      )}
+      {addingNew && <p className="text-[9.5px] text-[#8A909B] sm:col-start-2">Ajouté à la liste après enregistrement.</p>}
+    </div>
+  );
+}
+
+function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsavedChanges, dismissing, previewing, onFormChange, onConfirm, onSave, onIgnore, onPreview, embedded = false, expenseNotes = false }: CardProps) {
   const [referenceTime] = useState(() => Date.now());
   const ocr = r.ocr_data;
   const amt = parseFloat(form.amount);
   const isExpense = isNaN(amt) ? true : amt < 0;
-  const isAvoir = (ocr as any).document_type === "avoir";
+  const isAvoir = !expenseNotes && (ocr as any).document_type === "avoir";
   const emailProvider = (ocr as any).email_provider as string | undefined;
   const tvaRate = Number(form.tva_rate || 0);
   const entryPreview = computePurchaseAmounts({
@@ -1774,8 +1958,9 @@ function ReceiptCard({ receipt: r, form, saving, savingEdits, hasUnsavedChanges,
     discount_amount: Number(form.discount_amount || 0),
     tva_rate: tvaRate,
   });
-  const expenseAccount = form.compte_comptable || categoryToCompte[form.category] || "6111";
-  const expenseLabel = cgncAccounts.find((account) => account.code === expenseAccount)?.label ?? "Compte de charge";
+  const categoryAccounts = expenseNotes ? expenseNoteCategoryToCompte : categoryToCompte;
+  const expenseAccount = form.compte_comptable || categoryAccounts[form.category] || (expenseNotes ? "" : "6111");
+  const expenseLabel = cgncAccounts.find((account) => account.code === expenseAccount)?.label ?? (expenseNotes ? "Compte à sélectionner" : "Compte de charge");
 
   return (
     <div
@@ -1815,7 +2000,7 @@ function ReceiptCard({ receipt: r, form, saving, savingEdits, hasUnsavedChanges,
         <div className={`flex-1 min-w-0 ${embedded ? "" : "pr-20"}`}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[13.5px] font-bold text-[#1A1A2E] truncate">
-              {ocr.vendor_name ?? ocr.vendor ?? r.file_name ?? "Facture sans titre"}
+              {form.supplier || r.file_name || (expenseNotes ? "Note de frais sans titre" : "Facture sans titre")}
             </span>
             <ConfidenceBadge confidence={ocr.confidence} overallConfidence={(ocr as any).overall_confidence} />
             <SourceBadge provider={emailProvider} />
@@ -1835,18 +2020,35 @@ function ReceiptCard({ receipt: r, form, saving, savingEdits, hasUnsavedChanges,
       </div>
 
       <div className="grid grid-cols-2 gap-2 px-4 pb-4 lg:grid-cols-6">
+        <div className="col-span-2 lg:col-span-6">
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9CA3AF]">{expenseNotes ? "Commerçant / bénéficiaire" : "Fournisseur"}</label>
+          <SupplierSelect
+            receiptId={r.id}
+            suppliers={suppliers}
+            value={form.supplier}
+            onChange={(value) => onFormChange("supplier", value)}
+            expenseNotes={expenseNotes}
+          />
+        </div>
+
         <div className="lg:col-span-3">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant TTC net (MAD)</label>
           <div className="relative">
             <input
               type="number" step="0.01"
               className={`input pr-8 font-semibold ${isExpense ? "text-[#DC2626]" : "text-[#059669]"}`}
-              value={form.amount}
-              onChange={(e) => onFormChange("amount", e.target.value)}
+              value={expenseNotes ? form.amount : form.amount.replace(/^-/, "")}
+              onChange={(e) => {
+                const value = expenseNotes ? e.target.value : e.target.value.replace(/^-/, "");
+                const keepExpenseSign = isExpense || form.amount.startsWith("-");
+                onFormChange("amount", !expenseNotes && keepExpenseSign && value ? `-${value}` : value);
+              }}
             />
-            <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold ${isExpense ? "text-[#DC2626]" : "text-[#059669]"}`}>
-              {isExpense ? "−" : "+"}
-            </span>
+            {expenseNotes && (
+              <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold ${isExpense ? "text-[#DC2626]" : "text-[#059669]"}`}>
+                {isExpense ? "−" : "+"}
+              </span>
+            )}
           </div>
         </div>
 
@@ -1977,7 +2179,7 @@ function ReceiptCard({ receipt: r, form, saving, savingEdits, hasUnsavedChanges,
         </button>
         <button
           onClick={onConfirm}
-          disabled={saving || savingEdits || (!isAvoir && (!form.description || !form.amount))}
+          disabled={saving || savingEdits || (!isAvoir && (!form.description || !form.amount || (expenseNotes && !form.compte_comptable)))}
           className="inline-flex items-center gap-1 rounded-md border border-[#0D1526] bg-[#0D1526] px-2.5 py-1.5 text-[11.5px] font-semibold text-white transition-colors hover:bg-[#1C2940] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving

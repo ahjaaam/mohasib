@@ -76,7 +76,11 @@ export async function POST(req: NextRequest) {
   // OCR with fallback chain
   let ocrData: Record<string, unknown> = {};
   try {
-    ocrData = await extractWithFallback(buffer, file.type);
+    ocrData = await extractWithFallback(
+      buffer,
+      file.type,
+      documentArea === "supporting_document" ? "expense_note" : "supplier_invoice",
+    );
     if (typeof ocrData.amount === "number") {
       ocrData.type = ocrData.amount >= 0 ? "income" : "expense";
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import Link from "next/link";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
@@ -24,6 +24,7 @@ interface ClientInvoice {
   due_date: string | null;
   total: number;
   montant_recu?: number;
+  montant_paye?: number;
   status: string;
   relance_count?: number;
   last_relance_at?: string | null;
@@ -55,7 +56,8 @@ interface SupplierItem {
   };
 }
 
-type SubTab = "all" | "overdue" | "week" | "upcoming" | "paid";
+type SubTab = "all" | "partial" | "overdue" | "week" | "upcoming" | "paid";
+type PaymentIntent = "full" | "partial";
 type ClientPaymentSortKey = "number" | "client" | "issue" | "due" | "total" | "paid" | "balance" | "late" | "status";
 type SupplierPaymentSortKey = "supplier" | "reference" | "received" | "due" | "total" | "paid" | "balance" | "late" | "status";
 
@@ -90,6 +92,10 @@ function formatPhone(raw: string): string {
 
 function supplierName(item: SupplierItem) {
   return item.ocr_data.vendor_name ?? item.ocr_data.vendor ?? item.file_name ?? "Fournisseur";
+}
+
+function clientPaid(invoice: ClientInvoice) {
+  return Math.max(Number(invoice.montant_recu ?? 0), Number(invoice.montant_paye ?? 0));
 }
 
 function supplierTotal(item: SupplierItem) {
@@ -132,6 +138,18 @@ function StatusBadge({ status, dueDate }: { status: string; dueDate: string | nu
   }
   if (d !== null && d <= 7) return <span className="badge-pill bg-[#FEF3C7] text-[#92400E]">Échéance proche</span>;
   return <span className="badge-pill bg-[#EFF6FF] text-[#1D4ED8] inline-flex items-center gap-1"><Circle size={7} fill="currentColor" /> En attente</span>;
+}
+
+function PaymentProgress({ paid, total }: { paid: number; total: number }) {
+  const percent = total > 0 ? Math.min(100, Math.max(0, (paid / total) * 100)) : 0;
+  return (
+    <div className="min-w-[118px]">
+      <div className="font-medium text-[#059669] whitespace-nowrap">{fmt(paid)}</div>
+      <div className="mt-1 h-1.5 w-full overflow-hidden bg-[#E5E7EB]" aria-label={`${Math.round(percent)} % payé`}>
+        <div className="h-full bg-[#C8924A]" style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
 }
 
 // ── KPICard ────────────────────────────────────────────────────────────────────
@@ -265,20 +283,49 @@ function SubTabBar({
 
 // ── ActionsMenu (client rows) ──────────────────────────────────────────────────
 
-function ActionsMenu({ invoice, onMarkPaid, onRelance }: {
+function ActionsMenu({ invoice }: {
   invoice: ClientInvoice;
-  onMarkPaid: () => void;
-  onRelance: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    const closeOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!buttonRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
+    };
+    const closeMenu = () => setOpen(false);
+    document.addEventListener("mousedown", closeOutside);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => {
+      document.removeEventListener("mousedown", closeOutside);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
   }, [open]);
+
+  function toggleMenu() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const menuWidth = 190;
+    const menuHeight = 112;
+    const gap = 4;
+    setPosition({
+      top: window.innerHeight - rect.bottom >= menuHeight + gap
+        ? rect.bottom + gap
+        : Math.max(gap, rect.top - menuHeight - gap),
+      left: Math.min(window.innerWidth - menuWidth - 8, Math.max(8, rect.right - menuWidth)),
+    });
+    setOpen(true);
+  }
 
   async function sendWhatsApp() {
     setOpen(false);
@@ -290,13 +337,23 @@ function ActionsMenu({ invoice, onMarkPaid, onRelance }: {
   }
 
   return (
-    <div ref={ref} className="relative flex-shrink-0">
-      <button onClick={() => setOpen(!open)}
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label="Plus d’actions"
+        aria-expanded={open}
+        onClick={toggleMenu}
         className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] transition-colors">
         <MoreHorizontal size={13} />
       </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-xl z-20 min-w-[160px]">
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          className="fixed bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-xl py-1"
+          style={{ top: position.top, left: position.left, width: 190, zIndex: 9999 }}
+        >
           <a href={`/f/${invoice.id}`} target="_blank" rel="noopener noreferrer"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#374151] hover:bg-[#F9FAFB] transition-colors rounded-t-xl">
@@ -311,19 +368,21 @@ function ActionsMenu({ invoice, onMarkPaid, onRelance }: {
             className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-[#374151] hover:bg-[#F9FAFB] transition-colors rounded-b-xl">
             <Send size={12} /> Envoyer WhatsApp
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   );
 }
 
 // ── PaidModal ──────────────────────────────────────────────────────────────────
 
 function PaidModal({
-  item, type, companyId, onClose, onSuccess,
+  item, type, intent, companyId, onClose, onSuccess,
 }: {
   item: ClientInvoice | SupplierItem;
   type: "client" | "supplier";
+  intent: PaymentIntent;
   companyId: string | null;
   onClose: () => void;
   onSuccess: () => void;
@@ -331,13 +390,13 @@ function PaidModal({
   const inv = item as any;
   const isClient = type === "client";
   const total = isClient ? Number(inv.total) : supplierTotal(item as SupplierItem);
-  const alreadyPaid = isClient ? Number(inv.montant_recu ?? 0) : supplierPaid(item as SupplierItem);
+  const alreadyPaid = isClient ? clientPaid(item as ClientInvoice) : supplierPaid(item as SupplierItem);
   const solde = Math.max(total - alreadyPaid, 0);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [mode, setMode] = useState("Virement bancaire");
   const [reference, setReference] = useState("");
-  const [montant, setMontant] = useState(solde.toFixed(2));
+  const [montant, setMontant] = useState(intent === "partial" ? "" : solde.toFixed(2));
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -347,6 +406,10 @@ function PaidModal({
 
   async function submit() {
     if (!montantNum || montantNum <= 0) return;
+    if (montantNum > solde + 0.01) {
+      toast.error("Le montant dépasse le solde restant");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/invoice-payments", {
@@ -368,7 +431,7 @@ function PaidModal({
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Erreur");
       }
-      toast.success("Paiement enregistré");
+      toast.success(isPartial ? "Paiement partiel enregistré" : "Paiement enregistré");
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -383,7 +446,9 @@ function PaidModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,0,0,0.08)]">
           <h3 className="text-[14px] font-bold text-[#1A1A2E]">
-            {isClient ? "Confirmer l'encaissement" : "Confirmer le paiement fournisseur"}
+            {intent === "partial"
+              ? "Enregistrer un paiement partiel"
+              : isClient ? "Confirmer l'encaissement" : "Confirmer le paiement fournisseur"}
           </h3>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#9CA3AF]">
             <X size={14} />
@@ -424,7 +489,10 @@ function PaidModal({
           {/* Montant */}
           <div>
             <label className="field-label">Montant (MAD)</label>
-            <input type="number" step="0.01" className="input font-semibold" value={montant} onChange={e => setMontant(e.target.value)} />
+            <input type="number" step="0.01" min="0.01" max={solde} className="input font-semibold" value={montant} onChange={e => setMontant(e.target.value)} />
+            <p className="mt-1.5 text-[10.5px] text-[#8A909B]">
+              Saisissez un montant inférieur au solde pour enregistrer un paiement partiel.
+            </p>
             {isPartial && soldeRestant > 0 && (
               <div className="mt-1.5 px-3 py-2 bg-[#FEF3C7] rounded-lg text-[11px] text-[#92400E]">
                 Paiement partiel — solde restant : <strong>{fmt(soldeRestant)}</strong>
@@ -439,8 +507,10 @@ function PaidModal({
         </div>
         <div className="px-5 pb-5 flex gap-2">
           <button onClick={onClose} className="btn btn-outline flex-1">Annuler</button>
-          <button onClick={submit} disabled={saving || montantNum <= 0} className="btn btn-gold flex-1">
-            {saving ? <Loader2 size={13} className="animate-spin" /> : <><CheckCircle size={13} /> Confirmer</>}
+          <button onClick={submit} disabled={saving || montantNum <= 0 || montantNum > solde + 0.01} className="btn btn-gold flex-1">
+            {saving
+              ? <Loader2 size={13} className="animate-spin" />
+              : <><CheckCircle size={13} /> {isPartial ? "Enregistrer le partiel" : "Confirmer"}</>}
           </button>
         </div>
       </div>
@@ -572,7 +642,7 @@ function AgingTable({ items, type }: { items: any[]; type: "client" | "supplier"
     if (type === "client") {
       if (item.status === "paid" || item.status === "draft") continue;
       name = item.clients?.name ?? "Client inconnu";
-      solde = Number(item.total) - Number(item.montant_recu ?? 0);
+      solde = Number(item.total) - clientPaid(item);
       days = daysFromNow(item.due_date);
     } else {
       name = supplierName(item);
@@ -658,6 +728,7 @@ function AgingTable({ items, type }: { items: any[]; type: "client" | "supplier"
 
 const CLIENT_SUBTABS: [SubTab, string][] = [
   ["all", "Toutes"],
+  ["partial", "Partiel"],
   ["overdue", "En retard"],
   ["week", "Cette semaine"],
   ["upcoming", "À venir"],
@@ -666,7 +737,7 @@ const CLIENT_SUBTABS: [SubTab, string][] = [
 
 function ClientsSection({
   invoices, filtered, subTab, setSubTab, countFn,
-  onMarkPaid, onRelance, companyName,
+  onPayment, onRelance, companyName,
   agingOpen, setAgingOpen,
   search, setSearch, dateFrom, setDateFrom, dateTo, setDateTo,
 }: {
@@ -675,7 +746,7 @@ function ClientsSection({
   subTab: SubTab;
   setSubTab: (t: SubTab) => void;
   countFn: (t: SubTab) => number;
-  onMarkPaid: (inv: ClientInvoice) => void;
+  onPayment: (inv: ClientInvoice, intent: PaymentIntent) => void;
   onRelance: (inv: ClientInvoice) => void;
   companyName: string | null;
   agingOpen: boolean;
@@ -698,7 +769,7 @@ function ClientsSection({
 
   const sorted = useMemo(() => {
     const valueFor = (invoice: ClientInvoice, key: ClientPaymentSortKey): string | number | null => {
-      const paid = Number(invoice.montant_recu ?? 0);
+      const paid = clientPaid(invoice);
       const balance = Math.max(Number(invoice.total) - paid, 0);
       switch (key) {
         case "number": return invoice.invoice_number;
@@ -756,9 +827,10 @@ function ClientsSection({
               </thead>
               <tbody>
                 {sorted.map((inv, idx) => {
-                  const montantRecu = Number(inv.montant_recu ?? 0);
+                  const montantRecu = clientPaid(inv);
                   const solde = Number(inv.total) - montantRecu;
                   const isPaid = inv.status === "paid";
+                  const isPartial = !isPaid && montantRecu > 0 && montantRecu < Number(inv.total);
                   return (
                     <tr key={inv.id} className={`border-b border-[rgba(0,0,0,0.04)] hover:bg-[rgba(200,146,74,0.03)] transition-colors ${idx % 2 === 1 ? "bg-[#FAFAFA]" : ""}`}>
                       <td className="px-3 py-2.5 font-mono font-semibold text-[#C8924A] whitespace-nowrap text-[11px]">{inv.invoice_number}</td>
@@ -766,17 +838,28 @@ function ClientsSection({
                       <td className="px-3 py-2.5 text-[#6B7280] whitespace-nowrap">{fmtDate(inv.issue_date)}</td>
                       <td className="px-3 py-2.5 text-[#6B7280] whitespace-nowrap">{inv.due_date ? fmtDate(inv.due_date) : <span className="text-[#D1D5DB]">—</span>}</td>
                       <td className="px-3 py-2.5 font-semibold text-[#1A1A2E] whitespace-nowrap">{fmt(Number(inv.total))}</td>
-                      <td className="px-3 py-2.5 text-[#059669] whitespace-nowrap">{montantRecu > 0 ? fmt(montantRecu) : <span className="text-[#D1D5DB]">—</span>}</td>
+                      <td className="px-3 py-2.5">
+                        {isPartial
+                          ? <PaymentProgress paid={montantRecu} total={Number(inv.total)} />
+                          : montantRecu > 0
+                            ? <span className="text-[#059669] whitespace-nowrap">{fmt(montantRecu)}</span>
+                            : <span className="text-[#D1D5DB]">—</span>}
+                      </td>
                       <td className="px-3 py-2.5 font-medium text-[#1A1A2E] whitespace-nowrap">{fmt(Math.max(solde, 0))}</td>
                       <td className="px-3 py-2.5 whitespace-nowrap"><DaysCell dueDate={inv.due_date} isPaid={isPaid} /></td>
-                      <td className="px-3 py-2.5"><StatusBadge status={inv.status} dueDate={inv.due_date} /></td>
+                      <td className="px-3 py-2.5"><StatusBadge status={isPartial ? "partiellement_payee" : inv.status} dueDate={inv.due_date} /></td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5">
                           {!isPaid && (
-                            <button onClick={() => onMarkPaid(inv)}
+                            <button onClick={() => onPayment(inv, "full")}
                               className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
                               style={{ background: "#C8924A", color: "#fff", border: "none" }}>
-                              <CheckCircle size={11} /> Payée
+                              <CheckCircle size={11} /> Encaisser
+                            </button>
+                          )}
+                          {!isPaid && (
+                            <button onClick={() => onPayment(inv, "partial")} className="btn btn-outline btn-sm">
+                              Partiel
                             </button>
                           )}
                           {!isPaid && (
@@ -785,7 +868,7 @@ function ClientsSection({
                               <Send size={10} /> Relancer
                             </button>
                           )}
-                          <ActionsMenu invoice={inv} onMarkPaid={() => onMarkPaid(inv)} onRelance={() => onRelance(inv)} />
+                          <ActionsMenu invoice={inv} />
                         </div>
                       </td>
                     </tr>
@@ -818,6 +901,7 @@ function ClientsSection({
 
 const SUPPLIER_SUBTABS: [SubTab, string][] = [
   ["all", "Toutes"],
+  ["partial", "Partiel"],
   ["overdue", "En retard"],
   ["week", "Cette semaine"],
   ["upcoming", "À venir"],
@@ -826,15 +910,15 @@ const SUPPLIER_SUBTABS: [SubTab, string][] = [
 
 function SuppliersSection({
   items, filtered, subTab, setSubTab, countFn,
-  onMarkPaid, agingOpen, setAgingOpen,
-  search, setSearch, dateFrom, setDateFrom, dateTo, setDateTo, inboxHref,
+  onPayment, agingOpen, setAgingOpen,
+  search, setSearch, dateFrom, setDateFrom, dateTo, setDateTo,
 }: {
   items: SupplierItem[];
   filtered: SupplierItem[];
   subTab: SubTab;
   setSubTab: (t: SubTab) => void;
   countFn: (t: SubTab) => number;
-  onMarkPaid: (item: SupplierItem) => void;
+  onPayment: (item: SupplierItem, intent: PaymentIntent) => void;
   agingOpen: boolean;
   setAgingOpen: (v: boolean) => void;
   search: string;
@@ -843,7 +927,6 @@ function SuppliersSection({
   setDateFrom: (value: string) => void;
   dateTo: string;
   setDateTo: (value: string) => void;
-  inboxHref: string;
 }) {
   const [sortKey, setSortKey] = useState<SupplierPaymentSortKey>("due");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -923,6 +1006,7 @@ function SuppliersSection({
                   const paid = supplierPaid(item);
                   const solde = Math.max(total - paid, 0);
                   const isPaid = isSupplierPaid(item);
+                  const isPartial = !isPaid && paid > 0 && paid < total;
                   const dueDate = item.ocr_data?.due_date ?? null;
                   return (
                     <tr key={item.id} className={`border-b border-[rgba(0,0,0,0.04)] hover:bg-[rgba(200,146,74,0.03)] transition-colors ${idx % 2 === 1 ? "bg-[#FAFAFA]" : ""}`}>
@@ -931,20 +1015,34 @@ function SuppliersSection({
                       <td className="px-3 py-2.5 text-[#6B7280] whitespace-nowrap">{fmtDate(item.created_at?.slice(0, 10))}</td>
                       <td className="px-3 py-2.5 text-[#6B7280] whitespace-nowrap">{dueDate ? fmtDate(dueDate) : <span className="text-[#D1D5DB]">—</span>}</td>
                       <td className="px-3 py-2.5 font-semibold text-[#1A1A2E] whitespace-nowrap">{fmt(total)}</td>
-                      <td className="px-3 py-2.5 text-[#059669] whitespace-nowrap">{paid > 0 ? fmt(paid) : <span className="text-[#D1D5DB]">—</span>}</td>
+                      <td className="px-3 py-2.5">
+                        {isPartial
+                          ? <PaymentProgress paid={paid} total={total} />
+                          : paid > 0
+                            ? <span className="text-[#059669] whitespace-nowrap">{fmt(paid)}</span>
+                            : <span className="text-[#D1D5DB]">—</span>}
+                      </td>
                       <td className="px-3 py-2.5 font-medium text-[#1A1A2E] whitespace-nowrap">{fmt(solde)}</td>
                       <td className="px-3 py-2.5 whitespace-nowrap"><DaysCell dueDate={dueDate} isPaid={isPaid} /></td>
-                      <td className="px-3 py-2.5"><StatusBadge status={isPaid ? "paid" : (dueDate && daysFromNow(dueDate) !== null && (daysFromNow(dueDate) ?? 1) < 0) ? "overdue" : "sent"} dueDate={dueDate} /></td>
+                      <td className="px-3 py-2.5"><StatusBadge status={isPaid ? "paid" : isPartial ? "partiellement_payee" : (dueDate && daysFromNow(dueDate) !== null && (daysFromNow(dueDate) ?? 1) < 0) ? "overdue" : "sent"} dueDate={dueDate} /></td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5">
                           {!isPaid && (
-                            <button onClick={() => onMarkPaid(item)}
+                            <button onClick={() => onPayment(item, "full")}
                               className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
                               style={{ background: "#1A1A2E", color: "#fff", border: "none" }}>
-                              Payée
+                              Payer
                             </button>
                           )}
-                          <a href={inboxHref}
+                          {!isPaid && (
+                            <button onClick={() => onPayment(item, "partial")} className="btn btn-outline btn-sm">
+                              Partiel
+                            </button>
+                          )}
+                          <a
+                            href={`/api/receipts/${encodeURIComponent(item.id)}/content`}
+                            target="_blank"
+                            rel="noreferrer"
                             className="btn btn-outline btn-sm">
                             <Eye size={10} /> Voir
                           </a>
@@ -1000,7 +1098,7 @@ export default function SuiviClient({
   const [mainTab, setMainTab] = useState<"clients" | "suppliers">("clients");
   const [clientSubTab, setClientSubTab] = useState<SubTab>("all");
   const [supplierSubTab, setSupplierSubTab] = useState<SubTab>("all");
-  const [paidModal, setPaidModal] = useState<{ item: ClientInvoice | SupplierItem; type: "client" | "supplier" } | null>(null);
+  const [paidModal, setPaidModal] = useState<{ item: ClientInvoice | SupplierItem; type: "client" | "supplier"; intent: PaymentIntent } | null>(null);
   const [relanceModal, setRelanceModal] = useState<ClientInvoice | null>(null);
   const [agingOpen, setAgingOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -1037,9 +1135,9 @@ export default function SuiviClient({
   // ── KPI calculations ──────────────────────────────────────────────────────
 
   const unpaidClients = clientInvoices.filter(i => i.status !== "paid");
-  const totalAEncaisser = unpaidClients.reduce((s, i) => s + Math.max(Number(i.total) - Number(i.montant_recu ?? 0), 0), 0);
+  const totalAEncaisser = unpaidClients.reduce((s, i) => s + Math.max(Number(i.total) - clientPaid(i), 0), 0);
   const overdueClients = unpaidClients.filter(i => i.due_date && i.due_date < todayStr);
-  const totalEnRetardClients = overdueClients.reduce((s, i) => s + Math.max(Number(i.total) - Number(i.montant_recu ?? 0), 0), 0);
+  const totalEnRetardClients = overdueClients.reduce((s, i) => s + Math.max(Number(i.total) - clientPaid(i), 0), 0);
 
   const unpaidSuppliers = supplierItems.filter(i => !isSupplierPaid(i));
   const totalAPayer = unpaidSuppliers.reduce((s, i) => s + Math.max(supplierTotal(i) - supplierPaid(i), 0), 0);
@@ -1055,6 +1153,7 @@ export default function SuiviClient({
     let result: ClientInvoice[];
     switch (clientSubTab) {
       case "overdue": result = clientInvoices.filter(i => i.status !== "paid" && i.due_date && i.due_date < todayStr); break;
+      case "partial": result = clientInvoices.filter(i => i.status !== "paid" && clientPaid(i) > 0 && clientPaid(i) < Number(i.total)); break;
       case "week": result = clientInvoices.filter(i => i.status !== "paid" && i.due_date && i.due_date >= todayStr && i.due_date <= weekStr); break;
       case "upcoming": result = clientInvoices.filter(i => i.status !== "paid" && (!i.due_date || i.due_date > weekStr)); break;
       case "paid": result = clientInvoices.filter(i => i.status === "paid"); break;
@@ -1083,6 +1182,7 @@ export default function SuiviClient({
     let result: SupplierItem[];
     switch (supplierSubTab) {
       case "overdue": result = supplierItems.filter(i => !isSupplierPaid(i) && i.ocr_data?.due_date && i.ocr_data.due_date < todayStr); break;
+      case "partial": result = supplierItems.filter(i => !isSupplierPaid(i) && supplierPaid(i) > 0 && supplierPaid(i) < supplierTotal(i)); break;
       case "week": result = supplierItems.filter(i => !isSupplierPaid(i) && i.ocr_data?.due_date && i.ocr_data.due_date >= todayStr && i.ocr_data.due_date <= weekStr); break;
       case "upcoming": result = supplierItems.filter(i => !isSupplierPaid(i) && (!i.ocr_data?.due_date || i.ocr_data.due_date > weekStr)); break;
       case "paid": result = supplierItems.filter(i => isSupplierPaid(i)); break;
@@ -1110,6 +1210,7 @@ export default function SuiviClient({
   function clientCount(tab: SubTab) {
     switch (tab) {
       case "overdue": return clientInvoices.filter(i => i.status !== "paid" && i.due_date && i.due_date < todayStr).length;
+      case "partial": return clientInvoices.filter(i => i.status !== "paid" && clientPaid(i) > 0 && clientPaid(i) < Number(i.total)).length;
       case "week": return clientInvoices.filter(i => i.status !== "paid" && i.due_date && i.due_date >= todayStr && i.due_date <= weekStr).length;
       case "upcoming": return clientInvoices.filter(i => i.status !== "paid" && (!i.due_date || i.due_date > weekStr)).length;
       case "paid": return clientInvoices.filter(i => i.status === "paid").length;
@@ -1120,6 +1221,7 @@ export default function SuiviClient({
   function supplierCount(tab: SubTab) {
     switch (tab) {
       case "overdue": return supplierItems.filter(i => !isSupplierPaid(i) && i.ocr_data?.due_date && i.ocr_data.due_date < todayStr).length;
+      case "partial": return supplierItems.filter(i => !isSupplierPaid(i) && supplierPaid(i) > 0 && supplierPaid(i) < supplierTotal(i)).length;
       case "week": return supplierItems.filter(i => !isSupplierPaid(i) && i.ocr_data?.due_date && i.ocr_data.due_date >= todayStr && i.ocr_data.due_date <= weekStr).length;
       case "upcoming": return supplierItems.filter(i => !isSupplierPaid(i) && (!i.ocr_data?.due_date || i.ocr_data.due_date > weekStr)).length;
       case "paid": return supplierItems.filter(i => isSupplierPaid(i)).length;
@@ -1186,7 +1288,7 @@ export default function SuiviClient({
           subTab={clientSubTab}
           setSubTab={setClientSubTab}
           countFn={clientCount}
-          onMarkPaid={inv => setPaidModal({ item: inv, type: "client" })}
+          onPayment={(inv, intent) => setPaidModal({ item: inv, type: "client", intent })}
           onRelance={inv => setRelanceModal(inv)}
           companyName={companyName}
           agingOpen={agingOpen}
@@ -1206,7 +1308,7 @@ export default function SuiviClient({
           subTab={supplierSubTab}
           setSubTab={setSupplierSubTab}
           countFn={supplierCount}
-          onMarkPaid={item => setPaidModal({ item, type: "supplier" })}
+          onPayment={(item, intent) => setPaidModal({ item, type: "supplier", intent })}
           agingOpen={agingOpen}
           setAgingOpen={setAgingOpen}
           search={search}
@@ -1215,7 +1317,6 @@ export default function SuiviClient({
           setDateFrom={setDateFrom}
           dateTo={dateTo}
           setDateTo={setDateTo}
-          inboxHref={dossierId ? `/comptable-pro/dossiers/${dossierId}/achats` : "/achats"}
         />
       )}
 
@@ -1224,6 +1325,7 @@ export default function SuiviClient({
         <PaidModal
           item={paidModal.item}
           type={paidModal.type}
+          intent={paidModal.intent}
           companyId={companyId}
           onClose={() => setPaidModal(null)}
           onSuccess={reload}

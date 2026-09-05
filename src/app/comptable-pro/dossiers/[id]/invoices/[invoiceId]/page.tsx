@@ -21,12 +21,12 @@ const STATUS_CLASS: Record<string, [string, string]> = {
   overdue:             ["#FEE2E2", "#991B1B"],
   draft:               ["#F3F4F6", "#6B7280"],
   cancelled:           ["#F3F4F6", "#6B7280"],
-  partiellement_payee: ["#FEF3C7", "#92400E"],
+  partiellement_payee: ["#EFF6FF", "#1D4ED8"],
 };
 
 const STATUS_LABEL: Record<string, string> = {
   ...INVOICE_STATUS_LABELS,
-  partiellement_payee: "Partiel",
+  partiellement_payee: "En attente",
 };
 
 export default async function DossierInvoiceDetailPage({
@@ -56,8 +56,8 @@ export default async function DossierInvoiceDetailPage({
 
   const paiements: Array<{ date: string; montant: number; mode: string; note?: string }> =
     Array.isArray((inv as any).paiements) ? (inv as any).paiements : [];
-  const montantPaye = Number((inv as any).montant_paye ?? 0);
-  const resteAPayer = Number((inv as any).reste_a_payer ?? Number(inv.total));
+  const montantPaye = Math.max(Number((inv as any).montant_recu ?? 0), Number((inv as any).montant_paye ?? 0));
+  const resteAPayer = Math.max(Number(inv.total) - montantPaye, 0);
   const totalTtc = Number(inv.total);
 
   return (
@@ -182,21 +182,6 @@ export default async function DossierInvoiceDetailPage({
             <div className="text-[10.5px] text-[#6B7280] uppercase tracking-[0.5px] mb-1">Montant total</div>
             <div className="text-[26px] font-bold text-[#C8924A] leading-none mb-1">{fmt(totalTtc)}</div>
             <div className="text-[11.5px] text-[#9CA3AF]">dont TVA {fmt(Number(inv.tax_amount))}</div>
-            {montantPaye > 0 && montantPaye < totalTtc && (
-              <>
-                <div className="h-px bg-[rgba(0,0,0,0.06)] my-2" />
-                <div className="h-2 overflow-hidden" style={{ backgroundColor: "#F3F4F6" }}>
-                  <div className="h-full" style={{
-                    backgroundColor: "#C8924A",
-                    width: `${Math.min(100, (montantPaye / totalTtc) * 100)}%`,
-                  }} />
-                </div>
-                <div className="flex justify-between mt-1 text-[11px]">
-                  <span className="text-[#059669] font-medium">{fmt(montantPaye)} payé</span>
-                  <span className="text-[#C8924A] font-medium">{fmt(resteAPayer)} restant</span>
-                </div>
-              </>
-            )}
           </div>
           <InvoiceActions
             invoiceId={inv.id}

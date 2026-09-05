@@ -303,7 +303,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
   }, [clients, search, sortKey, sortDirection]);
 
   const header = (
-    <div className="mb-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="mb-5 flex flex-col items-stretch justify-between gap-4 xl:flex-row xl:items-center">
       <div className="flex items-center gap-2.5">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: "rgba(200,146,74,0.12)" }}>
@@ -314,7 +314,7 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
           <p className="text-[11px] text-[#9CA3AF] mt-0.5">Gérez vos clients et suivez leur activité</p>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:shrink-0">
         <input
           ref={importInputRef}
           type="file"
@@ -322,8 +322,8 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); }}
         />
-        <div className="flex items-center gap-1">
-          <div className="relative group">
+        <div className="relative flex flex-col sm:flex-row">
+          <div className="group absolute right-3 top-1/2 -translate-y-1/2 sm:right-full sm:mr-2">
             <button className="w-5 h-5 flex items-center justify-center rounded-full text-[#9CA3AF] hover:text-[#6B7280] transition-colors">
               <Info size={14} />
             </button>
@@ -337,13 +337,13 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
           <button
             data-auth-required="import clients"
             onClick={() => importInputRef.current?.click()}
-            className="btn btn-outline h-10 min-h-10 min-w-[140px] justify-center px-4 text-[12.5px]"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#D7DADF] bg-white text-[#374151] hover:border-[#B8BEC8] hover:bg-[#F8F9FB] px-10 sm:px-3.5"
           >
-            <Upload size={13} /> Importer Excel
+            <Upload size={15} strokeWidth={1.75} aria-hidden="true" /> Importer Excel
           </button>
         </div>
-        <button data-permission="invoice:create" onClick={openAdd} className="btn btn-gold h-10 min-h-10 min-w-[140px] justify-center px-4 text-[12.5px]">
-          <Plus size={13} /> Nouveau client
+        <button data-permission="invoice:create" onClick={openAdd} className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
+          <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouveau client
         </button>
       </div>
     </div>

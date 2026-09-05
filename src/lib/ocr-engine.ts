@@ -1,7 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { preprocessImage } from "./image-preprocessor";
+import { normalizeExpenseCategory } from "./utils";
 
 const anthropic = new Anthropic();
+
+export type OcrDocumentKind = "supplier_invoice" | "expense_note";
 
 // ── Amount / date parsers ─────────────────────────────────────────────────────
 
@@ -94,13 +97,20 @@ function fallbackAccountingDescription(input: {
   invoiceNumber?: unknown;
   date?: string | null;
   documentType?: unknown;
+  documentKind?: OcrDocumentKind;
 }) {
-  const category = typeof input.category === "string" && input.category.trim() ? input.category.trim() : "Achat";
+  const category = typeof input.category === "string" && input.category.trim()
+    ? input.category.trim()
+    : input.documentKind === "expense_note" ? "Autre dépense" : "Achat";
   const vendor = typeof input.vendorName === "string" && input.vendorName.trim() ? input.vendorName.trim() : null;
   const reference = typeof input.invoiceNumber === "string" && input.invoiceNumber.trim() ? input.invoiceNumber.trim() : null;
   const isAvoir = String(input.documentType ?? "").toLowerCase() === "avoir";
 
-  const parts = [isAvoir ? `Avoir fournisseur — ${category}` : `Achat ${category.toLowerCase()}`];
+  const parts = [isAvoir
+    ? `Avoir fournisseur — ${category}`
+    : input.documentKind === "expense_note"
+      ? `Note de frais — ${category.toLowerCase()}`
+      : `Achat ${category.toLowerCase()}`];
   if (vendor) parts.push(vendor);
   if (reference) parts.push(`Facture ${reference}`);
   if (input.date) parts.push(input.date.slice(0, 7));
@@ -217,6 +227,54 @@ Return ONLY this JSON, nothing else:
   "extraction_notes": "..."
 }`;
 
+const EXPENSE_NOTE_PROMPT = `You are an expert at reading Moroccan expense notes and their supporting documents: till receipts, restaurant receipts, fuel tickets, transport tickets, hotel receipts, and other employee-paid business expenses.
+
+Extract the merchant name, expense date, receipt/ticket reference, final amount paid, payment method, expense category, and a short French bookkeeping description. Extract HT, TVA rate, and TVA amount only when they are explicitly printed or can be calculated reliably from printed HT and TTC amounts. Never assume a 20% TVA rate for an expense note. There is no payment due date for an expense that was already paid.
+
+category must be exactly one of these labels: Achats, Salaires, Loyer, Fournitures, Transport, Déplacements et missions, Communication, Fiscalité, Autre dépense. Never return a custom category.
+Classification rules:
+- fuel, taxi, train, plane, tolls, parking, meals, restaurants, hotels, accommodation, missions, or vehicle rental -> Déplacements et missions
+- freight, delivery, or business transport services -> Transport
+- office supplies, stationery, small office or IT equipment -> Fournitures
+- phone, mobile, internet, or telecom -> Communication
+- professional premises rent -> Loyer
+- taxes, duties, stamps, or government fees -> Fiscalité
+- payroll or personnel remuneration -> Salaires
+- goods, merchandise, inventory, or raw materials bought for resale/production -> Achats
+- anything not covered above -> Autre dépense; this category requires manual account review
+Classify normal expense proofs as "receipt". Set is_supplier_invoice to false. Do not invent supplier tax or bank identifiers.
+
+Return ONLY this JSON, nothing else:
+{
+  "vendor_name": {"value": "...", "confidence": "high|medium|low"},
+  "date": {"value": "DD/MM/YYYY", "confidence": "high|medium|low"},
+  "invoice_number": {"value": "...", "confidence": "high|medium|low"},
+  "amount_ht": {"value": 0.00, "confidence": "high|medium|low"},
+  "tva_rate": {"value": "7|10|14|20 or null", "confidence": "high|medium|low"},
+  "tva_amount": {"value": "0.00 or null", "confidence": "high|medium|low"},
+  "amount_ttc": {"value": 0.00, "confidence": "high|medium|low"},
+  "discount_amount": {"value": 0.00, "confidence": "high|medium|low"},
+  "description": {"value": "...", "confidence": "high|medium|low"},
+  "payment_method": {"value": "Cash|Virement|Chèque|Carte or null", "confidence": "high|medium|low"},
+  "category": {"value": "Achats|Salaires|Loyer|Fournitures|Transport|Déplacements et missions|Communication|Fiscalité|Autre dépense", "confidence": "high|medium|low"},
+  "due_date": {"value": null, "confidence": "high|medium|low"},
+  "is_supplier_invoice": {"value": false, "confidence": "high"},
+  "supplier_ice": {"value": null, "confidence": "high"},
+  "supplier_if": {"value": null, "confidence": "high"},
+  "supplier_rib": {"value": null, "confidence": "high"},
+  "supplier_iban": {"value": null, "confidence": "high"},
+  "document_type": "receipt|other",
+  "overall_confidence": "high|medium|low",
+  "extraction_notes": "..."
+}`;
+
+const EXPENSE_TEXT_PROMPT = (text: string) => `${EXPENSE_NOTE_PROMPT}
+
+The following text was extracted from the expense document:
+<document_text>
+${text}
+</document_text>`;
+
 const RETRY_PROMPT = `This is a difficult document. Focus ONLY on finding monetary amounts.
 
 Look for:
@@ -234,7 +292,7 @@ Return ONLY:
 
 // ── Normalize response to flat OcrData ────────────────────────────────────────
 
-function normalizeMainResponse(raw: any): Record<string, unknown> {
+export function normalizeMainResponse(raw: any, documentKind: OcrDocumentKind = "supplier_invoice"): Record<string, unknown> {
   function val(f: any) { return (typeof f === "object" && f !== null) ? f.value : f; }
   function conf(f: any): string | undefined { return (typeof f === "object" && f !== null) ? f.confidence : undefined; }
 
@@ -254,20 +312,22 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
   const tvaRate =
     normalizeTvaRate(rawRate)
     ?? inferTvaRate(grossTtc, rawTvaAmount, rawAmountHt)
-    ?? (amountTtc != null ? 20 : null);
+    ?? (documentKind === "supplier_invoice" && amountTtc != null ? 20 : null);
   const amountHt = rawAmountHt ?? computeAmountHt(grossTtc, rawTvaAmount, tvaRate);
   const tvaAmount = rawTvaAmount ?? computeTvaAmount(grossTtc, amountHt, tvaRate);
   const invoiceDate = parseDate(val(raw.date));
   const parsedDueDate = parseDate(val(raw.due_date));
-  const dueDate = parsedDueDate ?? addDays(invoiceDate, 60);
+  const dueDate = documentKind === "expense_note" ? null : parsedDueDate ?? addDays(invoiceDate, 60);
   const dueDateConfidence = conf(raw.due_date) ?? (dueDate ? "low" : null);
   const invoiceNumber = val(raw.invoice_number);
+  const category = normalizeExpenseCategory(val(raw.category));
   const description = cleanDescription(val(raw.description)) ?? fallbackAccountingDescription({
-    category: val(raw.category),
+    category,
     vendorName,
     invoiceNumber,
     date: invoiceDate,
     documentType: raw.document_type,
+    documentKind,
   });
   const overall = raw.overall_confidence ?? "medium";
 
@@ -282,12 +342,12 @@ function normalizeMainResponse(raw: any): Record<string, unknown> {
     tva_amount:  tvaAmount,
     amount_ht:   amountHt,
     description,
-    category:    val(raw.category)    ?? null,
+    category,
     payment_method: val(raw.payment_method) ?? null,
     receipt_number: invoiceNumber ?? null,
     due_date:       dueDate,
     due_date_confidence: dueDateConfidence,
-    is_supplier_invoice: val(raw.is_supplier_invoice) ?? true,
+    is_supplier_invoice: documentKind === "expense_note" ? false : val(raw.is_supplier_invoice) ?? true,
     supplier_ice: val(raw.supplier_ice) ?? null,
     supplier_if: val(raw.supplier_if) ?? null,
     supplier_rib: val(raw.supplier_rib) ?? null,
@@ -356,11 +416,11 @@ async function callClaudeVision(
   return msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
 }
 
-async function callClaudeText(text: string, model: string): Promise<string> {
+async function callClaudeText(text: string, model: string, prompt: (text: string) => string): Promise<string> {
   const msg = await anthropic.messages.create({
     model,
     max_tokens: 800,
-    messages: [{ role: "user", content: TEXT_PROMPT(text) }],
+    messages: [{ role: "user", content: prompt(text) }],
   });
   return msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
 }
@@ -370,17 +430,20 @@ async function callClaudeText(text: string, model: string): Promise<string> {
 export async function extractWithFallback(
   buffer: Buffer,
   mimeType: string,
+  documentKind: OcrDocumentKind = "supplier_invoice",
 ): Promise<Record<string, unknown>> {
   const isPdf = mimeType === "application/pdf";
   const isImage = mimeType.startsWith("image/");
+  const mainPrompt = documentKind === "expense_note" ? EXPENSE_NOTE_PROMPT : MAIN_PROMPT;
+  const textPrompt = documentKind === "expense_note" ? EXPENSE_TEXT_PROMPT : TEXT_PROMPT;
 
   // ── Step 1: PDF embedded text (free, instant, perfect for digital PDFs) ──
   if (isPdf) {
     try {
       const text = await extractPDFText(buffer);
       if (text.length > 100) {
-        const raw = parseJSON(await callClaudeText(text, "claude-haiku-4-5-20251001"));
-        const result = normalizeMainResponse(raw);
+        const raw = parseJSON(await callClaudeText(text, "claude-haiku-4-5-20251001", textPrompt));
+        const result = normalizeMainResponse(raw, documentKind);
         if (result.overall_confidence !== "low" && result.amount != null) {
           return result;
         }
@@ -407,9 +470,9 @@ export async function extractWithFallback(
 
   try {
     const raw = parseJSON(
-      await callClaudeVision(processedBuffer, processedMime, "claude-haiku-4-5-20251001", MAIN_PROMPT)
+      await callClaudeVision(processedBuffer, processedMime, "claude-haiku-4-5-20251001", mainPrompt)
     );
-    const result = normalizeMainResponse(raw);
+    const result = normalizeMainResponse(raw, documentKind);
 
     // ── Step 3: Retry with number-focused prompt if low confidence ────────
     if ((result.overall_confidence === "low" || !result.amount) && isImage) {
@@ -432,9 +495,9 @@ export async function extractWithFallback(
 
     // ── Step 4: Escalate to Sonnet ────────────────────────────────────────
     const sonnetRaw = parseJSON(
-      await callClaudeVision(processedBuffer, processedMime, "claude-sonnet-4-6", MAIN_PROMPT)
+      await callClaudeVision(processedBuffer, processedMime, "claude-sonnet-4-6", mainPrompt)
     );
-    return normalizeMainResponse(sonnetRaw);
+    return normalizeMainResponse(sonnetRaw, documentKind);
   } catch {
     return {};
   }

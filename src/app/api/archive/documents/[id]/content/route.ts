@@ -22,11 +22,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!document.storage_path) return NextResponse.json({ error: "Fichier absent." }, { status: 404 });
     const { data, error } = await admin.storage
       .from("company-documents")
-      .createSignedUrl(document.storage_path, 60);
-    if (error || !data?.signedUrl) {
-      return NextResponse.json({ error: "Téléchargement impossible." }, { status: 502 });
+      .download(document.storage_path);
+    if (error || !data) {
+      return NextResponse.json({ error: "Lecture du document impossible." }, { status: 502 });
     }
-    return NextResponse.redirect(data.signedUrl);
+    const safeName = (document.file_name || "document").replace(/["\r\n]/g, "_");
+    return new Response(data, {
+      headers: {
+        "Content-Type": document.mime_type || data.type || "application/octet-stream",
+        "Content-Disposition": `inline; filename="${safeName}"`,
+        "Cache-Control": "private, no-store",
+      },
+    });
   }
 
   if (!document.external_file_id || !document.archive_id) {
@@ -54,7 +61,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       headers: {
         "Content-Type": document.mime_type || "application/octet-stream",
         "Content-Disposition": `inline; filename="${safeName}"`,
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": "private, no-store",
       },
     });
   } catch {

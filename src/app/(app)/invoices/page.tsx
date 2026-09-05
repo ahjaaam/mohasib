@@ -10,7 +10,7 @@ import {
   Loader2, FileText, Plus, X, Search, ReceiptText, ClipboardList,
   CheckCircle2, Send, Trash2, ThumbsDown, Upload,
 } from "lucide-react";
-import type { Invoice, InvoiceStatus, PartialPayment, DevisStatus } from "@/types";
+import type { Invoice, InvoiceStatus, DevisStatus } from "@/types";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
@@ -55,9 +55,9 @@ async function sendInvoiceEmail(invoiceId: string, savedEmail?: string | null) {
 type TabKey = "all" | InvoiceStatus | DevisStatus;
 
 type InvoiceExt = Invoice & {
+  montant_recu?: number;
   montant_paye?: number;
   reste_a_payer?: number | null;
-  paiements?: PartialPayment[];
   source_document_id?: string | null;
   import_source?: string | null;
 };
@@ -69,7 +69,6 @@ type InvoiceSortKey = "number" | "client" | "object" | "subtotal" | "tva" | "tot
 const TABS: { key: TabKey; label: string }[] = [
   { key: "all",                label: "Toutes" },
   { key: "sent",               label: "En attente" },
-  { key: "partiellement_payee", label: "Partiel" },
   { key: "paid",               label: "Payées" },
   { key: "overdue",            label: "En retard" },
   { key: "draft",              label: "Brouillons" },
@@ -96,7 +95,7 @@ const BADGE: Record<string, [string, string, string]> = {
   overdue:              ["#FEE2E2", "#991B1B",  "En retard"],
   draft:                ["#F3F4F6", "#6B7280",  "Brouillon"],
   cancelled:            ["#F3F4F6", "#6B7280",  "Annulée"],
-  partiellement_payee:  ["#FEF3C7", "#92400E",  "Partiel"],
+  partiellement_payee:  ["#EFF6FF", "#1D4ED8",  "En attente"],
 };
 
 const AVOIR_BADGE: Record<string, [string, string, string]> = {
@@ -112,189 +111,14 @@ const DEVIS_BADGE: Record<string, [string, string, string]> = {
   expiré:    ["#FEF3C7", "#92400E",  "Expiré"],
 };
 
-const MODES_PAIEMENT = ["Virement", "Chèque", "Espèces", "Carte bancaire"];
-
-// ── Partial Payment Modal ──────────────────────────────────────────────────────
-
-function PartialPaymentModal({ invoice, onClose, onSaved }: {
-  invoice: InvoiceExt;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const supabase = createClient();
-  const [montant, setMontant] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [mode, setMode] = useState("Virement");
-  const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const totalTtc = Number(invoice.total);
-  const montantPaye = Number(invoice.montant_paye ?? 0);
-  const resteAPayer = Math.max(0, totalTtc - montantPaye);
-
-  async function handleSave() {
-    const montantSaisi = parseFloat(montant.replace(",", "."));
-    if (isNaN(montantSaisi) || montantSaisi <= 0) { toast.error("Montant invalide"); return; }
-    if (montantSaisi > resteAPayer + 0.01) { toast.error("Le montant dépasse le reste à payer"); return; }
-    setSaving(true);
-
-    const nouveauMontantPaye = montantPaye + montantSaisi;
-    const nouveauReste = totalTtc - nouveauMontantPaye;
-    const nouveauStatut =
-      nouveauReste <= 0.01 ? "paid"
-      : nouveauMontantPaye > 0 ? "partiellement_payee"
-      : "sent";
-
-    const newPaiements: PartialPayment[] = [
-      ...(Array.isArray(invoice.paiements) ? invoice.paiements : []),
-      { date, montant: montantSaisi, mode, ...(note ? { note } : {}) },
-    ];
-
-    const { error } = await supabase.from("invoices").update({
-      montant_paye: nouveauMontantPaye,
-      reste_a_payer: nouveauReste,
-      status: nouveauStatut,
-      paiements: newPaiements,
-    }).eq("id", invoice.id);
-
-    setSaving(false);
-    if (error) {
-      console.error("Partial payment error:", error);
-      toast.error(error.message || translateError(error), { duration: 8000 });
-      return;
-    }
-    toast.success("Paiement enregistré");
-    onSaved();
-    onClose();
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-[420px] mx-4 p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[16px] font-bold text-[#1A1A2E]">Enregistrer un paiement</h2>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280]">
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Invoice summary */}
-        <div className="bg-[#F9FAFB] rounded-xl px-4 py-3 mb-4 flex flex-col gap-1.5">
-          <div className="flex justify-between text-[12.5px]">
-            <span className="text-[#6B7280]">Facture</span>
-            <span className="font-semibold text-[#1A1A2E]">{invoice.invoice_number}</span>
-          </div>
-          <div className="flex justify-between text-[12.5px]">
-            <span className="text-[#6B7280]">Total TTC</span>
-            <span className="font-semibold text-[#1A1A2E]">{fmt(totalTtc)}</span>
-          </div>
-          {montantPaye > 0 && (
-            <div className="flex justify-between text-[12.5px]">
-              <span className="text-[#6B7280]">Déjà payé</span>
-              <span className="font-semibold text-[#059669]">{fmt(montantPaye)}</span>
-            </div>
-          )}
-          <div className="h-px bg-[rgba(0,0,0,0.06)] my-0.5" />
-          <div className="flex justify-between text-[12.5px]">
-            <span className="text-[#6B7280]">Reste à payer</span>
-            <span className="font-bold text-[#C8924A]">{fmt(resteAPayer)}</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          {/* Amount */}
-          <div>
-            <label className="block text-[12px] font-semibold text-[#374151] mb-1.5">Montant du paiement *</label>
-            <div className="flex gap-2 items-center">
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={montant}
-                onChange={(e) => setMontant(e.target.value)}
-                placeholder="0,00"
-                className="flex-1 border border-[rgba(0,0,0,0.12)] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-[#C8924A] focus:ring-1 focus:ring-[rgba(200,146,74,0.3)]"
-              />
-              <span className="text-[12px] text-[#6B7280] flex-shrink-0">MAD</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setMontant(String(Math.round(resteAPayer * 100) / 100))}
-              className="mt-1.5 text-[11px] text-[#C8924A] hover:underline"
-            >
-              Tout régler : {fmt(resteAPayer)}
-            </button>
-          </div>
-
-          {/* Date */}
-          <div>
-            <label className="block text-[12px] font-semibold text-[#374151] mb-1.5">Date du paiement *</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full border border-[rgba(0,0,0,0.12)] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-[#C8924A] focus:ring-1 focus:ring-[rgba(200,146,74,0.3)]"
-            />
-          </div>
-
-          {/* Mode */}
-          <div>
-            <label className="block text-[12px] font-semibold text-[#374151] mb-1.5">Mode de paiement</label>
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value)}
-              className="w-full border border-[rgba(0,0,0,0.12)] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-[#C8924A] focus:ring-1 focus:ring-[rgba(200,146,74,0.3)] bg-white"
-            >
-              {MODES_PAIEMENT.map((m) => <option key={m}>{m}</option>)}
-            </select>
-          </div>
-
-          {/* Note */}
-          <div>
-            <label className="block text-[12px] font-semibold text-[#374151] mb-1.5">Note (optionnel)</label>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Référence, commentaire..."
-              className="w-full border border-[rgba(0,0,0,0.12)] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-[#C8924A] focus:ring-1 focus:ring-[rgba(200,146,74,0.3)]"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2 mt-6">
-          <button onClick={onClose} className="flex-1 btn btn-outline justify-center">Annuler</button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !montant}
-            className="flex-1 btn btn-gold justify-center disabled:opacity-60 flex items-center gap-1.5"
-          >
-            {saving
-              ? <><Loader2 size={13} className="animate-spin" /> Enregistrement...</>
-              : "Enregistrer le paiement"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Invoice context menu ───────────────────────────────────────────────────────
 
 type MenuItem = { label: string; href?: string; action?: () => void; red?: boolean };
 
-function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoir, canCreateAvoir }: {
+function InvoiceMenu({ inv, onMarkPaid, onDelete, basePath, isAvoir, canCreateAvoir }: {
   inv: InvoiceExt;
   onMarkPaid: (id: string) => void;
   onDelete: (id: string) => void;
-  onAddPayment: (inv: InvoiceExt) => void;
   basePath: string;
   isAvoir?: boolean;
   canCreateAvoir: boolean;
@@ -381,11 +205,6 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
     window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
   }
 
-  const addPmt: MenuItem = {
-    label: "Ajouter un paiement partiel",
-    action: () => { setOpen(false); onAddPayment(inv); },
-  };
-
   const createAvoir: MenuItem = {
     label: "Créer un avoir",
     href: `${basePath}/avoirs/nouveau?linked=${inv.id}`,
@@ -404,7 +223,6 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
       { label: "Envoyer par email", action: handleEmail },
-      addPmt,
       { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
       createAvoir,
       { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
@@ -414,7 +232,6 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
       { label: "Envoyer par email", action: handleEmail },
-      addPmt,
       { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
       createAvoir,
       { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
@@ -432,7 +249,6 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
       { label: "Envoyer par email", action: handleEmail },
-      addPmt,
       { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
       { label: "Relancer le client", action: handleRelance },
       createAvoir,
@@ -444,7 +260,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
     ],
   };
 
-  const AVOIR_EXCLUDED = ["Ajouter un paiement partiel", "Marquer comme payée", "Créer un avoir"];
+  const AVOIR_EXCLUDED = ["Marquer comme payée", "Créer un avoir"];
   const items = (itemsByStatus[inv.status as string] ?? itemsByStatus.sent)
     .filter((item) => (!isAvoir || !AVOIR_EXCLUDED.includes(item.label)) && (canCreateAvoir || item.label !== "Créer un avoir"));
   if (inv.source_document_id) {
@@ -460,7 +276,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, onAddPayment, basePath, isAvoi
     ? "invoice:delete"
     : label.startsWith("Envoyer") || label === "Relancer le client"
       ? "invoice:send"
-      : ["Modifier", "Marquer comme payée", "Ajouter un paiement partiel", "Créer un avoir"].includes(label)
+      : ["Modifier", "Marquer comme payée", "Créer un avoir"].includes(label)
         ? "invoice:create"
         : undefined;
 
@@ -686,7 +502,6 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(true);
-  const [paymentModal, setPaymentModal] = useState<InvoiceExt | null>(null);
   const [sortKey, setSortKey] = useState<InvoiceSortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -757,12 +572,13 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
     const total = Number(inv?.total ?? 0);
     const { error } = await supabase.from("invoices").update({
       status: "paid",
+      montant_recu: total,
       montant_paye: total,
       reste_a_payer: 0,
     }).eq("id", id);
     if (error) { toast.error("Erreur lors de la mise à jour"); return; }
     setInvoices((prev) => prev.map((i) => i.id === id
-      ? { ...i, status: "paid" as InvoiceStatus, montant_paye: total, reste_a_payer: 0 }
+      ? { ...i, status: "paid" as InvoiceStatus, montant_recu: total, montant_paye: total, reste_a_payer: 0 }
       : i));
     toast.success("Facture marquée comme payée");
   }
@@ -803,7 +619,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
       ? modeInvoices.length
       : mode === "devis"
         ? modeInvoices.filter((i) => (i as any).devis_status === t.key).length
-        : modeInvoices.filter((i) => i.status === t.key).length;
+        : modeInvoices.filter((i) => i.status === t.key || (t.key === "sent" && i.status === "partiellement_payee")).length;
     return acc;
   }, {} as Record<TabKey, number>);
 
@@ -811,7 +627,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
     .filter((i) => {
       if (tab === "all") return true;
       if (mode === "devis") return (i as any).devis_status === tab;
-      return i.status === tab;
+      return i.status === tab || (tab === "sent" && i.status === "partiellement_payee");
     })
     .filter((i) => {
       if (!search) return true;
@@ -884,6 +700,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
       ? await Promise.all(selectedInvoices.map((invoice) =>
           supabase.from("invoices").update({
             status: "paid",
+            montant_recu: Number(invoice.total),
             montant_paye: Number(invoice.total),
             reste_a_payer: 0,
           }).eq("id", invoice.id)
@@ -903,6 +720,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
         ? {
             ...invoice,
             status: "paid" as InvoiceStatus,
+            montant_recu: Number(invoice.total),
             montant_paye: Number(invoice.total),
             reste_a_payer: 0,
           }
@@ -968,7 +786,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
         onImported={load}
       />
       {/* ─── Page header ──────────────────────────────────────────────────── */}
-      <div className="mb-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+      <div className="mb-5 flex flex-col items-stretch justify-between gap-4 xl:flex-row xl:items-center">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "rgba(200,146,74,0.12)" }}>
@@ -990,21 +808,21 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
         </div>
         {mode === "avoirs" ? (
           <Link data-permission="invoice:create" href={`${basePath}/avoirs/nouveau`}
-            className="btn btn-gold flex items-center gap-1.5">
-            <Plus size={13} /> Nouvel Avoir
+            className="ui-control inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
+            <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouvel Avoir
           </Link>
         ) : mode === "devis" ? (
           <Link data-permission="invoice:create" href="/factures/devis/nouveau"
-            className="btn btn-gold flex items-center gap-1.5">
-            <Plus size={13} /> Nouveau Devis
+            className="ui-control inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
+            <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouveau Devis
           </Link>
         ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <button data-permission="invoice:create" onClick={() => setBulkImportOpen(true)} className="btn btn-outline flex items-center gap-1.5">
-              <Upload size={13} /> Importer
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:shrink-0">
+            <button data-permission="invoice:create" onClick={() => setBulkImportOpen(true)} className="ui-control inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#D7DADF] bg-white text-[#374151] hover:border-[#B8BEC8] hover:bg-[#F8F9FB]">
+              <Upload size={15} strokeWidth={1.75} aria-hidden="true" /> Importer des factures
             </button>
-            <Link data-permission="invoice:create" href={`${basePath}/nouvelle`} className="btn btn-gold flex items-center gap-1.5">
-              <Plus size={13} /> Nouvelle Facture
+            <Link data-permission="invoice:create" href={`${basePath}/nouvelle`} className="ui-control inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
+              <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouvelle facture
             </Link>
           </div>
         )}
@@ -1313,9 +1131,6 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
               const status = inv.status as string;
               const badgeMap = mode === "avoirs" ? AVOIR_BADGE : BADGE;
               const [bg, color, label] = badgeMap[status] ?? ["#F3F4F6", "#6B7280", status];
-              const isPartial = status === "partiellement_payee";
-              const montantPaye = Number(inv.montant_paye ?? 0);
-              const pct = totalTtc > 0 ? Math.min(100, (montantPaye / totalTtc) * 100) : 0;
 
               return (
                 <tr key={inv.id} className={selectedIds.has(inv.id) ? "bg-[#FAF3E8]" : undefined}>
@@ -1342,19 +1157,6 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
                   <td className="text-left">
                     {mode === "avoirs" ? (
                       <span className="font-semibold text-[#1A1A2E]">- {fmt(totalTtc)}</span>
-                    ) : isPartial ? (
-                      <div>
-                        <div className="text-[12.5px] font-semibold text-[#1A1A2E] whitespace-nowrap">
-                          {montantPaye.toLocaleString("fr-MA", { minimumFractionDigits: 2 })}
-                          <span className="text-[#9CA3AF] font-normal mx-1">/</span>
-                          {fmt(totalTtc)}
-                        </div>
-                        <div className="h-1.5 overflow-hidden mt-1"
-                          style={{ backgroundColor: "#F3F4F6", maxWidth: "110px" }}>
-                          <div className="h-full"
-                            style={{ backgroundColor: "#C8924A", width: `${pct}%` }} />
-                        </div>
-                      </div>
                     ) : (
                       <span className="font-semibold">{fmt(totalTtc)}</span>
                     )}
@@ -1380,7 +1182,6 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
                       inv={inv}
                       onMarkPaid={markPaid}
                       onDelete={deleteInvoice}
-                      onAddPayment={setPaymentModal}
                       basePath={basePath}
                       isAvoir={mode === "avoirs"}
                       canCreateAvoir={entitlements.features.avoirs}
@@ -1392,15 +1193,6 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
           </tbody>
         </table>
       </div>
-
-      {/* ─── Partial payment modal ────────────────────────────────────────── */}
-      {paymentModal && (
-        <PartialPaymentModal
-          invoice={paymentModal}
-          onClose={() => setPaymentModal(null)}
-          onSaved={load}
-        />
-      )}
     </div>
   );
 }

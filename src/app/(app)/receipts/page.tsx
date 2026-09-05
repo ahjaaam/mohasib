@@ -1,5 +1,5 @@
-import ReceiptsManager from "./ReceiptsManager";
+import InboxPage from "../inbox/page";
 
 export default function ReceiptsPage() {
-  return <ReceiptsManager />;
+  return <InboxPage workspace="expenses" />;
 }

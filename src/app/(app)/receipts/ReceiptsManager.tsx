@@ -318,7 +318,9 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     if (query && !searchable.includes(query.toLowerCase())) return false;
     if (status !== "all" && receipt.status !== status) return false;
     if (source !== "all" && receiptSource(receipt) !== source) return false;
-    const receiptDate = receipt.ocr_data.date ?? receipt.created_at.slice(0, 10);
+    const receiptDate = receipt.status === "pending"
+      ? receipt.created_at.slice(0, 10)
+      : receipt.ocr_data.date ?? receipt.created_at.slice(0, 10);
     if (dateFrom && receiptDate < dateFrom) return false;
     if (dateTo && receiptDate > dateTo) return false;
     return true;

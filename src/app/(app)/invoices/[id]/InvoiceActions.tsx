@@ -238,7 +238,6 @@ export default function InvoiceActions({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [waState, setWaState] = useState<WaState>("idle");
   const [emailState, setEmailState] = useState<WaState>("idle");
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -246,6 +245,7 @@ export default function InvoiceActions({
     setLoadingAction(newStatus);
     const update: Record<string, unknown> = { status: newStatus };
     if (newStatus === "paid") {
+      update.montant_recu = totalTtc;
       update.montant_paye = totalTtc;
       update.reste_a_payer = 0;
     }
@@ -334,8 +334,6 @@ export default function InvoiceActions({
   const fmtDate = (d: string) =>
     new Date(d).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-  const canAddPayment = status === "sent" || status === "overdue" || status === "partiellement_payee" || status === "draft";
-
   return (
     <>
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 flex flex-col gap-2">
@@ -380,15 +378,6 @@ export default function InvoiceActions({
             className="btn btn-gold justify-center w-full disabled:opacity-60"
           >
             {loadingAction === "paid" ? "..." : <><Check size={13} /> Solder la facture</>}
-          </button>
-        )}
-
-        {canAddPayment && (
-          <button
-            onClick={() => setShowPaymentModal(true)}
-            className="btn btn-outline justify-center w-full"
-          >
-            Ajouter un paiement partiel
           </button>
         )}
 
@@ -481,18 +470,6 @@ export default function InvoiceActions({
           </div>
         )}
       </div>
-
-      {showPaymentModal && (
-        <PartialPaymentModal
-          invoiceId={invoiceId}
-          invoiceNumber={invoiceNumber}
-          totalTtc={totalTtc}
-          montantPaye={montantPaye}
-          paiements={paiements}
-          onClose={() => setShowPaymentModal(false)}
-          onSaved={() => router.refresh()}
-        />
-      )}
     </>
   );
 }

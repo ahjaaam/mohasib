@@ -7,7 +7,7 @@ import type { Transaction } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { getAccountLabel, getExpenseAccount, getRevenueAccount } from "@/lib/cgnc-mapping";
 import { cgncAccounts } from "@/lib/cgnc-accounts";
-import { ArrowLeftRight, CheckCircle, Plus, Filter, Link2, Loader2, X } from "lucide-react";
+import { ArrowLeftRight, CheckCircle, Plus, Upload, Filter, Link2, Loader2, X } from "lucide-react";
 import BankImportModal from "./BankImportModal";
 import AllocateTransactionModal from "./AllocateTransactionModal";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
@@ -443,7 +443,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       )}
 
       {/* ─── Page header ──────────────────────────────────────────────────── */}
-      <div className="mb-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+      <div className="mb-5 flex flex-col items-stretch justify-between gap-4 xl:flex-row xl:items-center">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "rgba(200,146,74,0.12)" }}>
@@ -454,22 +454,23 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
             <p className="text-[11px] text-[#9CA3AF] mt-0.5">Enregistrez et suivez vos mouvements financiers</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:shrink-0">
           <button
+            type="button"
             data-permission="accounting:create"
-            className="btn btn-outline h-10 min-h-10 min-w-[140px] justify-center px-4 text-[12.5px]"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#D7DADF] bg-white px-3.5 text-[12px] font-medium text-[#374151] transition-colors hover:border-[#B8BEC8] hover:bg-[#F8F9FB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-[184px]"
             onClick={() => {
               setError(null);
               setAddTransactionOpen(true);
             }}
           >
-            <Plus size={13} /> Nouvelle transaction
+            <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouvelle transaction
           </button>
           {entitlements.features.bank_import && <div className="relative group">
-            <button data-permission="accounting:create" className="btn btn-gold flex items-center gap-1.5" onClick={() => setBankImportOpen(true)}>
-              <Plus size={13} /> Importer un relevé
+            <button type="button" data-permission="accounting:create" aria-describedby="bank-import-limits" className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#111621] bg-[#111621] px-3.5 text-[12px] font-medium text-white transition-colors hover:border-[#25334B] hover:bg-[#25334B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-[184px]" onClick={() => setBankImportOpen(true)}>
+              <Upload size={15} strokeWidth={1.75} aria-hidden="true" /> Importer un relevé
             </button>
-            <div className="absolute right-0 top-full mt-1.5 bg-[#0D1526] text-white text-[11px] rounded-md px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+            <div id="bank-import-limits" role="tooltip" className="absolute right-0 top-full mt-1.5 bg-[#0D1526] text-white text-[11px] rounded-md px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none z-10">
               PDF max {BANK_STATEMENT_PDF_MAX_PAGES} pages · CSV max 200 lignes
             </div>
           </div>}

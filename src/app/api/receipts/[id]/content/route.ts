@@ -23,17 +23,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const admin = createAdminClient();
-  const { data, error } = await admin.storage.from("receipts").download(receipt.storage_path);
-  if (error || !data) {
+  const { data, error } = await admin.storage
+    .from("receipts")
+    .createSignedUrl(receipt.storage_path, 5 * 60);
+  if (error || !data?.signedUrl) {
     return NextResponse.json({ error: "Lecture de la note de frais impossible." }, { status: 502 });
   }
 
-  const safeName = (receipt.file_name || "note-de-frais").replace(/["\r\n]/g, "_");
-  return new Response(data, {
-    headers: {
-      "Content-Type": receipt.mime_type || data.type || "application/octet-stream",
-      "Content-Disposition": `inline; filename="${safeName}"`,
-      "Cache-Control": "private, no-store",
-    },
-  });
+  const response = NextResponse.redirect(data.signedUrl, 307);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }

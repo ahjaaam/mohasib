@@ -43,8 +43,28 @@ export const TRANSACTION_CATEGORIES = {
     "Loyer",
     "Fournitures",
     "Transport",
+    "Déplacements et missions",
     "Communication",
     "Fiscalité",
     "Autre dépense",
   ],
 };
+
+export function normalizeExpenseCategory(value: unknown): typeof TRANSACTION_CATEGORIES.expense[number] {
+  const source = String(value ?? "").trim();
+  const exact = TRANSACTION_CATEGORIES.expense.find(
+    (category) => category.toLocaleLowerCase("fr") === source.toLocaleLowerCase("fr"),
+  );
+  if (exact) return exact;
+
+  const normalized = source.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
+  if (/salaire|paie|remuneration|personnel/.test(normalized)) return "Salaires";
+  if (/loyer|bail|location.*(bureau|local|immeuble)/.test(normalized)) return "Loyer";
+  if (/fourniture|papeterie|bureau|imprimante|informatique/.test(normalized)) return "Fournitures";
+  if (/deplacement|mission|reception|repas|restaurant|hotel|hebergement|carburant|essence|gasoil|taxi|train|avion|parking|peage|location.*(voiture|vehicule)/.test(normalized)) return "Déplacements et missions";
+  if (/transport|fret|livraison|messagerie/.test(normalized)) return "Transport";
+  if (/communication|telephone|internet|telecom|mobile/.test(normalized)) return "Communication";
+  if (/fiscal|impot|taxe|timbre/.test(normalized)) return "Fiscalité";
+  if (/achat|marchandise|stock|matiere premiere|approvisionnement/.test(normalized)) return "Achats";
+  return "Autre dépense";
+}

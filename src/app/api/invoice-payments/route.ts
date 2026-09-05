@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: invoice } = invoice_id
-      ? await supabase.from("invoices").select("id,invoice_number,total,montant_recu,status,dossier_id").eq("id", invoice_id).single()
+      ? await supabase.from("invoices").select("id,invoice_number,total,montant_recu,montant_paye,status,dossier_id").eq("id", invoice_id).single()
       : { data: null };
     const { data: receipt } = inbox_item_id
       ? await supabase.from("receipts").select("id,ocr_data,dossier_id").eq("id", inbox_item_id).single()
@@ -47,7 +47,10 @@ export async function POST(req: NextRequest) {
     if (invoice_id && !invoice) return NextResponse.json({ error: "Facture introuvable" }, { status: 404 });
     if (inbox_item_id && !receipt) return NextResponse.json({ error: "Document fournisseur introuvable" }, { status: 404 });
     const amount = Number(montant);
-    if (invoice && Number(invoice.montant_recu ?? 0) + amount > Number(invoice.total) + 0.01) {
+    const currentInvoicePaid = invoice
+      ? Math.max(Number(invoice.montant_recu ?? 0), Number(invoice.montant_paye ?? 0))
+      : 0;
+    if (invoice && currentInvoicePaid + amount > Number(invoice.total) + 0.01) {
       return NextResponse.json({ error: "Le paiement dépasse le solde de la facture" }, { status: 400 });
     }
     if (receipt) {
@@ -99,7 +102,7 @@ export async function POST(req: NextRequest) {
     // 2a. Update client invoice
     if (invoice_id) {
       if (invoice) {
-        const newMontantRecu = Number(invoice.montant_recu ?? 0) + amount;
+        const newMontantRecu = currentInvoicePaid + amount;
         const isPaid = newMontantRecu >= Number(invoice.total) - 0.01;
         const { error: invoiceUpdateError } = await supabase.from("invoices").update({
           montant_recu: newMontantRecu,
@@ -154,31 +157,6 @@ export async function POST(req: NextRequest) {
           eventData: { payment, invoice: updatedInvoice },
         });
 
-        if (payment_type === "encaissement") {
-          const { data: transaction, error: transactionError } = await supabase
-            .from("transactions")
-            .insert({
-              user_id: ownerId,
-              type: "income",
-              description: `Encaissement — paiement reçu`,
-              amount,
-              date: date_paiement,
-              payment_method: mode_paiement ?? null,
-              reference: reference ?? null,
-              notes: notes ?? null,
-              invoice_id,
-              dossier_id: dossierId,
-              source: "manual",
-            })
-            .select("id")
-            .single();
-          if (transactionError) throw transactionError;
-          const { error: linkError } = await supabase
-            .from("invoice_payments")
-            .update({ transaction_id: transaction.id })
-            .eq("id", payment.id);
-          if (linkError) throw linkError;
-        }
       }
     }
 
@@ -230,29 +208,6 @@ export async function POST(req: NextRequest) {
           eventData: { payment, receipt_id: receipt.id, ocr_data: receipt.ocr_data },
         });
 
-        const { data: transaction, error: transactionError } = await supabase
-          .from("transactions")
-          .insert({
-            user_id: ownerId,
-            type: "expense",
-            description: `Paiement fournisseur${receipt.ocr_data?.vendor_name ? ` — ${receipt.ocr_data.vendor_name}` : ""}`,
-            amount,
-            date: date_paiement,
-            payment_method: mode_paiement ?? null,
-            reference: reference ?? null,
-            notes: notes ?? null,
-            receipt_id: inbox_item_id,
-            dossier_id: dossierId,
-            source: "manual",
-          })
-          .select("id")
-          .single();
-        if (transactionError) throw transactionError;
-        const { error: linkError } = await supabase
-          .from("invoice_payments")
-          .update({ transaction_id: transaction.id })
-          .eq("id", payment.id);
-        if (linkError) throw linkError;
       }
     }
 

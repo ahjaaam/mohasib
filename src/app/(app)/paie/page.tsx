@@ -15,6 +15,7 @@ import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
 import PageHeader from "@/components/PageHeader";
+import { saveEmployeeWithSchemaCompatibility } from "@/lib/paie/save-employee";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -483,14 +484,22 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       statut: empForm.statut,
       ...(dossierId ? { dossier_id: dossierId } : {}),
     };
-    const { error } = empModal === "add"
-      ? await supabase.from("employees").insert(payload)
-      : await supabase.from("employees").update(payload).eq("id", editingEmp!.id);
-    setEmpSaving(false);
-    if (error) { toast.error(translateError(error)); return; }
-    toast.success(empModal === "add" ? "Employé ajouté !" : "Employé mis à jour !");
-    setEmpModal(null);
-    loadEmployees();
+    try {
+      const { error } = await saveEmployeeWithSchemaCompatibility(payload, (value) => empModal === "add"
+        ? supabase.from("employees").insert(value)
+        : supabase.from("employees").update(value).eq("id", editingEmp!.id));
+      if (error) {
+        toast.error(error.code === "PAYROLL_SCHEMA_REQUIRED" ? error.message : translateError(error));
+        return;
+      }
+      toast.success(empModal === "add" ? "Employé ajouté !" : "Employé mis à jour !");
+      setEmpModal(null);
+      loadEmployees();
+    } catch (error) {
+      toast.error(translateError(error));
+    } finally {
+      setEmpSaving(false);
+    }
   }
 
   function openLeaveModal() {
@@ -768,8 +777,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
         icon={<UserRoundCog size={18} />}
         action={
           tab === "employes" ? (
-            <button data-permission="bulletin_paie:validate" onClick={openAddModal} className="btn btn-gold min-h-10">
-              <Plus size={14} /> Ajouter un employé
+            <button data-permission="bulletin_paie:validate" onClick={openAddModal} className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
+              <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Ajouter un employé
             </button>
           ) : tab === "conges" ? (
             <>
@@ -782,8 +791,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
                   <ChevronRight size={16} />
                 </button>
               </div>
-              <button data-permission="bulletin_paie:validate" onClick={openLeaveModal} className="btn btn-gold min-h-10">
-                <Plus size={14} /> Nouvelle absence
+              <button data-permission="bulletin_paie:validate" onClick={openLeaveModal} className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
+                <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouvelle absence
               </button>
             </>
           ) : null
