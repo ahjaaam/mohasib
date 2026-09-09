@@ -780,8 +780,10 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
   return (
     <div>
       <BulkInvoiceImportModal
+        key={mode}
         open={bulkImportOpen}
         dossierId={dossierId}
+        documentType={mode === "avoirs" ? "avoir_client" : "facture"}
         onClose={() => setBulkImportOpen(false)}
         onImported={load}
       />
@@ -807,10 +809,15 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
           </div>
         </div>
         {mode === "avoirs" ? (
-          <Link data-permission="invoice:create" href={`${basePath}/avoirs/nouveau`}
-            className="ui-control inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
-            <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouvel Avoir
-          </Link>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:shrink-0">
+            <button data-permission="invoice:create" onClick={() => setBulkImportOpen(true)} className="ui-control inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#D7DADF] bg-white text-[#374151] hover:border-[#B8BEC8] hover:bg-[#F8F9FB]">
+              <Upload size={15} strokeWidth={1.75} aria-hidden="true" /> Importer des avoirs client
+            </button>
+            <Link data-permission="invoice:create" href={`${basePath}/avoirs/nouveau`}
+              className="ui-control inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
+              <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouvel avoir client
+            </Link>
+          </div>
         ) : mode === "devis" ? (
           <Link data-permission="invoice:create" href="/factures/devis/nouveau"
             className="ui-control inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
@@ -832,7 +839,6 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
       <div className="tabs mb-5 overflow-x-auto">
         {([
           { key: "factures", label: "Factures",       count: factures.length },
-          { key: "devis",    label: "Devis",           count: devis.length },
           { key: "avoirs",   label: "Avoirs clients",  count: avoirs.length },
         ] as { key: PageMode; label: string; count: number }[]).filter(item => item.key !== "avoirs" || entitlements.features.avoirs).map(({ key, label, count }) => (
           <button

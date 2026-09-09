@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Settings, User, FileEdit, Mail, Receipt, Package, ArrowRight } from "lucide-react";
-import { Toaster } from "react-hot-toast";
 import ProfilTab from "@/app/(app)/settings/ProfilTab";
 import IntegrationsTab from "@/app/(app)/settings/IntegrationsTab";
 import InvoiceItemsTab from "@/app/(app)/settings/InvoiceItemsTab";
@@ -48,7 +47,6 @@ export default function DossierSettingsClient({ dossierId, userId, ownerId, user
 
   return (
     <>
-      <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
 
       <div className="flex items-center gap-2.5 mb-5">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(200,146,74,0.12)" }}>

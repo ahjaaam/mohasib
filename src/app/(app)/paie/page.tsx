@@ -13,9 +13,11 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import { translateError } from "@/lib/errors";
 import PageHeader from "@/components/PageHeader";
 import { saveEmployeeWithSchemaCompatibility } from "@/lib/paie/save-employee";
+import { getEmployeePayrollEligibility } from "@/lib/paie/employment-period";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -220,6 +222,7 @@ function countWorkingDays(start: string, end: string, holidays: Set<string>) {
 
 export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const ownerId = useAccountOwnerId();
+  const { period: globalPeriod } = useGlobalPeriod();
   const searchParams = useSearchParams();
   const requestedTabParam = searchParams.get("tab");
   const requestedTab: Tab = isTab(requestedTabParam) ? requestedTabParam : "employes";
@@ -230,8 +233,10 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const tab = tabState.source === requestedTab ? tabState.value : requestedTab;
   const setTab = (value: Tab) => setTabState({ source: requestedTab, value });
   const [now] = useState(() => new Date());
+  const selectedYear = /^\d{4}-/.test(globalPeriod.start)
+    ? Number(globalPeriod.start.slice(0, 4))
+    : now.getFullYear();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
 
   // Employees
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -291,6 +296,15 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const [cnssEmployeeBreakdown, setCnssEmployeeBreakdown] = useState<any[]>([]);
 
   const periodLabel = `${MONTHS[selectedMonth - 1]} ${selectedYear}`;
+  const payrollPopulation = useMemo(() => {
+    const eligible: Employee[] = [];
+    const excluded: Employee[] = [];
+    for (const employee of employees) {
+      if (getEmployeePayrollEligibility(employee, selectedMonth, selectedYear).eligible) eligible.push(employee);
+      else excluded.push(employee);
+    }
+    return { eligible, excluded };
+  }, [employees, selectedMonth, selectedYear]);
 
   // ── Load data ───────────────────────────────────────────────────────────────
 
@@ -404,11 +418,11 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   // ── Month navigation ────────────────────────────────────────────────────────
 
   function prevMonth() {
-    if (selectedMonth === 1) { setSelectedMonth(12); setSelectedYear(y => y - 1); }
+    if (selectedMonth === 1) setSelectedMonth(12);
     else setSelectedMonth(m => m - 1);
   }
   function nextMonth() {
-    if (selectedMonth === 12) { setSelectedMonth(1); setSelectedYear(y => y + 1); }
+    if (selectedMonth === 12) setSelectedMonth(1);
     else setSelectedMonth(m => m + 1);
   }
 
@@ -599,7 +613,12 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      toast.success(`${json.count} bulletin(s) généré(s) pour ${periodLabel}`);
+      if (json.count > 0) {
+        const skippedMessage = json.skipped?.length ? ` · ${json.skipped.length} ignoré(s)` : "";
+        toast.success(`${json.count} bulletin(s) généré(s) pour ${periodLabel}${skippedMessage}`);
+      } else {
+        toast("Aucun bulletin à générer : les bulletins éligibles sont déjà finalisés");
+      }
       loadBulletins();
     } catch (e: any) {
       toast.error(e.message);
@@ -782,18 +801,34 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
             </button>
           ) : tab === "conges" ? (
             <>
-              <div className="ui-control flex h-10 items-center gap-1 border border-[#D7DADF] bg-[#F1F2F3] px-1">
-                <button aria-label="Mois précédent" onClick={prevMonth} className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-compact)] text-[#6B7280] transition-colors hover:bg-[#E5E7EB] hover:text-[#1A1A2E]">
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="min-w-[132px] text-center text-[13px] font-semibold capitalize text-[#1A1A2E]">{periodLabel}</span>
-                <button aria-label="Mois suivant" onClick={nextMonth} className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-compact)] text-[#6B7280] transition-colors hover:bg-[#E5E7EB] hover:text-[#1A1A2E]">
-                  <ChevronRight size={16} />
-                </button>
-              </div>
+              <label className="sr-only" htmlFor="leave-period">Mois des congés et absences</label>
+              <select
+                id="leave-period"
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(Number(event.target.value))}
+                className="h-11 w-full rounded-lg border border-[#9CA3AF] bg-white px-3 text-[12px] font-semibold text-[#1A1A2E] outline-none transition-colors hover:border-[#6B7280] focus:border-[#374151] sm:h-9 sm:w-auto"
+              >
+                {MONTHS.map((month, index) => (
+                  <option key={month} value={index + 1}>{month}</option>
+                ))}
+              </select>
               <button data-permission="bulletin_paie:validate" onClick={openLeaveModal} className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
                 <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouvelle absence
               </button>
+            </>
+          ) : tab === "heures" ? (
+            <>
+              <label className="sr-only" htmlFor="hours-period">Mois des heures</label>
+              <select
+                id="hours-period"
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(Number(event.target.value))}
+                className="h-11 w-full rounded-lg border border-[#9CA3AF] bg-white px-3 text-[12px] font-semibold text-[#1A1A2E] outline-none transition-colors hover:border-[#6B7280] focus:border-[#374151] sm:h-9 sm:w-auto"
+              >
+                {MONTHS.map((month, index) => (
+                  <option key={month} value={index + 1}>{month}</option>
+                ))}
+              </select>
             </>
           ) : null
         }
@@ -862,11 +897,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           hoursRows={hoursRows}
           loading={hoursLoading}
           savingId={savingHoursId}
-          periodLabel={periodLabel}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
-          onPrev={prevMonth}
-          onNext={nextMonth}
           onSave={saveHours}
         />
       )}
@@ -877,6 +909,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           <BulletinsTab
             bulletins={bulletins}
             employees={employees}
+            eligibleCount={payrollPopulation.eligible.length}
+            excludedCount={payrollPopulation.excluded.length}
             loading={bulletinsLoading}
             generating={generating}
             periodLabel={periodLabel}
@@ -1284,7 +1318,7 @@ function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loadi
 
 // ─── Heures Tab ──────────────────────────────────────────────────────────────
 
-function HeuresTab({ employees, hoursRows, loading, savingId, periodLabel, selectedMonth, selectedYear, onPrev, onNext, onSave }: any) {
+function HeuresTab({ employees, hoursRows, loading, savingId, selectedMonth, selectedYear, onSave }: any) {
   const [drafts, setDrafts] = useState<Record<string, any>>({});
 
   useEffect(() => { setDrafts({}); }, [selectedMonth, selectedYear, hoursRows]);
@@ -1299,16 +1333,7 @@ function HeuresTab({ employees, hoursRows, loading, savingId, periodLabel, selec
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-[14px] font-semibold text-[#1A1A2E] min-w-[130px] text-center">{periodLabel}</span>
-          <button onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
-            <ChevronRight size={16} />
-          </button>
-        </div>
+      <div className="flex items-center justify-end">
         <div className="text-[11.5px] text-[#6B7280]">Heures supplémentaires: 25%, 50%, 100%</div>
       </div>
 
@@ -1378,7 +1403,7 @@ function HeuresTab({ employees, hoursRows, loading, savingId, periodLabel, selec
 
 // ─── Bulletins Tab ────────────────────────────────────────────────────────────
 
-function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, selectedMonth, selectedYear, masseSalariale, irTotal, onPrev, onNext, onGenerate, onUpdateStatus, onDelete, onDownloadPdf, onValidateAll }: any) {
+function BulletinsTab({ bulletins, employees, eligibleCount, excludedCount, loading, generating, periodLabel, selectedMonth, selectedYear, masseSalariale, irTotal, onPrev, onNext, onGenerate, onUpdateStatus, onDelete, onDownloadPdf, onValidateAll }: any) {
   return (
     <div>
       {/* Month selector */}
@@ -1393,12 +1418,21 @@ function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, 
           </button>
         </div>
         <div className="flex items-center gap-2">
+          <span className="hidden text-[11.5px] text-[#6B7280] lg:inline">
+            {eligibleCount} éligible(s){excludedCount > 0 ? ` · ${excludedCount} exclu(s)` : ""}
+          </span>
           {bulletins.length > 0 && (
             <button data-permission="bulletin_paie:validate" onClick={onValidateAll} className="flex min-h-10 items-center gap-1.5 border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] font-medium text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE]">
               <CheckCircle size={13} /> Tout valider
             </button>
           )}
-          <button data-permission="bulletin_paie:validate" onClick={onGenerate} disabled={generating || !employees.length} className="btn btn-gold min-h-10 disabled:opacity-50">
+          <button
+            data-permission="bulletin_paie:validate"
+            onClick={onGenerate}
+            disabled={generating || eligibleCount === 0}
+            title={eligibleCount === 0 ? "Aucun salarié n’est sous contrat pendant cette période" : undefined}
+            className="btn btn-gold min-h-10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {generating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
             Générer les bulletins de {MONTHS[selectedMonth - 1]}
           </button>
@@ -1410,8 +1444,14 @@ function BulletinsTab({ bulletins, employees, loading, generating, periodLabel, 
       {!loading && bulletins.length === 0 && (
         <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-xl px-5 py-12 text-center">
           <FileText size={32} className="mx-auto mb-3 text-[#9CA3AF]" aria-hidden="true" />
-          <p className="text-[13px] font-semibold text-[#6B7280]">Aucun bulletin pour {periodLabel}</p>
-          <p className="text-[11.5px] text-[#9CA3AF] mt-1">Cliquez sur "Générer les bulletins" pour créer les bulletins de paie</p>
+          <p className="text-[13px] font-semibold text-[#6B7280]">
+            {eligibleCount === 0 ? `Aucun salarié éligible pour ${periodLabel}` : `Aucun bulletin pour ${periodLabel}`}
+          </p>
+          <p className="text-[11.5px] text-[#9CA3AF] mt-1">
+            {eligibleCount === 0
+              ? "Les dates d’embauche et de fin de contrat ne couvrent pas cette période."
+              : "Cliquez sur « Générer les bulletins » pour créer les bulletins de paie."}
+          </p>
         </div>
       )}
 

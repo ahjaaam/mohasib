@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, INVOICE_STATUS_LABELS } from "@/lib/utils";
-import Link from "next/link";
-import { ArrowLeft, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import InvoiceActions from "@/app/(app)/invoices/[id]/InvoiceActions";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
@@ -49,7 +48,6 @@ export default async function DossierInvoiceDetailPage({
 
   if (!inv) notFound();
 
-  const backHref = `/comptable-pro/dossiers/${dossierId}/factures`;
   const client = (inv as any).clients;
   const [bgStatus, colorStatus] = STATUS_CLASS[inv.status] ?? ["#F3F4F6", "#6B7280"];
   const labelStatus = STATUS_LABEL[inv.status] ?? inv.status;
@@ -64,19 +62,16 @@ export default async function DossierInvoiceDetailPage({
     <div>
       <PageHeader
         title={inv.invoice_number}
+        titleAccessory={
+          <span
+            className="inline-block shrink-0 px-2 py-0.5 text-[11px] font-semibold"
+            style={{ backgroundColor: bgStatus, color: colorStatus }}
+          >
+            {labelStatus}
+          </span>
+        }
         subtitle={client?.name ? `Facture client · ${client.name}` : "Facture client"}
         icon={<FileText size={18} />}
-        action={
-          <>
-            <span className="inline-block px-2 py-0.5 text-[11px] font-semibold"
-              style={{ backgroundColor: bgStatus, color: colorStatus }}>
-              {labelStatus}
-            </span>
-            <Link href={backHref} className="btn btn-outline flex items-center gap-1.5">
-              <ArrowLeft size={13} /> Retour
-            </Link>
-          </>
-        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
@@ -193,10 +188,6 @@ export default async function DossierInvoiceDetailPage({
             clientPhone={client?.phone ?? null}
             clientEmail={client?.email ?? null}
             clientId={client?.id ?? null}
-            whatsappSentAt={(inv as any).whatsapp_sent_at ?? null}
-            whatsappSentCount={(inv as any).whatsapp_sent_count ?? 0}
-            emailSentAt={(inv as any).email_sent_at ?? null}
-            emailSentCount={(inv as any).email_sent_count ?? 0}
           />
         </div>
       </div>

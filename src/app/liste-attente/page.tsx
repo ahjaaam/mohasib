@@ -1,12 +1,12 @@
-import { Toaster } from "react-hot-toast";
 import PublicNavbar from "@/components/PublicNavbar";
 import PublicFooter from "@/components/PublicFooter";
+import MohasibToaster from "@/components/MohasibToaster";
 import WaitlistClient from "./WaitlistClient";
 
 export default function ListeAttentePage() {
   return (
     <main className="public-site">
-      <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
+      <MohasibToaster />
       <PublicNavbar />
       <div className="mx-auto grid max-w-5xl gap-8 px-5 py-10 md:grid-cols-[1fr_420px] md:items-center">
         <div>

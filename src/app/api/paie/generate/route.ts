@@ -6,12 +6,16 @@ import { requirePlanFeature } from "@/lib/api-plan";
 import { createVersion, getDiff, logAccountingEvent, logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
 import { enforcePeriodLock } from "@/lib/period-check";
+import { getEmployeePayrollEligibility, PAYROLL_ELIGIBILITY_LABELS } from "@/lib/paie/employment-period";
 
 export async function POST(req: NextRequest) {
   try {
-    const { employee_id, mois, annee } = await req.json();
-    if (!employee_id || !mois || !annee)
-      return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
+    const body = await req.json();
+    const employee_id = body.employee_id;
+    const mois = Number(body.mois);
+    const annee = Number(body.annee);
+    if (!employee_id || !Number.isInteger(mois) || mois < 1 || mois > 12 || !Number.isInteger(annee) || annee < 1900 || annee > 9999)
+      return NextResponse.json({ error: "Paramètres de paie invalides" }, { status: 400 });
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -30,6 +34,14 @@ export async function POST(req: NextRequest) {
 
     if (empErr || !emp)
       return NextResponse.json({ error: "Employé introuvable" }, { status: 404 });
+
+    const eligibility = getEmployeePayrollEligibility(emp, mois, annee);
+    if (!eligibility.eligible) {
+      return NextResponse.json({
+        error: `Bulletin impossible : ${PAYROLL_ELIGIBILITY_LABELS[eligibility.reason].toLowerCase()}`,
+        reason: eligibility.reason,
+      }, { status: 422 });
+    }
 
     const calc = calculateSalary({
       salaire_brut: Number(emp.salaire_brut),
@@ -55,6 +67,13 @@ export async function POST(req: NextRequest) {
       .eq("mois", mois)
       .eq("annee", annee)
       .maybeSingle();
+    if (oldBulletin?.statut === "validé" || oldBulletin?.statut === "payé") {
+      return NextResponse.json({
+        error: oldBulletin.statut === "payé"
+          ? "Ce bulletin est déjà payé et ne peut pas être régénéré"
+          : "Ce bulletin est déjà validé et ne peut pas être régénéré",
+      }, { status: 409 });
+    }
 
     const { data: bulletin, error: bErr } = await supabase
       .from("bulletins_paie")

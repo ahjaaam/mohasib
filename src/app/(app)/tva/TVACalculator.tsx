@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  ChevronLeft, ChevronRight, Receipt, CheckCircle,
+  Receipt, CheckCircle,
   Download, AlertTriangle, Info, ChevronDown, ChevronUp,
   CreditCard, FilePenLine, FileText, Landmark, Lightbulb, Lock, Smartphone,
 } from "lucide-react";
@@ -14,6 +14,7 @@ import {
 import { getTVAConfig } from "@/app/actions/tva-config";
 import { DEFAULT_ENABLED_CODES, TVA_LINES, withAlwaysShown } from "@/lib/tva-lines-registry";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
+import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import { translateError } from "@/lib/errors";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -25,7 +26,7 @@ function fmtMAD(x: number) {
 }
 
 function fmtDate(d: string) {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d + "T00:00:00").toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
@@ -43,7 +44,7 @@ function getPeriodDates(regime: string, year: number, month: number, quarter: nu
 
 function getPeriodLabel(regime: string, year: number, month: number, quarter: number) {
   if (regime === "Mensuel") return `${MONTHS_FR[month - 1]} ${year}`;
-  const labels = ["Jan–Mar","Avr–Jun","Jul–Sep","Oct–Déc"];
+  const labels = ["Jan-Mar","Avr-Jun","Jul-Sep","Oct-Déc"];
   return `T${quarter} ${year} (${labels[quarter - 1]})`;
 }
 
@@ -134,20 +135,24 @@ const EMPTY_CALC: TVACalcResult = {
 
 export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
   const entitlements = usePlanEntitlements();
+  const { period: globalPeriod } = useGlobalPeriod();
   const regime = company?.tva_regime === "Trimestriel" ? "Trimestriel" : "Mensuel";
   const now = new Date();
+  const year = /^\d{4}-/.test(globalPeriod.start)
+    ? Number(globalPeriod.start.slice(0, 4))
+    : now.getFullYear();
 
-  const [year, setYear]       = useState(now.getFullYear());
   const [month, setMonth]     = useState(now.getMonth() + 1);
   const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3));
 
   const [calc, setCalc]       = useState<TVACalcResult>(EMPTY_CALC);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   const [lastCalc, setLastCalc] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [history, setHistory] = useState<TVADeclaration[]>([]);
-  const [showInvoices, setShowInvoices] = useState(false);
+  const [showInvoices, setShowInvoices] = useState(true);
   const [showDeductions, setShowDeductions] = useState(false);
   const [statut, setStatut]   = useState<"brouillon"|"validé"|"déposé">("brouillon");
   const [confirmValidate, setConfirmValidate] = useState(false);
@@ -173,22 +178,6 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
   const currentLock = lockedPeriods.find(period =>
     period.annee === year && periodMonths.includes(Number(period.mois))
   );
-
-  function prevPeriod() {
-    if (regime === "Mensuel") {
-      if (month === 1) { setMonth(12); setYear(y => y - 1); } else setMonth(m => m - 1);
-    } else {
-      if (quarter === 1) { setQuarter(4); setYear(y => y - 1); } else setQuarter(q => q - 1);
-    }
-  }
-  function nextPeriod() {
-    if (regime === "Mensuel") {
-      if (month === 12) { setMonth(1); setYear(y => y + 1); } else setMonth(m => m + 1);
-    } else {
-      if (quarter === 4) { setQuarter(1); setYear(y => y + 1); } else setQuarter(q => q + 1);
-    }
-  }
-
   const recalculate = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
@@ -220,6 +209,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
   const activeELines = TVA_LINES.filter((line) => line.section === "E" && enabledLines.has(line.code));
 
   useEffect(() => {
+    const enabledBLines = TVA_LINES.filter((line) => line.section === "B" && enabledLines.has(line.code));
     const sourceByRate: Record<number, number> = {
       7: calc.ca_7,
       10: calc.ca_10,
@@ -229,10 +219,10 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
     const preferredByRate: Record<number, number> = { 7: 119, 10: 118, 14: 104, 20: 102 };
     const next: Record<number, number> = {};
 
-    for (const line of activeBLines) next[line.code] = 0;
+    for (const line of enabledBLines) next[line.code] = 0;
     for (const [rateText, amount] of Object.entries(sourceByRate)) {
       const rate = Number(rateText);
-      const candidates = activeBLines.filter((line) => line.taux === rate);
+      const candidates = enabledBLines.filter((line) => line.taux === rate);
       const target = candidates.find((line) => line.code === preferredByRate[rate]) ?? candidates[0];
       if (target) next[target.code] = amount;
     }
@@ -389,6 +379,191 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
     a.click(); URL.revokeObjectURL(url);
   }
 
+  async function handlePDF() {
+    setGeneratingPDF(true);
+    try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      const amount = (value: number) => n(value).toLocaleString("fr-MA", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      const tableTheme = {
+        theme: "grid" as const,
+        headStyles: {
+          fillColor: [219, 227, 237] as [number, number, number],
+          textColor: [0, 0, 0] as [number, number, number],
+          fontStyle: "normal" as const,
+          lineColor: [40, 40, 40] as [number, number, number],
+          lineWidth: 0.15,
+        },
+        styles: {
+          font: "times",
+          fontSize: 8,
+          cellPadding: 1.8,
+          textColor: [0, 0, 0] as [number, number, number],
+          fillColor: [255, 255, 255] as [number, number, number],
+          lineColor: [40, 40, 40] as [number, number, number],
+          lineWidth: 0.15,
+        },
+        alternateRowStyles: { fillColor: [255, 255, 255] as [number, number, number] },
+        margin: { left: margin, right: margin, bottom: 16 },
+      };
+
+      doc.setProperties({
+        title: `Déclaration TVA - ${periodLabel}`,
+        subject: `Détails de la déclaration TVA pour ${periodLabel}`,
+        author: company?.raison_sociale || "Mohasib",
+        creator: "Mohasib",
+      });
+
+      doc.setFont("times", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Raison sociale : ${company?.raison_sociale || "Non renseignée"}`, margin, 13);
+      doc.text(`Identifiant fiscal : ${company?.if_number || "Non renseigné"}`, margin, 18);
+      doc.text(`I.C.E : ${company?.ice || "Non renseigné"}`, margin, 23);
+      doc.text(`Période : ${periodLabel}`, margin, 28);
+      doc.text(`Imprimé le ${new Date().toLocaleDateString("fr-MA")}`, pageWidth - margin, 13, { align: "right" });
+      doc.text(`Statut : ${statutLabel}`, pageWidth - margin, 18, { align: "right" });
+      doc.setFont("times", "bold");
+      doc.setFontSize(15);
+      doc.text("Déclaration de la Taxe sur la valeur ajoutée", pageWidth / 2, 36, { align: "center" });
+
+      let y = 46;
+      const sectionTitle = (title: string) => {
+        if (y > pageHeight - 30) {
+          doc.addPage();
+          y = 18;
+        }
+        doc.setFont("times", "bold");
+        doc.setFontSize(10.5);
+        doc.setTextColor(0, 0, 0);
+        doc.text(title, margin, y);
+        y += 4;
+      };
+
+      sectionTitle("A. Chiffre d'affaires");
+      autoTable(doc, {
+        startY: y,
+        head: [["Désignation", "Montant HT (MAD)"]],
+        body: [
+          ["Chiffre d'affaires total", amount(calc.ca_total)],
+          ["Chiffre d'affaires exporté", amount(caExporte)],
+          ["Opérations exonérées", amount(caExonere)],
+          ["Opérations hors champ", amount(caHorsChamp)],
+          ["Opérations en suspension", amount(caSuspension)],
+          ["Chiffre d'affaires imposable", amount(caImposable)],
+        ],
+        ...tableTheme,
+        columnStyles: { 1: { halign: "right", fontStyle: "bold" } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 9;
+
+      sectionTitle("B. Opérations imposables et TVA collectée");
+      autoTable(doc, {
+        startY: y,
+        head: [["Ligne DGI", "Désignation", "Taux", "Base HT (MAD)", "TVA (MAD)"]],
+        body: activeBLines.map((line) => {
+          const base = n(lineBases[line.code]);
+          return [String(line.code), line.label_fr, `${line.taux ?? 0}%`, amount(base), amount(base * n(line.taux ?? 0) / 100)];
+        }),
+        foot: [["", "TOTAL", "", amount(activeBTotalBase), amount(filteredCalc.tva_collectee_total)]],
+        showFoot: "lastPage",
+        ...tableTheme,
+        footStyles: {
+          fillColor: [219, 227, 237], textColor: [0, 0, 0], fontStyle: "bold",
+          lineColor: [40, 40, 40], lineWidth: 0.15,
+        },
+        columnStyles: { 0: { cellWidth: 18 }, 2: { cellWidth: 16, halign: "center" }, 3: { halign: "right" }, 4: { halign: "right" } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 9;
+
+      sectionTitle("C. Détail des factures de vente");
+      autoTable(doc, {
+        startY: y,
+        head: [["Date", "Facture", "Client", "HT (MAD)", "Taux", "TVA (MAD)", "TTC (MAD)"]],
+        body: calc.invoices.length
+          ? calc.invoices.map((invoice) => [
+              fmtDate(invoice.issue_date), invoice.invoice_number, invoice.client_name || "-",
+              amount(invoice.subtotal), `${invoice.tax_rate}%`, amount(invoice.tax_amount), amount(invoice.total),
+            ])
+          : [["-", "Aucune facture sur la période", "", "", "", "", ""]],
+        ...tableTheme,
+        columnStyles: { 3: { halign: "right" }, 4: { halign: "center" }, 5: { halign: "right" }, 6: { halign: "right" } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 9;
+
+      sectionTitle("D. Relevé des déductions");
+      autoTable(doc, {
+        startY: y,
+        head: [["Date", "Facture", "Fournisseur", "Désignation", "HT", "Taux", "TVA", "TVA déductible"]],
+        body: filteredCalc.deductions.length
+          ? filteredCalc.deductions.map((deduction) => [
+              fmtDate(deduction.date_facture), deduction.numero_facture || "-", deduction.fournisseur_nom || "-",
+              deduction.designation || "-", amount(deduction.montant_ht), `${deduction.taux_tva}%`,
+              amount(deduction.montant_tva), amount(deduction.tva_deductible),
+            ])
+          : [["-", "Aucune déduction sur la période", "", "", "", "", "", ""]],
+        foot: [["", "", "", "TOTAL", amount(filteredCalc.deductions.reduce((sum, row) => sum + row.montant_ht, 0)), "", amount(filteredCalc.deductions.reduce((sum, row) => sum + row.montant_tva, 0)), amount(filteredCalc.deductions_total)]],
+        showFoot: "lastPage",
+        ...tableTheme,
+        footStyles: {
+          fillColor: [219, 227, 237], textColor: [0, 0, 0], fontStyle: "bold",
+          lineColor: [40, 40, 40], lineWidth: 0.15,
+        },
+        columnStyles: { 4: { halign: "right" }, 5: { halign: "center" }, 6: { halign: "right" }, 7: { halign: "right" } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 9;
+
+      sectionTitle("E. Résultat de la déclaration");
+      autoTable(doc, {
+        startY: y,
+        body: [
+          ["TVA exigible totale", amount(tvaExigible)],
+          ["Déductions sur charges", amount(filteredCalc.deductions_charges)],
+          ["Déductions sur immobilisations", amount(filteredCalc.deductions_immobilisations)],
+          ["Crédit reporté", amount(filteredCalc.credit_reporte)],
+          ["Droits de timbre", amount(calc.droits_timbre)],
+          [tvaNetteDue > 0 ? "TVA nette due" : "Crédit de TVA", amount(tvaNetteDue > 0 ? tvaNetteDue : creditTVA)],
+        ],
+        ...tableTheme,
+        columnStyles: { 0: { fontStyle: "bold" }, 1: { halign: "right", fontStyle: "bold" } },
+        didParseCell: (data) => {
+          if (data.row.index === 5) {
+            data.cell.styles.fillColor = [219, 227, 237];
+            data.cell.styles.textColor = [0, 0, 0];
+          }
+        },
+      });
+
+      const pageCount = doc.getNumberOfPages();
+      for (let page = 1; page <= pageCount; page += 1) {
+        doc.setPage(page);
+        doc.setDrawColor(225, 225, 225);
+        doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+        doc.setFont("times", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(80, 80, 80);
+        doc.text("Document préparatoire généré par Mohasib - À vérifier avant dépôt DGI", margin, pageHeight - 7);
+        doc.text(`Page ${page}/${pageCount}`, pageWidth - margin, pageHeight - 7, { align: "right" });
+      }
+
+      const safePeriod = periodLabel.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+      doc.save(`Declaration_TVA_${safePeriod}.pdf`);
+    } catch {
+      alert("Le PDF n'a pas pu être généré. Veuillez réessayer.");
+    } finally {
+      setGeneratingPDF(false);
+    }
+  }
+
   const statutBadge = statut === "déposé"
     ? "bg-[#D1FAE5] text-[#065F46]"
     : statut === "validé"
@@ -437,21 +612,32 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
             {statut === "brouillon" && <FilePenLine size={11} aria-hidden="true" />}
             {statutLabel}
           </span>
-          <button onClick={prevPeriod}
-            className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
-            <ChevronLeft size={15} />
-          </button>
-          <span className="min-w-0 flex-1 text-center text-[12.5px] font-semibold text-[#1A1A2E] sm:min-w-[130px] sm:flex-none sm:text-[13.5px]">{periodLabel}</span>
-          <button onClick={nextPeriod}
-            className="w-8 h-8 rounded-lg border border-[rgba(0,0,0,0.12)] flex items-center justify-center text-[#6B7280] hover:bg-[#F3F4F6]">
-            <ChevronRight size={15} />
-          </button>
+          <label className="sr-only" htmlFor="tva-period">Période de déclaration</label>
+          <select
+            id="tva-period"
+            value={regime === "Mensuel" ? month : quarter}
+            onChange={(event) => regime === "Mensuel" ? setMonth(Number(event.target.value)) : setQuarter(Number(event.target.value))}
+            className="h-11 w-full rounded-lg border border-[#9CA3AF] bg-white px-3 text-[12px] font-semibold text-[#1A1A2E] outline-none transition-colors hover:border-[#6B7280] focus:border-[#374151] sm:h-9 sm:w-auto"
+          >
+            {regime === "Mensuel"
+              ? MONTHS_FR.map((label, index) => <option key={label} value={index + 1}>{label}</option>)
+              : [1, 2, 3, 4].map((value) => <option key={value} value={value}>Trimestre {value}</option>)}
+          </select>
         </div>
       </div>
 
       {/* ── Controls row ─────────────────────────────────────────────────── */}
       {lastCalc && !loading && (
-        <p className="text-[10.5px] text-[#9CA3AF] mb-4">Recalculé à {lastCalc}</p>
+        <div className="mb-4 flex items-center gap-2 text-[10.5px] text-[#9CA3AF]">
+          <span>Recalculé à {lastCalc}</span>
+          <span aria-hidden="true">·</span>
+          <Link
+            href="/parametres?tab=tva"
+            className="text-[#B0B4BC] transition-colors hover:text-[#6B7280] hover:underline"
+          >
+            Gérer les lignes actives
+          </Link>
+        </div>
       )}
 
       {fetchError && (
@@ -469,20 +655,6 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
           </div>
         </div>
       )}
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgba(200,146,74,0.25)] bg-[#FFF7ED] px-4 py-3">
-        <div>
-          <p className="text-[12.5px] font-semibold text-[#92400E]">
-            {enabledLines.size} lignes DGI actives pour {periodLabel}
-          </p>
-          <p className="mt-0.5 text-[11px] text-[#A16207]">
-            B: {activeBLines.length} · C: {activeCLines.length} · D: {activeDLines.length} · E: {activeELines.length}
-          </p>
-        </div>
-        <Link href="/parametres?tab=tva" className="btn btn-outline text-[11.5px] text-[#92400E]">
-          Gérer les lignes actives
-        </Link>
-      </div>
 
       {/* ── Confirm validate modal ────────────────────────────────────────── */}
       {confirmValidate && (
@@ -848,43 +1020,45 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[rgba(0,0,0,0.07)]">
-                {statut === "brouillon" && !isLocked && (
-                  <button data-permission="tva_declaration:validate" onClick={() => setConfirmValidate(true)} disabled={saving || isLocked}
-                    className="btn btn-outline flex items-center gap-1.5 text-[12px] border-[#C8924A] text-[#C8924A] hover:bg-[#FFF7ED]">
-                    <CheckCircle size={12} /> Valider
-                  </button>
-                )}
-                {entitlements.features.tva_edi && <button data-permission="tva_declaration:prepare" onClick={handleEDI}
-                  className="btn btn-gold flex items-center gap-1.5 text-[12px]">
-                  <Download size={13} /> Fichier EDI (XML)
-                </button>}
-                {statut !== "déposé" && !isLocked && (
-                  <button data-permission="tva_declaration:validate" onClick={() => handleSave("déposé")} disabled={saving || isLocked}
-                    className="btn btn-outline flex items-center gap-1.5 text-[12px]">
-                    <CheckCircle size={13} />
-                    {saving ? "…" : "Marquer comme déposée"}
-                  </button>
-                )}
-                <a href="https://simpl.tax.gov.ma" target="_blank" rel="noopener noreferrer"
-                  className="btn btn-outline flex items-center gap-1.5 text-[12px] text-[#065F46] border-[rgba(5,150,105,0.3)] hover:bg-[#DCFCE7]">
-                  Ouvrir SIMPL-TVA →
-                </a>
-              </div>
-            </div>
-          </div>
+              <div className="mt-5 grid gap-4 border-t border-[rgba(0,0,0,0.07)] pt-4 sm:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9CA3AF]">Documents</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={handlePDF} disabled={loading || generatingPDF}
+                      className="btn btn-outline flex items-center gap-1.5 text-[12px] disabled:opacity-60">
+                      <FileText size={13} /> {generatingPDF ? "Génération…" : "Télécharger le PDF"}
+                    </button>
+                    {entitlements.features.tva_edi && (
+                      <button data-permission="tva_declaration:prepare" onClick={handleEDI}
+                        className="btn btn-outline flex items-center gap-1.5 text-[12px]">
+                        <Download size={13} /> Télécharger l&apos;EDI
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-          {/* ─────────────────────────────────────────────────────────────── */}
-          {/* ANNUAL SUMMARY                                                  */}
-          {/* ─────────────────────────────────────────────────────────────── */}
-          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 mb-4">
-            <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-3">
-              Situation de l'exercice {year}
-            </p>
-            <div className="flex gap-6">
-              <div>
-                <div className="text-[11px] text-[#9CA3AF]">CA exercice (Jan–Déc {year})</div>
-                <div className="text-[16px] font-bold text-[#1A1A2E]">{fmtMAD(calc.ca_exercice_annuel)}</div>
+                <div className="sm:text-right">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9CA3AF]">Déclaration</p>
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <a href="https://simpl.tax.gov.ma" target="_blank" rel="noopener noreferrer"
+                      className="btn btn-outline flex items-center gap-1.5 text-[12px]">
+                      Ouvrir SIMPL-TVA →
+                    </a>
+                    {statut === "brouillon" && !isLocked && (
+                      <button data-permission="tva_declaration:validate" onClick={() => setConfirmValidate(true)} disabled={saving || isLocked}
+                        className="btn btn-gold flex items-center gap-1.5 text-[12px]">
+                        <CheckCircle size={12} /> Valider la déclaration
+                      </button>
+                    )}
+                    {statut === "validé" && !isLocked && (
+                      <button data-permission="tva_declaration:validate" onClick={() => handleSave("déposé")} disabled={saving || isLocked}
+                        className="btn btn-gold flex items-center gap-1.5 text-[12px]">
+                        <CheckCircle size={13} />
+                        {saving ? "…" : "Marquer comme déposée"}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -928,6 +1102,21 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
                 </tbody>
               </table>
             )}
+          </div>
+
+          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* ANNUAL SUMMARY                                                  */}
+          {/* ─────────────────────────────────────────────────────────────── */}
+          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 mb-4">
+            <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-3">
+              Situation de l'exercice {year}
+            </p>
+            <div className="flex gap-6">
+              <div>
+                <div className="text-[11px] text-[#9CA3AF]">CA exercice (Jan–Déc {year})</div>
+                <div className="text-[16px] font-bold text-[#1A1A2E]">{fmtMAD(calc.ca_exercice_annuel)}</div>
+              </div>
+            </div>
           </div>
         </>
       )}

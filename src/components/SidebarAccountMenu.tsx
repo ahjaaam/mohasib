@@ -11,6 +11,7 @@ type Props = {
   light?: boolean;
   userName?: string | null;
   userEmail?: string | null;
+  roleLabel?: string | null;
   settingsHref?: string;
   onSignOut: () => void | Promise<void>;
   onToggleSidebar: () => void;
@@ -21,6 +22,7 @@ export default function SidebarAccountMenu({
   light = false,
   userName,
   userEmail,
+  roleLabel,
   settingsHref = "/parametres",
   onSignOut,
   onToggleSidebar,
@@ -83,7 +85,7 @@ export default function SidebarAccountMenu({
             <>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block truncate text-[12.5px] font-semibold">{displayName}</span>
-                {userEmail && <span className={`mt-0.5 block truncate text-[10px] ${light ? "text-[#777E8B]" : "text-white/45"}`}>{userEmail}</span>}
+                {roleLabel && <span className={`mt-0.5 block truncate text-[10px] ${light ? "text-[#777E8B]" : "text-white/45"}`}>{roleLabel}</span>}
               </span>
               <ChevronDown size={13} className={`flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
             </>
@@ -117,7 +119,7 @@ export default function SidebarAccountMenu({
             </span>
             <span className="min-w-0">
               <span className="block truncate text-[12.5px] font-bold text-[#1A1A2E]">{displayName}</span>
-              {userEmail && <span className="mt-0.5 block truncate text-[10.5px] text-[#777E8B]">{userEmail}</span>}
+              {roleLabel && <span className="mt-0.5 block truncate text-[10.5px] text-[#777E8B]">{roleLabel}</span>}
             </span>
           </div>
 

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeft, ArrowLeftRight,
   LogOut, Menu, Inbox, Download,
@@ -26,6 +25,7 @@ import SidebarItemTooltip from "@/components/SidebarItemTooltip";
 import SidebarAccountMenu from "@/components/SidebarAccountMenu";
 import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 import { SETTINGS_TABS, settingsTabAllowedOnPlan } from "@/lib/settings-navigation";
+import MohasibToaster from "@/components/MohasibToaster";
 
 const SIDEBAR_BACKGROUND = "#111621";
 
@@ -98,7 +98,7 @@ interface Props {
   sidebarTheme?: "dark" | "cream";
 }
 
-export default function AppShell({ children, userId, ownerId, userEmail, userName, userCompany, cabinetCompanies = [], userAvatar, isFiduciaire, permissions = null, accessScope, accountState, entitlements, guestMode = false, sidebarTheme: initialSidebarTheme = "dark" }: Props) {
+export default function AppShell({ children, userId, ownerId, userEmail, userName, userCompany, cabinetCompanies = [], userAvatar, isFiduciaire, permissions = null, roleLabel, accessScope, accountState, entitlements, guestMode = false, sidebarTheme: initialSidebarTheme = "dark" }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { collapsed: sidebarCollapsed, toggleCollapsed: toggleSidebarCollapsed } = useSidebarCollapsed();
   const [sidebarTheme, setSidebarTheme] = useState(initialSidebarTheme);
@@ -167,12 +167,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   // All hooks must run before this early return (Rules of Hooks).
   const isDossierWorkspace = /^\/comptable-pro\/dossiers\/[0-9a-f-]{36}/.test(pathname);
   if (isDossierWorkspace) {
-    return (
-      <>
-        <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
-        {children}
-      </>
-    );
+    return children;
   }
 
   const isActive = (href: string) => {
@@ -290,6 +285,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
         light={lightSidebar}
         userName={userName}
         userEmail={userEmail}
+        roleLabel={roleLabel}
         onSignOut={signOut}
         onToggleSidebar={toggleSidebarCollapsed}
       />
@@ -300,7 +296,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   return (
     <PlanEntitlementsProvider value={entitlements}>
       <AccountOwnerProvider ownerId={ownerId}>
-      <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
+      <MohasibToaster />
       <TrialLimitModal />
       <PermissionBoundary permissions={permissions}>
       <div

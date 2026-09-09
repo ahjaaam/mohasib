@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { formatDate, INVOICE_STATUS_LABELS } from "@/lib/utils";
-import Link from "next/link";
-import { ArrowLeft, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import InvoiceActions from "./InvoiceActions";
 import PageHeader from "@/components/PageHeader";
@@ -49,13 +48,6 @@ export default async function InvoiceDetailPage({
 
   if (!inv) notFound();
 
-  const { data: versions } = await supabase
-    .from("entity_versions")
-    .select("id, version_number, changed_at, changed_by_email, change_type, change_reason, diff")
-    .eq("entity_type", "invoice")
-    .eq("entity_id", id)
-    .order("version_number", { ascending: false });
-
   const client = (inv as any).clients;
   const [bgStatus, colorStatus] = STATUS_CLASS[inv.status] ?? ["#F3F4F6", "#6B7280"];
   const labelStatus = STATUS_LABEL[inv.status] ?? inv.status;
@@ -70,21 +62,16 @@ export default async function InvoiceDetailPage({
     <div>
       <PageHeader
         title={inv.invoice_number}
+        titleAccessory={
+          <span
+            className="inline-block shrink-0 px-2 py-0.5 text-[11px] font-semibold"
+            style={{ backgroundColor: bgStatus, color: colorStatus }}
+          >
+            {labelStatus}
+          </span>
+        }
         subtitle={client?.name ? `Facture client · ${client.name}` : "Facture client"}
         icon={<FileText size={18} />}
-        action={
-          <>
-            <span
-              className="inline-block px-2 py-0.5 text-[11px] font-semibold"
-              style={{ backgroundColor: bgStatus, color: colorStatus }}
-            >
-              {labelStatus}
-            </span>
-            <Link href="/factures" className="btn btn-outline flex items-center gap-1.5">
-              <ArrowLeft size={13} /> Retour
-            </Link>
-          </>
-        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
@@ -191,38 +178,6 @@ export default async function InvoiceDetailPage({
             </div>
           )}
 
-          <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.06)]">
-              <div className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px]">
-                Historique des versions
-              </div>
-            </div>
-            <div className="divide-y divide-[rgba(0,0,0,0.05)]">
-              {(versions ?? []).map((version: any) => (
-                <details key={version.id} className="group">
-                  <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between gap-3 text-[12.5px] hover:bg-[#FAFAF6]">
-                    <span className="font-semibold text-[#1A1A2E]">
-                      Version {version.version_number} · {version.change_type ?? "UPDATE"}
-                    </span>
-                    <span className="text-[#6B7280]">
-                      {fmtDate(version.changed_at)} · {version.changed_by_email ?? "Système"}
-                    </span>
-                  </summary>
-                  <div className="px-4 pb-4 text-[12px] text-[#6B7280]">
-                    {version.change_reason && <div className="mb-2">{version.change_reason}</div>}
-                    <pre className="bg-[#FAFAF6] border border-[rgba(0,0,0,0.06)] rounded-lg p-3 overflow-x-auto text-[11px] leading-relaxed">
-                      {JSON.stringify(version.diff ?? {}, null, 2)}
-                    </pre>
-                  </div>
-                </details>
-              ))}
-              {(versions ?? []).length === 0 && (
-                <div className="empty-state min-h-24 py-5">
-                  Aucun historique enregistré pour cette facture.
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Side */}
@@ -242,10 +197,6 @@ export default async function InvoiceDetailPage({
             clientPhone={client?.phone ?? null}
             clientEmail={client?.email ?? null}
             clientId={client?.id ?? null}
-            whatsappSentAt={(inv as any).whatsapp_sent_at ?? null}
-            whatsappSentCount={(inv as any).whatsapp_sent_count ?? 0}
-            emailSentAt={(inv as any).email_sent_at ?? null}
-            emailSentCount={(inv as any).email_sent_count ?? 0}
           />
         </div>
       </div>

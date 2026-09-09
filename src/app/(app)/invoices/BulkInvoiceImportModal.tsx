@@ -5,6 +5,7 @@ import { CheckCircle2, FileSpreadsheet, FileText, Loader2, Upload, X, XCircle } 
 
 type ImportState = "ready" | "uploading" | "done" | "error";
 type ImportFile = { file: File; state: ImportState; invoiceNumber?: string; clientCreated?: boolean; error?: string };
+type ImportDocumentType = "facture" | "avoir_client";
 
 const ACCEPTED = ".pdf,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp";
 const MAX_FILES = 20;
@@ -14,15 +15,17 @@ function fileIcon(name: string) {
   return /\.(xls|xlsx)$/i.test(name) ? <FileSpreadsheet size={16} /> : <FileText size={16} />;
 }
 
-export default function BulkInvoiceImportModal({ open, dossierId, onClose, onImported }: {
+export default function BulkInvoiceImportModal({ open, dossierId, documentType = "facture", onClose, onImported }: {
   open: boolean;
   dossierId?: string | null;
+  documentType?: ImportDocumentType;
   onClose: () => void;
   onImported: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<ImportFile[]>([]);
   const [importing, setImporting] = useState(false);
+  const isAvoir = documentType === "avoir_client";
 
   if (!open) return null;
 
@@ -57,6 +60,7 @@ export default function BulkInvoiceImportModal({ open, dossierId, onClose, onImp
       const item = files[index];
       const form = new FormData();
       form.set("file", item.file);
+      form.set("documentType", documentType);
       if (dossierId) form.set("dossierId", dossierId);
       try {
         const response = await fetch("/api/invoices/import", { method: "POST", body: form });
@@ -87,7 +91,9 @@ export default function BulkInvoiceImportModal({ open, dossierId, onClose, onImp
       <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
           <div>
-            <h2 className="text-[16px] font-bold text-[#1A1A2E]">Importer des factures clients</h2>
+            <h2 className="text-[16px] font-bold text-[#1A1A2E]">
+              {isAvoir ? "Importer des avoirs clients" : "Importer des factures clients"}
+            </h2>
             <p className="mt-0.5 text-[11px] text-[#8A909B]">PDF, Word, Excel ou images · jusqu’à 20 fichiers</p>
           </div>
           <button disabled={importing} onClick={onClose} className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100 disabled:opacity-50"><X size={18} /></button>
@@ -97,7 +103,9 @@ export default function BulkInvoiceImportModal({ open, dossierId, onClose, onImp
           <button type="button" onClick={() => inputRef.current?.click()} disabled={importing || files.length >= MAX_FILES}
             className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#D8C3A3] bg-[#FFFCF7] px-5 py-7 text-center hover:bg-[#FFF8ED] disabled:opacity-50">
             <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#FAF0DF] text-[#C8924A]"><Upload size={18} /></span>
-            <span className="text-[13px] font-semibold text-[#1A1A2E]">Sélectionner plusieurs factures</span>
+            <span className="text-[13px] font-semibold text-[#1A1A2E]">
+              {isAvoir ? "Sélectionner plusieurs avoirs clients" : "Sélectionner plusieurs factures"}
+            </span>
             <span className="mt-1 text-[10.5px] text-[#8A909B]">DOCX, XLS, XLSX, PDF, JPG, PNG ou WEBP · 20 Mo maximum par fichier</span>
           </button>
           <input ref={inputRef} type="file" multiple accept={ACCEPTED} className="hidden" onChange={event => addFiles(event.target.files)} />
@@ -127,7 +135,15 @@ export default function BulkInvoiceImportModal({ open, dossierId, onClose, onImp
         </div>
 
         <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
-          <span className="text-[10.5px] text-[#8A909B]">{doneCount ? `${doneCount} facture${doneCount > 1 ? "s" : ""} importée${doneCount > 1 ? "s" : ""}` : "Les factures seront ajoutées comme brouillons à vérifier."}</span>
+          <span className="text-[10.5px] text-[#8A909B]">
+            {doneCount
+              ? isAvoir
+                ? `${doneCount} avoir${doneCount > 1 ? "s" : ""} client${doneCount > 1 ? "s" : ""} importé${doneCount > 1 ? "s" : ""}`
+                : `${doneCount} facture${doneCount > 1 ? "s" : ""} importée${doneCount > 1 ? "s" : ""}`
+              : isAvoir
+                ? "Les avoirs clients seront ajoutés comme brouillons à vérifier."
+                : "Les factures seront ajoutées comme brouillons à vérifier."}
+          </span>
           <div className="flex gap-2">
             <button disabled={importing} onClick={onClose} className="btn btn-outline">{doneCount ? "Fermer" : "Annuler"}</button>
             <button disabled={importing || readyCount === 0} onClick={runImport} className="btn btn-gold">

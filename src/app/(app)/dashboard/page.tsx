@@ -332,7 +332,7 @@ export default async function DashboardPage() {
       {/* Two-column tables */}
       <div>
         <SectionLabel>Activité · {selectedPeriodLabel}</SectionLabel>
-        <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-3">
+        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[1.6fr_1fr]">
           {/* Invoices */}
           <div className="tbl">
             <div className="tbl-header">

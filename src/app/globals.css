@@ -151,6 +151,20 @@
   white-space: nowrap;
 }
 
+/* Product feedback: preserve the library's compact sizing in Mohasib's UI. */
+.mohasib-toaster {
+  font-family: var(--font-inter);
+}
+
+.mohasib-toast {
+  border: 1px solid rgba(13, 21, 38, 0.10) !important;
+  border-radius: 8px !important;
+  background: #FFFFFF !important;
+  box-shadow: 0 6px 18px rgba(13, 21, 38, 0.10) !important;
+  color: #0D1526 !important;
+  font-size: 13px !important;
+}
+
 .revenue-expense-chart {
   --revenue-chart-color: #4F7CAC;
   --expense-chart-color: #0D1526;

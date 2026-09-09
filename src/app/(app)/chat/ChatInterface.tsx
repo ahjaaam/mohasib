@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUp, History, Menu, MessageSquare, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowUp, History, Menu, MessageSquare, Sparkles, Trash2, X } from "lucide-react";
 
 type Message = {
   role: "user" | "assistant";
@@ -254,31 +254,22 @@ export default function ChatInterface({
 
   const historyPanel = (
     <aside className="flex h-full w-[240px] flex-shrink-0 flex-col border-r border-[rgba(0,0,0,0.08)] bg-[#FAFAF7]">
-      <div className="flex h-[52px] items-center gap-2 border-b border-[rgba(0,0,0,0.08)] p-2.5">
-        <button
-          type="button"
-          onClick={newConversation}
-          className="flex h-9 flex-1 items-center justify-center gap-2 bg-[#0D1526] px-3 text-[11.5px] font-semibold text-white transition-colors hover:bg-[#1B2840] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A]"
-        >
-          <Plus size={13} />
-          Nouvelle conversation
-        </button>
-        <button
-          type="button"
-          onClick={() => setHistoryOpen(false)}
-          className={`h-9 w-9 items-center justify-center text-[#777E8B] hover:bg-[#EFEEE9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8924A] ${
-            isDock ? "flex" : "flex md:hidden"
-          }`}
-          aria-label="Fermer l’historique"
-        >
-          <X size={15} />
-        </button>
-      </div>
-
       <div className="flex-1 overflow-y-auto p-2">
-        <div className="mb-1 flex items-center gap-1.5 px-2 py-1.5 text-[9px] font-bold uppercase tracking-[0.8px] text-[#9A9FA8]">
-          <History size={11} />
-          Historique
+        <div className="mb-1 flex min-h-9 items-center justify-between pl-2 text-[9px] font-bold uppercase tracking-[0.8px] text-[#9A9FA8]">
+          <span className="flex items-center gap-1.5">
+            <History size={11} />
+            Historique
+          </span>
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(false)}
+            className={`h-9 w-9 items-center justify-center text-[#777E8B] transition-colors hover:bg-[#EFEEE9] hover:text-[#1A1A2E] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8924A] ${
+              isDock ? "flex" : "flex md:hidden"
+            }`}
+            aria-label="Fermer l’historique"
+          >
+            <X size={15} />
+          </button>
         </div>
         {conversations.length === 0 ? (
           <div className="px-3 py-8 text-center text-[11px] text-[#9CA3AF]">
@@ -338,40 +329,33 @@ export default function ChatInterface({
       )}
 
       <section className="flex min-w-0 flex-1 flex-col bg-white">
-        <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-[rgba(0,0,0,0.08)] bg-white px-4">
-          <div className="flex items-center gap-2">
+        <div className="flex h-[52px] flex-shrink-0 items-center justify-between border-b border-[rgba(0,0,0,0.07)] bg-white px-3">
+          <div className="flex min-w-0 items-center gap-2.5">
             <button
               type="button"
               onClick={() => setHistoryOpen(true)}
-              className={`h-10 w-10 items-center justify-center text-[#777E8B] hover:bg-[#F4F3ED] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8924A] ${
+              className={`h-9 w-9 flex-shrink-0 items-center justify-center text-[#777E8B] transition-colors hover:bg-[#F4F3ED] hover:text-[#1A1A2E] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8924A] ${
                 isDock ? "flex" : "flex md:hidden"
               }`}
               aria-label="Ouvrir l’historique"
             >
               <Menu size={15} />
             </button>
-            <span className="relative flex h-9 w-9 items-center justify-center bg-[rgba(200,146,74,0.12)] text-[#C8924A]">
-              <Sparkles size={16} />
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#22A06B]" />
-            </span>
-            <span>
-              <span className="block text-[13px] font-bold leading-tight text-[#1A1A2E]">Assistant Mohasib</span>
-              <span className="mt-1 block text-[10px] leading-tight text-[#7B818C]">Votre copilote comptable</span>
-            </span>
+            <Sparkles size={15} className="flex-shrink-0 text-[#C8924A]" aria-hidden="true" />
+            <p className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[#1A1A2E]">
+              Assistant Mohasib
+            </p>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="hidden border border-[#DDE9E3] bg-[#F4FAF7] px-2 py-1 text-[9.5px] font-medium text-[#217A55] sm:block">Disponible</span>
-            {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex h-10 w-10 items-center justify-center text-[#777E8B] transition-colors hover:bg-[#F4F3ED] hover:text-[#1A1A2E] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8924A]"
-                aria-label="Fermer Mohasib Agent"
-              >
-                <X size={15} />
-              </button>
-            )}
-          </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center text-[#777E8B] transition-colors hover:bg-[#F4F3ED] hover:text-[#1A1A2E] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8924A]"
+              aria-label="Fermer Mohasib Agent"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-1 flex-col overflow-y-auto bg-white px-3 py-5 sm:px-5 sm:py-8" aria-live="polite">

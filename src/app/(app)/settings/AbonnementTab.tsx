@@ -176,7 +176,7 @@ export default function AbonnementTab({ userId: _userId, userEmail: _userEmail, 
           <div className="mb-4 rounded-xl border border-[#BAE6FD] bg-[#F0F9FF] p-4">
             <div className="text-[13px] font-bold text-[#1A1A2E]">Votre version gratuite</div>
             <p className="mt-1 text-[11.5px] leading-5 text-[#075985]">
-              Créez et gérez vos factures, devis, avoirs et clients sans limite de durée.
+              Créez et gérez vos factures, avoirs et clients sans limite de durée.
             </p>
           </div>
         )}
@@ -231,7 +231,7 @@ export default function AbonnementTab({ userId: _userId, userEmail: _userEmail, 
         <div className="border-t border-[rgba(0,0,0,0.06)] pt-4">
           <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px] mb-2">Fonctionnalités incluses</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
-            {plan === "free" && ["Factures, devis et avoirs illimités", "Gestion des clients", "PDF et envoi par e-mail"].map((label) => (
+            {plan === "free" && ["Factures et avoirs illimités", "Gestion des clients", "PDF et envoi par e-mail"].map((label) => (
               <div key={label} className="flex items-center gap-2 text-[12px] text-[#1A1A2E]">
                 <Check size={13} className="text-[#059669] flex-shrink-0" />
                 {label}

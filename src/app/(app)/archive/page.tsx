@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import {
-  FolderOpen, Receipt, Download, X, Plus,
-  Search, Loader2, Building2, FileArchive,
+  FolderOpen, Receipt, Download, X, Plus, Files,
+  Search, Loader2, Building2, FileArchive, FileText, Inbox, UploadCloud,
 } from "lucide-react";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
@@ -14,7 +14,7 @@ import GoogleDriveIcon from "@/components/GoogleDriveIcon";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type DocType = "recu" | "company_document";
+type DocType = "invoice" | "recu" | "company_document";
 
 interface ArchiveDoc {
   id: string;
@@ -24,8 +24,8 @@ interface ArchiveDoc {
   url: string | null;
   mime_type?: string | null;
   amount?: number;
-  status?: string;
   subtitle: string;
+  client?: string;
   // receipt
   vendor?: string;
   storage_path?: string | null;
@@ -44,21 +44,18 @@ interface NamedArchive {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TYPE_META: Record<DocType, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
-  recu:              { label: "Reçu",                color: "#FFFFFF", bg: "#D97706", Icon: Receipt },
-  company_document:  { label: "Doc. Entreprise",     color: "#FFFFFF", bg: "#6B7280", Icon: Building2 },
-};
-
-const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
-  paid:      { cls: "b-paid",    label: "Payée" },
-  sent:      { cls: "b-pending", label: "En attente" },
-  overdue:   { cls: "b-overdue", label: "En retard" },
-  draft:     { cls: "b-draft",   label: "Brouillon" },
-  cancelled: { cls: "b-draft",   label: "Annulée" },
-  matched:   { cls: "b-paid",    label: "Traité" },
-  pending:   { cls: "b-pending", label: "En attente" },
-  ignored:   { cls: "b-draft",   label: "Ignoré" },
-};
+function sourceMeta(doc: ArchiveDoc) {
+  if (doc.type === "invoice") {
+    return { label: "Facturation", color: "#2563EB", bg: "#EFF6FF", Icon: FileText };
+  }
+  if (doc.type === "recu") {
+    return { label: "Achats", color: "#D97706", bg: "#FFF7ED", Icon: Inbox };
+  }
+  if (doc.archive_id) {
+    return { label: "Google Drive", color: "#2563EB", bg: "#F4F7FB", Icon: GoogleDriveIcon };
+  }
+  return { label: "Ajout manuel", color: "#6B7280", bg: "#F3F4F6", Icon: UploadCloud };
+}
 
 const DOC_CATEGORIES = [
   "Certificat ICE", "RC", "Patente", "Statuts",
@@ -70,15 +67,6 @@ function fmtDate(d: string) {
 }
 function fmtAmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 
-// ─── Expiry badge ─────────────────────────────────────────────────────────────
-
-function ExpiryBadge({ date }: { date: string }) {
-  const days = Math.ceil((new Date(date).getTime() - Date.now()) / 86400000);
-  if (days < 0)  return <span className="badge b-overdue">Expiré</span>;
-  if (days <= 30) return <span className="badge b-pending">Expire dans {days}j</span>;
-  return <span className="badge b-paid">Valide</span>;
-}
-
 // ─── Preview panel ────────────────────────────────────────────────────────────
 
 function PreviewPanel({ doc, onClose, onDelete }: {
@@ -86,7 +74,7 @@ function PreviewPanel({ doc, onClose, onDelete }: {
   onClose: () => void;
   onDelete: (doc: ArchiveDoc) => void;
 }) {
-  const { Icon, label, bg } = TYPE_META[doc.type];
+  const { Icon, label, bg, color } = sourceMeta(doc);
   const isPdf = doc.mime_type?.includes("pdf") || doc.url?.includes(".pdf");
   const isImg = doc.mime_type?.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(doc.url ?? "");
 
@@ -124,8 +112,8 @@ function PreviewPanel({ doc, onClose, onDelete }: {
       <div className="flex-shrink-0 bg-white border-t border-[rgba(0,0,0,0.08)] p-4 overflow-y-auto" style={{ maxHeight: "45%" }}>
         <div className="flex items-start justify-between mb-3">
           <div className="min-w-0 flex-1 pr-3">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full text-white mb-1.5"
-              style={{ background: bg }}>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full mb-1.5"
+              style={{ background: bg, color }}>
               <Icon size={10} /> {label}
             </span>
             <h3 className="text-[14px] font-semibold text-[#1A1A2E] leading-snug">{doc.name}</h3>
@@ -141,12 +129,12 @@ function PreviewPanel({ doc, onClose, onDelete }: {
             <span className="font-medium">{fmtDate(doc.date)}</span>
           </div>
 
-          {doc.type === "recu" && (
+          {(doc.type === "recu" || doc.type === "invoice") && (
             <>
-              {doc.vendor && (
+              {(doc.vendor || doc.client) && (
                 <div className="flex justify-between">
-                  <span className="text-[#6B7280]">Fournisseur</span>
-                  <span className="font-medium">{doc.vendor}</span>
+                  <span className="text-[#6B7280]">{doc.type === "invoice" ? "Client" : "Fournisseur"}</span>
+                  <span className="font-medium">{doc.client ?? doc.vendor}</span>
                 </div>
               )}
               {doc.amount != null && (
@@ -154,14 +142,6 @@ function PreviewPanel({ doc, onClose, onDelete }: {
                   <span className="text-[#6B7280]">Montant</span>
                   <span className={doc.amount < 0 ? "text-[#DC2626]" : "text-[#059669]"}>
                     {fmtAmt(Math.abs(doc.amount))}
-                  </span>
-                </div>
-              )}
-              {doc.status && (
-                <div className="flex justify-between items-center">
-                  <span className="text-[#6B7280]">Statut inbox</span>
-                  <span className={`badge ${STATUS_BADGE[doc.status]?.cls ?? "b-draft"}`}>
-                    {STATUS_BADGE[doc.status]?.label ?? doc.status}
                   </span>
                 </div>
               )}
@@ -177,9 +157,9 @@ function PreviewPanel({ doc, onClose, onDelete }: {
                 </div>
               )}
               {doc.expiration_date && (
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between">
                   <span className="text-[#6B7280]">Expiration</span>
-                  <ExpiryBadge date={doc.expiration_date} />
+                  <span className="font-medium">{fmtDate(doc.expiration_date)}</span>
                 </div>
               )}
               {doc.notes && (
@@ -199,13 +179,15 @@ function PreviewPanel({ doc, onClose, onDelete }: {
               <Download size={12} /> Télécharger
             </a>
           )}
-          <button
-            data-permission="document:delete"
-            onClick={() => onDelete(doc)}
-            className="ml-auto text-[12px] text-[#DC2626] hover:underline"
-          >
-            Supprimer
-          </button>
+          {doc.type !== "invoice" && (
+            <button
+              data-permission="document:delete"
+              onClick={() => onDelete(doc)}
+              className="ml-auto text-[12px] text-[#DC2626] hover:underline"
+            >
+              Supprimer
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -360,12 +342,13 @@ function UploadModal({ dossierId, archives, driveConnected, onClose, onUploaded 
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type TabKey = "all" | DocType;
+type FolderKey = "all" | DocType;
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "all",              label: "Tous" },
-  { key: "recu",             label: "Reçus" },
-  { key: "company_document", label: "Entreprise" },
+const FOLDERS: { key: FolderKey; label: string; Icon: React.ElementType }[] = [
+  { key: "all",              label: "Tous les fichiers", Icon: Files },
+  { key: "invoice",          label: "Factures",          Icon: FileText },
+  { key: "recu",             label: "Pièces d'achat",    Icon: Receipt },
+  { key: "company_document", label: "Entreprise",        Icon: Building2 },
 ];
 
 export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) {
@@ -375,7 +358,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
   const [docs, setDocs] = useState<ArchiveDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ArchiveDoc | null>(null);
-  const [tab, setTab] = useState<TabKey>("all");
+  const [folder, setFolder] = useState<FolderKey>("all");
   const [searchState, setSearchState] = useState({ source: requestedSearch, value: requestedSearch });
   const search = searchState.source === requestedSearch ? searchState.value : requestedSearch;
   const setSearch = (value: string) => setSearchState({ source: requestedSearch, value });
@@ -402,7 +385,11 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [recRes, cdRes] = await Promise.all([
+    const [invoiceRes, recRes, cdRes] = await Promise.all([
+      (dossierId
+        ? supabase.from("invoices").select("id,invoice_number,issue_date,total,currency,invoice_type,clients(name)").eq("dossier_id", dossierId)
+        : supabase.from("invoices").select("id,invoice_number,issue_date,total,currency,invoice_type,clients(name)").eq("user_id", ownerId).is("dossier_id", null)
+      ).or("invoice_type.is.null,invoice_type.eq.facture").order("issue_date", { ascending: false }),
       (dossierId
         ? supabase.from("receipts").select("*").eq("user_id", ownerId).eq("dossier_id", dossierId)
         : supabase.from("receipts").select("*").eq("user_id", ownerId).is("dossier_id", null)
@@ -414,6 +401,24 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
     ]);
 
     const result: ArchiveDoc[] = [];
+
+    // Customer invoices
+    for (const invoice of (invoiceRes.data ?? [])) {
+      const clientRelation = Array.isArray(invoice.clients) ? invoice.clients[0] : invoice.clients;
+      const client = clientRelation?.name ?? null;
+      const total = Number(invoice.total ?? 0);
+      result.push({
+        id: `inv-${invoice.id}`,
+        name: invoice.invoice_number || "Facture",
+        type: "invoice",
+        date: invoice.issue_date,
+        url: `/api/invoices/${invoice.id}/pdf`,
+        mime_type: "application/pdf",
+        amount: total,
+        client: client ?? undefined,
+        subtitle: client ? `${client} · ${fmtAmt(total)}` : fmtAmt(total),
+      });
+    }
 
     // Receipts
     for (const rec of (recRes.data ?? [])) {
@@ -427,7 +432,6 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         url: `/api/receipts/${rec.id}/content`,
         mime_type: rec.mime_type ?? undefined,
         amount: amount ?? undefined,
-        status: rec.status,
         subtitle: amount != null ? `${Math.abs(amount).toLocaleString("fr-MA")} MAD` : rec.file_name ?? "",
         vendor: vendor ?? undefined,
         storage_path: rec.storage_path,
@@ -474,6 +478,8 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
       if (!response.ok) throw new Error(json.error || "Création impossible.");
       setArchives(previous => [...previous, json.archive]);
       setActiveArchive(json.archive.id);
+      setFolder("all");
+      setSelected(null);
       toast.success("Archive Google Drive créée");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Création impossible.");
@@ -514,7 +520,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
 
   const filtered = docs.filter((d) => {
     if (activeArchive !== "all" && (d.type !== "company_document" || d.archive_id !== activeArchive)) return false;
-    if (tab !== "all" && d.type !== tab) return false;
+    if (folder !== "all" && d.type !== folder) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       return (
@@ -526,8 +532,11 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
     return true;
   });
 
-  const countFor = (t: TabKey) =>
-    t === "all" ? docs.length : docs.filter((d) => d.type === t).length;
+  const docsInLocation = docs.filter((doc) =>
+    activeArchive === "all" || (doc.type === "company_document" && doc.archive_id === activeArchive)
+  );
+  const countFor = (key: FolderKey) =>
+    key === "all" ? docsInLocation.length : docsInLocation.filter((doc) => doc.type === key).length;
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -568,7 +577,11 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
               <select
                 className="input flex-1 text-[12px]"
                 value={activeArchive}
-                onChange={(event) => setActiveArchive(event.target.value)}
+                onChange={(event) => {
+                  setActiveArchive(event.target.value);
+                  setFolder("all");
+                  setSelected(null);
+                }}
               >
                 <option value="all">Toutes les archives</option>
                 {archives.map(archive => (
@@ -611,17 +624,36 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
             </p>
           </div>
 
-          {/* Tabs */}
-          <div className="tabs mb-0 flex-shrink-0 overflow-x-auto">
-            {TABS.map((t) => (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className={`tab flex flex-shrink-0 items-center gap-1 whitespace-nowrap ${tab === t.key ? "active" : ""}`}>
-                {t.label}
-                <span className="text-[9.5px] bg-[rgba(0,0,0,0.06)] px-1.5 py-0.5 rounded-full">
-                  {countFor(t.key)}
-                </span>
-              </button>
-            ))}
+          {/* Folders */}
+          <div className="flex-shrink-0 border-b border-[rgba(0,0,0,0.06)] px-3.5 pb-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9CA3AF]">Dossiers</p>
+            <div className="grid grid-cols-2 gap-2">
+              {FOLDERS.map(({ key, label, Icon }) => {
+                const isActive = folder === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setFolder(key);
+                      setSelected(null);
+                    }}
+                    aria-pressed={isActive}
+                    className={`flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                      isActive
+                        ? "bg-[#0D1526] text-white shadow-sm"
+                        : "bg-[#F7F7F3] text-[#1A1A2E] hover:bg-[#F0EDE5]"
+                    }`}
+                  >
+                    <Icon size={15} className={isActive ? "text-[#D9AA67]" : "text-[#C8924A]"} />
+                    <span className="min-w-0 flex-1 truncate text-[11.5px] font-medium">{label}</span>
+                    <span className={`text-[10px] ${isActive ? "text-white/60" : "text-[#9CA3AF]"}`}>
+                      {countFor(key)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* List */}
@@ -642,27 +674,24 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
             )}
 
             {!loading && filtered.map((doc) => {
-              const { Icon, bg } = TYPE_META[doc.type];
+              const { Icon, bg, color, label } = sourceMeta(doc);
               const isSelected = selected?.id === doc.id;
-              const hasExpiry = doc.expiration_date;
-              const expired = hasExpiry && new Date(doc.expiration_date!) < new Date();
-              const expiringSoon = hasExpiry && !expired &&
-                Math.ceil((new Date(doc.expiration_date!).getTime() - Date.now()) / 86400000) <= 30;
 
               return (
                 <button
                   key={doc.id}
                   onClick={() => selectDoc(doc)}
-                  className="w-full text-left px-3.5 py-2.5 border-b border-[rgba(0,0,0,0.06)] transition-colors hover:bg-[#FAFAF6] flex items-start gap-2.5"
-                  style={{
-                    borderLeft: isSelected ? "3px solid #C8924A" : "3px solid transparent",
-                    background: isSelected ? "rgba(200,146,74,0.05)" : undefined,
-                  }}
+                  aria-pressed={isSelected}
+                  className={`mx-2 my-1 flex w-[calc(100%-16px)] items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                    isSelected
+                      ? "bg-[#F5EDE2] shadow-[inset_0_0_0_1px_rgba(200,146,74,0.28)]"
+                      : "hover:bg-[#FAFAF6]"
+                  }`}
                 >
                   {/* Icon */}
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: bg + "22" }}>
-                    <Icon size={13} style={{ color: bg === "#FFFFFF" ? "#1A1A2E" : bg }} />
+                  <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
+                    style={{ background: bg }}>
+                    <Icon size={14} style={{ color }} />
                   </div>
 
                   {/* Content */}
@@ -673,10 +702,10 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
                         {new Date(doc.date).toLocaleDateString("fr-MA", { day: "numeric", month: "short" })}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <p className="text-[11px] text-[#6B7280] truncate">{doc.subtitle}</p>
-                      {expired && <span className="badge b-overdue text-[9px] flex-shrink-0">Expiré</span>}
-                      {expiringSoon && !expired && <span className="badge b-pending text-[9px] flex-shrink-0">Expire bientôt</span>}
+                    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10.5px] text-[#6B7280]">
+                      <span className="flex-shrink-0 font-medium" style={{ color }}>{label}</span>
+                      {doc.subtitle && <span aria-hidden="true" className="text-[#D1D5DB]">·</span>}
+                      <p className="truncate">{doc.subtitle}</p>
                     </div>
                   </div>
                 </button>

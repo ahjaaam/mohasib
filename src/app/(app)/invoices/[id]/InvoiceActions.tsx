@@ -21,10 +21,6 @@ interface Props {
   clientPhone?: string | null;
   clientEmail?: string | null;
   clientId?: string | null;
-  whatsappSentAt?: string | null;
-  whatsappSentCount?: number;
-  emailSentAt?: string | null;
-  emailSentCount?: number;
 }
 
 // ── Partial Payment Modal ──────────────────────────────────────────────────────
@@ -230,10 +226,6 @@ export default function InvoiceActions({
   clientPhone,
   clientEmail,
   clientId,
-  whatsappSentAt,
-  whatsappSentCount,
-  emailSentAt,
-  emailSentCount,
 }: Props) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [waState, setWaState] = useState<WaState>("idle");
@@ -330,9 +322,6 @@ export default function InvoiceActions({
       setTimeout(() => setEmailState("idle"), 3000);
     }
   }
-
-  const fmtDate = (d: string) =>
-    new Date(d).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit", year: "numeric" });
 
   return (
     <>
@@ -452,23 +441,6 @@ export default function InvoiceActions({
           </div>
         )}
 
-        {/* Send history */}
-        {(whatsappSentAt || emailSentAt) && (
-          <div className="flex flex-col gap-0.5 mt-1 px-0.5">
-            {whatsappSentAt && (
-              <div className="text-[10.5px] text-[#6B7280] flex items-center gap-1">
-                <Send size={11} /> Envoyé par WhatsApp le {fmtDate(whatsappSentAt)}
-                {whatsappSentCount && whatsappSentCount > 1 ? ` (×${whatsappSentCount})` : ""}
-              </div>
-            )}
-            {emailSentAt && (
-              <div className="text-[10.5px] text-[#6B7280] flex items-center gap-1">
-                <Mail size={11} /> Envoyé par email le {fmtDate(emailSentAt)}
-                {emailSentCount && emailSentCount > 1 ? ` (×${emailSentCount})` : ""}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </>
   );

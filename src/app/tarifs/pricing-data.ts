@@ -37,7 +37,7 @@ export const PRICING_PACKAGES: PricingPackage[] = [
     min: 1,
     max: 20,
     features: [
-      "Factures, devis, avoirs et relances",
+      "Factures, avoirs et relances",
       "Capture de documents et OCR",
       "Import bancaire et suivi des transactions",
       "Écritures automatiques, CGNC et TVA",

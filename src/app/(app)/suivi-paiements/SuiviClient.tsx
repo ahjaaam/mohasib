@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   TrendingUp, TrendingDown, AlertCircle, X, Loader2,
   Send, Mail, ChevronDown, ChevronUp, CheckCircle,
-  MoreHorizontal, Eye, Download, Search,
+  MoreHorizontal, Search,
   Circle, MessageCircle,
 } from "lucide-react";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
@@ -125,19 +125,19 @@ function DaysCell({ dueDate, isPaid }: { dueDate: string | null; isPaid: boolean
 // ── StatusBadge ────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status, dueDate }: { status: string; dueDate: string | null }) {
-  if (status === "paid") return <span className="badge-pill bg-[#D1FAE5] text-[#065F46]">Payée</span>;
-  if (status === "partiellement_payee") return <span className="badge-pill bg-[#FEF3C7] text-[#92400E] inline-flex items-center gap-1"><Circle size={7} fill="currentColor" /> Partiel</span>;
+  if (status === "paid") return <span className="text-[11.5px] font-medium text-[#059669]">Payée</span>;
+  if (status === "partiellement_payee") return <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#D97706]"><Circle size={7} fill="currentColor" /> Partiel</span>;
   const d = daysFromNow(dueDate);
   if (d !== null && d < 0) {
     return (
-      <span className="badge-pill bg-[#FEE2E2] text-[#991B1B] flex items-center gap-1">
+      <span className="flex items-center gap-1 text-[11.5px] font-bold text-[#DC2626]">
         <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse flex-shrink-0" />
         En retard
       </span>
     );
   }
-  if (d !== null && d <= 7) return <span className="badge-pill bg-[#FEF3C7] text-[#92400E]">Échéance proche</span>;
-  return <span className="badge-pill bg-[#EFF6FF] text-[#1D4ED8] inline-flex items-center gap-1"><Circle size={7} fill="currentColor" /> En attente</span>;
+  if (d !== null && d <= 7) return <span className="text-[11.5px] font-semibold text-[#D97706]">Échéance proche</span>;
+  return <span className="inline-flex items-center gap-1 text-[11.5px] text-[#9CA3AF]"><Circle size={7} fill="currentColor" /> En attente</span>;
 }
 
 function PaymentProgress({ paid, total }: { paid: number; total: number }) {
@@ -283,8 +283,9 @@ function SubTabBar({
 
 // ── ActionsMenu (client rows) ──────────────────────────────────────────────────
 
-function ActionsMenu({ invoice }: {
+function ActionsMenu({ invoice, onPartialPayment }: {
   invoice: ClientInvoice;
+  onPartialPayment?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -316,7 +317,7 @@ function ActionsMenu({ invoice }: {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
     const menuWidth = 190;
-    const menuHeight = 112;
+    const menuHeight = onPartialPayment ? 148 : 112;
     const gap = 4;
     setPosition({
       top: window.innerHeight - rect.bottom >= menuHeight + gap
@@ -344,8 +345,9 @@ function ActionsMenu({ invoice }: {
         aria-label="Plus d’actions"
         aria-expanded={open}
         onClick={toggleMenu}
-        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] transition-colors">
-        <MoreHorizontal size={13} />
+        className="flex h-7 w-7 items-center justify-center rounded-lg text-[#6B7280] transition-colors hover:bg-[#F3F4F6]"
+      >
+        <MoreHorizontal size={15} />
       </button>
       {open && createPortal(
         <div
@@ -354,19 +356,107 @@ function ActionsMenu({ invoice }: {
           className="fixed bg-white border border-[rgba(0,0,0,0.12)] rounded-xl shadow-xl py-1"
           style={{ top: position.top, left: position.left, width: 190, zIndex: 9999 }}
         >
+          {onPartialPayment && (
+            <button
+              onClick={() => {
+                setOpen(false);
+                onPartialPayment();
+              }}
+              className="w-full px-3 py-2 text-left text-[12px] text-[#374151] transition-colors hover:bg-[#F9FAFB] rounded-t-xl"
+            >
+              Encaissement partiel
+            </button>
+          )}
           <a href={`/f/${invoice.id}`} target="_blank" rel="noopener noreferrer"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#374151] hover:bg-[#F9FAFB] transition-colors rounded-t-xl">
-            <Eye size={12} /> Voir facture
+            className={`flex items-center px-3 py-2 text-[12px] text-[#374151] hover:bg-[#F9FAFB] transition-colors ${onPartialPayment ? "" : "rounded-t-xl"}`}>
+            Voir facture
           </a>
           <a href={`/api/invoices/${invoice.id}/pdf`}
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#374151] hover:bg-[#F9FAFB] transition-colors">
-            <Download size={12} /> Télécharger PDF
+            className="flex items-center px-3 py-2 text-[12px] text-[#374151] hover:bg-[#F9FAFB] transition-colors">
+            Télécharger PDF
           </a>
           <button onClick={sendWhatsApp}
-            className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-[#374151] hover:bg-[#F9FAFB] transition-colors rounded-b-xl">
-            <Send size={12} /> Envoyer WhatsApp
+            className="w-full flex items-center px-3 py-2 text-[12px] text-[#374151] hover:bg-[#F9FAFB] transition-colors rounded-b-xl">
+            Envoyer WhatsApp
+          </button>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
+function SupplierMoreMenu({ onPartialPayment }: { onPartialPayment: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!buttonRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
+    };
+    const closeMenu = () => setOpen(false);
+    document.addEventListener("mousedown", closeOutside);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => {
+      document.removeEventListener("mousedown", closeOutside);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [open]);
+
+  function toggleMenu() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const menuWidth = 170;
+    const menuHeight = 40;
+    const gap = 4;
+    setPosition({
+      top: window.innerHeight - rect.bottom >= menuHeight + gap
+        ? rect.bottom + gap
+        : Math.max(gap, rect.top - menuHeight - gap),
+      left: Math.min(window.innerWidth - menuWidth - 8, Math.max(8, rect.right - menuWidth)),
+    });
+    setOpen(true);
+  }
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label="Plus d’actions"
+        aria-expanded={open}
+        onClick={toggleMenu}
+        className="flex h-7 w-7 items-center justify-center rounded-lg text-[#6B7280] transition-colors hover:bg-[#F3F4F6]"
+      >
+        <MoreHorizontal size={15} />
+      </button>
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          className="fixed rounded-xl border border-[rgba(0,0,0,0.12)] bg-white py-1 shadow-xl"
+          style={{ top: position.top, left: position.left, width: 170, zIndex: 9999 }}
+        >
+          <button
+            onClick={() => {
+              setOpen(false);
+              onPartialPayment();
+            }}
+            className="w-full rounded-xl px-3 py-2 text-left text-[12px] text-[#374151] transition-colors hover:bg-[#F9FAFB]"
+          >
+            Paiement partiel
           </button>
         </div>,
         document.body,
@@ -817,12 +907,13 @@ function ClientsSection({
                   <SortableTh sortKey="client" label="Client" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="issue" label="Émission" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="due" label="Échéance" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
-                  <SortableTh sortKey="total" label="TTC" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="total" label="TTC" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="left" className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="paid" label="Reçu" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="balance" label="Solde" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="late" label="Retard" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="status" label="Statut" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <th className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap">Actions</th>
+                  <th className="w-10 px-2 py-2.5" aria-label="Plus d’actions" />
                 </tr>
               </thead>
               <tbody>
@@ -852,24 +943,20 @@ function ClientsSection({
                         <div className="flex items-center gap-1.5">
                           {!isPaid && (
                             <button onClick={() => onPayment(inv, "full")}
-                              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
-                              style={{ background: "#C8924A", color: "#fff", border: "none" }}>
-                              <CheckCircle size={11} /> Encaisser
-                            </button>
-                          )}
-                          {!isPaid && (
-                            <button onClick={() => onPayment(inv, "partial")} className="btn btn-outline btn-sm">
-                              Partiel
+                              className="flex h-7 w-[76px] items-center justify-center rounded-lg border border-transparent bg-[#C8924A] text-[11px] font-semibold text-white transition-colors hover:bg-[#B8823A]">
+                              Encaisser
                             </button>
                           )}
                           {!isPaid && (
                             <button onClick={() => onRelance(inv)}
-                              className="btn btn-outline btn-sm">
-                              <Send size={10} /> Relancer
+                              className="flex h-7 w-[76px] items-center justify-center rounded-lg border border-[#D7DADF] bg-[#F1F2F3] text-[11px] font-semibold text-[#4B5563] shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition-colors hover:border-[#C7CBD1] hover:bg-[#E5E7EB] hover:text-[#374151]">
+                              Relancer
                             </button>
                           )}
-                          <ActionsMenu invoice={inv} />
                         </div>
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <ActionsMenu invoice={inv} onPartialPayment={isPaid ? undefined : () => onPayment(inv, "partial")} />
                       </td>
                     </tr>
                   );
@@ -992,12 +1079,13 @@ function SuppliersSection({
                   <SortableTh sortKey="reference" label="Référence" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="received" label="Réception" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="due" label="Échéance" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
-                  <SortableTh sortKey="total" label="TTC" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
+                  <SortableTh sortKey="total" label="TTC" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="left" className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="paid" label="Payé" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="balance" label="Solde" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="late" label="Retard" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
                   <SortableTh sortKey="status" label="Statut" activeKey={sortKey} direction={sortDirection} onSort={handleSort} className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap" />
-                  <th className="px-3 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap">Actions</th>
+                  <th className="px-2 py-2.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.4px] text-left whitespace-nowrap">Actions</th>
+                  <th className="w-8 px-1 py-2.5" aria-label="Plus d’actions" />
                 </tr>
               </thead>
               <tbody>
@@ -1025,28 +1113,25 @@ function SuppliersSection({
                       <td className="px-3 py-2.5 font-medium text-[#1A1A2E] whitespace-nowrap">{fmt(solde)}</td>
                       <td className="px-3 py-2.5 whitespace-nowrap"><DaysCell dueDate={dueDate} isPaid={isPaid} /></td>
                       <td className="px-3 py-2.5"><StatusBadge status={isPaid ? "paid" : isPartial ? "partiellement_payee" : (dueDate && daysFromNow(dueDate) !== null && (daysFromNow(dueDate) ?? 1) < 0) ? "overdue" : "sent"} dueDate={dueDate} /></td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-1.5">
+                      <td className="px-2 py-2.5">
+                        <div className="flex items-center gap-1">
                           {!isPaid && (
                             <button onClick={() => onPayment(item, "full")}
-                              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
-                              style={{ background: "#1A1A2E", color: "#fff", border: "none" }}>
+                              className="flex h-7 w-16 items-center justify-center rounded-lg border border-transparent bg-[#C8924A] text-[11px] font-semibold text-white transition-colors hover:bg-[#B8823A]">
                               Payer
-                            </button>
-                          )}
-                          {!isPaid && (
-                            <button onClick={() => onPayment(item, "partial")} className="btn btn-outline btn-sm">
-                              Partiel
                             </button>
                           )}
                           <a
                             href={`/api/receipts/${encodeURIComponent(item.id)}/content`}
                             target="_blank"
                             rel="noreferrer"
-                            className="btn btn-outline btn-sm">
-                            <Eye size={10} /> Voir
+                            className="ui-control flex h-7 w-16 cursor-pointer items-center justify-center border border-[#D7DADF] bg-[#F1F2F3] font-sans text-[11px] font-semibold text-[#4B5563] no-underline shadow-[0_1px_2px_rgba(13,21,38,0.05)] transition-colors hover:border-[#C7CBD1] hover:bg-[#E5E7EB] hover:text-[#374151]">
+                            Voir
                           </a>
                         </div>
+                      </td>
+                      <td className="px-1 py-2.5 text-center">
+                        {!isPaid && <SupplierMoreMenu onPartialPayment={() => onPayment(item, "partial")} />}
                       </td>
                     </tr>
                   );
@@ -1262,8 +1347,8 @@ export default function SuiviClient({
       {/* ── Main Tabs ──────────────────────────────────────────────────────── */}
       <div className="tabs mb-5 overflow-x-auto">
         {([
-          ["clients", "Clients — À encaisser", overdueClients.length] as const,
-          ["suppliers", "Fournisseurs — À payer", overdueSuppliers.length] as const,
+          ["clients", "À encaisser", overdueClients.length] as const,
+          ["suppliers", "À payer", overdueSuppliers.length] as const,
         ] as const).map(([key, label, badge]) => (
           <button key={key} onClick={() => {
             setMainTab(key);

@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Toaster } from "react-hot-toast";
 import { Settings, Lock } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
@@ -50,8 +49,6 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
 
   return (
     <>
-      <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
-
       {/* Page header */}
       <div className="flex items-center gap-2.5 mb-5">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"

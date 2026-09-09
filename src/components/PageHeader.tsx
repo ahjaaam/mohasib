@@ -2,13 +2,14 @@ import type { ReactNode } from "react";
 
 interface Props {
   title: string;
+  titleAccessory?: ReactNode;
   subtitle?: string;
   action?: ReactNode;
   icon?: ReactNode;
   iconBare?: boolean;
 }
 
-export default function PageHeader({ title, subtitle, action, icon, iconBare = false }: Props) {
+export default function PageHeader({ title, titleAccessory, subtitle, action, icon, iconBare = false }: Props) {
   return (
     <div className="mb-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
       <div className="flex min-w-0 items-center gap-2.5">
@@ -18,7 +19,10 @@ export default function PageHeader({ title, subtitle, action, icon, iconBare = f
           </div>
         ))}
         <div className="min-w-0">
-          <h1 className="text-[18px] font-bold leading-none text-[#1A1A2E]">{title}</h1>
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-[18px] font-bold leading-none text-[#1A1A2E]">{title}</h1>
+            {titleAccessory}
+          </div>
           {subtitle && <p className="mt-0.5 text-[11px] text-[#9CA3AF]">{subtitle}</p>}
         </div>
       </div>

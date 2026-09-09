@@ -6,9 +6,8 @@ import {
   AlertTriangle,
   Archive,
   ArrowLeft,
+  ArrowRight,
   CheckCheck,
-  ExternalLink,
-  Inbox,
   Loader2,
   Mail,
   MailOpen,
@@ -48,6 +47,26 @@ function fullDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function senderLabel(type: string) {
+  if (type === "attention_action") return "Assistant Mohasib";
+  if (type === "team_flag") return "Votre équipe";
+  return "Équipe Mohasib";
+}
+
+function EmailMessage({ message }: { message: string }) {
+  const alreadyHasGreeting = /^\s*(bonjour|bonsoir)[\s,!]/i.test(message);
+  if (alreadyHasGreeting) {
+    return <p className="whitespace-pre-line text-[13px] leading-6 text-[#3F4652]">{message}</p>;
+  }
+
+  return (
+    <div className="text-[13px] leading-6 text-[#3F4652]">
+      <p>Bonjour,</p>
+      <p className="mt-4 whitespace-pre-line">{message}</p>
+    </div>
+  );
 }
 
 export default function NotificationsDock({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -116,8 +135,8 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
       .finally(() => setLoading(false));
   }
 
-  const folders: Array<{ key: Folder; label: string; count: number; icon: typeof Inbox }> = [
-    { key: "inbox", label: "Réception", count: messages.filter((message) => !message.is_dismissed).length, icon: Inbox },
+  const folders: Array<{ key: Folder; label: string; count: number; icon: typeof Mail }> = [
+    { key: "inbox", label: "Réception", count: messages.filter((message) => !message.is_dismissed).length, icon: Mail },
     { key: "unread", label: "Non lus", count: unreadCount, icon: Mail },
     { key: "priority", label: "Priorité", count: priorityCount, icon: AlertTriangle },
     { key: "archived", label: "Archivés", count: archivedCount, icon: Archive },
@@ -139,7 +158,7 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
               <ArrowLeft size={15} />
             </button>
           )}
-          <Inbox size={16} className="text-[#C8924A]" />
+          <Mail size={16} className="text-[#C8924A]" />
           <div className="min-w-0">
             <h2 className="truncate text-[13px] font-bold text-[#1A1A2E]">Boîte de réception</h2>
             <p className="text-[10px] text-[#8A909B]">{unreadCount} non lu{unreadCount !== 1 ? "s" : ""}</p>
@@ -176,16 +195,21 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
             <div className="mt-4 flex items-center gap-3">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0D1526] text-[10px] font-bold text-white">M</span>
               <div>
-                <p className="text-[11.5px] font-bold text-[#1A1A2E]">{selected.type === "attention_action" ? "Mohasib Actions" : "Mohasib"}</p>
+                <p className="text-[11.5px] font-bold text-[#1A1A2E]">{senderLabel(selected.type)}</p>
                 <p className="text-[9.5px] text-[#8A909B]">{fullDate(selected.created_at)}</p>
               </div>
             </div>
           </header>
           <div className="px-5 py-5">
-            <p className="whitespace-pre-line text-[13px] leading-6 text-[#3F4652]">{selected.message}</p>
+            <EmailMessage message={selected.message} />
             {selected.link && !selected.is_dismissed && (
-              <Link href={selected.link} onClick={() => { void markClicked(selected.id); onClose(); }} className="mt-6 inline-flex h-9 items-center gap-2 bg-[#0D1526] px-4 text-[11px] font-bold text-white hover:bg-[#1C2940]">
-                Ouvrir l&apos;action <ExternalLink size={12} />
+              <Link
+                href={selected.link}
+                onClick={() => { void markClicked(selected.id); onClose(); }}
+                className="ui-control mt-6 inline-flex h-9 items-center gap-2 bg-[#0D1526] px-4 text-[11px] font-bold text-white transition-colors hover:bg-[#1C2940] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8924A] focus-visible:ring-offset-2"
+              >
+                <span>{selected.type === "attention_action" ? "Agir maintenant" : "Voir maintenant"}</span>
+                <ArrowRight size={15} aria-hidden="true" />
               </Link>
             )}
           </div>
@@ -231,11 +255,11 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
               >
                 {!message.is_read && <span className="absolute left-0 top-0 h-full w-0.5 bg-[#C8924A]" />}
                 <div className="flex items-center justify-between gap-3">
-                  <span className={`truncate text-[10.5px] ${message.is_read ? "font-semibold text-[#6B7280]" : "font-bold text-[#1A1A2E]"}`}>{message.type === "attention_action" ? "Mohasib Actions" : "Mohasib"}</span>
+                  <span className={`truncate text-[10.5px] ${message.is_read ? "font-semibold text-[#6B7280]" : "font-bold text-[#1A1A2E]"}`}>{senderLabel(message.type)}</span>
                   <span className="flex-shrink-0 text-[9.5px] text-[#9CA3AF]">{relativeDate(message.created_at)}</span>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <p className={`min-w-0 flex-1 truncate text-[11.5px] ${message.is_read ? "font-medium text-[#374151]" : "font-bold text-[#1A1A2E]"}`}>{message.title}</p>
+                  <p className={`min-w-0 flex-1 truncate text-[11.5px] ${message.is_read ? "font-semibold text-[#374151]" : "font-extrabold text-[#1A1A2E]"}`}>{message.title}</p>
                   {message.priority === "high" && <AlertTriangle size={11} className="flex-shrink-0 text-red-500" />}
                 </div>
                 <p className="mt-0.5 truncate text-[10.5px] text-[#858B95]">{message.message}</p>

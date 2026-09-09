@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeftRight, PenLine, Scale,
   Calculator, Download, UserRoundCog, FolderOpen, BarChart2,
@@ -23,6 +22,7 @@ import SidebarLogo from "@/components/SidebarLogo";
 import SidebarItemTooltip from "@/components/SidebarItemTooltip";
 import SidebarAccountMenu from "@/components/SidebarAccountMenu";
 import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
+import MohasibToaster from "@/components/MohasibToaster";
 
 const SIDEBAR_BACKGROUND = "#111621";
 const CLIENT_PORTAL_BLOCKED_SLUGS = ["tresorerie", "transactions", "rapprochement", "saisie", "ecritures", "grand-livre", "tva", "bilan", "export-fiduciaire"];
@@ -159,6 +159,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
         light={lightSidebar}
         userName={userName}
         userEmail={userEmail}
+        roleLabel={roleLabel}
         settingsHref={`${base}/parametres`}
         onSignOut={signOut}
         onToggleSidebar={toggleSidebarCollapsed}
@@ -169,7 +170,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   return (
     <PlanEntitlementsProvider value={entitlements}>
       <AccountOwnerProvider ownerId={ownerId}>
-      <Toaster position="top-right" toastOptions={{ style: { fontSize: "13px" } }} />
+      <MohasibToaster />
       <PermissionBoundary permissions={permissions}>
       <div
         className={`mohasib-app flex h-screen overflow-hidden ${lightSidebar ? "bg-white" : "bg-[#111621]"}`}

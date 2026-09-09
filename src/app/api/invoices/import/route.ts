@@ -27,7 +27,15 @@ export async function POST(request: NextRequest) {
   const file = form.get("file");
   const dossierValue = form.get("dossierId");
   const dossierId = typeof dossierValue === "string" && dossierValue ? dossierValue : null;
-  if (!(file instanceof File) || !file.size) return NextResponse.json({ error: "Sélectionnez une facture." }, { status: 400 });
+  const documentTypeValue = form.get("documentType");
+  if (documentTypeValue !== null && documentTypeValue !== "facture" && documentTypeValue !== "avoir_client") {
+    return NextResponse.json({ error: "Type de document non accepté." }, { status: 400 });
+  }
+  const documentType = documentTypeValue === "avoir_client" ? "avoir_client" : "facture";
+  const isAvoir = documentType === "avoir_client";
+  if (!(file instanceof File) || !file.size) {
+    return NextResponse.json({ error: isAvoir ? "Sélectionnez un avoir client." : "Sélectionnez une facture." }, { status: 400 });
+  }
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!ALLOWED_EXTENSIONS.has(extension)) return NextResponse.json({ error: "Format non accepté. Utilisez PDF, Word (.docx), Excel ou une image." }, { status: 415 });
   if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "Le fichier dépasse 20 Mo." }, { status: 413 });
@@ -47,7 +55,7 @@ export async function POST(request: NextRequest) {
     const preferredNumber = extracted?.invoiceNumber || fileStem(file.name);
     const invoiceNumber = await getAvailableInvoiceDocumentNumber(admin, {
       preferredNumber,
-      prefix: "FAC",
+      prefix: isAvoir ? "AV" : "FAC",
       userId: ownerId,
       dossierId,
     });
@@ -74,7 +82,8 @@ export async function POST(request: NextRequest) {
     }
 
     const scope = dossierId ? `dossiers/${dossierId}` : "main";
-    storagePath = `${ownerId}/${scope}/client-invoices/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const storageFolder = isAvoir ? "client-credit-notes" : "client-invoices";
+    storagePath = `${ownerId}/${scope}/${storageFolder}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await admin.storage.from("company-documents").upload(storagePath, bytes, {
       contentType: mimeType,
       upsert: false,
@@ -84,13 +93,13 @@ export async function POST(request: NextRequest) {
     const { data: document, error: documentError } = await admin.from("company_documents").insert({
       user_id: ownerId,
       dossier_id: dossierId,
-      name: `Facture client — ${invoiceNumber}`,
-      document_category: "Facture client",
+      name: `${isAvoir ? "Avoir client" : "Facture client"} — ${invoiceNumber}`,
+      document_category: isAvoir ? "Avoir client" : "Facture client",
       storage_path: storagePath,
       storage_provider: "supabase",
       file_name: file.name,
       mime_type: mimeType,
-      notes: "Importée depuis Factures clients",
+      notes: isAvoir ? "Importé depuis Avoirs clients" : "Importée depuis Factures clients",
     }).select("id").single();
     if (documentError || !document) throw documentError ?? new Error("Document non créé");
     documentId = document.id;
@@ -104,16 +113,17 @@ export async function POST(request: NextRequest) {
       dossier_id: dossierId,
       client_id: clientId,
       invoice_number: invoiceNumber,
-      invoice_type: "facture",
+      invoice_type: documentType,
       status: "draft",
       issue_date: issueDate,
-      due_date: extracted?.dueDate ?? null,
+      due_date: isAvoir ? null : extracted?.dueDate ?? null,
       subtotal,
       tax_rate: extracted?.taxRate ?? 0,
       tax_amount: taxAmount,
       total,
       currency: extracted?.currency ?? "MAD",
-      notes: extracted?.notes ?? `Importée depuis ${file.name}`,
+      notes: extracted?.notes ?? `${isAvoir ? "Importé" : "Importée"} depuis ${file.name}`,
+      avoir_reason: isAvoir ? extracted?.notes ?? `Importé depuis ${file.name}` : null,
       items: [],
       source_document_id: documentId,
       import_source: "bulk_upload",

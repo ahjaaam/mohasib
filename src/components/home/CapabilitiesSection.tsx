@@ -34,7 +34,7 @@ const capabilities: Capability[] = [
   },
   {
     title: "Facturation",
-    description: "Devis, factures et règlements",
+    description: "Factures, avoirs et règlements",
     icon: FileText,
   },
   {
