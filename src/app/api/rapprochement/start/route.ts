@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autoMatch, type BankLine, type Ecriture } from "@/lib/rapprochement-engine";
 import { getRapprochementContext, recomputeRapprochementSession } from "@/lib/rapprochement-api";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { normalizeAccountingSettings } from "@/lib/accounting-settings";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +19,11 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error }, { status: 404 });
     if (!periodeDebut || !periodeFin) return NextResponse.json({ error: "Période requise" }, { status: 400 });
     if (!companyId && !dossierId) return NextResponse.json({ error: "Aucune société trouvée" }, { status: 400 });
+
+    const { data: settingsOwner } = dossierId
+      ? await supabase.from("dossiers").select("accounting_settings").eq("id", dossierId).maybeSingle()
+      : await supabase.from("companies").select("accounting_settings").eq("id", companyId).maybeSingle();
+    const accounts = normalizeAccountingSettings(settingsOwner?.accounting_settings);
 
     let bankLines: BankLine[] = [];
 
@@ -60,11 +66,11 @@ export async function POST(req: NextRequest) {
     const { data: ecrituresRaw } = dossierId
       ? await supabase.from("dossier_ecritures")
           .select("id, date, compte_cgnc, libelle, debit, credit")
-          .eq("dossier_id", dossierId).eq("compte_cgnc", "5141")
+          .eq("dossier_id", dossierId).eq("compte_cgnc", accounts.bankAccount)
           .gte("date", periodeDebut).lte("date", periodeFin).order("date")
       : await supabase.from("ecritures_comptables")
           .select("id, date_ecriture, compte, libelle, debit, credit, source_id, source_type")
-          .eq("company_id", companyId).eq("compte", "5141")
+          .eq("company_id", companyId).eq("compte", accounts.bankAccount)
           .gte("date_ecriture", periodeDebut).lte("date_ecriture", periodeFin).order("date_ecriture");
 
     const ecritures: Ecriture[] = (ecrituresRaw ?? []).map((entry: any) => ({
@@ -80,9 +86,9 @@ export async function POST(req: NextRequest) {
 
     const { data: openingRows } = dossierId
       ? await supabase.from("dossier_ecritures").select("debit,credit")
-          .eq("dossier_id", dossierId).eq("compte_cgnc", "5141").lt("date", periodeDebut)
+          .eq("dossier_id", dossierId).eq("compte_cgnc", accounts.bankAccount).lt("date", periodeDebut)
       : await supabase.from("ecritures_comptables").select("debit,credit")
-          .eq("company_id", companyId).eq("compte", "5141").lt("date_ecriture", periodeDebut);
+          .eq("company_id", companyId).eq("compte", accounts.bankAccount).lt("date_ecriture", periodeDebut);
     const soldeInitialComptable = (openingRows ?? []).reduce(
       (sum: number, entry: any) => sum + Number(entry.debit ?? 0) - Number(entry.credit ?? 0), 0
     );
@@ -107,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     if (sessionError || !session) return NextResponse.json({ error: sessionError?.message ?? "Erreur session" }, { status: 500 });
 
-    const matches = await autoMatch(session.id, bankLines, ecritures);
+    const matches = await autoMatch(session.id, bankLines, ecritures, accounts.bankAccount);
     if (matches.length) {
       const records = matches.map((match) => ({
         session_id: session.id,

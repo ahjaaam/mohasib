@@ -22,13 +22,14 @@ interface Props {
   userId: string;
   dossierId?: string;
   backHref?: string;
+  supplierAccount?: string;
 }
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD";
 }
 
-export default function NewAvoirFournisseurForm({ nextNumber, userId, dossierId, backHref }: Props) {
+export default function NewAvoirFournisseurForm({ nextNumber, userId, dossierId, backHref, supplierAccount = "4411" }: Props) {
   const router = useRouter();
   const supabase = createClient();
   const [saving, setSaving] = useState(false);
@@ -44,7 +45,7 @@ export default function NewAvoirFournisseurForm({ nextNumber, userId, dossierId,
     motif: MOTIFS[0],
     montant_ht: "",
     tva_rate: 20,
-    compte_comptable: "4411",
+    compte_comptable: supplierAccount,
     notes: "",
   });
 

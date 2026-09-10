@@ -5,6 +5,7 @@ import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import InvoiceActions from "./InvoiceActions";
 import PageHeader from "@/components/PageHeader";
+import { DISCOUNT_LABELS, type DiscountType } from "@/lib/invoice-discounts";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD";
@@ -127,7 +128,13 @@ export default async function InvoiceDetailPage({
             </table>
             {/* Totals */}
             <div className="totals-box mx-0 rounded-none border-0 border-t border-[rgba(0,0,0,0.07)]">
-              <div className="total-row"><span>Total HT</span><span>{fmt(Number(inv.subtotal))}</span></div>
+              <div className="total-row"><span>{Number(inv.discount_amount ?? 0) > 0 ? "Total HT brut" : "Total HT"}</span><span>{fmt(Number(inv.subtotal))}</span></div>
+              {Number(inv.discount_amount ?? 0) > 0 && (
+                <>
+                  <div className="total-row text-[#7C3AED]"><span>{DISCOUNT_LABELS[(inv.discount_type ?? "remise_commerciale") as DiscountType]}</span><span>− {fmt(Number(inv.discount_amount))}</span></div>
+                  <div className="total-row"><span>Net HT</span><span>{fmt(Number(inv.subtotal) - Number(inv.discount_amount))}</span></div>
+                </>
+              )}
               <div className="total-row"><span>TVA ({inv.tax_rate}%)</span><span>{fmt(Number(inv.tax_amount))}</span></div>
               <div className="total-row grand"><span>Total TTC</span><span>{fmt(totalTtc)}</span></div>
             </div>

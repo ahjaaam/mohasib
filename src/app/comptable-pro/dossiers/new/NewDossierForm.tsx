@@ -119,7 +119,8 @@ export default function NewDossierForm() {
     setSaving(false);
     if (error) { toast.error(translateError(error)); return; }
     toast.success("Dossier créé !");
-    router.push(`/comptable-pro/dossiers/${data.id}`);
+    document.cookie = `last_dossier_id=${data.id}; path=/; max-age=31536000; samesite=lax`;
+    router.push(`/comptable-pro/dossiers/${data.id}/tableau-de-bord`);
   }
 
   return (

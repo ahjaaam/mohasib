@@ -31,6 +31,8 @@ describe("computePurchaseAmounts", () => {
       totalTtc: 1200,
       tvaAmount: 200,
       discountAmount: 0,
+      commercialDiscountAmount: 0,
+      settlementDiscountAmount: 0,
       grossTtc: 1200,
     });
   });
@@ -41,6 +43,8 @@ describe("computePurchaseAmounts", () => {
       totalTtc: 1200,
       tvaAmount: 200,
       discountAmount: 0,
+      commercialDiscountAmount: 0,
+      settlementDiscountAmount: 0,
       grossTtc: 1200,
     });
   });
@@ -51,6 +55,8 @@ describe("computePurchaseAmounts", () => {
       totalTtc: 110,
       tvaAmount: 10,
       discountAmount: 0,
+      commercialDiscountAmount: 0,
+      settlementDiscountAmount: 0,
       grossTtc: 110,
     });
   });
@@ -61,6 +67,8 @@ describe("computePurchaseAmounts", () => {
       totalTtc: 100,
       tvaAmount: 100,
       discountAmount: 0,
+      commercialDiscountAmount: 0,
+      settlementDiscountAmount: 0,
       grossTtc: 100,
     });
   });
@@ -75,6 +83,8 @@ describe("computePurchaseAmounts", () => {
       totalTtc: 0,
       tvaAmount: 0,
       discountAmount: 0,
+      commercialDiscountAmount: 0,
+      settlementDiscountAmount: 0,
       grossTtc: 0,
     });
   });
@@ -89,7 +99,27 @@ describe("computePurchaseAmounts", () => {
       totalTtc: 56079.54,
       tvaAmount: 9441,
       discountAmount: 566.46,
+      commercialDiscountAmount: 566.46,
+      settlementDiscountAmount: 0,
       grossTtc: 56646,
+    });
+  });
+
+  it("keeps commercial reductions and escompte separate", () => {
+    expect(computePurchaseAmounts({
+      amount: 108,
+      amount_ht: 100,
+      tva_amount: 18,
+      commercial_discount_amount: 6,
+      settlement_discount_amount: 4,
+    })).toEqual({
+      totalHt: 100,
+      totalTtc: 108,
+      tvaAmount: 18,
+      discountAmount: 10,
+      commercialDiscountAmount: 6,
+      settlementDiscountAmount: 4,
+      grossTtc: 118,
     });
   });
 });

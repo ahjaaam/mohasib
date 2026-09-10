@@ -4,6 +4,7 @@ import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 import { extractWithFallback } from "@/lib/ocr-engine";
 import { authorizePermission } from "@/lib/api-permissions";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { normalizeAccountingSettings } from "@/lib/accounting-settings";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (permission.response) return permission.response;
   const ownerId = await resolveAccountOwnerId(user.id);
 
-  const { data: company } = await supabase.from("companies").select("id").eq("user_id", ownerId).single();
+  const { data: company } = await supabase.from("companies").select("id, accounting_settings").eq("user_id", ownerId).single();
   if (company) {
     const usage = await getMonthlyUsage(company.id);
     if (!usage.allowed) {
@@ -36,16 +37,18 @@ export async function POST(req: NextRequest) {
   const dossierId = formData.get("dossier_id") as string | null;
   const requestedArea = formData.get("document_area");
   const documentArea = requestedArea === "supporting_document" ? "supporting_document" : "purchase";
+  let workspaceAccountingSettings: unknown = company?.accounting_settings ?? null;
   if (dossierId) {
     const { data: ownedDossier } = await supabase
       .from("dossiers")
-      .select("id")
+      .select("id, accounting_settings")
       .eq("id", dossierId)
       .eq("fiduciaire_user_id", ownerId)
       .maybeSingle();
     if (!ownedDossier) {
       return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
     }
+    workspaceAccountingSettings = ownedDossier.accounting_settings;
   }
 
   const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
@@ -80,6 +83,7 @@ export async function POST(req: NextRequest) {
       buffer,
       file.type,
       documentArea === "supporting_document" ? "expense_note" : "supplier_invoice",
+      Object.keys(normalizeAccountingSettings(workspaceAccountingSettings).expenseCategoryAccounts).filter(category => category !== "__default"),
     );
     if (typeof ocrData.amount === "number") {
       ocrData.type = ocrData.amount >= 0 ? "income" : "expense";

@@ -109,7 +109,7 @@ export async function getUserAccessProfile(userId: string) {
         permissions: (await getEffectivePermissions(membership.id))
           .filter(permission => permission.resource !== "settings")
           .map(permission => `${permission.resource}:${permission.action}`),
-        dossierScope: null,
+        dossierScope: membership.dossier_scope as string[] | null,
         accessScope: membership.access_scope ?? "both",
       };
     }

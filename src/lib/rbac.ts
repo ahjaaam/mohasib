@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { dossierScopeAllows } from "@/lib/dossier-scope";
 
 export type PermissionContext = {
   userId: string;
@@ -161,12 +162,11 @@ export async function can(ctx: PermissionContext, resource: string, action: stri
   if (!membership || membership.status !== "active") return false;
   const requestScope = ctx.scope ?? (ctx.dossierId ? "comptable_pro" : "business");
   if (!(await canEnterScope({ userId: ctx.userId }, requestScope))) return false;
-  if (membership.role_name === "manager") return resource !== "settings";
-
-  if (ctx.dossierId && membership.role_name === "collaborateur") {
-    const scope = membership.dossier_scope as string[] | null;
-    if (scope?.length && !scope.includes(ctx.dossierId)) return false;
+  if (ctx.dossierId) {
+    const dossierScope = membership.dossier_scope as string[] | null;
+    if (!dossierScopeAllows(dossierScope, ctx.dossierId)) return false;
   }
+  if (membership.role_name === "manager") return resource !== "settings";
 
   const admin = createAdminClient();
   const { data: override } = await admin

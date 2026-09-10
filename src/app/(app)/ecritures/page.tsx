@@ -7,6 +7,9 @@ import { LayoutTemplate, Download } from "lucide-react";
 import type { JournalCode } from "@/types/fiduciaire";
 import EcrituresFilters, { type JournalFilter } from "@/components/EcrituresFilters";
 import EcrituresTable, { type EcritureRow } from "@/components/EcrituresTable";
+import { normalizeAccountingSettings } from "@/lib/accounting-settings";
+import { DISCOUNT_LABELS, type DiscountType } from "@/lib/invoice-discounts";
+import { getExpenseAccount, getRevenueAccount } from "@/lib/cgnc-mapping";
 
 const JOURNAL_LABELS: Record<JournalFilter, string> = {
   ALL: "Tous les journaux",
@@ -15,15 +18,6 @@ const JOURNAL_LABELS: Record<JournalFilter, string> = {
   BQ: "Journal de Banque",
   CA: "Journal de Caisse",
   OD: "Opérations Diverses",
-};
-
-const EXPENSE_DEBIT: Record<string, string> = {
-  Achats: "6111", Salaires: "6171", Loyer: "6132", Fournitures: "6123",
-  Transport: "6142", Communication: "6147", Fiscalité: "6161", Banque: "6311",
-  "Autre dépense": "6182",
-};
-const INCOME_CREDIT: Record<string, string> = {
-  Ventes: "7111", Services: "7131", Remboursement: "7311", "Autre revenu": "7131",
 };
 
 export default async function EcrituresPage({
@@ -43,9 +37,10 @@ export default async function EcrituresPage({
 
   const { data: company } = await supabase
     .from("companies")
-    .select("id, raison_sociale")
+    .select("id, raison_sociale, accounting_settings")
     .eq("user_id", ownerId)
     .single();
+  const accounts = normalizeAccountingSettings(company?.accounting_settings);
 
   const [year, month] = period.split("-");
   const startDate = `${year}-${month}-01`;
@@ -101,7 +96,7 @@ export default async function EcrituresPage({
     } else {
       const { data: invoices } = await supabase
         .from("invoices")
-        .select("id, invoice_number, issue_date, subtotal, tax_amount, total, clients(name)")
+        .select("id, invoice_number, issue_date, subtotal, tax_amount, total, discount_type, discount_amount, clients(name)")
         .eq("user_id", ownerId)
         .is("dossier_id", null)
         .gte("issue_date", startDate)
@@ -116,9 +111,14 @@ export default async function EcrituresPage({
         const ttc = Number(inv.total ?? 0);
         const lib = `${client}${ref ? " - " + ref : ""}`;
         const href = `/factures/${inv.id}`;
-        rows.push({ date: inv.issue_date, numero_piece: ref, compte: "3421", libelle: lib, debit: ttc, credit: 0, source: "facture", journal: "VT", href });
-        rows.push({ date: inv.issue_date, numero_piece: ref, compte: "7131", libelle: lib, debit: 0, credit: ht > 0 ? ht : ttc, source: "facture", journal: "VT", href });
-        if (tva > 0) rows.push({ date: inv.issue_date, numero_piece: ref, compte: "4455", libelle: `TVA ${ref}`, debit: 0, credit: tva, source: "facture", journal: "VT", href });
+        rows.push({ date: inv.issue_date, numero_piece: ref, compte: accounts.clientAccount, libelle: lib, debit: ttc, credit: 0, source: "facture", journal: "VT", href });
+        rows.push({ date: inv.issue_date, numero_piece: ref, compte: accounts.salesAccount, libelle: lib, debit: 0, credit: ht > 0 ? ht : ttc, source: "facture", journal: "VT", href });
+        if (Number(inv.discount_amount ?? 0) > 0) {
+          const type = (inv.discount_type ?? "remise_commerciale") as DiscountType;
+          const discountAccount = type === "escompte" ? accounts.salesSettlementDiscountAccount : accounts.salesCommercialDiscountAccount;
+          rows.push({ date: inv.issue_date, numero_piece: ref, compte: discountAccount, libelle: `${DISCOUNT_LABELS[type]} ${ref}`, debit: Number(inv.discount_amount), credit: 0, source: "facture", journal: "VT", href });
+        }
+        if (tva > 0) rows.push({ date: inv.issue_date, numero_piece: ref, compte: accounts.collectedTvaAccount, libelle: `TVA ${ref}`, debit: 0, credit: tva, source: "facture", journal: "VT", href });
       }
     }
   }
@@ -151,20 +151,20 @@ export default async function EcrituresPage({
 
         const piece = tx.reference ?? "";
         if (tx.receipt_id) {
-          const debitCpt = EXPENSE_DEBIT[tx.category ?? ""] ?? "6182";
+          const debitCpt = getExpenseAccount(tx.category ?? "", accounts.expenseCategoryAccounts);
           rows.push({ date: tx.date, numero_piece: piece, compte: debitCpt, libelle: tx.description, debit: amount, credit: 0, source, journal: txJournal, href });
-          rows.push({ date: tx.date, numero_piece: piece, compte: "4411", libelle: tx.description, debit: 0, credit: amount, source, journal: txJournal, href });
+          rows.push({ date: tx.date, numero_piece: piece, compte: accounts.supplierAccount, libelle: tx.description, debit: 0, credit: amount, source, journal: txJournal, href });
         } else if (tx.invoice_id) {
-          rows.push({ date: tx.date, numero_piece: piece, compte: "5141", libelle: tx.description, debit: amount, credit: 0, source, journal: txJournal, href });
-          rows.push({ date: tx.date, numero_piece: piece, compte: "3421", libelle: tx.description, debit: 0, credit: amount, source, journal: txJournal, href });
+          rows.push({ date: tx.date, numero_piece: piece, compte: accounts.bankAccount, libelle: tx.description, debit: amount, credit: 0, source, journal: txJournal, href });
+          rows.push({ date: tx.date, numero_piece: piece, compte: accounts.clientAccount, libelle: tx.description, debit: 0, credit: amount, source, journal: txJournal, href });
         } else if (tx.type === "income") {
-          const creditCpt = INCOME_CREDIT[tx.category ?? ""] ?? "7131";
-          rows.push({ date: tx.date, numero_piece: piece, compte: "5141", libelle: tx.description, debit: amount, credit: 0, source, journal: txJournal, href });
+          const creditCpt = getRevenueAccount(tx.category ?? "", accounts.revenueCategoryAccounts);
+          rows.push({ date: tx.date, numero_piece: piece, compte: accounts.bankAccount, libelle: tx.description, debit: amount, credit: 0, source, journal: txJournal, href });
           rows.push({ date: tx.date, numero_piece: piece, compte: creditCpt, libelle: tx.description, debit: 0, credit: amount, source, journal: txJournal, href });
         } else {
-          const debitCpt = EXPENSE_DEBIT[tx.category ?? ""] ?? "6182";
+          const debitCpt = getExpenseAccount(tx.category ?? "", accounts.expenseCategoryAccounts);
           rows.push({ date: tx.date, numero_piece: piece, compte: debitCpt, libelle: tx.description, debit: amount, credit: 0, source, journal: txJournal, href });
-          rows.push({ date: tx.date, numero_piece: piece, compte: "5141", libelle: tx.description, debit: 0, credit: amount, source, journal: txJournal, href });
+          rows.push({ date: tx.date, numero_piece: piece, compte: accounts.bankAccount, libelle: tx.description, debit: 0, credit: amount, source, journal: txJournal, href });
         }
       }
     }

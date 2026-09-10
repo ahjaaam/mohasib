@@ -223,12 +223,6 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
               {!sidebarCollapsed && "Retour à l’application"}
             </Link>
 
-            {!sidebarCollapsed && (
-              <div className={`px-[18px] pb-2 pt-1 text-[9.5px] font-bold uppercase tracking-[1px] ${lightSidebar ? "text-[#8B867C]" : "text-white/35"}`}>
-                Paramètres
-              </div>
-            )}
-
             {visibleSettingsTabs.map(({ id, icon: Icon, label }) => (
               <SidebarItemTooltip key={id} enabled={sidebarCollapsed} label={label}>
                 <Link
@@ -286,6 +280,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
         userName={userName}
         userEmail={userEmail}
         roleLabel={roleLabel}
+        dossiersHref={isFiduciaire && accessScope !== "business_only" ? "/comptable-pro/dossiers" : undefined}
         onSignOut={signOut}
         onToggleSidebar={toggleSidebarCollapsed}
       />
@@ -347,6 +342,9 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                     active: pathname.startsWith(`/comptable-pro/dossiers/${company.id}`),
                   })),
                 ]
+              : undefined}
+            cabinetCreateHref={!freePlan && isFiduciaire && accessScope !== "business_only" && isOwner
+              ? "/comptable-pro/dossiers/nouveau"
               : undefined}
             guestMode={guestMode}
             onSignOut={signOut}

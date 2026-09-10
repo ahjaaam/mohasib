@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeftRight, PenLine, Scale,
   Calculator, Download, UserRoundCog, FolderOpen, BarChart2,
   Inbox, Building2, GitMerge, Lock, Menu, CreditCard, LogOut,
-  ReceiptText, Landmark,
+  ReceiptText, Landmark, ArrowLeft, Settings,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -23,6 +23,7 @@ import SidebarItemTooltip from "@/components/SidebarItemTooltip";
 import SidebarAccountMenu from "@/components/SidebarAccountMenu";
 import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 import MohasibToaster from "@/components/MohasibToaster";
+import { CLIENT_DOSSIER_SETTINGS_TABS, DOSSIER_SETTINGS_TABS } from "@/lib/settings-navigation";
 
 const SIDEBAR_BACKGROUND = "#111621";
 const CLIENT_PORTAL_BLOCKED_SLUGS = ["tresorerie", "transactions", "rapprochement", "saisie", "ecritures", "grand-livre", "tva", "bilan", "export-fiduciaire"];
@@ -86,6 +87,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { collapsed: sidebarCollapsed, toggleCollapsed: toggleSidebarCollapsed } = useSidebarCollapsed();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
   const { can } = usePermissions(permissions);
@@ -95,8 +97,17 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   const sidebarBackground = lightSidebar ? "#FFF" : SIDEBAR_BACKGROUND;
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  useEffect(() => {
+    document.cookie = `last_dossier_id=${dossier.id}; path=/; max-age=31536000; samesite=lax`;
+  }, [dossier.id]);
 
   const base = `/comptable-pro/dossiers/${dossier.id}`;
+  const isSettingsWorkspace = pathname.startsWith(`${base}/parametres`) || pathname.startsWith(`${base}/settings`);
+  const settingsTabs = isClientPortal ? CLIENT_DOSSIER_SETTINGS_TABS : DOSSIER_SETTINGS_TABS;
+  const requestedSettingsTab = searchParams.get("tab") === "mailbox" ? "integrations" : searchParams.get("tab");
+  const activeSettingsTab = settingsTabs.some((item) => item.id === requestedSettingsTab)
+    ? requestedSettingsTab
+    : isClientPortal ? "profil" : "dossier";
   const currentSlug = pathname.split(`${base}/`)[1]?.split("/")[0];
   const currentItem = NAV_ITEMS.find(item => item.slug === currentSlug);
   const permissionAllowed = allowed(currentItem?.permission);
@@ -126,7 +137,43 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {NAV_ITEMS.filter(item => entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
+        {isSettingsWorkspace ? (
+          <>
+            <Link
+              href={`${base}/tableau-de-bord`}
+              aria-label={compact ? "Retour au dossier" : undefined}
+              className={`sidebar-nav-item mx-2 mb-2 flex items-center py-[13px] text-[13px] transition-all ${
+                compact ? "justify-center px-0" : "gap-3 px-[10px]"
+              } ${lightSidebar ? "text-[#5F5A50] hover:text-[#1A1A2E]" : "text-white/65 hover:text-white"}`}
+            >
+              <ArrowLeft size={compact ? 19 : 16} />
+              {!compact && "Retour au dossier"}
+            </Link>
+
+            {settingsTabs.map(({ id, icon: Icon, label }) => (
+              <SidebarItemTooltip key={id} enabled={compact} label={label}>
+                <Link
+                  href={`${base}/parametres?tab=${id}`}
+                  aria-label={compact ? label : undefined}
+                  className={`sidebar-nav-item mx-2 flex items-center py-[13px] text-[14px] transition-all ${
+                    compact ? "justify-center px-0" : "gap-3 px-[10px]"
+                  } ${
+                    activeSettingsTab === id
+                      ? "sidebar-nav-item--active text-[#C8924A]"
+                      : lightSidebar
+                        ? "text-[#5F5A50] hover:text-[#1A1A2E]"
+                        : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  <Icon size={compact ? 19 : 16} />
+                  {!compact && label}
+                </Link>
+              </SidebarItemTooltip>
+            ))}
+          </>
+        ) : (
+          <>
+          {NAV_ITEMS.filter(item => entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
               const locked = !allowed(permission) || (isClientPortal && CLIENT_PORTAL_BLOCKED_SLUGS.includes(slug));
               return (
               <SidebarItemTooltip key={slug} enabled={compact} label={label}>
@@ -153,6 +200,20 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               </SidebarItemTooltip>
               );
             })}
+            <SidebarItemTooltip enabled={compact} label="Paramètres">
+              <Link
+                href={`${base}/parametres`}
+                aria-label={compact ? "Paramètres" : undefined}
+                className={`sidebar-nav-item mx-2 flex items-center py-[13px] text-[13px] transition-all ${
+                  compact ? "justify-center px-0" : "gap-3 px-[10px]"
+                } ${lightSidebar ? "text-[#5F5A50] hover:text-[#1A1A2E]" : "text-white/80 hover:text-white"}`}
+              >
+                <Settings size={compact ? 19 : 16} />
+                {!compact && "Paramètres"}
+              </Link>
+            </SidebarItemTooltip>
+          </>
+        )}
       </nav>
       <SidebarAccountMenu
         collapsed={compact}
@@ -160,7 +221,8 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
         userName={userName}
         userEmail={userEmail}
         roleLabel={roleLabel}
-        settingsHref={`${base}/parametres`}
+        settingsHref="/parametres"
+        dossiersHref={!isClientPortal ? "/comptable-pro/dossiers" : undefined}
         onSignOut={signOut}
         onToggleSidebar={toggleSidebarCollapsed}
       />
@@ -205,9 +267,12 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
                   active: item.id === dossier.id,
                 })),
               ] : undefined}
+              cabinetCreateHref={!isClientPortal && permissions === null
+                ? "/comptable-pro/dossiers/nouveau"
+                : undefined}
               onOpenMobileMenu={() => setDrawerOpen(true)}
               onSignOut={signOut}
-              settingsHref={`${base}/parametres`}
+              settingsHref="/parametres"
               dossierId={dossier.id}
             />
             <div className="h-16 flex-shrink-0" aria-hidden="true" />
@@ -271,6 +336,14 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
                     </Link>
                   );
                 })}
+                <Link
+                  href={`${base}/parametres`}
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex items-center gap-3 px-5 py-3 text-white/70 transition-colors"
+                >
+                  <Settings size={16} />
+                  <span className="text-[14px] font-medium">Paramètres</span>
+                </Link>
                 <div className="mx-5 my-2 h-px bg-white/[0.07]" />
                 <button onClick={signOut} className="flex w-full items-center gap-3 px-5 py-3 text-white/40">
                   <LogOut size={16} />

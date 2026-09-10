@@ -8,6 +8,7 @@ import { getActiveUserCount, requirePermission } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { resolveTeamContext, ROLE_LABELS } from "@/lib/team";
 import { appUrl } from "@/lib/public-urls";
+import { parseDossierScope } from "@/lib/dossier-scope";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -29,6 +30,21 @@ function defaultAccessScope(track: "business" | "comptable"): AccessScope {
   return track === "comptable" ? "comptable_pro_only" : "business_only";
 }
 
+async function dossierScopeIsValid(
+  admin: ReturnType<typeof createAdminClient>,
+  ownerId: string,
+  dossierScope: string[] | null,
+) {
+  if (!dossierScope) return true;
+  const { count } = await admin
+    .from("dossiers")
+    .select("id", { count: "exact", head: true })
+    .eq("fiduciaire_user_id", ownerId)
+    .eq("statut", "actif")
+    .in("id", dossierScope);
+  return count === dossierScope.length;
+}
+
 async function authContext() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -46,10 +62,10 @@ export async function GET() {
 
   const admin = createAdminClient();
   await admin.from("user_memberships")
-    .update({ role_name: "manager", dossier_scope: null })
+    .update({ role_name: "manager" })
     .eq("company_id", context.companyId)
     .in("role_name", ["employee", "collaborateur", "read_auditor"]);
-  const [{ data: memberships }, { data: owner }, planCheck] = await Promise.all([
+  const [{ data: memberships }, { data: owner }, { data: dossiers }, planCheck] = await Promise.all([
     admin.from("user_memberships")
       .select("id,user_id,user_email,first_name,last_name,role_name,dossier_scope,access_scope,status,invitation_token,invited_at,accepted_at,created_at")
       .eq("company_id", context.companyId)
@@ -57,6 +73,11 @@ export async function GET() {
       .neq("role_name", "client_portal")
       .order("created_at"),
     admin.from("users").select("full_name,email,avatar_url").eq("id", context.ownerId).maybeSingle(),
+    admin.from("dossiers")
+      .select("id,raison_sociale")
+      .eq("fiduciaire_user_id", context.ownerId)
+      .eq("statut", "actif")
+      .order("raison_sociale"),
     checkPlanLimit(context.companyId, "multi_users"),
   ]);
   const memberUserIds = (memberships ?? [])
@@ -92,6 +113,7 @@ export async function GET() {
       avatar_url: owner?.avatar_url ?? null,
       role_label: "Propriétaire",
     },
+    dossiers: dossiers ?? [],
     members,
   });
 }
@@ -122,11 +144,19 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const email = String(body.email ?? "").trim().toLowerCase();
   const accessScope = normalizeAccessScope(body.access_scope, defaultAccessScope(context.track));
+  const parsedDossierScope = parseDossierScope(body.dossier_scope);
+  if (accessScope !== "business_only" && !parsedDossierScope.valid) {
+    return NextResponse.json({ error: "invalid_dossier_scope", message: "Sélectionnez au moins un dossier ou choisissez Tous les dossiers." }, { status: 400 });
+  }
+  const dossierScope = accessScope === "business_only" ? null : parsedDossierScope.value;
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "invalid_email", message: "Adresse e-mail invalide." }, { status: 400 });
   }
 
   const admin = createAdminClient();
+  if (!(await dossierScopeIsValid(admin, context.ownerId, dossierScope))) {
+    return NextResponse.json({ error: "invalid_dossier_scope", message: "Un ou plusieurs dossiers sélectionnés sont invalides." }, { status: 400 });
+  }
   const { data: existing } = await admin.from("user_memberships")
     .select("id").eq("company_id", context.companyId).eq("user_email", email).neq("status", "revoked").maybeSingle();
   if (existing) return NextResponse.json({ error: "already_member", message: "Cette adresse fait déjà partie de l'équipe." }, { status: 409 });
@@ -138,7 +168,7 @@ export async function POST(req: NextRequest) {
     user_email: email,
     company_id: context.companyId,
     role_name: "manager",
-    dossier_scope: null,
+    dossier_scope: dossierScope,
     access_scope: accessScope,
     status: "invited",
     invitation_token: token,
@@ -167,7 +197,7 @@ export async function POST(req: NextRequest) {
     entityId: membership.id,
     entityLabel: email,
     companyId: context.companyId,
-    newValues: { email, role_name: "manager", dossier_scope: null, access_scope: accessScope },
+    newValues: { email, role_name: "manager", dossier_scope: dossierScope, access_scope: accessScope },
   });
 
   return NextResponse.json({ success: true, membershipId: membership.id, invitationUrl });

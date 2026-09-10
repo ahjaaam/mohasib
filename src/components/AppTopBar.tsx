@@ -10,7 +10,6 @@ import {
   BriefcaseBusiness,
   Building2,
   ChevronDown,
-  CircleHelp,
   CornerDownRight,
   FileText,
   FolderOpen,
@@ -65,6 +64,7 @@ type Props = {
     active?: boolean;
     locked?: boolean;
   }>;
+  cabinetCreateHref?: string;
   guestMode?: boolean;
   onOpenMobileMenu?: () => void;
   onSignOut: () => void | Promise<void>;
@@ -102,6 +102,7 @@ export default function AppTopBar({
   topBarTheme = "cream",
   workspaceLabel = "Mon Cabinet",
   cabinetMenuItems = [],
+  cabinetCreateHref,
   guestMode = false,
   onOpenMobileMenu,
   onSignOut,
@@ -332,6 +333,22 @@ export default function AppTopBar({
                         {locked && <Lock size={11} className="flex-shrink-0" />}
                       </Link>
                     ))}
+                  </>
+                )}
+
+                {cabinetCreateHref && (
+                  <>
+                    <div className="my-1.5 border-t border-[#ECECE8]" />
+                    <Link
+                      href={cabinetCreateHref}
+                      onClick={() => setCabinetMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-2.5 py-2.5 text-[12.5px] font-semibold text-[#A56F2D] transition-colors hover:bg-[rgba(200,146,74,0.10)]"
+                    >
+                      <span className="flex h-6 w-6 items-center justify-center border border-[#D8C19D] bg-[#FFF9EF] text-[#A56F2D]">
+                        <span aria-hidden="true" className="text-[17px] leading-none">+</span>
+                      </span>
+                      <span>Nouveau dossier</span>
+                    </Link>
                   </>
                 )}
               </div>
@@ -647,19 +664,33 @@ export default function AppTopBar({
                   <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Activité et traçabilité du compte</span>
                 </span>
               </Link>}
-              <Link
-                href="/centre-aide"
-                onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2.5 px-2 py-2 text-[12.5px] text-[#303644] transition-colors hover:bg-[#F4F3ED]"
-              >
-                <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
-                  <CircleHelp size={13} />
-                </span>
-                <span>
-                  <span className="block font-semibold">Centre d&apos;aide</span>
-                  <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Guides et assistance</span>
-                </span>
-              </Link>
+              {cabinetMenuItems.length > 0 && (
+                <Link
+                  href="/comptable-pro/dossiers"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2.5 px-2 py-2 text-[12.5px] text-[#303644] transition-colors hover:bg-[#F4F3ED]"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
+                    <BriefcaseBusiness size={13} />
+                  </span>
+                  <span>
+                    <span className="block font-semibold">Dossiers</span>
+                    <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Gérer les dossiers clients</span>
+                  </span>
+                </Link>
+              )}
+              {cabinetCreateHref && (
+                <Link
+                  href={cabinetCreateHref}
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2.5 px-2 py-2 text-[12.5px] font-semibold text-[#A56F2D] transition-colors hover:bg-[rgba(200,146,74,0.10)]"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center border border-[#D8C19D] bg-[#FFF9EF] text-[17px] leading-none text-[#A56F2D]" aria-hidden="true">
+                    +
+                  </span>
+                  Nouveau dossier
+                </Link>
+              )}
               <div className="my-1 border-t border-[#ECECE8]" />
               <button
                 type="button"

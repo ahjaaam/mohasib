@@ -795,6 +795,18 @@
   color: #1A1A2E;
 }
 
+/* The global structural-radius reset also targets divs and links. These account
+ * menu surfaces are intentionally floating controls, so they need explicit
+ * component geometry with enough specificity to override that reset. */
+.mohasib-app .sidebar-account-popover {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.mohasib-app .sidebar-account-action {
+  border-radius: var(--radius-control) !important;
+}
+
 .mohasib-app :is(.btn, .input) {
   min-height: var(--control-height);
 }

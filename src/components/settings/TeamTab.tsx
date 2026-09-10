@@ -23,11 +23,13 @@ type Member = {
   created_at: string;
 };
 type AccessScope = "business_only" | "comptable_pro_only" | "both";
+type DossierOption = { id: string; raison_sociale: string };
 type TeamData = {
   context: { track: "business" | "comptable"; accountName: string };
   plan: { allowed: boolean; limit: number };
   count: number;
   owner: { id: string; email: string; full_name: string; avatar_url?: string | null; role_label: string };
+  dossiers: DossierOption[];
   members: Member[];
 };
 
@@ -73,7 +75,17 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
     if (response.ok) setData(await response.json());
     setLoading(false);
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const response = await fetch("/api/team");
+      const result = response.ok ? await response.json() : null;
+      if (cancelled) return;
+      if (result) setData(result);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   async function updateStatus(member: Member, status: "active" | "suspended" | "revoked") {
     if (status === "revoked" && !window.confirm(`Révoquer l'accès de ${member.user_email} ? Cette action est immédiate.`)) return;
@@ -144,13 +156,14 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
                     <ScopeBadge scope={member.access_scope ?? "both"} />
                   </div>
                 </td>
-                <td className="px-4 py-3 text-[#6B7280]">{scopeLabel(member.access_scope ?? "both")}</td>
+                <td className="px-4 py-3 text-[#6B7280]">{memberAccessLabel(member)}</td>
                 <td className="px-4 py-3"><Status status={member.status} /></td>
                 <td className="px-4 py-3 text-[#9CA3AF]">{new Date(member.accepted_at || member.invited_at || member.created_at).toLocaleDateString("fr-FR")}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">
                     {member.status === "invited" ? (
                       <>
+                        <button data-permission="settings:manage_team" onClick={() => { setEditing(member); setModalOpen(true); }} className="font-semibold text-[#C8924A]">Modifier</button>
                         <button data-permission="settings:manage_team" onClick={() => resend(member)} className="font-semibold text-[#C8924A]">Renvoyer</button>
                         <button data-permission="settings:manage_team" onClick={() => { navigator.clipboard.writeText(member.invitation_url || ""); toast.success("Lien copié"); }} className="text-[#C8924A]"><Clipboard size={14} /></button>
                         <button data-permission="settings:manage_team" onClick={() => updateStatus(member, "revoked")} className="text-red-600">Annuler</button>
@@ -169,30 +182,58 @@ export default function TeamTab({ title = "Équipe" }: { title?: string }) {
           </tbody>
         </table>
       </div>
-      {modalOpen && <MemberModal contextTrack={data.context.track} member={editing} onClose={() => setModalOpen(false)} onSaved={async () => { setModalOpen(false); await load(); }} />}
+      {modalOpen && <MemberModal contextTrack={data.context.track} dossiers={data.dossiers} member={editing} onClose={() => setModalOpen(false)} onSaved={async () => { setModalOpen(false); await load(); }} />}
     </div>
   );
 }
 
 function MemberModal({
   contextTrack,
+  dossiers,
   member,
   onClose,
   onSaved,
 }: {
   contextTrack: TeamData["context"]["track"];
+  dossiers: DossierOption[];
   member: Member | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    email: string;
+    first_name: string;
+    last_name: string;
+    access_scope: AccessScope;
+    dossier_scope: string[] | null;
+  }>({
     email: member?.user_email ?? "",
     first_name: member?.first_name ?? "",
     last_name: member?.last_name ?? "",
     access_scope: member?.access_scope ?? defaultAccessScope(contextTrack),
+    dossier_scope: member?.dossier_scope ?? null,
   });
   const [saving, setSaving] = useState(false);
+  const hasComptableAccess = form.access_scope !== "business_only";
+  const selectedDossiersValid = form.dossier_scope === null || form.dossier_scope.length > 0;
+
+  function toggleDossier(dossierId: string) {
+    setForm(current => {
+      const selected = current.dossier_scope ?? [];
+      return {
+        ...current,
+        dossier_scope: selected.includes(dossierId)
+          ? selected.filter(id => id !== dossierId)
+          : [...selected, dossierId],
+      };
+    });
+  }
+
   async function save() {
+    if (hasComptableAccess && !selectedDossiersValid) {
+      toast.error("Sélectionnez au moins un dossier ou choisissez Tous les dossiers");
+      return;
+    }
     setSaving(true);
     const response = await fetch(member ? `/api/team/${member.id}` : "/api/team", {
       method: member ? "PATCH" : "POST",
@@ -225,7 +266,11 @@ function MemberModal({
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => setForm({ ...form, access_scope: option.value })}
+                  onClick={() => setForm(current => ({
+                    ...current,
+                    access_scope: option.value,
+                    dossier_scope: option.value === "business_only" ? null : current.dossier_scope,
+                  }))}
                   className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition ${
                     selected ? "border-[#C8924A] bg-[#C8924A]/10 shadow-sm" : "border-black/[0.08] bg-white hover:border-[#C8924A]/45"
                   }`}
@@ -243,6 +288,48 @@ function MemberModal({
             })}
           </div>
         </div>
+        {hasComptableAccess && (
+          <fieldset className="mt-6">
+            <legend className="text-[12px] font-semibold text-[#374151]">Dossiers pris en charge *</legend>
+            <p className="mt-1 text-[11px] leading-5 text-[#6B7280]">Limitez le collaborateur aux dossiers dont il est responsable.</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <label className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-[11.5px] font-semibold ${form.dossier_scope === null ? "border-[#C8924A] bg-[#C8924A]/10 text-[#0D1526]" : "border-black/[0.08] text-[#6B7280]"}`}>
+                <input
+                  type="radio"
+                  name="dossier_assignment"
+                  checked={form.dossier_scope === null}
+                  onChange={() => setForm(current => ({ ...current, dossier_scope: null }))}
+                />
+                Tous les dossiers
+              </label>
+              <label className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-[11.5px] font-semibold ${form.dossier_scope !== null ? "border-[#C8924A] bg-[#C8924A]/10 text-[#0D1526]" : "border-black/[0.08] text-[#6B7280]"}`}>
+                <input
+                  type="radio"
+                  name="dossier_assignment"
+                  checked={form.dossier_scope !== null}
+                  onChange={() => setForm(current => ({ ...current, dossier_scope: [] }))}
+                />
+                Dossiers sélectionnés
+              </label>
+            </div>
+            {form.dossier_scope !== null && (
+              <div className="mt-3 max-h-52 overflow-y-auto rounded-xl border border-black/[0.08] bg-[#FAFAF6] p-2">
+                {dossiers.length ? dossiers.map(dossier => (
+                  <label key={dossier.id} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-[11.5px] text-[#374151] hover:bg-white">
+                    <input
+                      type="checkbox"
+                      checked={form.dossier_scope?.includes(dossier.id) ?? false}
+                      onChange={() => toggleDossier(dossier.id)}
+                    />
+                    <span className="min-w-0 truncate font-medium">{dossier.raison_sociale}</span>
+                  </label>
+                )) : (
+                  <p className="px-3 py-4 text-center text-[11px] text-[#9CA3AF]">Aucun dossier actif</p>
+                )}
+              </div>
+            )}
+          </fieldset>
+        )}
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2 text-[12px] font-semibold text-[#374151]">Email *<input type="email" readOnly={!!member} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input mt-1" /></label>
           <label className="text-[12px] font-semibold text-[#374151]">Prénom<input value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} className="input mt-1" /></label>
@@ -251,7 +338,7 @@ function MemberModal({
 
         <div className="mt-7 flex flex-col-reverse gap-2 border-t border-black/[0.07] pt-4 sm:flex-row sm:justify-between">
           <button onClick={onClose} className="btn btn-outline">Annuler</button>
-          <button disabled={saving || !form.email} onClick={save} className="rounded-lg bg-[#C8924A] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : member ? "Enregistrer" : "Envoyer l'invitation"}</button>
+          <button disabled={saving || !form.email || (hasComptableAccess && !selectedDossiersValid)} onClick={save} className="rounded-lg bg-[#C8924A] px-4 py-2 text-[12px] font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : member ? "Enregistrer" : "Envoyer l'invitation"}</button>
         </div>
       </div>
     </div>
@@ -271,6 +358,14 @@ function scopeLabel(scope: AccessScope) {
   if (scope === "business_only") return "Compte normal uniquement";
   if (scope === "comptable_pro_only") return "Comptable Pro uniquement";
   return "Les deux";
+}
+function memberAccessLabel(member: Member) {
+  const scope = member.access_scope ?? "both";
+  if (scope === "business_only") return scopeLabel(scope);
+  const dossierLabel = member.dossier_scope?.length
+    ? `${member.dossier_scope.length} dossier${member.dossier_scope.length > 1 ? "s" : ""}`
+    : "Tous les dossiers";
+  return `${scopeLabel(scope)} · ${dossierLabel}`;
 }
 function ScopeBadge({ scope }: { scope: AccessScope }) {
   const label = scopeLabel(scope);

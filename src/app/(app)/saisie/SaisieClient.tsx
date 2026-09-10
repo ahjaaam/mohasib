@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { CGNC_ACCOUNTS, type JournalCode } from "@/types/fiduciaire";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
+import { normalizeAccountingSettings } from "@/lib/accounting-settings";
+import { getExpenseAccount, getRevenueAccount } from "@/lib/cgnc-mapping";
 
 interface ManualRow {
   id?: string;
@@ -35,25 +37,6 @@ const JOURNAL_LABELS: Record<JournalCode, string> = {
   BQ: "Journal de Banque",
   CA: "Journal de Caisse",
   OD: "Opérations Diverses",
-};
-
-const EXPENSE_DEBIT: Record<string, string> = {
-  Achats: "6111",
-  Salaires: "6171",
-  Loyer: "6132",
-  Fournitures: "6123",
-  Transport: "6142",
-  Communication: "6147",
-  Fiscalité: "6161",
-  Banque: "6311",
-  "Autre dépense": "6182",
-};
-
-const INCOME_CREDIT: Record<string, string> = {
-  Ventes: "7111",
-  Services: "7131",
-  Remboursement: "7311",
-  "Autre revenu": "7131",
 };
 
 const COL_KEYS = ["date", "numero_piece", "compte", "libelle", "debit", "credit"] as const;
@@ -121,6 +104,12 @@ export default function SaisieClient() {
     const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
     const endDate = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
     const autoRows: ManualRow[] = [];
+    const { data: company } = await supabase
+      .from("companies")
+      .select("accounting_settings")
+      .eq("id", cid)
+      .maybeSingle();
+    const accounts = normalizeAccountingSettings(company?.accounting_settings);
 
     if (j === "VT") {
       const { data: invoices } = await supabase
@@ -140,9 +129,9 @@ export default function SaisieClient() {
         const ttc = Number(inv.total ?? 0);
         const lib = `${client}${ref ? " - " + ref : ""}`;
 
-        autoRows.push({ date: inv.issue_date, numero_piece: ref, compte: "3421", libelle: lib, debit: String(ttc), credit: "", _dirty: true, _auto: true });
-        autoRows.push({ date: inv.issue_date, numero_piece: ref, compte: "7131", libelle: lib, debit: "", credit: String(ht > 0 ? ht : ttc), _dirty: true, _auto: true });
-        if (tva > 0) autoRows.push({ date: inv.issue_date, numero_piece: ref, compte: "4455", libelle: `TVA ${ref}`, debit: "", credit: String(tva), _dirty: true, _auto: true });
+        autoRows.push({ date: inv.issue_date, numero_piece: ref, compte: accounts.clientAccount, libelle: lib, debit: String(ttc), credit: "", _dirty: true, _auto: true });
+        autoRows.push({ date: inv.issue_date, numero_piece: ref, compte: accounts.salesAccount, libelle: lib, debit: "", credit: String(ht > 0 ? ht : ttc), _dirty: true, _auto: true });
+        if (tva > 0) autoRows.push({ date: inv.issue_date, numero_piece: ref, compte: accounts.collectedTvaAccount, libelle: `TVA ${ref}`, debit: "", credit: String(tva), _dirty: true, _auto: true });
       }
     } else if (j === "BQ" || j === "AC") {
       const { data: txs } = await supabase
@@ -160,20 +149,20 @@ export default function SaisieClient() {
         if (txJournal !== j) continue;
 
         if (tx.receipt_id) {
-          const debitCpt = EXPENSE_DEBIT[tx.category ?? ""] ?? "6182";
+          const debitCpt = getExpenseAccount(tx.category ?? "", accounts.expenseCategoryAccounts);
           autoRows.push({ date: tx.date, numero_piece: tx.reference ?? "", compte: debitCpt, libelle: tx.description, debit: String(amount), credit: "", _dirty: true, _auto: true });
-          autoRows.push({ date: tx.date, numero_piece: tx.reference ?? "", compte: "4411", libelle: tx.description, debit: "", credit: String(amount), _dirty: true, _auto: true });
+          autoRows.push({ date: tx.date, numero_piece: tx.reference ?? "", compte: accounts.supplierAccount, libelle: tx.description, debit: "", credit: String(amount), _dirty: true, _auto: true });
         } else if (tx.invoice_id) {
-          autoRows.push({ date: tx.date, numero_piece: "", compte: "5141", libelle: tx.description, debit: String(amount), credit: "", _dirty: true, _auto: true });
-          autoRows.push({ date: tx.date, numero_piece: "", compte: "3421", libelle: tx.description, debit: "", credit: String(amount), _dirty: true, _auto: true });
+          autoRows.push({ date: tx.date, numero_piece: "", compte: accounts.bankAccount, libelle: tx.description, debit: String(amount), credit: "", _dirty: true, _auto: true });
+          autoRows.push({ date: tx.date, numero_piece: "", compte: accounts.clientAccount, libelle: tx.description, debit: "", credit: String(amount), _dirty: true, _auto: true });
         } else if (tx.type === "income") {
-          const creditCpt = INCOME_CREDIT[tx.category ?? ""] ?? "7131";
-          autoRows.push({ date: tx.date, numero_piece: "", compte: "5141", libelle: tx.description, debit: String(amount), credit: "", _dirty: true, _auto: true });
+          const creditCpt = getRevenueAccount(tx.category ?? "", accounts.revenueCategoryAccounts);
+          autoRows.push({ date: tx.date, numero_piece: "", compte: accounts.bankAccount, libelle: tx.description, debit: String(amount), credit: "", _dirty: true, _auto: true });
           autoRows.push({ date: tx.date, numero_piece: "", compte: creditCpt, libelle: tx.description, debit: "", credit: String(amount), _dirty: true, _auto: true });
         } else {
-          const debitCpt = EXPENSE_DEBIT[tx.category ?? ""] ?? "6182";
+          const debitCpt = getExpenseAccount(tx.category ?? "", accounts.expenseCategoryAccounts);
           autoRows.push({ date: tx.date, numero_piece: "", compte: debitCpt, libelle: tx.description, debit: String(amount), credit: "", _dirty: true, _auto: true });
-          autoRows.push({ date: tx.date, numero_piece: "", compte: "5141", libelle: tx.description, debit: "", credit: String(amount), _dirty: true, _auto: true });
+          autoRows.push({ date: tx.date, numero_piece: "", compte: accounts.bankAccount, libelle: tx.description, debit: "", credit: String(amount), _dirty: true, _auto: true });
         }
       }
     }

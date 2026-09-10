@@ -26,6 +26,8 @@ export interface InvoicePDFData {
     tax_rate: number;
     tax_amount: number;
     total: number;
+    discount_type?: string | null;
+    discount_amount?: number;
     notes?: string | null;
     items: InvoiceItem[];
   };
@@ -413,9 +415,21 @@ export function createInvoicePDF({ invoice, client, company, generatedAt }: Invo
           <View style={styles.totalsSection}>
             <View style={styles.totalsBox}>
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Total HT</Text>
+                <Text style={styles.totalLabel}>{Number(invoice.discount_amount ?? 0) > 0 ? "Total HT brut" : "Total HT"}</Text>
                 <Text style={styles.totalValue}>{fmtAmt(Number(invoice.subtotal))}</Text>
               </View>
+              {Number(invoice.discount_amount ?? 0) > 0 && (
+                <>
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLabel}>{invoice.discount_type === "escompte" ? "Escompte" : "Réduction commerciale"}</Text>
+                    <Text style={styles.totalValue}>- {fmtAmt(Number(invoice.discount_amount))}</Text>
+                  </View>
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLabel}>Net HT</Text>
+                    <Text style={styles.totalValue}>{fmtAmt(Number(invoice.subtotal) - Number(invoice.discount_amount))}</Text>
+                  </View>
+                </>
+              )}
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>TVA ({invoice.tax_rate}%)</Text>
                 <Text style={styles.totalValue}>{fmtAmt(Number(invoice.tax_amount))}</Text>

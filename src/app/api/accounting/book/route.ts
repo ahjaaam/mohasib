@@ -8,9 +8,7 @@ import { requirePlanFeature } from "@/lib/api-plan";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { enforcePeriodLock } from "@/lib/period-check";
 import { computePurchaseAmounts } from "@/lib/purchase-booking";
-import { cgncAccounts } from "@/lib/cgnc-accounts";
-
-const VALID_ACCOUNT_CODES = new Set(cgncAccounts.map(account => account.code));
+import { isValidAccountingAccountCode, type AccountingSettings } from "@/lib/accounting-settings";
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,26 +31,29 @@ export async function POST(req: NextRequest) {
 
     // Resolve company_id when not in dossier context
     let companyId: string | null = null;
+    let accountingSettings: unknown = null;
     if (dossierId) {
       const { data: dossier } = await supabase
         .from("dossiers")
-        .select("id")
+        .select("id, accounting_settings")
         .eq("id", dossierId)
         .eq("fiduciaire_user_id", ownerId)
         .single();
       if (!dossier) {
         return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
       }
+      accountingSettings = dossier.accounting_settings;
     } else {
       const { data: co } = await supabase
         .from("companies")
-        .select("id")
+        .select("id, accounting_settings")
         .eq("user_id", ownerId)
         .single();
       companyId = co?.id ?? null;
       if (!companyId) {
         return NextResponse.json({ error: "Aucune société trouvée" }, { status: 400 });
       }
+      accountingSettings = co?.accounting_settings ?? null;
     }
 
     // ── Invoice booking ────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
       const { invoiceId } = body as { invoiceId: string };
       let invoiceQuery = supabase
         .from("invoices")
-        .select("id, invoice_number, issue_date, total, subtotal, tax_amount, tax_rate, items, clients(name)")
+        .select("id, invoice_number, issue_date, total, subtotal, tax_amount, tax_rate, discount_type, discount_amount, items, clients(name)")
         .eq("id", invoiceId);
       invoiceQuery = dossierId ? invoiceQuery.eq("dossier_id", dossierId) : invoiceQuery.is("dossier_id", null);
       const { data: inv } = await invoiceQuery.single();
@@ -74,9 +75,11 @@ export async function POST(req: NextRequest) {
         total: Number(inv.total),
         subtotal: Number(inv.subtotal),
         tax_amount: Number(inv.tax_amount),
+        discount_type: inv.discount_type,
+        discount_amount: Number(inv.discount_amount ?? 0),
         items: (inv.items ?? []) as any[],
         clients: (inv as any).clients,
-      }, companyId, dossierId ?? null);
+      }, companyId, dossierId ?? null, accountingSettings as Partial<AccountingSettings> | null);
 
       await logAudit({
         userId: user.id,
@@ -115,13 +118,6 @@ export async function POST(req: NextRequest) {
       if (!transactionIds?.length) {
         return NextResponse.json({ error: "transactionIds requis" }, { status: 400 });
       }
-      for (const transactionId of transactionIds) {
-        const account = accountOverrides[transactionId];
-        if (account && !VALID_ACCOUNT_CODES.has(account)) {
-          return NextResponse.json({ error: "Compte comptable invalide" }, { status: 400 });
-        }
-      }
-
       let transactionsQuery = supabase
         .from("transactions")
         .select("id, date, description, amount, type, category, invoice_id")
@@ -130,6 +126,11 @@ export async function POST(req: NextRequest) {
       const { data: txs } = await transactionsQuery;
 
       for (const tx of (txs ?? [])) {
+        const accountOverride = accountOverrides[tx.id];
+        const allowedCounterpartClasses = tx.type === "income" ? [3, 4, 7] : [2, 4, 6];
+        if (accountOverride && !isValidAccountingAccountCode(accountOverride, allowedCounterpartClasses)) {
+          return NextResponse.json({ error: `Compte comptable invalide pour la transaction ${tx.id}` }, { status: 400 });
+        }
         const signed = tx.type === "income" ? Number(tx.amount) : -Number(tx.amount);
         await bookBankTransaction(supabase, {
           id: tx.id,
@@ -138,8 +139,8 @@ export async function POST(req: NextRequest) {
           amount: signed,
           category: tx.category,
           invoice_id: tx.invoice_id ?? null,
-          counterpart_account: accountOverrides[tx.id] ?? null,
-        }, companyId, dossierId ?? null);
+          counterpart_account: accountOverride ?? null,
+        }, companyId, dossierId ?? null, accountingSettings as Partial<AccountingSettings> | null);
       }
 
       await logAudit({
@@ -179,10 +180,14 @@ export async function POST(req: NextRequest) {
       if (!receipt) return NextResponse.json({ error: "Reçu introuvable" }, { status: 404 });
 
       const ocr = receipt.ocr_data ?? {};
-      const { totalTtc, totalHt, tvaAmount, discountAmount } = computePurchaseAmounts(ocr);
+      const { totalTtc, totalHt, tvaAmount, discountAmount, commercialDiscountAmount, settlementDiscountAmount } = computePurchaseAmounts(ocr);
       const date     = ocr.date ?? receipt.created_at?.split("T")[0] ?? new Date().toISOString().split("T")[0];
+      const confirmedExpenseAccount = typeof ocr.compte === "string" && ocr.compte ? ocr.compte : null;
       if (totalTtc <= 0) {
         return NextResponse.json({ error: "Montant de la note de frais invalide" }, { status: 400 });
+      }
+      if (confirmedExpenseAccount && !isValidAccountingAccountCode(confirmedExpenseAccount, [2, 6])) {
+        return NextResponse.json({ error: "Compte de charge invalide" }, { status: 400 });
       }
 
       const mois = Number(String(date).slice(5, 7));
@@ -200,11 +205,13 @@ export async function POST(req: NextRequest) {
         total_ttc: totalTtc,
         tva_amount: tvaAmount,
         discount_amount: discountAmount,
+        commercial_discount_amount: commercialDiscountAmount,
+        settlement_discount_amount: settlementDiscountAmount,
         category: ocr.category ?? null,
-        expense_account: ocr.compte ?? null,
+        expense_account: confirmedExpenseAccount,
         supplier_name: ocr.vendor_name ?? ocr.vendor ?? null,
         reference: ocr.receipt_number ?? null,
-      }, companyId, dossierId ?? null);
+      }, companyId, dossierId ?? null, accountingSettings as Partial<AccountingSettings> | null);
 
       await logAudit({
         userId: user.id,
@@ -255,7 +262,7 @@ export async function POST(req: NextRequest) {
         tax_amount: Number(inv.tax_amount),
         items: (inv.items ?? []) as any[],
         clients: (inv as any).clients,
-      }, companyId, dossierId ?? null);
+      }, companyId, dossierId ?? null, accountingSettings as Partial<AccountingSettings> | null);
 
       await logAudit({
         userId: user.id,

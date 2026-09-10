@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import RevenueExpenseChart, { type FinanceChartPoint } from "@/app/(app)/dashboard/RevenueExpenseChart";
 import DashboardNews from "@/app/(app)/dashboard/DashboardNews";
+import DashboardGreeting from "@/app/(app)/dashboard/DashboardGreeting";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -20,7 +21,7 @@ const STATUS_BADGE: Record<string, [string, string, string]> = {
 
 function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="mb-3 flex h-[18px] items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         <div className="h-4 w-[3px] flex-shrink-0 rounded-full bg-[#C8924A]" />
         <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#6B7280]">{children}</span>
@@ -62,10 +63,11 @@ interface Props {
   }>;
   chartData: FinanceChartPoint[];
   periodLabel: string;
+  firstName: string;
   isClientPortal?: boolean;
 }
 
-export default function DossierDashboard({ dossier, invoices, transactions, chartData, periodLabel, isClientPortal = false }: Props) {
+export default function DossierDashboard({ dossier, invoices, transactions, chartData, periodLabel, firstName, isClientPortal = false }: Props) {
   const base = `/comptable-pro/dossiers/${dossier.id}`;
   const activeInvoices = invoices.filter(i => i.status !== "draft");
   const expenseTx = transactions.filter(t => t.type === "expense" || Number(t.amount) < 0);
@@ -91,17 +93,50 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
 
   return (
     <div>
-      {/* Revenus/dépenses + Prochaines échéances side by side */}
+      <DashboardGreeting firstName={firstName} />
+
+      {/* Actions rapides + Prochaines échéances side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">
-        <div>
-          <SectionLabel action={(
-            <Link href={`${base}/transactions`} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
-              <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
+        <div className="flex flex-col">
+          <SectionLabel>Actions rapides</SectionLabel>
+          <div className="grid flex-1 grid-cols-1 grid-rows-4 gap-2.5 sm:grid-cols-2 sm:grid-rows-2">
+            <Link data-permission="invoice:create" href={`${base}/factures/nouvelle`} className="qa-card">
+              <span className="flex-shrink-0 text-[18px] leading-none" aria-hidden="true">🧾</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold leading-tight text-[#1A1A2E]">Créer une facture</div>
+                <div className="text-[11px] leading-snug text-[#6B7280]">ICE, TVA et WhatsApp intégrés</div>
+              </div>
+              <ArrowUpRight size={13} className="flex-shrink-0 text-[#0C1526]" />
             </Link>
-          )}>Revenus et dépenses</SectionLabel>
-          <RevenueExpenseChart data={chartData} periodLabel={periodLabel} />
+            <Link data-permission="accounting:create" href={`${base}/transactions?action=expense`} className="qa-card">
+              <span className="flex-shrink-0 text-[18px] leading-none" aria-hidden="true">💸</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold leading-tight text-[#1A1A2E]">Enregistrer une dépense</div>
+                <div className="text-[11px] leading-snug text-[#6B7280]">Ajout rapide au journal</div>
+              </div>
+              <ArrowUpRight size={13} className="flex-shrink-0 text-[#0C1526]" />
+            </Link>
+            <Link href={`${base}/factures`} className="qa-card">
+              <span className="flex-shrink-0 text-[18px] leading-none" aria-hidden="true">📄</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold leading-tight text-[#1A1A2E]">Voir les factures</div>
+                <div className="text-[11px] leading-snug text-[#6B7280]">
+                  {pendingInvs.length > 0 ? `${pendingInvs.length} en attente de paiement` : "Toutes à jour"}
+                </div>
+              </div>
+              <ArrowUpRight size={13} className="flex-shrink-0 text-[#0C1526]" />
+            </Link>
+            <Link href={`${base}/archive`} className="qa-card">
+              <span className="flex-shrink-0 text-[18px] leading-none" aria-hidden="true">🗂️</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold leading-tight text-[#1A1A2E]">Gérer l&apos;archive</div>
+                <div className="text-[11px] leading-snug text-[#6B7280]">Consulter et classer les documents</div>
+              </div>
+              <ArrowUpRight size={13} className="flex-shrink-0 text-[#0C1526]" />
+            </Link>
+          </div>
         </div>
-        <div>
+        <div className="flex flex-col">
           <SectionLabel action={(
             <Link href={`${base}/tva`} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
               <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
@@ -111,16 +146,17 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="mb-8">
-        <SectionLabel>Vue d&apos;ensemble</SectionLabel>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-          <div className="kpi">
+      {/* Overview + financial report */}
+      <div className="mb-8 grid grid-cols-1 gap-7 md:grid-cols-2">
+        <div>
+          <SectionLabel>Vue d&apos;ensemble</SectionLabel>
+          <div className="grid grid-cols-1 grid-rows-4 gap-2.5 sm:h-[210px] sm:grid-cols-2 sm:grid-rows-2">
+          <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
             <div className="kpi-label">Chiffre d&apos;affaires</div>
             <div className="kpi-value">{fmt(revenue)}</div>
             <div className="truncate text-[11px] text-[#6B7280]" title={periodLabel}>{periodLabel}</div>
           </div>
-          <div className="kpi">
+          <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
             <div className="kpi-label">Factures en attente</div>
             <div className="kpi-value">{pendingInvs.length}</div>
             <div className="text-[11px] text-[#6B7280]">
@@ -128,13 +164,13 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
             </div>
           </div>
           {isClientPortal ? (
-            <div className="kpi">
+            <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
               <div className="kpi-label">Trésorerie</div>
               <div className="kpi-value">{fmt(tresorerie)}</div>
               <div className="text-[11px] text-[#6B7280]">{transactions.length} transaction{transactions.length > 1 ? "s" : ""}</div>
             </div>
           ) : (
-            <div className="kpi">
+            <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
               <div className="kpi-label">TVA à déclarer</div>
               <div className="kpi-value">{fmt(Math.round(tvaCollectee))}</div>
               <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
@@ -142,13 +178,22 @@ export default function DossierDashboard({ dossier, invoices, transactions, char
               </div>
             </div>
           )}
-          <div className="kpi">
+          <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
             <div className="kpi-label">Fournisseurs à payer</div>
             <div className="kpi-value">{fmt(fournisseursAPayer)}</div>
             <div className="text-[11px] text-[#6B7280]">
               Régime {regimeTva}
             </div>
           </div>
+          </div>
+        </div>
+        <div>
+          <SectionLabel action={(
+            <Link href={`${base}/transactions`} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#525866] transition-colors hover:text-[#1A1A2E]">
+              <span className="underline underline-offset-4">Voir tout</span> <ArrowRight size={12} />
+            </Link>
+          )}>Revenus et dépenses</SectionLabel>
+          <RevenueExpenseChart data={chartData} periodLabel={periodLabel} />
         </div>
       </div>
 

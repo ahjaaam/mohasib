@@ -55,7 +55,7 @@ function Field({ label, value, onChange, type = "text", placeholder, required }:
   );
 }
 
-export default function EditDossierForm() {
+export default function EditDossierForm({ embedded = false }: { embedded?: boolean }) {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const supabase = createClient();
@@ -121,7 +121,7 @@ export default function EditDossierForm() {
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Dossier mis à jour !");
-    router.push("/comptable-pro");
+    if (!embedded) router.push("/comptable-pro");
     router.refresh();
   }
 
@@ -134,13 +134,15 @@ export default function EditDossierForm() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <PageHeader
-        title="Modifier le dossier"
-        subtitle={form.raison_sociale}
-        icon={<BackIconLink href="/comptable-pro" label="Retour aux dossiers" />}
-        iconBare
-      />
+    <div className={embedded ? "max-w-2xl" : "max-w-2xl mx-auto"}>
+      {!embedded && (
+        <PageHeader
+          title="Modifier le dossier"
+          subtitle={form.raison_sociale}
+          icon={<BackIconLink href="/comptable-pro" label="Retour aux dossiers" />}
+          iconBare
+        />
+      )}
 
       <div className="flex flex-col gap-5">
         {/* Informations légales */}
@@ -268,10 +270,12 @@ export default function EditDossierForm() {
         <DossierClientAccessSection />
       </div>
 
-      <div className="flex items-center justify-between mt-5">
-        <Link href="/comptable-pro" className="btn btn-outline flex items-center gap-1.5">
-          <ChevronLeft size={14} /> Annuler
-        </Link>
+      <div className={`flex items-center mt-5 ${embedded ? "justify-end" : "justify-between"}`}>
+        {!embedded && (
+          <Link href="/comptable-pro" className="btn btn-outline flex items-center gap-1.5">
+            <ChevronLeft size={14} /> Annuler
+          </Link>
+        )}
         <button onClick={handleSave} disabled={saving} className="btn btn-gold flex items-center gap-1.5">
           {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
           {saving ? "Enregistrement..." : "Enregistrer les modifications"}

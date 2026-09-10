@@ -12,6 +12,7 @@ import TVAConfigTab from "@/components/parametres/TVAConfigTab";
 import TeamTab from "@/components/settings/TeamTab";
 import DeadlinesTab from "./DeadlinesTab";
 import InvoiceItemsTab from "./InvoiceItemsTab";
+import AccountingEntriesTab from "./AccountingEntriesTab";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -90,6 +91,9 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
           {tab === "abonnement" && <AbonnementTab userId={accountOwnerId} userEmail={userEmail} companyId={companyId} company={company} />}
           {tab === "integrations" && <IntegrationsTab company={company} />}
           {tab === "articles"     && <InvoiceItemsTab userId={accountOwnerId} />}
+          {tab === "ecritures"    && companyId && (
+            <AccountingEntriesTab target="company" targetId={companyId} initialSettings={company?.accounting_settings} />
+          )}
           {tab === "tva"          && <TVAConfigTab companyId={companyId} />}
           {tab === "echeances"    && (
             <DeadlinesTab

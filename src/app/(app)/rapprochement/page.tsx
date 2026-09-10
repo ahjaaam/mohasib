@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Check, Download, FilePlus2, GitMerge, History, Search, SkipForward } from "lucide-react";
+import { DEFAULT_ACCOUNTING_SETTINGS, normalizeAccountingSettings } from "@/lib/accounting-settings";
 
 type Session = {
   id: string;
@@ -79,6 +80,7 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
   const [starting, setStarting] = useState(false);
   const [filter, setFilter] = useState("Toutes");
   const [entryFilter, setEntryFilter] = useState("Toutes");
+  const [bankAccount, setBankAccount] = useState(DEFAULT_ACCOUNTING_SETTINGS.bankAccount);
   const [mobileTab, setMobileTab] = useState<"bank" | "entries">("bank");
   const [form, setForm] = useState({
     periodeDebut: monthStart,
@@ -106,16 +108,21 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
       setEcritures([]);
       return;
     }
+    const { data: settingsOwner } = dossierId
+      ? await supabase.from("dossiers").select("accounting_settings").eq("id", dossierId).maybeSingle()
+      : await supabase.from("companies").select("accounting_settings").eq("id", session.company_id).maybeSingle();
+    const configuredBankAccount = normalizeAccountingSettings(settingsOwner?.accounting_settings).bankAccount;
+    setBankAccount(configuredBankAccount);
     const [{ data: lineData }, { data: entryData }] = await Promise.all([
       supabase.from("rapprochement_lignes").select("*").eq("session_id", session.id).order("bank_date", { ascending: true }),
       dossierId
         ? supabase.from("dossier_ecritures")
             .select("id, date, journal, compte_cgnc, debit, credit, libelle")
-            .eq("dossier_id", dossierId).eq("compte_cgnc", "5141")
+            .eq("dossier_id", dossierId).eq("compte_cgnc", configuredBankAccount)
             .gte("date", session.periode_debut).lte("date", session.periode_fin).order("date")
         : supabase.from("ecritures_comptables")
             .select("id, date_ecriture, journal, compte, compte_label, debit, credit, libelle, source_type, source_id")
-            .eq("compte", "5141").is("dossier_id", null)
+            .eq("compte", configuredBankAccount).is("dossier_id", null)
             .gte("date_ecriture", session.periode_debut).lte("date_ecriture", session.periode_fin).order("date_ecriture"),
     ]);
     setLines((lineData ?? []) as Line[]);
@@ -341,7 +348,7 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
               <Panel
                 className={mobileTab === "bank" ? "hidden md:block" : ""}
                 title="Écritures comptables"
-                meta="Banque · 5141"
+                meta={`Banque · ${bankAccount}`}
               >
                 <Tabs items={["Toutes", "Non rapprochées", "Rapprochées", "Suspens"]} active={entryFilter} onChange={setEntryFilter} />
                 <div className="divide-y divide-[rgba(0,0,0,0.07)]">
@@ -354,7 +361,7 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
                           <span>{mad(Number(entry.debit || 0) - Number(entry.credit || 0))}</span>
                         </div>
                         <p className="mt-1.5 text-[13px] font-semibold text-[#1A1A2E]">{entry.libelle || "Écriture bancaire"}</p>
-                        <p className="mt-1 text-[11px] text-[#6B7280]">DÉBIT 5141: {mad(entry.debit)} · CRÉDIT 5141: {mad(entry.credit)}</p>
+                        <p className="mt-1 text-[11px] text-[#6B7280]">DÉBIT {bankAccount}: {mad(entry.debit)} · CRÉDIT {bankAccount}: {mad(entry.credit)}</p>
                         <p className="mt-2 text-[11px] font-semibold text-[#6B7280]">{matched ? "Rapproché" : "Non rapproché"}</p>
                       </div>
                     );
@@ -379,7 +386,7 @@ export default function RapprochementPage({ dossierId }: { dossierId?: string })
                         </div>
                         <p className="mt-1 truncate text-[12.5px] text-[#374151]">{line.bank_description}</p>
                       </div>
-                      <button onClick={() => postAction("create-transaction", { bankLineId: line.id, category: Number(line.bank_amount) < 0 ? "Télécom" : "Revenu", compte: "5141", description: line.bank_description })} className="btn btn-gold btn-sm flex flex-shrink-0 items-center gap-1.5">
+                      <button onClick={() => postAction("create-transaction", { bankLineId: line.id, category: Number(line.bank_amount) < 0 ? "Télécom" : "Revenu", compte: bankAccount, description: line.bank_description })} className="btn btn-gold btn-sm flex flex-shrink-0 items-center gap-1.5">
                         <FilePlus2 size={13} /> Créer la transaction
                       </button>
                     </div>

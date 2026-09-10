@@ -1,53 +1,58 @@
 // CGNC (Cadre Général de Normalisation Comptable) account mapping
 // Extends src/lib/cgnc-accounts.ts with booking-specific helpers
 
-export function getRevenueAccount(category: string, _tvaRate?: number): string {
-  const map: Record<string, string> = {
-    "Ventes":        "7111",
-    "Marchandises":  "7111",
-    "Services":      "7131",
-    "Honoraires":    "7121",
-    "Travaux":       "7141",
-    "Loyer reçu":    "7382",
-    "Remboursement": "7311",
-    "Autre revenu":  "7131",
-  };
-  return map[category] || "7131";
+export const DEFAULT_REVENUE_CATEGORY_ACCOUNTS: Record<string, string> = {
+  "Ventes": "7111",
+  "Marchandises": "7111",
+  "Services": "7131",
+  "Honoraires": "7121",
+  "Travaux": "7141",
+  "Loyer reçu": "7382",
+  "Remboursement": "7311",
+  "Autre revenu": "7131",
+  "__default": "7131",
+};
+
+export const DEFAULT_EXPENSE_CATEGORY_ACCOUNTS: Record<string, string> = {
+  "Achats": "6111",
+  "Matières premières": "6121",
+  "Fournitures": "61254",
+  "Loyer": "6131",
+  "Entretien": "6133",
+  "Consulting": "6141",
+  "Transport": "6142",
+  "Déplacements": "6143",
+  "Déplacements et missions": "6143",
+  "Marketing": "6144",
+  "Publicité": "6144",
+  "Assurance": "6134",
+  "Communication": "6145",
+  "Télécom": "6145",
+  "Fiscalité": "6161",
+  "Salaires": "6171",
+  "CNSS patronal": "6174",
+  "Eau/Électricité": "6125",
+  "Maintenance": "6133",
+  "Formation": "6153",
+  "Charges bancaires": "6311",
+  "Banque": "6311",
+  "Équipement": "2340",
+  "Informatique": "2350",
+  "Charges diverses": "6182",
+  "Autre dépense": "6143",
+  "__default": "6182",
+};
+
+export function getRevenueAccount(category: string, mapping: Record<string, string> = DEFAULT_REVENUE_CATEGORY_ACCOUNTS): string {
+  return mapping[category] || mapping.__default || DEFAULT_REVENUE_CATEGORY_ACCOUNTS.__default;
 }
 
-export function getExpenseAccount(category: string): string {
-  const map: Record<string, string> = {
-    "Achats":              "6111",
-    "Matières premières":  "6121",
-    "Fournitures":         "61254",
-    "Loyer":               "6131",
-    "Entretien":           "6133",
-    "Consulting":          "6141",
-    "Transport":           "6142",
-    "Déplacements":        "6143",
-    "Déplacements et missions": "6143",
-    "Marketing":           "6144",
-    "Publicité":           "6144",
-    "Assurance":           "6134",
-    "Communication":       "6145",
-    "Télécom":             "6145",
-    "Fiscalité":           "6161",
-    "Salaires":            "6171",
-    "CNSS patronal":       "6174",
-    "Eau/Électricité":     "6125",
-    "Maintenance":         "6133",
-    "Formation":           "6153",
-    "Charges bancaires":   "6311",
-    "Banque":              "6311",
-    "Équipement":          "2340",
-    "Informatique":        "2350",
-    "Charges diverses":    "6182",
-    "Autre dépense":       "6143",
-  };
-  return map[category] || "6182";
+export function getExpenseAccount(category: string, mapping: Record<string, string> = DEFAULT_EXPENSE_CATEGORY_ACCOUNTS): string {
+  return mapping[category] || mapping.__default || DEFAULT_EXPENSE_CATEGORY_ACCOUNTS.__default;
 }
 
-export function getTVACollectedAccount(_rate: number): string {
+export function getTVACollectedAccount(rate: number): string {
+  void rate;
   return "4455"; // État TVA facturée (all rates use same account in Morocco)
 }
 
@@ -78,6 +83,7 @@ export function getAccountLabel(compte: string): string {
     "6123": "Achats d'emballages",
     "6125": "Achats non stockés de matières et fournitures",
     "61254": "Fournitures de bureau",
+    "6129": "RRR obtenus sur achats consommés",
     "6131": "Locations et charges locatives",
     "6132": "Redevances de crédit-bail",
     "6133": "Entretien et réparations",
@@ -88,6 +94,7 @@ export function getAccountLabel(compte: string): string {
     "6145": "Frais postaux et télécommunications",
     "6146": "Cotisations et dons",
     "6147": "Services bancaires",
+    "6149": "RRR obtenus sur autres charges externes",
     "6134": "Primes d'assurances",
     "6153": "Formation du personnel",
     "6161": "Impôts et taxes",
@@ -95,11 +102,15 @@ export function getAccountLabel(compte: string): string {
     "6174": "Charges sociales",
     "6182": "Pertes sur créances irrécouvrables",
     "6311": "Intérêts et charges financières",
+    "6386": "Escomptes accordés",
     "7111": "Ventes de marchandises",
+    "7119": "RRR accordés sur ventes de marchandises",
     "7121": "Ventes de biens produits",
+    "7129": "RRR accordés sur ventes de biens et services produits",
     "7131": "Ventes de services",
     "7141": "Travaux facturés",
     "7311": "Produits financiers",
+    "7386": "Escomptes obtenus",
     "7382": "Produits des immeubles",
   };
   return labels[compte] || compte;

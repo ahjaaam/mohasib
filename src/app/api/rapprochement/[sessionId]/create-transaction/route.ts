@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { recomputeRapprochementSession } from "@/lib/rapprochement-api";
 import { authorizePermission } from "@/lib/api-permissions";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { isValidAccountingAccountCode, normalizeAccountingSettings } from "@/lib/accounting-settings";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
   try {
@@ -32,6 +33,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
       .single();
 
     if (!line || !session) return NextResponse.json({ error: "Line not found" }, { status: 404 });
+
+    const { data: settingsOwner } = session.dossier_id
+      ? await supabase.from("dossiers").select("accounting_settings").eq("id", session.dossier_id).maybeSingle()
+      : await supabase.from("companies").select("accounting_settings").eq("id", session.company_id).maybeSingle();
+    const configuredBankAccount = normalizeAccountingSettings(settingsOwner?.accounting_settings).bankAccount;
+    const bankAccount = isValidAccountingAccountCode(compte, [5]) ? compte : configuredBankAccount;
 
     const amount = Number(line.bank_amount ?? 0);
     const type = amount >= 0 ? "income" : "expense";
@@ -63,7 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
         dossier_id: session.dossier_id,
         date_ecriture: line.bank_date,
         journal: "BQ",
-        compte: compte || "5141",
+        compte: bankAccount,
         compte_label: "Banque",
         debit: amount > 0 ? Math.abs(amount) : 0,
         credit: amount < 0 ? Math.abs(amount) : 0,

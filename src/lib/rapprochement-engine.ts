@@ -34,7 +34,7 @@ function amountForEcriture(ecriture: Ecriture) {
   return Number(ecriture.debit || ecriture.credit || 0);
 }
 
-export async function autoMatch(_sessionId: string, bankLines: BankLine[], ecritures: Ecriture[]): Promise<MatchResult[]> {
+export async function autoMatch(_sessionId: string, bankLines: BankLine[], ecritures: Ecriture[], bankAccount = "5141"): Promise<MatchResult[]> {
   const results: MatchResult[] = [];
   const usedEcritures = new Set<string>();
 
@@ -44,7 +44,7 @@ export async function autoMatch(_sessionId: string, bankLines: BankLine[], ecrit
 
     for (const ecriture of ecritures) {
       if (usedEcritures.has(ecriture.id)) continue;
-      if (ecriture.compte !== "5141") continue;
+      if (ecriture.compte !== bankAccount) continue;
 
       let score = 0;
       const bankAmt = Math.abs(Number(bankLine.amount));

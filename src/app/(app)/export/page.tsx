@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
 import { taxIncludedInAmount } from "@/lib/tax";
+import { normalizeAccountingSettings } from "@/lib/accounting-settings";
+import { getAccountLabel, getExpenseAccount } from "@/lib/cgnc-mapping";
 import {
   PAYMENT_DEADLINE_HEADERS,
   buildClientPaymentDeadlineRows,
@@ -66,19 +68,6 @@ const EXPORT_DOCUMENTS = [
 ] as const;
 
 type ExportDocumentId = typeof EXPORT_DOCUMENTS[number]["id"];
-
-const CATEGORY_ACCOUNTS: Record<string, { num: string; name: string }> = {
-  "Ventes":           { num: "7111", name: "Ventes de marchandises" },
-  "Services":         { num: "7061", name: "Prestations de services" },
-  "Loyer":            { num: "6132", name: "Locations immobilières" },
-  "Salaires":         { num: "6171", name: "Rémunérations du personnel" },
-  "Équipement":       { num: "2340", name: "Matériel et outillage" },
-  "Marketing":        { num: "6143", name: "Publicité et marketing" },
-  "Transport":        { num: "6142", name: "Transports" },
-  "Fournitures":      { num: "6122", name: "Fournitures de bureau" },
-  "Télécommunications": { num: "6141", name: "Honoraires et commissions" },
-  "default":          { num: "6147", name: "Autres charges externes" },
-};
 
 interface HistoryItem { date: string; periodLabel: string; filename: string }
 interface Stats {
@@ -177,7 +166,7 @@ export default function ExportPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Non authentifié");
 
-      const [invRes, txRes, receiptRes] = await Promise.all([
+      const [invRes, txRes, receiptRes, companyRes] = await Promise.all([
         supabase.from("invoices").select("*, clients(id,name,ice,address), invoice_payments(montant,date_paiement,mode_paiement,reference,allocation_status)")
           .eq("user_id", ownerId).is("dossier_id", null).gte("issue_date", period.start).lte("issue_date", period.end)
           .order("issue_date", { ascending: true }),
@@ -187,11 +176,15 @@ export default function ExportPage() {
         supabase.from("receipts")
           .select("id,file_name,status,created_at,ocr_data,invoice_payments(montant,date_paiement,mode_paiement,reference,allocation_status)")
           .eq("user_id", ownerId).is("dossier_id", null).eq("status", "matched"),
+        supabase.from("companies").select("accounting_settings").eq("user_id", ownerId).maybeSingle(),
       ]);
 
       if (invRes.error) throw invRes.error;
       if (txRes.error) throw txRes.error;
       if (receiptRes.error) throw receiptRes.error;
+      if (companyRes.error) throw companyRes.error;
+
+      const accounts = normalizeAccountingSettings(companyRes.data?.accounting_settings);
 
       const invoices: any[] = (invRes.data ?? []).filter((i: any) => i.status !== "draft" && i.status !== "cancelled");
       const allTx: any[]    = txRes.data ?? [];
@@ -320,12 +313,12 @@ export default function ExportPage() {
         }
         let gHT = 0, gTVA = 0, gTTC = 0;
         for (const [cat, group] of Object.entries(byCat)) {
-          const acc = CATEGORY_ACCOUNTS[cat] ?? CATEGORY_ACCOUNTS["default"];
-          rows.push([cat.toUpperCase(), "", "", acc.num, "", "", ""]);
+          const expenseAccount = getExpenseAccount(cat, accounts.expenseCategoryAccounts);
+          rows.push([cat.toUpperCase(), "", "", expenseAccount, "", "", ""]);
           let cHT = 0, cTVA = 0, cTTC = 0;
           for (const tx of group) {
             const ttc = Number(tx.amount), tva = expenseTax(tx), ht = ttc - tva;
-            rows.push([fmtDate(tx.date), tx.description, cat, acc.num, ht, tva, ttc]);
+            rows.push([fmtDate(tx.date), tx.description, cat, expenseAccount, ht, tva, ttc]);
             cHT += ht; cTVA += tva; cTTC += ttc;
           }
           rows.push(["", "", `Sous-total ${cat}`, "", cHT, cTVA, cTTC]);
@@ -346,16 +339,16 @@ export default function ExportPage() {
         const entries: Entry[] = [];
         for (const inv of invoices) {
           const ht = Number(inv.total) - Number(inv.tax_amount);
-          entries.push({ num: "3421", name: "Clients",              date: inv.issue_date, label: `Facture ${inv.invoice_number}`, debit: Number(inv.total), credit: 0 });
-          entries.push({ num: "7111", name: "Ventes marchandises",  date: inv.issue_date, label: `Facture ${inv.invoice_number}`, debit: 0, credit: ht });
-          entries.push({ num: "4455", name: "TVA facturée",         date: inv.issue_date, label: `TVA – ${inv.invoice_number}`,   debit: 0, credit: Number(inv.tax_amount) });
+          entries.push({ num: accounts.clientAccount, name: getAccountLabel(accounts.clientAccount), date: inv.issue_date, label: `Facture ${inv.invoice_number}`, debit: Number(inv.total), credit: 0 });
+          entries.push({ num: accounts.salesAccount, name: getAccountLabel(accounts.salesAccount), date: inv.issue_date, label: `Facture ${inv.invoice_number}`, debit: 0, credit: ht });
+          entries.push({ num: accounts.collectedTvaAccount, name: getAccountLabel(accounts.collectedTvaAccount), date: inv.issue_date, label: `TVA – ${inv.invoice_number}`, debit: 0, credit: Number(inv.tax_amount) });
         }
         for (const tx of expenses) {
-          const acc = CATEGORY_ACCOUNTS[tx.category ?? ""] ?? CATEGORY_ACCOUNTS["default"];
+          const expenseAccount = getExpenseAccount(tx.category ?? "", accounts.expenseCategoryAccounts);
           const tva = expenseTax(tx), ht = Number(tx.amount) - tva;
-          entries.push({ num: acc.num, name: acc.name,  date: tx.date, label: tx.description, debit: ht,              credit: 0 });
-          entries.push({ num: "4456", name: "TVA déductible", date: tx.date, label: `TVA – ${tx.description}`, debit: tva, credit: 0 });
-          entries.push({ num: "5141", name: "Banques",         date: tx.date, label: tx.description,            debit: 0,   credit: Number(tx.amount) });
+          entries.push({ num: expenseAccount, name: getAccountLabel(expenseAccount), date: tx.date, label: tx.description, debit: ht, credit: 0 });
+          entries.push({ num: accounts.recoverableTvaAccount, name: getAccountLabel(accounts.recoverableTvaAccount), date: tx.date, label: `TVA – ${tx.description}`, debit: tva, credit: 0 });
+          entries.push({ num: accounts.bankAccount, name: getAccountLabel(accounts.bankAccount), date: tx.date, label: tx.description, debit: 0, credit: Number(tx.amount) });
         }
         entries.sort((a, b) => a.num.localeCompare(b.num) || a.date.localeCompare(b.date));
 
@@ -395,16 +388,16 @@ export default function ExportPage() {
         };
         for (const inv of invoices) {
           const ht = Number(inv.total) - Number(inv.tax_amount);
-          add("3421", "Clients",             Number(inv.total), 0);
-          add("7111", "Ventes marchandises", 0,  ht);
-          add("4455", "TVA facturée",        0,  Number(inv.tax_amount));
+          add(accounts.clientAccount, getAccountLabel(accounts.clientAccount), Number(inv.total), 0);
+          add(accounts.salesAccount, getAccountLabel(accounts.salesAccount), 0, ht);
+          add(accounts.collectedTvaAccount, getAccountLabel(accounts.collectedTvaAccount), 0, Number(inv.tax_amount));
         }
         for (const tx of expenses) {
-          const acc = CATEGORY_ACCOUNTS[tx.category ?? ""] ?? CATEGORY_ACCOUNTS["default"];
+          const expenseAccount = getExpenseAccount(tx.category ?? "", accounts.expenseCategoryAccounts);
           const tva = expenseTax(tx), ht = Number(tx.amount) - tva;
-          add(acc.num, acc.name,     ht,              0);
-          add("4456", "TVA déductible", tva,           0);
-          add("5141", "Banques",        0,  Number(tx.amount));
+          add(expenseAccount, getAccountLabel(expenseAccount), ht, 0);
+          add(accounts.recoverableTvaAccount, getAccountLabel(accounts.recoverableTvaAccount), tva, 0);
+          add(accounts.bankAccount, getAccountLabel(accounts.bankAccount), 0, Number(tx.amount));
         }
         let tD = 0, tC = 0;
         const rows: any[][] = [

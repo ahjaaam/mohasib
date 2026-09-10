@@ -3,8 +3,14 @@
 
 import {
   getRevenueAccount, getExpenseAccount,
-  getTVACollectedAccount, getTVARecoverableAccount, getAccountLabel,
+  getAccountLabel,
 } from "./cgnc-mapping";
+import { normalizeAccountingSettings, type AccountingSettings } from "./accounting-settings";
+import {
+  DISCOUNT_LABELS,
+  purchaseCommercialDiscountAccount,
+  type DiscountType,
+} from "./invoice-discounts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -15,6 +21,8 @@ export interface BookableInvoice {
   total: number;       // TTC
   subtotal: number;    // HT
   tax_amount: number;  // TVA total
+  discount_type?: DiscountType | null;
+  discount_amount?: number;
   items: Array<{
     description: string;
     amount: number;     // HT line total (qty × unit_price)
@@ -31,6 +39,8 @@ export interface BookablePurchase {
   total_ttc: number;
   tva_amount: number;
   discount_amount?: number;
+  commercial_discount_amount?: number;
+  settlement_discount_amount?: number;
   category: string | null;
   expense_account?: string | null;
   supplier_name?: string | null;
@@ -103,17 +113,19 @@ export async function bookSalesInvoice(
   invoice: BookableInvoice,
   companyId?: string | null,
   dossierId?: string | null,
+  accountingSettings?: Partial<AccountingSettings> | null,
 ) {
   if (await isAlreadyBooked(supabase, invoice.id)) return;
 
+  const accounts = normalizeAccountingSettings(accountingSettings);
   const clientName = invoice.clients?.name ?? "Client";
   const entries: JournalEntry[] = [];
 
-  // 1 — Debit 3421 (client debt) for TTC
+  // 1 — Debit the configured client receivable account for TTC
   entries.push({
     journal: "VT",
-    compte: "3421",
-    compte_label: getAccountLabel("3421"),
+    compte: accounts.clientAccount,
+    compte_label: getAccountLabel(accounts.clientAccount),
     debit: invoice.total,
     credit: 0,
     libelle: `Facture ${invoice.invoice_number} — ${clientName}`,
@@ -137,8 +149,7 @@ export async function bookSalesInvoice(
 
   for (const [rateStr, htAmount] of Object.entries(groupedByRate)) {
     const rate = Number(rateStr);
-    const category = invoice.clients?.name ? "Services" : "Services";
-    const revenueAccount = getRevenueAccount(category, rate);
+    const revenueAccount = accounts.salesAccount;
     entries.push({
       journal: "VT",
       compte: revenueAccount,
@@ -153,12 +164,30 @@ export async function bookSalesInvoice(
     });
   }
 
-  // 3 — Credit 4455 (TVA collectée)
+  if ((invoice.discount_amount ?? 0) > 0 && invoice.discount_type && invoice.discount_type !== "none") {
+    const discountAccount = invoice.discount_type === "escompte"
+      ? accounts.salesSettlementDiscountAccount
+      : accounts.salesCommercialDiscountAccount;
+    entries.push({
+      journal: "VT",
+      compte: discountAccount,
+      compte_label: getAccountLabel(discountAccount),
+      debit: invoice.discount_amount ?? 0,
+      credit: 0,
+      libelle: `${DISCOUNT_LABELS[invoice.discount_type]} — ${invoice.invoice_number}`,
+      source_type: "invoice",
+      source_id: invoice.id,
+      date_ecriture: invoice.issue_date,
+      numero_piece: invoice.invoice_number,
+    });
+  }
+
+  // 3 — Credit the configured collected-TVA account
   if (invoice.tax_amount > 0) {
     entries.push({
       journal: "VT",
-      compte: getTVACollectedAccount(20),
-      compte_label: getAccountLabel("4455"),
+      compte: accounts.collectedTvaAccount,
+      compte_label: getAccountLabel(accounts.collectedTvaAccount),
       debit: 0,
       credit: invoice.tax_amount,
       libelle: `TVA collectée — ${invoice.invoice_number}`,
@@ -180,10 +209,12 @@ export async function bookPurchaseInvoice(
   purchase: BookablePurchase,
   companyId?: string | null,
   dossierId?: string | null,
+  accountingSettings?: Partial<AccountingSettings> | null,
 ) {
   if (await isAlreadyBooked(supabase, purchase.id)) return;
 
-  const expenseAccount = purchase.expense_account || getExpenseAccount(purchase.category ?? "");
+  const accounts = normalizeAccountingSettings(accountingSettings);
+  const expenseAccount = purchase.expense_account || getExpenseAccount(purchase.category ?? "", accounts.expenseCategoryAccounts);
   const supplierLabel  = purchase.supplier_name ?? "Fournisseur";
   const entries: JournalEntry[] = [];
 
@@ -201,12 +232,12 @@ export async function bookPurchaseInvoice(
     numero_piece: purchase.reference ?? undefined,
   });
 
-  // 2 — Debit 3455 (TVA récupérable)
+  // 2 — Debit the configured recoverable-TVA account
   if (purchase.tva_amount > 0) {
     entries.push({
       journal: "AC",
-      compte: getTVARecoverableAccount(),
-      compte_label: getAccountLabel("3455"),
+      compte: accounts.recoverableTvaAccount,
+      compte_label: getAccountLabel(accounts.recoverableTvaAccount),
       debit: purchase.tva_amount,
       credit: 0,
       libelle: `TVA déductible — ${purchase.reference ?? purchase.description}`,
@@ -217,17 +248,25 @@ export async function bookPurchaseInvoice(
     });
   }
 
-  // 3 — Credit 6119 for a discount granted after the invoice's gross TTC.
-  // This preserves the invoice's original HT and TVA bases while reducing the
-  // amount owed to the supplier.
-  if ((purchase.discount_amount ?? 0) > 0) {
+  const commercialDiscount = purchase.commercial_discount_amount
+    ?? ((purchase.settlement_discount_amount ?? 0) === 0 ? purchase.discount_amount ?? 0 : 0);
+  const settlementDiscount = purchase.settlement_discount_amount ?? 0;
+
+  // 3 — Credit the relevant RRR account for commercial reductions.
+  if (commercialDiscount > 0) {
+    const discountAccount = purchaseCommercialDiscountAccount(
+      expenseAccount,
+      accounts.purchaseDiscountAccount,
+      accounts.purchaseConsumedDiscountAccount,
+      accounts.purchaseExternalDiscountAccount,
+    );
     entries.push({
       journal: "AC",
-      compte: "6119",
-      compte_label: getAccountLabel("6119"),
+      compte: discountAccount,
+      compte_label: getAccountLabel(discountAccount),
       debit: 0,
-      credit: purchase.discount_amount ?? 0,
-      libelle: `Remise obtenue — ${purchase.reference ?? purchase.description}`,
+      credit: commercialDiscount,
+      libelle: `Réduction commerciale obtenue — ${purchase.reference ?? purchase.description}`,
       source_type: "purchase",
       source_id: purchase.id,
       date_ecriture: purchase.date,
@@ -235,11 +274,27 @@ export async function bookPurchaseInvoice(
     });
   }
 
-  // 4 — Credit 4411 (supplier debt) for the net TTC payable
+  // 4 — Credit financial income separately for settlement discounts.
+  if (settlementDiscount > 0) {
+    entries.push({
+      journal: "AC",
+      compte: accounts.purchaseSettlementDiscountAccount,
+      compte_label: getAccountLabel(accounts.purchaseSettlementDiscountAccount),
+      debit: 0,
+      credit: settlementDiscount,
+      libelle: `Escompte obtenu — ${purchase.reference ?? purchase.description}`,
+      source_type: "purchase",
+      source_id: purchase.id,
+      date_ecriture: purchase.date,
+      numero_piece: purchase.reference ?? undefined,
+    });
+  }
+
+  // 5 — Credit the configured supplier account for the net TTC payable
   entries.push({
     journal: "AC",
-    compte: "4411",
-    compte_label: getAccountLabel("4411"),
+    compte: accounts.supplierAccount,
+    compte_label: getAccountLabel(accounts.supplierAccount),
     debit: 0,
     credit: purchase.total_ttc,
     libelle: `${supplierLabel} — ${purchase.reference ?? purchase.description}`,
@@ -260,21 +315,23 @@ export async function bookBankTransaction(
   bankLine: BookableBankLine,
   companyId?: string | null,
   dossierId?: string | null,
+  accountingSettings?: Partial<AccountingSettings> | null,
 ) {
   if (await isAlreadyBooked(supabase, bankLine.id)) return;
 
+  const accounts = normalizeAccountingSettings(accountingSettings);
   const isIncome  = bankLine.amount >= 0;
   const absAmount = Math.abs(bankLine.amount);
   const entries: JournalEntry[] = [];
 
   if (isIncome) {
     if (bankLine.invoice_id && !bankLine.counterpart_account) {
-      // Payment that settles a client invoice: DEBIT bank, CREDIT 3421
+      // Payment that settles a client invoice: DEBIT bank, CREDIT client receivable
       entries.push(
         {
           journal: "BQ",
-          compte: "5141",
-          compte_label: getAccountLabel("5141"),
+          compte: accounts.bankAccount,
+          compte_label: getAccountLabel(accounts.bankAccount),
           debit: absAmount,
           credit: 0,
           libelle: bankLine.description,
@@ -284,8 +341,8 @@ export async function bookBankTransaction(
         },
         {
           journal: "BQ",
-          compte: "3421",
-          compte_label: getAccountLabel("3421"),
+          compte: accounts.clientAccount,
+          compte_label: getAccountLabel(accounts.clientAccount),
           debit: 0,
           credit: absAmount,
           libelle: bankLine.description,
@@ -296,12 +353,12 @@ export async function bookBankTransaction(
       );
     } else {
       // General income: DEBIT bank, CREDIT revenue
-      const revenueAccount = bankLine.counterpart_account || getRevenueAccount(bankLine.category ?? "");
+      const revenueAccount = bankLine.counterpart_account || getRevenueAccount(bankLine.category ?? "", accounts.revenueCategoryAccounts);
       entries.push(
         {
           journal: "BQ",
-          compte: "5141",
-          compte_label: getAccountLabel("5141"),
+          compte: accounts.bankAccount,
+          compte_label: getAccountLabel(accounts.bankAccount),
           debit: absAmount,
           credit: 0,
           libelle: bankLine.description,
@@ -324,7 +381,7 @@ export async function bookBankTransaction(
     }
   } else {
     // Expense: DEBIT expense account, CREDIT bank
-    const expenseAccount = bankLine.counterpart_account || getExpenseAccount(bankLine.category ?? "");
+    const expenseAccount = bankLine.counterpart_account || getExpenseAccount(bankLine.category ?? "", accounts.expenseCategoryAccounts);
     entries.push(
       {
         journal: "BQ",
@@ -339,8 +396,8 @@ export async function bookBankTransaction(
       },
       {
         journal: "BQ",
-        compte: "5141",
-        compte_label: getAccountLabel("5141"),
+        compte: accounts.bankAccount,
+        compte_label: getAccountLabel(accounts.bankAccount),
         debit: 0,
         credit: absAmount,
         libelle: bankLine.description,
@@ -363,17 +420,19 @@ export async function bookAvoirClient(
   avoir: BookableInvoice,
   companyId?: string | null,
   dossierId?: string | null,
+  accountingSettings?: Partial<AccountingSettings> | null,
 ) {
   if (await isAlreadyBooked(supabase, avoir.id)) return;
 
+  const accounts = normalizeAccountingSettings(accountingSettings);
   const clientName = avoir.clients?.name ?? "Client";
   const entries: JournalEntry[] = [];
 
-  // 1 — Credit 3421 (reduce client receivable) for TTC
+  // 1 — Credit the configured client account (reduce receivable) for TTC
   entries.push({
     journal: "VT",
-    compte: "3421",
-    compte_label: getAccountLabel("3421"),
+    compte: accounts.clientAccount,
+    compte_label: getAccountLabel(accounts.clientAccount),
     debit: 0,
     credit: avoir.total,
     libelle: `Avoir ${avoir.invoice_number} — ${clientName}`,
@@ -393,7 +452,7 @@ export async function bookAvoirClient(
 
   for (const [rateStr, htAmount] of Object.entries(groupedByRate)) {
     const rate = Number(rateStr);
-    const revenueAccount = getRevenueAccount("Services", rate);
+    const revenueAccount = accounts.salesAccount;
     entries.push({
       journal: "VT",
       compte: revenueAccount,
@@ -408,12 +467,12 @@ export async function bookAvoirClient(
     });
   }
 
-  // 3 — Debit 4455 (reverse TVA collectée)
+  // 3 — Debit the configured collected-TVA account
   if (avoir.tax_amount > 0) {
     entries.push({
       journal: "VT",
-      compte: getTVACollectedAccount(20),
-      compte_label: getAccountLabel("4455"),
+      compte: accounts.collectedTvaAccount,
+      compte_label: getAccountLabel(accounts.collectedTvaAccount),
       debit: avoir.tax_amount,
       credit: 0,
       libelle: `TVA collectée annulée — ${avoir.invoice_number}`,

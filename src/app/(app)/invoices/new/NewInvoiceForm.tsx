@@ -9,6 +9,7 @@ import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from 
 import { Check, Trash2, Plus, Loader2, Send, Mail, Download, Save, LayoutTemplate, PartyPopper, XCircle, Lightbulb } from "lucide-react";
 import type { Client } from "@/types";
 import AddClientModal from "@/app/(app)/clients/AddClientModal";
+import { computeInvoiceDiscount, DISCOUNT_LABELS, type DiscountMode, type DiscountType } from "@/lib/invoice-discounts";
 
 interface LineItem {
   desc: string;
@@ -64,6 +65,22 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   const [templateName, setTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [availableClients, setAvailableClients] = useState(clients);
+  const [discountType, setDiscountType] = useState<DiscountType>("none");
+  const [discountMode, setDiscountMode] = useState<DiscountMode>("percent");
+  const [discountValue, setDiscountValue] = useState(0);
+  const [showDiscount, setShowDiscount] = useState(false);
+
+  function addDiscount() {
+    setShowDiscount(true);
+    if (discountType === "none") setDiscountType("remise_commerciale");
+  }
+
+  function removeDiscount() {
+    setShowDiscount(false);
+    setDiscountType("none");
+    setDiscountMode("percent");
+    setDiscountValue(0);
+  }
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -226,8 +243,10 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
 
   const lineAmounts = lines.map((l) => ({ ht: l.qty * l.pu, tva: l.qty * l.pu * l.tva / 100 }));
   const totalHT = lineAmounts.reduce((s, l) => s + l.ht, 0);
-  const totalTVA = lineAmounts.reduce((s, l) => s + l.tva, 0);
-  const totalTTC = totalHT + totalTVA;
+  const grossTVA = lineAmounts.reduce((s, l) => s + l.tva, 0);
+  const discountTotals = computeInvoiceDiscount({ grossSubtotal: totalHT, grossTax: grossTVA, type: discountType, mode: discountMode, value: discountValue });
+  const totalTVA = discountTotals.taxAmount;
+  const totalTTC = discountTotals.total;
 
   function isDuplicateInvoiceNumberError(err: any) {
     const text = `${err?.code ?? ""} ${err?.message ?? ""} ${err?.details ?? ""}`;
@@ -237,6 +256,10 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   async function save(status: "draft" | "sent") {
     if (totalHT <= 0) {
       setError("Le montant de la facture doit être supérieur à 0. Sélectionnez un article du catalogue ou ajoutez une ligne avec un prix.");
+      return;
+    }
+    if (discountType !== "none" && (discountValue <= 0 || (discountMode === "percent" && discountValue > 100) || (discountMode === "amount" && discountValue > totalHT))) {
+      setError("La réduction doit être supérieure à 0 et ne peut pas dépasser le total HT.");
       return;
     }
 
@@ -252,7 +275,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
     }));
 
     // Use weighted avg TVA rate for the record
-    const avgTVA = totalHT > 0 ? (totalTVA / totalHT) * 100 : 20;
+    const avgTVA = totalHT > 0 ? (grossTVA / totalHT) * 100 : 20;
 
     let invoiceNumber = await getAvailableInvoiceDocumentNumber(supabase, {
       preferredNumber: form.num,
@@ -279,6 +302,10 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
           tax_rate: Math.round(avgTVA * 100) / 100,
           tax_amount: totalTVA,
           total: totalTTC,
+          discount_type: discountType === "none" ? null : discountType,
+          discount_mode: discountType === "none" ? null : discountMode,
+          discount_value: discountType === "none" ? 0 : discountValue,
+          discount_amount: discountTotals.discountAmount,
           currency: "MAD",
           items,
         })
@@ -572,9 +599,46 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
         </button>
       </div>
 
+      <div className="mt-3">
+        {!showDiscount ? (
+          <button type="button" aria-expanded="false" onClick={addDiscount} className="inline-flex items-center gap-1 text-[11px] font-medium text-[#6B7280] hover:text-[#C8924A]">
+            <Plus size={12} /> Ajouter une réduction ou un escompte
+          </button>
+        ) : (
+          <div className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-[#FAFAF6] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.6px] text-[#6B7280]">Réduction facultative</div>
+              <button type="button" onClick={removeDiscount} className="text-[10.5px] font-medium text-[#9CA3AF] hover:text-[#DC2626]">Retirer</button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-medium text-[#6B7280]">Nature</span>
+                <select className="input" value={discountType} onChange={event => setDiscountType(event.target.value as DiscountType)}>
+                  {Object.entries(DISCOUNT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-medium text-[#6B7280]">Calcul</span>
+                <select className="input" value={discountMode} disabled={discountType === "none"} onChange={event => setDiscountMode(event.target.value as DiscountMode)}>
+                  <option value="percent">Pourcentage</option>
+                  <option value="amount">Montant HT</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-medium text-[#6B7280]">{discountMode === "percent" ? "Taux (%)" : "Montant HT (MAD)"}</span>
+                <input type="number" min="0" max={discountMode === "percent" ? 100 : undefined} step="0.01" className="input" disabled={discountType === "none"} value={discountType === "none" ? "" : discountValue || ""} onChange={event => setDiscountValue(Number(event.target.value))} placeholder="0" />
+              </label>
+            </div>
+            {discountType === "escompte" && <p className="mt-2 text-[10.5px] text-[#7C3AED]">L’escompte sera comptabilisé séparément en charge financière.</p>}
+          </div>
+        )}
+      </div>
+
       {/* Totals */}
       <div className="totals-box">
-        <div className="total-row"><span>Total HT</span><span>{fmt(totalHT)}</span></div>
+        <div className="total-row"><span>Total HT brut</span><span>{fmt(totalHT)}</span></div>
+        {discountTotals.discountAmount > 0 && <div className="total-row text-[#7C3AED]"><span>{DISCOUNT_LABELS[discountType]}</span><span>− {fmt(discountTotals.discountAmount)}</span></div>}
+        {discountTotals.discountAmount > 0 && <div className="total-row"><span>Net HT</span><span>{fmt(discountTotals.netSubtotal)}</span></div>}
         <div className="total-row"><span>TVA</span><span>{fmt(totalTVA)}</span></div>
         <div className="total-row grand"><span>Total TTC</span><span>{fmt(totalTTC)}</span></div>
       </div>

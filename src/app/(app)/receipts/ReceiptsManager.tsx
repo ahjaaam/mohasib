@@ -21,10 +21,12 @@ import { createClient } from "@/lib/supabase/client";
 import { visibleDocumentAreas } from "@/lib/document-area";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
-import { cgncAccounts, categoryToCompte } from "@/lib/cgnc-accounts";
+import { cgncAccounts, expenseNoteCategoryToCompte } from "@/lib/cgnc-accounts";
 import { computePurchaseAmounts } from "@/lib/purchase-booking";
+import { purchaseCommercialDiscountAccount } from "@/lib/invoice-discounts";
+import { isValidAccountingAccountCode, normalizeAccountingSettings } from "@/lib/accounting-settings";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
-import type { Receipt, ReceiptStatus } from "@/types";
+import type { OcrData, Receipt, ReceiptStatus } from "@/types";
 
 interface ReceiptWithUrl extends Receipt {
   signedUrl?: string;
@@ -34,7 +36,9 @@ type StatusFilter = "all" | ReceiptStatus;
 
 interface ConfirmationForm {
   amount: string;
-  discountAmount: string;
+  commercialDiscountType: string;
+  commercialDiscountAmount: string;
+  settlementDiscountAmount: string;
   date: string;
   description: string;
   category: string;
@@ -102,6 +106,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
   const [confirmationForm, setConfirmationForm] = useState<ConfirmationForm | null>(null);
   const [booking, setBooking] = useState(false);
   const [mutating, setMutating] = useState<Set<string>>(new Set());
+  const [accountingSettings, setAccountingSettings] = useState(() => normalizeAccountingSettings(null));
 
   useEffect(() => {
     setDateFrom(globalPeriod.start);
@@ -119,7 +124,10 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       ? request.eq("dossier_id", dossierId)
       : request.eq("user_id", ownerId).is("dossier_id", null);
 
-    const { data, error } = await request;
+    const settingsQuery = dossierId
+      ? supabase.from("dossiers").select("accounting_settings").eq("id", dossierId).maybeSingle()
+      : supabase.from("companies").select("accounting_settings").eq("user_id", ownerId).maybeSingle();
+    const [{ data, error }, { data: settingsRow }] = await Promise.all([request, settingsQuery]);
     if (error) {
       toast.error("Impossible de charger les notes de frais.");
       setLoading(false);
@@ -127,6 +135,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     }
 
     const rows = (data ?? []) as Receipt[];
+    setAccountingSettings(normalizeAccountingSettings(settingsRow?.accounting_settings));
     const withUrls = await Promise.all(rows.map(async (receipt) => {
       if (!receipt.storage_path) return receipt;
       const { data: urlData } = await supabase.storage.from("receipts").createSignedUrl(receipt.storage_path, 5 * 60);
@@ -214,14 +223,20 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
 
   function reviewAndConfirm(receipt: ReceiptWithUrl) {
     const category = receipt.ocr_data.category ?? "Achats";
+    const configuredAccount = accountingSettings.expenseCategoryAccounts[category];
+    const suggestedAccount = category === "Achats" && configuredAccount === "6111"
+      ? expenseNoteCategoryToCompte.Achats
+      : configuredAccount ?? expenseNoteCategoryToCompte[category] ?? "";
     setConfirmationForm({
       amount: String(Math.abs(Number(receipt.ocr_data.amount ?? 0)) || ""),
-      discountAmount: String(receipt.ocr_data.discount_amount ?? ""),
+      commercialDiscountType: receipt.ocr_data.discount_type && receipt.ocr_data.discount_type !== "escompte" && receipt.ocr_data.discount_type !== "none" ? receipt.ocr_data.discount_type : "remise_commerciale",
+      commercialDiscountAmount: String(receipt.ocr_data.commercial_discount_amount ?? (receipt.ocr_data.discount_type === "escompte" ? "" : receipt.ocr_data.discount_amount ?? "")),
+      settlementDiscountAmount: String(receipt.ocr_data.settlement_discount_amount ?? (receipt.ocr_data.discount_type === "escompte" ? receipt.ocr_data.discount_amount ?? "" : "")),
       date: receipt.ocr_data.date ?? new Date().toISOString().slice(0, 10),
       description: receipt.ocr_data.description ?? receiptVendor(receipt),
       category,
       tvaRate: String(receipt.ocr_data.tva_rate ?? 0),
-      account: receipt.ocr_data.compte ?? categoryToCompte[category] ?? "6111",
+      account: receipt.ocr_data.compte ?? suggestedAccount,
     });
     setPreview(null);
     setConfirming(receipt);
@@ -231,7 +246,11 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     setConfirmationForm((current) => {
       if (!current) return current;
       if (field === "category") {
-        return { ...current, category: value, account: categoryToCompte[value] ?? current.account };
+        const configuredAccount = accountingSettings.expenseCategoryAccounts[value];
+        const suggestedAccount = value === "Achats" && configuredAccount === "6111"
+          ? expenseNoteCategoryToCompte.Achats
+          : configuredAccount ?? expenseNoteCategoryToCompte[value] ?? current.account;
+        return { ...current, category: value, account: suggestedAccount };
       }
       return { ...current, [field]: value };
     });
@@ -240,16 +259,17 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
   async function confirmBooking() {
     if (!confirming || !confirmationForm) return;
     const amount = Number(confirmationForm.amount);
-    const discountAmount = Number(confirmationForm.discountAmount || 0);
+    const commercialDiscountAmount = Number(confirmationForm.commercialDiscountAmount || 0);
+    const settlementDiscountAmount = Number(confirmationForm.settlementDiscountAmount || 0);
     const tvaRate = Number(confirmationForm.tvaRate || 0);
-    if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(discountAmount) || discountAmount < 0 || !confirmationForm.account || !confirmationForm.description) {
+    if (!Number.isFinite(amount) || amount <= 0 || ![commercialDiscountAmount, settlementDiscountAmount].every(value => Number.isFinite(value) && value >= 0) || !confirmationForm.account || !confirmationForm.description) {
       toast.error("Vérifiez le montant, la description et le compte comptable.");
       return;
     }
 
     setBooking(true);
-    const amounts = computePurchaseAmounts({ amount, discount_amount: discountAmount, tva_rate: tvaRate });
-    const confirmedOcr = {
+    const amounts = computePurchaseAmounts({ amount, commercial_discount_amount: commercialDiscountAmount, settlement_discount_amount: settlementDiscountAmount, tva_rate: tvaRate });
+    const confirmedOcr: OcrData = {
       ...confirming.ocr_data,
       amount: -Math.abs(amount),
       type: "expense" as const,
@@ -259,6 +279,9 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       tva_rate: tvaRate,
       tva_amount: amounts.tvaAmount,
       discount_amount: amounts.discountAmount,
+      discount_type: settlementDiscountAmount > 0 && commercialDiscountAmount === 0 ? "escompte" : commercialDiscountAmount > 0 ? confirmationForm.commercialDiscountType as OcrData["discount_type"] : "none",
+      commercial_discount_amount: amounts.commercialDiscountAmount,
+      settlement_discount_amount: amounts.settlementDiscountAmount,
       compte: confirmationForm.account,
       is_supplier_invoice: confirming.ocr_data.is_supplier_invoice ?? true,
     };
@@ -328,13 +351,24 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
   const confirmationAmounts = confirmationForm
     ? computePurchaseAmounts({
         amount: Number(confirmationForm.amount || 0),
-        discount_amount: Number(confirmationForm.discountAmount || 0),
+        commercial_discount_amount: Number(confirmationForm.commercialDiscountAmount || 0),
+        settlement_discount_amount: Number(confirmationForm.settlementDiscountAmount || 0),
         tva_rate: Number(confirmationForm.tvaRate || 0),
       })
     : null;
   const confirmationAccountLabel = confirmationForm
     ? cgncAccounts.find((account) => account.code === confirmationForm.account)?.label ?? "Compte de charge"
     : "";
+  const confirmationCommercialDiscountAccount = confirmationForm ? purchaseCommercialDiscountAccount(
+    confirmationForm.account,
+    accountingSettings.purchaseDiscountAccount,
+    accountingSettings.purchaseConsumedDiscountAccount,
+    accountingSettings.purchaseExternalDiscountAccount,
+  ) : accountingSettings.purchaseDiscountAccount;
+  const expenseCategories = Array.from(new Set([
+    ...TRANSACTION_CATEGORIES.expense,
+    ...Object.keys(accountingSettings.expenseCategoryAccounts).filter(category => category !== "__default"),
+  ]));
 
   return (
     <div>
@@ -525,7 +559,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
               <label>
                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Catégorie</span>
                 <select className="input w-full" value={confirmationForm.category} onChange={(event) => updateConfirmationForm("category", event.target.value)}>
-                  {TRANSACTION_CATEGORIES.expense.map((category) => <option key={category}>{category}</option>)}
+                  {expenseCategories.map((category) => <option key={category}>{category}</option>)}
                 </select>
               </label>
               <label>
@@ -538,17 +572,31 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
                   <option value="20">20%</option>
                 </select>
               </label>
+              <label>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Réduction commerciale</span>
+                <select className="input w-full" value={confirmationForm.commercialDiscountType} onChange={(event) => updateConfirmationForm("commercialDiscountType", event.target.value)}>
+                  <option value="remise_commerciale">Remise commerciale</option>
+                  <option value="rabais">Rabais</option>
+                  <option value="reduction">Réduction</option>
+                  <option value="ristourne">Ristourne</option>
+                </select>
+              </label>
+              <label>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Montant commercial HT</span>
+                <input type="number" min="0" step="0.01" className="input w-full" value={confirmationForm.commercialDiscountAmount} onChange={(event) => updateConfirmationForm("commercialDiscountAmount", event.target.value)} placeholder="0,00" />
+              </label>
               <label className="sm:col-span-2">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Remise TTC (MAD)</span>
-                <input type="number" min="0" step="0.01" className="input w-full" value={confirmationForm.discountAmount} onChange={(event) => updateConfirmationForm("discountAmount", event.target.value)} placeholder="0,00" />
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Escompte HT (financier)</span>
+                <input type="number" min="0" step="0.01" className="input w-full" value={confirmationForm.settlementDiscountAmount} onChange={(event) => updateConfirmationForm("settlementDiscountAmount", event.target.value)} placeholder="0,00" />
               </label>
               <label className="sm:col-span-2">
                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Compte de charge</span>
-                <select className="input w-full" value={confirmationForm.account} onChange={(event) => updateConfirmationForm("account", event.target.value)}>
-                  {cgncAccounts.filter((account) => account.code.startsWith("6") || account.code.startsWith("2")).map((account) => (
-                    <option key={account.code} value={account.code}>{account.code} — {account.label}</option>
-                  ))}
-                </select>
+                <input className={`input w-full font-mono ${isValidAccountingAccountCode(confirmationForm.account, [2, 6]) ? "" : "border-red-300"}`}
+                  list="expense-note-account-options" inputMode="numeric" maxLength={12} value={confirmationForm.account}
+                  onChange={(event) => updateConfirmationForm("account", event.target.value.replace(/\D/g, ""))} />
+                <datalist id="expense-note-account-options">
+                  {cgncAccounts.filter((account) => account.code.startsWith("6") || account.code.startsWith("2")).map((account) => <option key={account.code} value={account.code}>{account.label}</option>)}
+                </datalist>
               </label>
             </div>
 
@@ -574,22 +622,30 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
                     </tr>
                     {confirmationAmounts.tvaAmount > 0 && (
                       <tr>
-                        <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">3455</td>
+                        <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">{accountingSettings.recoverableTvaAccount}</td>
                         <td className="px-4 py-2.5 text-[#4B5563]">État TVA récupérable</td>
                         <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.tvaAmount)}</td>
                         <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
                       </tr>
                     )}
-                    {confirmationAmounts.discountAmount > 0 && (
+                    {confirmationAmounts.commercialDiscountAmount > 0 && (
                       <tr>
-                        <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">6119</td>
-                        <td className="px-4 py-2.5 text-[#4B5563]">RRR obtenus sur achats</td>
+                        <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">{confirmationCommercialDiscountAccount}</td>
+                        <td className="px-4 py-2.5 text-[#4B5563]">Réduction commerciale obtenue</td>
                         <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
-                        <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.discountAmount)}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.commercialDiscountAmount)}</td>
+                      </tr>
+                    )}
+                    {confirmationAmounts.settlementDiscountAmount > 0 && (
+                      <tr>
+                        <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">{accountingSettings.purchaseSettlementDiscountAccount}</td>
+                        <td className="px-4 py-2.5 text-[#4B5563]">Escompte obtenu</td>
+                        <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
+                        <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.settlementDiscountAmount)}</td>
                       </tr>
                     )}
                     <tr>
-                      <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">4411</td>
+                      <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">{accountingSettings.supplierAccount}</td>
                       <td className="px-4 py-2.5 text-[#4B5563]">Fournisseurs</td>
                       <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
                       <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.totalTtc)}</td>
@@ -601,7 +657,7 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
 
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
               <button disabled={booking} onClick={() => setConfirming(null)} className="btn btn-outline">Annuler</button>
-              <button disabled={booking || confirmationAmounts.totalTtc <= 0} onClick={confirmBooking} className="btn btn-gold">
+              <button disabled={booking || confirmationAmounts.totalTtc <= 0 || !isValidAccountingAccountCode(confirmationForm.account, [2, 6])} onClick={confirmBooking} className="btn btn-gold">
                 {booking ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                 {booking ? "Comptabilisation…" : "Confirmer et créer l’écriture"}
               </button>

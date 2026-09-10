@@ -47,6 +47,10 @@ export interface GeneratePDFInput {
     tax_rate: number;
     tax_amount: number;
     total: number;
+    discount_type?: string | null;
+    discount_mode?: string | null;
+    discount_value?: number;
+    discount_amount?: number;
     notes?: string | null;
     items: Array<{
       description: string;
@@ -285,31 +289,53 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   const totX = pageW - marginR - totW;
 
   doc.setFillColor(...CREAM_BG);
-  doc.roundedRect(totX, y, totW, 24, 2, 2, "F");
+  const hasDiscount = Number(invoice.discount_amount ?? 0) > 0;
+  const totalsHeight = hasDiscount ? 36 : 24;
+  doc.roundedRect(totX, y, totW, totalsHeight, 2, 2, "F");
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...MUTED_RGB);
-  doc.text("Total HT", totX + 4, y + 7);
-  doc.text(`TVA (${invoice.tax_rate}%)`, totX + 4, y + 13);
+  doc.text(hasDiscount ? "Total HT brut" : "Total HT", totX + 4, y + 7);
 
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...TEXT_RGB);
   doc.text(fmtAmt(invoice.subtotal), totX + totW - 4, y + 7, { align: "right" });
-  doc.text(fmtAmt(invoice.tax_amount), totX + totW - 4, y + 13, { align: "right" });
+
+  let totalsRowY = y + 13;
+  if (hasDiscount) {
+    const discountLabel = invoice.discount_type === "escompte" ? "Escompte" : "Réduction commerciale";
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(124, 58, 237);
+    doc.text(discountLabel, totX + 4, totalsRowY);
+    doc.text(`- ${fmtAmt(Number(invoice.discount_amount))}`, totX + totW - 4, totalsRowY, { align: "right" });
+    totalsRowY += 6;
+    doc.setTextColor(...MUTED_RGB);
+    doc.text("Net HT", totX + 4, totalsRowY);
+    doc.setTextColor(...TEXT_RGB);
+    doc.text(fmtAmt(Number(invoice.subtotal) - Number(invoice.discount_amount)), totX + totW - 4, totalsRowY, { align: "right" });
+    totalsRowY += 6;
+  }
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...MUTED_RGB);
+  doc.text(`TVA (${invoice.tax_rate}%)`, totX + 4, totalsRowY);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...TEXT_RGB);
+  doc.text(fmtAmt(invoice.tax_amount), totX + totW - 4, totalsRowY, { align: "right" });
 
   // Divider
   doc.setDrawColor(229, 231, 235);
-  doc.line(totX + 3, y + 16, totX + totW - 3, y + 16);
+  const dividerY = totalsRowY + 3;
+  doc.line(totX + 3, dividerY, totX + totW - 3, dividerY);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
   doc.setTextColor(...TEXT_RGB);
-  doc.text("TOTAL TTC", totX + 4, y + 22);
+  doc.text("TOTAL TTC", totX + 4, dividerY + 6);
   doc.setTextColor(...accentRgb);
-  doc.text(fmtAmt(invoice.total), totX + totW - 4, y + 22, { align: "right" });
+  doc.text(fmtAmt(invoice.total), totX + totW - 4, dividerY + 6, { align: "right" });
 
-  y += 30;
+  y += totalsHeight + 6;
 
   // ── PAYMENT INFO / DEVIS CONDITIONS ────────────────────────
   if (isDevis) {

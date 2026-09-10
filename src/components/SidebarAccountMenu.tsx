@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronLeft, ChevronRight, CircleHelp, LogOut, ScrollText, Settings, UserRound } from "lucide-react";
+import { BriefcaseBusiness, ChevronDown, ChevronLeft, ChevronRight, LogOut, ScrollText, Settings, UserRound } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 
@@ -13,6 +13,7 @@ type Props = {
   userEmail?: string | null;
   roleLabel?: string | null;
   settingsHref?: string;
+  dossiersHref?: string;
   onSignOut: () => void | Promise<void>;
   onToggleSidebar: () => void;
 };
@@ -24,6 +25,7 @@ export default function SidebarAccountMenu({
   userEmail,
   roleLabel,
   settingsHref = "/parametres",
+  dossiersHref,
   onSignOut,
   onToggleSidebar,
 }: Props) {
@@ -108,7 +110,7 @@ export default function SidebarAccountMenu({
       </div>
 
       {open && (
-        <div className={`absolute z-[70] w-[270px] border border-[#DADAD5] border-t-2 border-t-[#C8924A] bg-white p-2 text-[#303644] shadow-[0_18px_42px_rgba(13,21,38,0.18)] ${
+        <div className={`sidebar-account-popover absolute z-[70] w-[270px] border border-[#DADAD5] bg-white p-2 text-[#303644] shadow-[0_18px_42px_rgba(13,21,38,0.18)] ${
           collapsed
             ? "bottom-3 left-[calc(100%+8px)]"
             : "bottom-[calc(100%+8px)] left-2"
@@ -126,7 +128,7 @@ export default function SidebarAccountMenu({
           <Link
             href={settingsHref}
             onClick={() => setOpen(false)}
-            className="mt-1.5 flex items-center gap-2.5 px-2 py-2 text-[12.5px] transition-colors hover:bg-[#F4F3ED]"
+            className="sidebar-account-action mt-1.5 flex items-center gap-2.5 px-2 py-2 text-[12.5px] transition-colors hover:bg-[#F4F3ED]"
           >
             <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
               <Settings size={13} />
@@ -141,7 +143,7 @@ export default function SidebarAccountMenu({
             <Link
               href="/journal-audit"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-2 py-2 text-[12.5px] transition-colors hover:bg-[#F4F3ED]"
+              className="sidebar-account-action flex items-center gap-2.5 px-2 py-2 text-[12.5px] transition-colors hover:bg-[#F4F3ED]"
             >
               <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
                 <ScrollText size={13} />
@@ -153,25 +155,27 @@ export default function SidebarAccountMenu({
             </Link>
           )}
 
-          <Link
-            href="/centre-aide"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-2 py-2 text-[12.5px] transition-colors hover:bg-[#F4F3ED]"
-          >
-            <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
-              <CircleHelp size={13} />
-            </span>
-            <span>
-              <span className="block font-semibold">Centre d&apos;aide</span>
-              <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Guides et assistance</span>
-            </span>
-          </Link>
+          {dossiersHref && (
+            <Link
+              href={dossiersHref}
+              onClick={() => setOpen(false)}
+              className="sidebar-account-action flex items-center gap-2.5 px-2 py-2 text-[12.5px] transition-colors hover:bg-[#F4F3ED]"
+            >
+              <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
+                <BriefcaseBusiness size={13} />
+              </span>
+              <span>
+                <span className="block font-semibold">Dossiers</span>
+                <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Gérer les dossiers clients</span>
+              </span>
+            </Link>
+          )}
 
           <div className="my-1 border-t border-[#ECECE8]" />
           <button
             type="button"
             onClick={() => void onSignOut()}
-            className="flex w-full items-center gap-2.5 px-2 py-2 text-left text-[12px] text-[#B42318] transition-colors hover:bg-[#FFF1F0]"
+            className="sidebar-account-action flex w-full items-center gap-2.5 px-2 py-2 text-left text-[12px] text-[#B42318] transition-colors hover:bg-[#FFF1F0]"
           >
             <span className="flex h-7 w-7 items-center justify-center">
               <LogOut size={13} />

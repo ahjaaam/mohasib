@@ -39,4 +39,20 @@ describe("normalizeMainResponse", () => {
 
     expect(result.category).toBe("Déplacements et missions");
   });
+
+  it("keeps commercial discounts separate from settlement discounts", () => {
+    const result = normalizeMainResponse({
+      amount_ttc: { value: 1_080, confidence: "high" },
+      amount_ht: { value: 1_000, confidence: "high" },
+      tva_amount: { value: 180, confidence: "high" },
+      discount_type: { value: "remise commerciale", confidence: "high" },
+      commercial_discount_amount: { value: 80, confidence: "high" },
+      settlement_discount_amount: { value: 20, confidence: "high" },
+    });
+
+    expect(result.discount_type).toBe("remise_commerciale");
+    expect(result.commercial_discount_amount).toBe(80);
+    expect(result.settlement_discount_amount).toBe(20);
+    expect(result.discount_amount).toBe(100);
+  });
 });

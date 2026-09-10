@@ -7,6 +7,7 @@ import {
   Package,
   Palette,
   Plug,
+  ScrollText,
   User,
   Users,
   type LucideIcon,
@@ -27,10 +28,27 @@ export const SETTINGS_TABS: SettingsTab[] = [
   { id: "abonnement", label: "Abonnement", icon: CreditCard, ownerOnly: true },
   { id: "integrations", label: "Intégrations", icon: Plug, permission: "settings:update" },
   { id: "articles", label: "Articles & prestations", icon: Package, permission: "settings:update" },
+  { id: "ecritures", label: "Écritures Auto", icon: ScrollText, permission: "settings:update" },
   { id: "tva", label: "Déclaration TVA", icon: FileText, permission: "settings:update" },
   { id: "echeances", label: "Échéances", icon: CalendarDays, permission: "settings:update" },
   { id: "messages", label: "Messages", icon: MessageSquare, permission: "settings:update" },
   { id: "equipe", label: "Équipe", icon: Users, permission: "settings:manage_team" },
+];
+
+// Settings shown inside a dossier are deliberately dossier-scoped. Keeping this
+// list separate prevents company-level preferences from leaking into a client file.
+export const DOSSIER_SETTINGS_TABS: SettingsTab[] = [
+  { id: "dossier", label: "Dossier", icon: Building2 },
+  { id: "facturation", label: "Facturation", icon: CreditCard },
+  { id: "articles", label: "Articles & prestations", icon: Package },
+  { id: "ecritures", label: "Écritures Auto", icon: ScrollText },
+];
+
+export const CLIENT_DOSSIER_SETTINGS_TABS: SettingsTab[] = [
+  { id: "profil", label: "Profil personnel", icon: User },
+  { id: "facturation", label: "Facturation", icon: CreditCard },
+  { id: "articles", label: "Articles & prestations", icon: Package },
+  { id: "integrations", label: "Intégrations", icon: Plug },
 ];
 
 const FREE_PLAN_TABS = new Set(["entreprise", "profil", "apparence", "abonnement", "articles", "messages"]);

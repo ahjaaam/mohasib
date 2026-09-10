@@ -3,11 +3,18 @@ import PageHeader from "@/components/PageHeader";
 import NewAvoirFournisseurForm from "./NewAvoirFournisseurForm";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { ReceiptText } from "lucide-react";
+import { normalizeAccountingSettings } from "@/lib/accounting-settings";
 
 export default async function NewAvoirFournisseurPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const ownerId = await resolveAccountOwnerId(user!.id);
+  const { data: company } = await supabase
+    .from("companies")
+    .select("accounting_settings")
+    .eq("user_id", ownerId)
+    .maybeSingle();
+  const accounts = normalizeAccountingSettings(company?.accounting_settings);
 
   // Next AV-FOURN number
   const year = new Date().getFullYear();
@@ -31,7 +38,7 @@ export default async function NewAvoirFournisseurPage() {
         subtitle="Enregistrer un avoir reçu d'un fournisseur"
         icon={<ReceiptText size={18} />}
       />
-      <NewAvoirFournisseurForm nextNumber={nextNumber} userId={ownerId} />
+      <NewAvoirFournisseurForm nextNumber={nextNumber} userId={ownerId} supplierAccount={accounts.supplierAccount} />
     </>
   );
 }

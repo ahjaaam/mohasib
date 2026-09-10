@@ -68,6 +68,10 @@ export interface Invoice {
   tax_rate: number;
   tax_amount: number;
   total: number;
+  discount_type?: "remise_commerciale" | "rabais" | "reduction" | "ristourne" | "escompte" | null;
+  discount_mode?: "percent" | "amount" | null;
+  discount_value?: number;
+  discount_amount?: number;
   currency: string;
   notes: string | null;
   items: InvoiceItem[];
@@ -140,6 +144,9 @@ export interface OcrData {
   amount_ht?: number | null;
   amount_ttc?: number | null;
   discount_amount?: number | null;
+  discount_type?: "none" | "remise_commerciale" | "rabais" | "reduction" | "ristourne" | "escompte" | null;
+  commercial_discount_amount?: number | null;
+  settlement_discount_amount?: number | null;
   invoice_number?: string | null;
   supplier_ice?: string | null;
   supplier_if?: string | null;

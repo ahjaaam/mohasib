@@ -9,6 +9,8 @@ import type { Receipt, OcrData } from "@/types";
 import { normalizeExpenseCategory, TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte, expenseNoteCategoryToCompte } from "@/lib/cgnc-accounts";
 import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "@/lib/purchase-booking";
+import { purchaseCommercialDiscountAccount } from "@/lib/invoice-discounts";
+import { isValidAccountingAccountCode, normalizeAccountingSettings, type AccountingSettings } from "@/lib/accounting-settings";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceControlCheck } from "@/lib/invoice-controls";
 import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
@@ -37,6 +39,9 @@ function computeAmounts(ocr: OcrData) {
   const amounts = computePurchaseAmounts({
     amount: ocr.amount ?? ocr.amount_ttc ?? 0,
     discount_amount: ocr.discount_amount ?? 0,
+    commercial_discount_amount: ocr.commercial_discount_amount,
+    settlement_discount_amount: ocr.settlement_discount_amount,
+    amount_ht: ocr.amount_ht,
     tva_amount: ocr.tva_amount ?? ocr.tax_amount ?? 0,
     tva_rate: ocr.tva_rate ?? 0,
   });
@@ -44,6 +49,8 @@ function computeAmounts(ocr: OcrData) {
     ht: amounts.totalHt,
     tva: amounts.tvaAmount,
     remise: amounts.discountAmount,
+    commercialDiscount: amounts.commercialDiscountAmount,
+    settlementDiscount: amounts.settlementDiscountAmount,
     ttc: amounts.totalTtc,
   };
 }
@@ -107,7 +114,9 @@ interface ReceiptWithUrl extends Receipt { signedUrl?: string; }
 interface CardForm {
   supplier: string;
   amount: string;
-  discount_amount: string;
+  commercial_discount_type: string;
+  commercial_discount_amount: string;
+  settlement_discount_amount: string;
   category: string;
   description: string;
   date: string;
@@ -187,7 +196,7 @@ function supplierSummaries(receipts: ReceiptWithUrl[], includeNonSupplier = fals
 }
 
 
-function initForm(ocr: OcrData, expenseNotes = false): CardForm {
+function initForm(ocr: OcrData, expenseNotes = false, accountingSettings?: AccountingSettings): CardForm {
   const vendor = ocr.vendor_name ?? ocr.vendor ?? "";
   const desc = ocr.description ?? "";
   const signedAmt = typeof ocr.amount === "number"
@@ -196,14 +205,18 @@ function initForm(ocr: OcrData, expenseNotes = false): CardForm {
       ? String(-Math.abs(ocr.amount))
       : String(ocr.amount ?? "");
   const category = expenseNotes ? normalizeExpenseCategory(ocr.category) : ocr.category ?? "Achats";
-  const categoryAccount = (expenseNotes ? expenseNoteCategoryToCompte : categoryToCompte)[category] ?? "";
+  const categoryAccount = expenseNotes
+    ? expenseNoteCategoryToCompte[category] ?? ""
+    : accountingSettings?.expenseCategoryAccounts[category] ?? categoryToCompte[category] ?? accountingSettings?.expenseCategoryAccounts.__default ?? "";
   const compte = expenseNotes && ocr.compte === "6111" ? categoryAccount : ocr.compte ?? categoryAccount;
   const tvaRate = ocr.tva_rate ?? (!expenseNotes && ocr.amount != null ? 20 : null);
   const invoiceDate = ocr.date ?? new Date().toISOString().split("T")[0];
   return {
     supplier: vendor,
     amount: signedAmt,
-    discount_amount: String(ocr.discount_amount ?? ""),
+    commercial_discount_type: ocr.discount_type && ocr.discount_type !== "escompte" && ocr.discount_type !== "none" ? ocr.discount_type : "remise_commerciale",
+    commercial_discount_amount: String(ocr.commercial_discount_amount ?? (ocr.discount_type === "escompte" ? "" : ocr.discount_amount ?? "")),
+    settlement_discount_amount: String(ocr.settlement_discount_amount ?? (ocr.discount_type === "escompte" ? ocr.discount_amount ?? "" : "")),
     category,
     description: vendor ? (desc ? `${vendor} — ${desc}` : vendor) : desc,
     date: invoiceDate,
@@ -311,6 +324,7 @@ export default function InboxPage({
   const [invoiceDateFrom, setInvoiceDateFrom] = useState("");
   const [invoiceDateTo, setInvoiceDateTo] = useState("");
   const [forms, setForms] = useState<Record<string, CardForm>>({});
+  const [accountingSettings, setAccountingSettings] = useState(() => normalizeAccountingSettings(null));
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [savingEdits, setSavingEdits] = useState<Set<string>>(new Set());
   const [dirtyReceipts, setDirtyReceipts] = useState<Set<string>>(new Set());
@@ -331,9 +345,17 @@ export default function InboxPage({
       .select("*")
       .in("document_area", visibleDocumentAreas(workspace))
       .order("created_at", { ascending: false });
-    const { data } = await (dossierId
-      ? receiptsQuery.eq("dossier_id", dossierId)
-      : receiptsQuery.eq("user_id", ownerId).is("dossier_id", null));
+    const accountingSettingsQuery = dossierId
+      ? supabase.from("dossiers").select("accounting_settings").eq("id", dossierId).maybeSingle()
+      : supabase.from("companies").select("accounting_settings").eq("user_id", ownerId).maybeSingle();
+    const [{ data }, { data: settingsRow }] = await Promise.all([
+      dossierId
+        ? receiptsQuery.eq("dossier_id", dossierId)
+        : receiptsQuery.eq("user_id", ownerId).is("dossier_id", null),
+      accountingSettingsQuery,
+    ]);
+    const resolvedAccountingSettings = normalizeAccountingSettings(settingsRow?.accounting_settings);
+    setAccountingSettings(resolvedAccountingSettings);
     const list: Receipt[] = data ?? [];
     const withUrls: ReceiptWithUrl[] = await Promise.all(list.map(async (r) => {
       let signedUrl: string | undefined;
@@ -357,7 +379,7 @@ export default function InboxPage({
     setForms((prev) => {
       const next = { ...prev };
       withUrls.filter((r) => r.status === "pending").forEach((r) => {
-        if (!next[r.id]) next[r.id] = initForm(r.ocr_data, isExpenseNotes);
+        if (!next[r.id]) next[r.id] = initForm(r.ocr_data, isExpenseNotes, resolvedAccountingSettings);
       });
       return next;
     });
@@ -515,7 +537,7 @@ export default function InboxPage({
         tva_amount: tva,
         total: ttc,
         motif: form.description || "Avoir fournisseur",
-        compte_comptable: form.compte_comptable || "4411",
+        compte_comptable: form.compte_comptable || accountingSettings?.supplierAccount || "4411",
         statut: "recu",
       });
 
@@ -546,9 +568,10 @@ export default function InboxPage({
       return;
     }
     const tvaRate = form.tva_rate ? parseFloat(form.tva_rate) : 0;
-    const discountAmount = form.discount_amount ? parseFloat(form.discount_amount) : 0;
-    if (!Number.isFinite(discountAmount) || discountAmount < 0) {
-      toast.error("Remise invalide");
+    const commercialDiscountAmount = form.commercial_discount_amount ? parseFloat(form.commercial_discount_amount) : 0;
+    const settlementDiscountAmount = form.settlement_discount_amount ? parseFloat(form.settlement_discount_amount) : 0;
+    if (![commercialDiscountAmount, settlementDiscountAmount].every(value => Number.isFinite(value) && value >= 0)) {
+      toast.error("Réduction ou escompte invalide");
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
@@ -557,7 +580,12 @@ export default function InboxPage({
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
-    const confirmedAmounts = computePurchaseAmounts({ amount: amt, discount_amount: discountAmount, tva_rate: tvaRate });
+    const confirmedAmounts = computePurchaseAmounts({
+      amount: amt,
+      commercial_discount_amount: commercialDiscountAmount,
+      settlement_discount_amount: settlementDiscountAmount,
+      tva_rate: tvaRate,
+    });
     const confirmedOcr = {
       ...receipt.ocr_data,
       vendor_name: form.supplier.trim() || null,
@@ -572,6 +600,9 @@ export default function InboxPage({
       tva_rate: tvaRate,
       tva_amount: confirmedAmounts.tvaAmount,
       discount_amount: confirmedAmounts.discountAmount,
+      discount_type: settlementDiscountAmount > 0 && commercialDiscountAmount === 0 ? "escompte" : commercialDiscountAmount > 0 ? form.commercial_discount_type : "none",
+      commercial_discount_amount: confirmedAmounts.commercialDiscountAmount,
+      settlement_discount_amount: confirmedAmounts.settlementDiscountAmount,
       compte: form.compte_comptable || (receipt.ocr_data as any).compte || null,
     };
     const shouldBookPurchase = isExpenseNotes || shouldBookConfirmedPurchase(confirmedOcr);
@@ -637,15 +668,17 @@ export default function InboxPage({
       return;
     }
     const tvaRate = form.tva_rate ? Number.parseFloat(form.tva_rate) : 0;
-    const discountAmount = form.discount_amount ? Number.parseFloat(form.discount_amount) : 0;
-    if (!Number.isFinite(discountAmount) || discountAmount < 0) {
-      toast.error("Remise invalide");
+    const commercialDiscountAmount = form.commercial_discount_amount ? Number.parseFloat(form.commercial_discount_amount) : 0;
+    const settlementDiscountAmount = form.settlement_discount_amount ? Number.parseFloat(form.settlement_discount_amount) : 0;
+    if (![commercialDiscountAmount, settlementDiscountAmount].every(value => Number.isFinite(value) && value >= 0)) {
+      toast.error("Réduction ou escompte invalide");
       return;
     }
 
     const amounts = computePurchaseAmounts({
       amount,
-      discount_amount: discountAmount,
+      commercial_discount_amount: commercialDiscountAmount,
+      settlement_discount_amount: settlementDiscountAmount,
       tva_rate: tvaRate,
     });
     const editedOcr: OcrData = {
@@ -662,6 +695,9 @@ export default function InboxPage({
       tva_rate: tvaRate,
       tva_amount: amounts.tvaAmount,
       discount_amount: amounts.discountAmount,
+      discount_type: settlementDiscountAmount > 0 && commercialDiscountAmount === 0 ? "escompte" : commercialDiscountAmount > 0 ? form.commercial_discount_type as OcrData["discount_type"] : "none",
+      commercial_discount_amount: amounts.commercialDiscountAmount,
+      settlement_discount_amount: amounts.settlementDiscountAmount,
       compte: form.compte_comptable || receipt.ocr_data.compte || null,
     };
 
@@ -720,8 +756,9 @@ export default function InboxPage({
     setForms((f) => {
       const updated = { ...f[id], [field]: val };
       if (field === "category") {
-        const categoryAccounts = isExpenseNotes ? expenseNoteCategoryToCompte : categoryToCompte;
-        updated.compte_comptable = categoryAccounts[val] ?? f[id]?.compte_comptable ?? "";
+        updated.compte_comptable = isExpenseNotes
+          ? expenseNoteCategoryToCompte[val] ?? f[id]?.compte_comptable ?? ""
+          : accountingSettings.expenseCategoryAccounts[val] ?? accountingSettings.expenseCategoryAccounts.__default ?? f[id]?.compte_comptable ?? "";
       }
       return { ...f, [id]: updated };
     });
@@ -733,6 +770,10 @@ export default function InboxPage({
   const matched = receipts.filter((r) => r.status === "matched");
   const ignored = receipts.filter((r) => r.status === "ignored");
   const suppliers = supplierSummaries(receipts, isExpenseNotes);
+  const categoryOptions = Array.from(new Set([
+    ...ALL_CATS,
+    ...Object.keys(accountingSettings.expenseCategoryAccounts).filter(category => category !== "__default"),
+  ]));
   const normalizedInvoiceSearch = invoiceSearch.trim().toLocaleLowerCase("fr");
   const filteredPending = pending;
   const filteredMatched = matched.filter((receipt) => matchesInvoiceFilters(receipt, normalizedInvoiceSearch, invoiceSourceFilter, invoiceDateFrom, invoiceDateTo));
@@ -1008,7 +1049,7 @@ export default function InboxPage({
                 key={r.id}
                 receipt={r}
                 suppliers={suppliers}
-                form={forms[r.id] ?? initForm(r.ocr_data, isExpenseNotes)}
+                form={forms[r.id] ?? initForm(r.ocr_data, isExpenseNotes, accountingSettings)}
                 saving={saving.has(r.id)}
                 savingEdits={savingEdits.has(r.id)}
                 hasUnsavedChanges={dirtyReceipts.has(r.id)}
@@ -1020,6 +1061,8 @@ export default function InboxPage({
                 onIgnore={() => ignoreReceipt(r.id)}
                 onPreview={() => setPreviewReceipt(previewReceipt?.id === r.id ? null : r)}
                 expenseNotes={isExpenseNotes}
+                categoryOptions={categoryOptions}
+                accountingSettings={accountingSettings}
               />
             ) : (
               <ProcessedCard
@@ -1040,7 +1083,7 @@ export default function InboxPage({
           key={previewReceipt.id}
           receipt={previewReceipt}
           suppliers={suppliers}
-          form={forms[previewReceipt.id] ?? initForm(previewReceipt.ocr_data, isExpenseNotes)}
+          form={forms[previewReceipt.id] ?? initForm(previewReceipt.ocr_data, isExpenseNotes, accountingSettings)}
           saving={saving.has(previewReceipt.id)}
           savingEdits={savingEdits.has(previewReceipt.id)}
           hasUnsavedChanges={dirtyReceipts.has(previewReceipt.id)}
@@ -1056,6 +1099,8 @@ export default function InboxPage({
           position={previewPendingIndex + 1}
           total={reviewReceipts.length}
           expenseNotes={isExpenseNotes}
+          categoryOptions={categoryOptions}
+          accountingSettings={accountingSettings}
         />
       ) : previewReceipt ? (
         <PreviewPanel
@@ -1291,7 +1336,7 @@ function SuppliersView({ suppliers, receipts, onSaved }: { suppliers: SupplierSu
 function LedgerView({ receipts, onPreview, hasActiveFilters, expenseNotes = false }: { receipts: ReceiptWithUrl[]; onPreview: (receipt: ReceiptWithUrl) => void; hasActiveFilters?: boolean; expenseNotes?: boolean }) {
   const rows = receipts.map((r) => {
     const ocr = r.ocr_data;
-    const { ht, tva, remise, ttc } = computeAmounts(ocr);
+    const { ht, tva, remise, commercialDiscount, settlementDiscount, ttc } = computeAmounts(ocr);
     const journal = ocr.type === "income" ? "VTE" : "ACH";
     return {
       id: r.id,
@@ -1303,6 +1348,8 @@ function LedgerView({ receipts, onPreview, hasActiveFilters, expenseNotes = fals
       ht,
       tva,
       remise,
+      commercialDiscount,
+      settlementDiscount,
       ttc,
       tvaRate: ocr.tva_rate ?? 0,
       category: (ocr.category as string | null) ?? "",
@@ -1319,7 +1366,7 @@ function LedgerView({ receipts, onPreview, hasActiveFilters, expenseNotes = fals
   const totalTtc = rows.reduce((s, r) => s + r.ttc, 0);
 
   function exportCSV() {
-    const headers = ["Journal", "Date", "Fournisseur", "Référence", "Description", "HT (MAD)", "TVA %", "TVA (MAD)", "Remise TTC (MAD)", "TTC net (MAD)", "Catégorie", "Compte", "Mode paiement"];
+    const headers = ["Journal", "Date", "Fournisseur", "Référence", "Description", "HT brut (MAD)", "TVA %", "TVA (MAD)", "Réduction commerciale HT (MAD)", "Escompte HT (MAD)", "TTC net (MAD)", "Catégorie", "Compte", "Mode paiement"];
     const csvRows = [
       headers.join(","),
       ...rows.map((r) => [
@@ -1331,7 +1378,8 @@ function LedgerView({ receipts, onPreview, hasActiveFilters, expenseNotes = fals
         r.ht.toFixed(2),
         r.tvaRate,
         r.tva.toFixed(2),
-        r.remise.toFixed(2),
+        r.commercialDiscount.toFixed(2),
+        r.settlementDiscount.toFixed(2),
         r.ttc.toFixed(2),
         `"${r.category.replace(/"/g, '""')}"`,
         r.compte,
@@ -1389,7 +1437,7 @@ function LedgerView({ receipts, onPreview, hasActiveFilters, expenseNotes = fals
         {([
           { label: "Total HT", value: fmt(totalHt), sub: "MAD", color: "#1A1A2E" },
           { label: "Total TVA", value: fmt(totalTva), sub: "MAD", color: "#D97706" },
-          { label: "Total remises", value: fmt(totalDiscount), sub: "MAD", color: "#7C3AED" },
+          { label: "Total réductions HT", value: fmt(totalDiscount), sub: "MAD", color: "#7C3AED" },
           { label: "Total TTC net", value: fmt(totalTtc), sub: "MAD", color: "#C8924A" },
           { label: "Écritures confirmées", value: String(rows.length), sub: "entrées", color: "#059669" },
         ]).map((m) => (
@@ -1423,7 +1471,7 @@ function LedgerView({ receipts, onPreview, hasActiveFilters, expenseNotes = fals
       {/* Table */}
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
         <div className="overflow-x-auto">
-          <table className="w-full text-[11.5px] border-collapse min-w-[1180px]">
+          <table className="w-full text-[11.5px] border-collapse min-w-[1340px]">
             <thead>
               <tr className="bg-[#F9F9F6] border-b border-[rgba(0,0,0,0.08)]">
                 {[
@@ -1431,10 +1479,11 @@ function LedgerView({ receipts, onPreview, hasActiveFilters, expenseNotes = fals
                   ["Date", "text-left"],
                   ["Fournisseur / Réf.", "text-left"],
                   ["Description", "text-left"],
-                  ["Montant HT", "text-right"],
+                  ["Montant HT brut", "text-right"],
                   ["TVA %", "text-center"],
                   ["TVA MAD", "text-right"],
-                  ["Remise TTC", "text-right"],
+                  ["Réduction commerciale HT", "text-right"],
+                  ["Escompte HT", "text-right"],
                   ["TTC net", "text-right"],
                   ["Catégorie", "text-left"],
                   ["Compte comptable", "text-left"],
@@ -1475,7 +1524,10 @@ function LedgerView({ receipts, onPreview, hasActiveFilters, expenseNotes = fals
                     {row.tva > 0 ? fmt(row.tva) : <span className="text-[#D1D5DB]">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-right text-[#7C3AED]">
-                    {row.remise > 0 ? fmt(row.remise) : <span className="text-[#D1D5DB]">—</span>}
+                    {row.commercialDiscount > 0 ? fmt(row.commercialDiscount) : <span className="text-[#D1D5DB]">—</span>}
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-[#2563EB]">
+                    {row.settlementDiscount > 0 ? fmt(row.settlementDiscount) : <span className="text-[#D1D5DB]">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-right font-bold text-[#1A1A2E]">{fmt(row.ttc)}</td>
                   <td className="px-3 py-2.5">
@@ -1577,6 +1629,8 @@ function PurchaseReviewWorkspace({
   position,
   total,
   expenseNotes,
+  categoryOptions,
+  accountingSettings,
 }: {
   receipt: ReceiptWithUrl;
   suppliers: SupplierSummary[];
@@ -1596,6 +1650,8 @@ function PurchaseReviewWorkspace({
   position: number;
   total: number;
   expenseNotes: boolean;
+  categoryOptions: string[];
+  accountingSettings: AccountingSettings;
 }) {
   const [mobilePane, setMobilePane] = useState<"document" | "data">("document");
   const ocr = receipt.ocr_data;
@@ -1721,6 +1777,8 @@ function PurchaseReviewWorkspace({
             onIgnore={onIgnore}
             onPreview={onClose}
             expenseNotes={expenseNotes}
+            categoryOptions={categoryOptions}
+            accountingSettings={accountingSettings}
           />
         </section>
       </div>
@@ -1838,7 +1896,7 @@ function CompteSelect({ value, onChange }: { value: string; onChange: (val: stri
         ref={inputRef}
         className="input text-[12px]"
         placeholder="Sélectionner un compte..."
-        value={open ? query : selected ? `${selected.code} — ${selected.label}` : ""}
+        value={open ? query : selected ? `${selected.code} — ${selected.label}` : value}
         onFocus={handleFocus}
         onChange={(e) => setQuery(e.target.value)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -1849,7 +1907,12 @@ function CompteSelect({ value, onChange }: { value: string; onChange: (val: stri
           className="bg-white border border-[rgba(0,0,0,0.12)] rounded-lg shadow-xl max-h-48 overflow-y-auto"
         >
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-[11.5px] text-[#9CA3AF]">Aucun résultat</div>
+            isValidAccountingAccountCode(query, [2, 6]) ? (
+              <button type="button" className="w-full px-3 py-2 text-left text-[11.5px] text-[#C8924A] hover:bg-[#FAFAF6]"
+                onMouseDown={(event) => { event.preventDefault(); onChange(query); setOpen(false); setQuery(""); }}>
+                Utiliser le compte personnalisé <span className="font-mono font-semibold">{query}</span>
+              </button>
+            ) : <div className="px-3 py-2 text-[11.5px] text-[#9CA3AF]">Saisissez un compte de classe 2 ou 6 (4 à 12 chiffres)</div>
           ) : filtered.map((a) => (
             <button
               key={a.code}
@@ -1886,6 +1949,8 @@ interface CardProps {
   onPreview: () => void;
   embedded?: boolean;
   expenseNotes?: boolean;
+  categoryOptions?: string[];
+  accountingSettings?: AccountingSettings;
 }
 
 function SupplierSelect({
@@ -1945,7 +2010,7 @@ function SupplierSelect({
   );
 }
 
-function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsavedChanges, dismissing, previewing, onFormChange, onConfirm, onSave, onIgnore, onPreview, embedded = false, expenseNotes = false }: CardProps) {
+function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsavedChanges, dismissing, previewing, onFormChange, onConfirm, onSave, onIgnore, onPreview, embedded = false, expenseNotes = false, categoryOptions = ALL_CATS, accountingSettings }: CardProps) {
   const [referenceTime] = useState(() => Date.now());
   const ocr = r.ocr_data;
   const amt = parseFloat(form.amount);
@@ -1955,12 +2020,19 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
   const tvaRate = Number(form.tva_rate || 0);
   const entryPreview = computePurchaseAmounts({
     amount: Number.isFinite(amt) ? amt : 0,
-    discount_amount: Number(form.discount_amount || 0),
+    commercial_discount_amount: Number(form.commercial_discount_amount || 0),
+    settlement_discount_amount: Number(form.settlement_discount_amount || 0),
     tva_rate: tvaRate,
   });
   const categoryAccounts = expenseNotes ? expenseNoteCategoryToCompte : categoryToCompte;
   const expenseAccount = form.compte_comptable || categoryAccounts[form.category] || (expenseNotes ? "" : "6111");
   const expenseLabel = cgncAccounts.find((account) => account.code === expenseAccount)?.label ?? (expenseNotes ? "Compte à sélectionner" : "Compte de charge");
+  const commercialDiscountAccount = purchaseCommercialDiscountAccount(
+    expenseAccount,
+    accountingSettings?.purchaseDiscountAccount,
+    accountingSettings?.purchaseConsumedDiscountAccount,
+    accountingSettings?.purchaseExternalDiscountAccount,
+  );
 
   return (
     <div
@@ -2083,7 +2155,7 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
         <div className="lg:col-span-2">
           <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Catégorie</label>
           <select className="input" value={form.category} onChange={(e) => onFormChange("category", e.target.value)}>
-            {ALL_CATS.map((c) => <option key={c}>{c}</option>)}
+            {categoryOptions.map((c) => <option key={c}>{c}</option>)}
           </select>
         </div>
 
@@ -2095,16 +2167,30 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
         </div>
 
         <div className="lg:col-span-2">
-          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Remise TTC (MAD)</label>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Réduction commerciale</label>
+          <select className="input" value={form.commercial_discount_type} onChange={(e) => onFormChange("commercial_discount_type", e.target.value)}>
+            <option value="remise_commerciale">Remise commerciale</option>
+            <option value="rabais">Rabais</option>
+            <option value="reduction">Réduction</option>
+            <option value="ristourne">Ristourne</option>
+          </select>
+        </div>
+        <div className="lg:col-span-2">
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant commercial HT</label>
           <input
             type="number"
             min="0"
             step="0.01"
             className="input"
-            value={form.discount_amount}
-            onChange={(e) => onFormChange("discount_amount", e.target.value)}
+            value={form.commercial_discount_amount}
+            onChange={(e) => onFormChange("commercial_discount_amount", e.target.value)}
             placeholder="0,00"
           />
+        </div>
+
+        <div className="lg:col-span-2">
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Escompte HT</label>
+          <input type="number" min="0" step="0.01" className="input" value={form.settlement_discount_amount} onChange={(e) => onFormChange("settlement_discount_amount", e.target.value)} placeholder="0,00" />
         </div>
 
         <div className="col-span-2 lg:col-span-6">
@@ -2141,12 +2227,20 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
                     <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
                   </tr>
                 )}
-                {entryPreview.discountAmount > 0 && (
+                {entryPreview.commercialDiscountAmount > 0 && (
                   <tr>
-                    <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">6119</td>
-                    <td className="px-3 py-2 text-[#4B5563]">RRR obtenus sur achats</td>
+                    <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">{commercialDiscountAccount}</td>
+                    <td className="px-3 py-2 text-[#4B5563]">Réduction commerciale obtenue</td>
                     <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
-                    <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.discountAmount)} MAD</td>
+                    <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.commercialDiscountAmount)} MAD</td>
+                  </tr>
+                )}
+                {entryPreview.settlementDiscountAmount > 0 && (
+                  <tr>
+                    <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">7386</td>
+                    <td className="px-3 py-2 text-[#4B5563]">Escompte obtenu</td>
+                    <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
+                    <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.settlementDiscountAmount)} MAD</td>
                   </tr>
                 )}
                 <tr>

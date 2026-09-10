@@ -28,10 +28,11 @@ export default async function DashboardPage({ params }: { params: Promise<{ id: 
     transactionQuery = transactionQuery.gte("date", selectedPeriod.start).lte("date", selectedPeriod.end);
   }
 
-  const [dossierRes, invRes, txRes] = await Promise.all([
+  const [dossierRes, invRes, txRes, profileRes] = await Promise.all([
     supabase.from("dossiers").select("*").eq("id", id).eq("fiduciaire_user_id", ownerId).single(),
     invoiceQuery.order("issue_date", { ascending: false }),
     transactionQuery.order("date", { ascending: false }),
+    supabase.from("users").select("full_name").eq("id", user.id).single(),
   ]);
 
   if (!dossierRes.data) notFound();
@@ -45,6 +46,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ id: 
       transactions={(txRes.data ?? []) as any[]}
       chartData={chartData}
       periodLabel={selectedPeriodLabel}
+      firstName={profileRes.data?.full_name?.split(" ")[0] ?? "vous"}
       isClientPortal={isClientPortal}
     />
   );

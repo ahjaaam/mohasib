@@ -36,16 +36,32 @@ export const INVOICE_STATUS_COLORS: Record<string, string> = {
 };
 
 export const TRANSACTION_CATEGORIES = {
-  income: ["Ventes", "Services", "Remboursement", "Autre revenu"],
+  income: ["Ventes", "Marchandises", "Services", "Honoraires", "Travaux", "Loyer reçu", "Remboursement", "Autre revenu"],
   expense: [
     "Achats",
-    "Salaires",
-    "Loyer",
+    "Matières premières",
     "Fournitures",
+    "Eau/Électricité",
+    "Loyer",
+    "Entretien",
+    "Maintenance",
+    "Consulting",
     "Transport",
     "Déplacements et missions",
+    "Marketing",
+    "Publicité",
+    "Assurance",
     "Communication",
+    "Télécom",
     "Fiscalité",
+    "Salaires",
+    "CNSS patronal",
+    "Formation",
+    "Charges bancaires",
+    "Banque",
+    "Équipement",
+    "Informatique",
+    "Charges diverses",
     "Autre dépense",
   ],
 };
@@ -58,12 +74,25 @@ export function normalizeExpenseCategory(value: unknown): typeof TRANSACTION_CAT
   if (exact) return exact;
 
   const normalized = source.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
-  if (/salaire|paie|remuneration|personnel/.test(normalized)) return "Salaires";
+  if (/cnss|amo|charge sociale/.test(normalized)) return "CNSS patronal";
+  if (/formation/.test(normalized)) return "Formation";
+  if (/salaire|paie|remuneration/.test(normalized)) return "Salaires";
   if (/loyer|bail|location.*(bureau|local|immeuble)/.test(normalized)) return "Loyer";
-  if (/fourniture|papeterie|bureau|imprimante|informatique/.test(normalized)) return "Fournitures";
+  if (/matiere premiere/.test(normalized)) return "Matières premières";
+  if (/eau|electricite/.test(normalized)) return "Eau/Électricité";
+  if (/fourniture|papeterie|bureau/.test(normalized)) return "Fournitures";
+  if (/informatique|ordinateur|logiciel/.test(normalized)) return "Informatique";
+  if (/equipement|materiel/.test(normalized)) return "Équipement";
   if (/deplacement|mission|reception|repas|restaurant|hotel|hebergement|carburant|essence|gasoil|taxi|train|avion|parking|peage|location.*(voiture|vehicule)/.test(normalized)) return "Déplacements et missions";
   if (/transport|fret|livraison|messagerie/.test(normalized)) return "Transport";
   if (/communication|telephone|internet|telecom|mobile/.test(normalized)) return "Communication";
+  if (/assurance/.test(normalized)) return "Assurance";
+  if (/publicite/.test(normalized)) return "Publicité";
+  if (/marketing/.test(normalized)) return "Marketing";
+  if (/consulting|conseil|etude|recherche/.test(normalized)) return "Consulting";
+  if (/entretien|reparation/.test(normalized)) return "Entretien";
+  if (/maintenance/.test(normalized)) return "Maintenance";
+  if (/frais bancaire|charge bancaire|interet/.test(normalized)) return "Charges bancaires";
   if (/fiscal|impot|taxe|timbre/.test(normalized)) return "Fiscalité";
   if (/achat|marchandise|stock|matiere premiere|approvisionnement/.test(normalized)) return "Achats";
   return "Autre dépense";

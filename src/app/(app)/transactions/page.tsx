@@ -18,13 +18,13 @@ import RevenueExpenseChart from "@/app/(app)/dashboard/RevenueExpenseChart";
 import { buildFinanceChartData } from "@/lib/finance-chart";
 import { periodForPreset } from "@/lib/global-period";
 import { BANK_STATEMENT_PDF_MAX_PAGES } from "@/lib/bank-import-limits";
+import { isValidAccountingAccountCode, normalizeAccountingSettings } from "@/lib/accounting-settings";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
 
 const today = new Date().toISOString().split("T")[0];
 
-const ALL_CATS = ["Toutes", ...TRANSACTION_CATEGORIES.income, ...TRANSACTION_CATEGORIES.expense];
 type TransactionSortKey = "date" | "description" | "category" | "source" | "debit" | "credit";
 
 function sourceLabel(source: Transaction["source"] | null | undefined) {
@@ -51,6 +51,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [confirmingTransaction, setConfirmingTransaction] = useState<Transaction | null>(null);
   const [bookingTransaction, setBookingTransaction] = useState(false);
   const [accountingAccount, setAccountingAccount] = useState("");
+  const [accountingSettings, setAccountingSettings] = useState(() => normalizeAccountingSettings(null));
 
   // Filters
   const [filterDescState, setFilterDescState] = useState({ source: requestedSearch, value: requestedSearch });
@@ -84,10 +85,17 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     if (!user) return;
     setUserId(ownerId);
     const query = supabase.from("transactions").select("*, clients(id, name)");
-    const { data } = await (dossierId
-      ? query.eq("dossier_id", dossierId)
-      : query.eq("user_id", ownerId).is("dossier_id", null))
-      .order("date", { ascending: false });
+    const settingsQuery = dossierId
+      ? supabase.from("dossiers").select("accounting_settings").eq("id", dossierId).maybeSingle()
+      : supabase.from("companies").select("accounting_settings").eq("user_id", ownerId).maybeSingle();
+    const [{ data }, { data: settingsRow }] = await Promise.all([
+      (dossierId
+        ? query.eq("dossier_id", dossierId)
+        : query.eq("user_id", ownerId).is("dossier_id", null))
+        .order("date", { ascending: false }),
+      settingsQuery,
+    ]);
+    setAccountingSettings(normalizeAccountingSettings(settingsRow?.accounting_settings));
     const rows = (data ?? []) as Transaction[];
     setTransactions(rows);
     if (rows.length) {
@@ -186,7 +194,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   }
 
   async function confirmTransactionBooking() {
-    if (!confirmingTransaction || !accountingAccount || bookingTransaction) return;
+    if (!confirmingTransaction || !isValidAccountingAccountCode(accountingAccount, [2, 3, 4, 6, 7]) || bookingTransaction) return;
     setBookingTransaction(true);
     setError(null);
     const response = await fetch("/api/accounting/book", {
@@ -211,9 +219,11 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   }
 
   function openTransactionConfirmation(transaction: Transaction) {
-    const suggestedAccount = transaction.type === "income"
-      ? getRevenueAccount(transaction.category ?? "")
-      : getExpenseAccount(transaction.category ?? "");
+    const suggestedAccount = transaction.invoice_id
+      ? accountingSettings.clientAccount
+      : transaction.type === "income"
+        ? getRevenueAccount(transaction.category ?? "", accountingSettings.revenueCategoryAccounts)
+        : getExpenseAccount(transaction.category ?? "", accountingSettings.expenseCategoryAccounts);
     setError(null);
     setAccountingAccount(suggestedAccount);
     setConfirmingTransaction(transaction);
@@ -231,7 +241,12 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   });
   const chartData = buildFinanceChartData(monthlyTx, currentMonthPeriod);
 
-  const allFormCats = [...TRANSACTION_CATEGORIES.income, ...TRANSACTION_CATEGORIES.expense];
+  const configuredCategories = [
+    ...Object.keys(accountingSettings.revenueCategoryAccounts),
+    ...Object.keys(accountingSettings.expenseCategoryAccounts),
+  ].filter(category => category !== "__default");
+  const allFormCats = Array.from(new Set([...TRANSACTION_CATEGORIES.income, ...TRANSACTION_CATEGORIES.expense, ...configuredCategories]));
+  const allFilterCats = ["Toutes", ...allFormCats];
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {
@@ -303,6 +318,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
         const selectableAccounts = cgncAccounts.filter(account => isIncome
           ? account.code.startsWith("7") || account.code.startsWith("3") || account.code.startsWith("4")
           : account.code.startsWith("6") || account.code.startsWith("2") || account.code.startsWith("4"));
+        const validCounterpartAccount = isValidAccountingAccountCode(accountingAccount, isIncome ? [3, 4, 7] : [2, 4, 6]);
         return (
           <div
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
@@ -326,9 +342,12 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
               <div className="px-5 pt-5">
                 <label className="block">
                   <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Compte comptable</span>
-                  <select className="input w-full" value={accountingAccount} onChange={(event) => setAccountingAccount(event.target.value)}>
-                    {selectableAccounts.map(account => <option key={account.code} value={account.code}>{account.code} — {account.label}</option>)}
-                  </select>
+                  <input className={`input w-full font-mono ${validCounterpartAccount ? "" : "border-red-300"}`} list="transaction-account-options" inputMode="numeric" maxLength={12}
+                    value={accountingAccount} onChange={(event) => setAccountingAccount(event.target.value.replace(/\D/g, ""))} />
+                  <datalist id="transaction-account-options">{selectableAccounts.map(account => <option key={account.code} value={account.code}>{account.label}</option>)}</datalist>
+                  <span className={`mt-1 block text-[9.5px] ${validCounterpartAccount ? "text-[#9CA3AF]" : "text-[#DC2626]"}`}>
+                    {validCounterpartAccount ? getAccountLabel(accountingAccount) : "Saisissez un compte compatible de 4 à 12 chiffres."}
+                  </span>
                 </label>
               </div>
               <div className="p-5">
@@ -337,8 +356,8 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
                   <table className="w-full text-[11px]">
                     <thead className="bg-[#FAFAF8] text-[9.5px] uppercase text-[#9CA3AF]"><tr><th className="px-3 py-2 text-left">Compte</th><th className="px-3 py-2 text-left">Libellé</th><th className="px-3 py-2 text-right">Débit</th><th className="px-3 py-2 text-right">Crédit</th></tr></thead>
                     <tbody className="divide-y divide-gray-100">
-                      <tr><td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">{isIncome ? "5141" : counterpartAccount}</td><td className="px-3 py-2">{getAccountLabel(isIncome ? "5141" : counterpartAccount)}</td><td className="px-3 py-2 text-right font-semibold">{fmt(amount)}</td><td className="px-3 py-2 text-right text-[#9CA3AF]">—</td></tr>
-                      <tr><td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">{isIncome ? counterpartAccount : "5141"}</td><td className="px-3 py-2">{getAccountLabel(isIncome ? counterpartAccount : "5141")}</td><td className="px-3 py-2 text-right text-[#9CA3AF]">—</td><td className="px-3 py-2 text-right font-semibold">{fmt(amount)}</td></tr>
+                      <tr><td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">{isIncome ? accountingSettings.bankAccount : counterpartAccount}</td><td className="px-3 py-2">{getAccountLabel(isIncome ? accountingSettings.bankAccount : counterpartAccount)}</td><td className="px-3 py-2 text-right font-semibold">{fmt(amount)}</td><td className="px-3 py-2 text-right text-[#9CA3AF]">—</td></tr>
+                      <tr><td className="px-3 py-2 font-mono font-semibold text-[#C8924A]">{isIncome ? counterpartAccount : accountingSettings.bankAccount}</td><td className="px-3 py-2">{getAccountLabel(isIncome ? counterpartAccount : accountingSettings.bankAccount)}</td><td className="px-3 py-2 text-right text-[#9CA3AF]">—</td><td className="px-3 py-2 text-right font-semibold">{fmt(amount)}</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -346,7 +365,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
               {error && <p className="mx-5 mb-4 rounded-lg bg-[#FEE2E2] px-3 py-2 text-[12px] text-[#DC2626]">{error}</p>}
               <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
                 <button disabled={bookingTransaction} onClick={() => setConfirmingTransaction(null)} className="btn btn-outline">Annuler</button>
-                <button disabled={bookingTransaction || !accountingAccount} onClick={confirmTransactionBooking} className="btn btn-gold">
+                <button disabled={bookingTransaction || !validCounterpartAccount} onClick={confirmTransactionBooking} className="btn btn-gold">
                   {bookingTransaction ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                   {bookingTransaction ? "Comptabilisation…" : "Confirmer et créer l’écriture"}
                 </button>
@@ -530,7 +549,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
           <div className="flex flex-col gap-1">
             <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.5px]">Catégorie</label>
             <select className="input" value={filterCat} onChange={(e) => setFilterCat(e.target.value)}>
-              {ALL_CATS.map((c) => <option key={c}>{c}</option>)}
+              {allFilterCats.map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
 
