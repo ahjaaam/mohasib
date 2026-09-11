@@ -75,6 +75,7 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(30);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [, startTransition] = useTransition();
   const unreadCount = messages.filter((message) => !message.is_read && !message.is_dismissed).length;
   const priorityCount = messages.filter((message) => message.priority === "high" && !message.is_dismissed).length;
@@ -92,7 +93,13 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
     if (!open) return;
     let active = true;
     void fetchInboxNotifications()
-      .then((items) => { if (active) setMessages(items); })
+      .then((items) => {
+        if (active) {
+          setMessages(items);
+          setLoadFailed(false);
+        }
+      })
+      .catch(() => { if (active) setLoadFailed(true); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [open]);
@@ -130,8 +137,10 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
 
   function refreshMessages() {
     setLoading(true);
+    setLoadFailed(false);
     void fetchInboxNotifications()
       .then(setMessages)
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
   }
 
@@ -240,6 +249,12 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="flex h-full items-center justify-center gap-2 text-[11px] text-[#8A909B]"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
+            ) : loadFailed ? (
+              <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+                <AlertTriangle size={26} className="text-amber-500" />
+                <p className="mt-3 text-[12px] font-semibold text-[#6B7280]">Impossible de charger les messages</p>
+                <button type="button" onClick={refreshMessages} className="mt-3 text-[10.5px] font-semibold text-[#8A5E25] hover:underline">Réessayer</button>
+              </div>
             ) : visibleMessages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center px-6 text-center">
                 <MailOpen size={26} className="text-[#C8CBCF]" />

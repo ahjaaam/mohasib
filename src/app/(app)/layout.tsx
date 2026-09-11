@@ -20,7 +20,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const activeDossierId = cookieStore.get("active_dossier_id")?.value;
   const teamContext = await resolveTeamContext(user.id);
   const isFiduciaire = teamContext?.track === "comptable";
-  const businessScopeAllowed = await canEnterScope({ userId: user.id }, "business");
+  const [businessScopeAllowed, comptableScopeAllowed] = await Promise.all([
+    canEnterScope({ userId: user.id }, "business"),
+    canEnterScope({ userId: user.id }, "comptable_pro"),
+  ]);
+
+  // Dossier-only collaborators should enter their permitted workspace instead
+  // of seeing the restricted state for the owner's business dashboard.
+  if (!businessScopeAllowed && comptableScopeAllowed) redirect("/comptable-pro");
 
 
   const [profileRes, dossierRes, dossiersRes, companyRes, preferencesRes, access, entitlements] = await Promise.all([

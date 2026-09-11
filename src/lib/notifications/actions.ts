@@ -293,7 +293,12 @@ export async function fetchInboxNotifications(): Promise<Notification[]> {
   const ownerId = await resolveAccountOwnerId(user.id);
   const [notifications, attentionItems] = await Promise.all([
     fetchAllNotifications(),
-    getAttentionItems(ownerId, periodForPreset("all")),
+    // Attention data is supplemental. A collaborator may be unable to read
+    // owner-level business data, but that must not hide their own messages.
+    getAttentionItems(ownerId, periodForPreset("all")).catch((error) => {
+      console.error("[notifications] Unable to load attention items:", error);
+      return [];
+    }),
   ]);
   const attentionMessages: Notification[] = attentionItems
     .filter((item) => item.count > 0)
