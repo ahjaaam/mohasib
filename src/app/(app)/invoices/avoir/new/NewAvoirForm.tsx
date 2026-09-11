@@ -8,6 +8,7 @@ import { translateError } from "@/lib/errors";
 import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 import { Check, Trash2, Plus, Loader2, Mail, Download, Send, Save, PartyPopper, Lightbulb } from "lucide-react";
 import type { Client } from "@/types";
+import { INVOICE_VAT_TREATMENT_OPTIONS, type InvoiceVatTreatment } from "@/lib/invoice-vat-treatment";
 
 interface LineItem {
   desc: string;
@@ -83,6 +84,7 @@ export default function NewAvoirForm({
   });
 
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
+  const [vatTreatment, setVatTreatment] = useState<InvoiceVatTreatment | "">("");
 
   useEffect(() => {
     supabase
@@ -157,6 +159,7 @@ export default function NewAvoirForm({
   const totalHT = lineAmounts.reduce((s, l) => s + l.ht, 0);
   const totalTVA = lineAmounts.reduce((s, l) => s + l.tva, 0);
   const totalTTC = totalHT + totalTVA;
+  const hasZeroRatedLine = lines.some((line) => Number(line.tva) === 0);
 
   function isDuplicateInvoiceNumberError(err: any) {
     const text = `${err?.code ?? ""} ${err?.message ?? ""} ${err?.details ?? ""}`;
@@ -166,6 +169,10 @@ export default function NewAvoirForm({
   async function save(status: "draft" | "sent") {
     if (!form.client_id) { setError("Veuillez sélectionner un client."); return; }
     if (totalHT <= 0) { setError("Le montant de l'avoir doit être supérieur à 0."); return; }
+    if (status === "sent" && hasZeroRatedLine && !vatTreatment) {
+      setError("Choisissez le traitement TVA applicable aux lignes à 0 % avant d'émettre l'avoir.");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -207,6 +214,7 @@ export default function NewAvoirForm({
           subtotal: totalHT,
           tax_rate: Math.round(avgTVA * 100) / 100,
           tax_amount: totalTVA,
+          ...(hasZeroRatedLine ? { vat_treatment: vatTreatment || null } : {}),
           total: totalTTC,
           currency: "MAD",
           notes: form.notes || null,
@@ -575,6 +583,19 @@ export default function NewAvoirForm({
           <Plus size={13} /> Ajouter une ligne
         </button>
       </div>
+
+      {hasZeroRatedLine && (
+        <div className="mt-4 rounded-lg border border-[#F59E0B]/25 bg-[#FFFBEB] p-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-semibold text-[#92400E]">Traitement TVA des lignes à 0 % *</span>
+            <select className="input bg-white" value={vatTreatment} onChange={(event) => setVatTreatment(event.target.value as InvoiceVatTreatment | "")}>
+              <option value="">Choisir le traitement…</option>
+              {INVOICE_VAT_TREATMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <p className="mt-1.5 text-[10.5px] text-[#92400E]">Cette classification détermine la rubrique de chiffre d'affaires corrigée dans la déclaration de TVA.</p>
+        </div>
+      )}
 
       {/* Totals */}
       <div className="totals-box">

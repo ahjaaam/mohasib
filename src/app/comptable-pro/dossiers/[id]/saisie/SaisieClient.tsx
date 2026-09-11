@@ -146,6 +146,7 @@ export default function SaisieClient({ dossier }: Props) {
       const { data: txs } = await supabase
         .from("transactions")
         .select("id, date, description, amount, type, category, receipt_id, invoice_id, reference")
+        .eq("workflow_status", "posted")
         .eq("dossier_id", dossier.id)
         .gte("date", startDate)
         .lte("date", endDate)

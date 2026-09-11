@@ -10,6 +10,8 @@ import { Check, Trash2, Plus, Loader2, Send, Mail, Download, Save, LayoutTemplat
 import type { Client } from "@/types";
 import AddClientModal from "@/app/(app)/clients/AddClientModal";
 import { computeInvoiceDiscount, DISCOUNT_LABELS, type DiscountMode, type DiscountType } from "@/lib/invoice-discounts";
+import { finalizeDraftInvoice } from "@/lib/invoice-booking-client";
+import { INVOICE_VAT_TREATMENT_OPTIONS, type InvoiceVatTreatment } from "@/lib/invoice-vat-treatment";
 
 interface LineItem {
   desc: string;
@@ -69,6 +71,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   const [discountMode, setDiscountMode] = useState<DiscountMode>("percent");
   const [discountValue, setDiscountValue] = useState(0);
   const [showDiscount, setShowDiscount] = useState(false);
+  const [vatTreatment, setVatTreatment] = useState<InvoiceVatTreatment | "">("");
 
   function addDiscount() {
     setShowDiscount(true);
@@ -247,6 +250,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
   const discountTotals = computeInvoiceDiscount({ grossSubtotal: totalHT, grossTax: grossTVA, type: discountType, mode: discountMode, value: discountValue });
   const totalTVA = discountTotals.taxAmount;
   const totalTTC = discountTotals.total;
+  const hasZeroRatedLine = lines.some((line) => Number(line.tva) === 0);
 
   function isDuplicateInvoiceNumberError(err: any) {
     const text = `${err?.code ?? ""} ${err?.message ?? ""} ${err?.details ?? ""}`;
@@ -260,6 +264,10 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
     }
     if (discountType !== "none" && (discountValue <= 0 || (discountMode === "percent" && discountValue > 100) || (discountMode === "amount" && discountValue > totalHT))) {
       setError("La réduction doit être supérieure à 0 et ne peut pas dépasser le total HT.");
+      return;
+    }
+    if (status === "sent" && hasZeroRatedLine && !vatTreatment) {
+      setError("Choisissez le traitement TVA applicable aux lignes à 0 % avant de finaliser la facture.");
       return;
     }
 
@@ -295,12 +303,15 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
           ...(dossierId ? { dossier_id: dossierId } : {}),
           client_id: form.client_id || null,
           invoice_number: number,
-          status,
+          // Every invoice starts as an editable, non-accounting draft. Finalizing
+          // atomically changes the status and creates the journal entry.
+          status: "draft",
           issue_date: form.date,
           due_date: form.due || null,
           subtotal: totalHT,
           tax_rate: Math.round(avgTVA * 100) / 100,
           tax_amount: totalTVA,
+          ...(hasZeroRatedLine ? { vat_treatment: vatTreatment || null } : {}),
           total: totalTTC,
           discount_type: discountType === "none" ? null : discountType,
           discount_mode: discountType === "none" ? null : discountMode,
@@ -326,18 +337,21 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
       err = retry.error;
     }
 
-    setSaving(false);
-    if (err) { setError(translateError(err)); }
+    if (err) { setSaving(false); setError(translateError(err)); }
     else {
       if (dossierId) {
         await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
       }
-      // Fire-and-forget: book the invoice as journal entries
-      fetch("/api/accounting/book", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "invoice", invoiceId: row.id, dossierId }),
-      }).catch(() => {});
+      if (status === "sent") {
+        try {
+          await finalizeDraftInvoice(row.id, dossierId);
+        } catch (bookingError) {
+          setSaving(false);
+          setError(`${translateError(bookingError)} La facture a été conservée en brouillon.`);
+          return;
+        }
+      }
+      setSaving(false);
       if (status === "draft") { router.push(backHref ?? "/factures"); router.refresh(); }
       else { setCreated({ id: row.id, number: row.invoice_number }); }
     }
@@ -598,6 +612,19 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
           <Plus size={13} /> Ajouter une ligne
         </button>
       </div>
+
+      {hasZeroRatedLine && (
+        <div className="mt-3 rounded-xl border border-[#F59E0B]/25 bg-[#FFFBEB] p-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-semibold text-[#92400E]">Traitement TVA des lignes à 0 % *</span>
+            <select className="input bg-white" value={vatTreatment} onChange={(event) => setVatTreatment(event.target.value as InvoiceVatTreatment | "")}>
+              <option value="">Sélectionner le motif fiscal…</option>
+              {INVOICE_VAT_TREATMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <span className="text-[10.5px] text-[#92400E]">Ce choix détermine la rubrique de chiffre d&apos;affaires dans la déclaration TVA.</span>
+          </label>
+        </div>
+      )}
 
       <div className="mt-3">
         {!showDiscount ? (

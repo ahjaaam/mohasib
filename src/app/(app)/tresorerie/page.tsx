@@ -53,8 +53,8 @@ export async function TreasuryWorkspace({ dossierId }: { dossierId?: string }) {
     transactionQuery.order("date", { ascending: true }),
     invoiceQuery,
     supplierQuery,
-    companyId
-      ? supabase.from("bulletins_paie").select("id,mois,annee,salaire_net_payer,statut").eq("company_id", companyId).neq("statut", "payé")
+    (companyId || dossierId)
+      ? supabase.from("bulletins_paie").select("id,mois,annee,salaire_net_payer,ir_net,cnss_salarie,cnss_patronal,amo_salarie,amo_patronal,taxe_formation_pro,mutuelle_salarie,mutuelle_patronal,cimr_salarie,cimr_patronal,statut,social_paid_at,ir_paid_at").eq(dossierId ? "dossier_id" : "company_id", dossierId ?? companyId!).in("statut", ["validé", "payé"])
       : Promise.resolve({ data: [] }),
     accountQuery,
     budgetQuery,

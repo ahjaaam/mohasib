@@ -7,6 +7,8 @@ import { translateError } from "@/lib/errors";
 import { Save, Trash2, Plus, Upload } from "lucide-react";
 import type { Client } from "@/types";
 import { computeInvoiceDiscount, DISCOUNT_LABELS, type DiscountMode, type DiscountType } from "@/lib/invoice-discounts";
+import { finalizeDraftInvoice } from "@/lib/invoice-booking-client";
+import { INVOICE_VAT_TREATMENT_OPTIONS, type InvoiceVatTreatment } from "@/lib/invoice-vat-treatment";
 
 interface LineItem {
   desc: string;
@@ -56,6 +58,7 @@ export default function EditInvoiceForm({
   const [discountMode, setDiscountMode] = useState<DiscountMode>(invoice.discount_mode ?? "percent");
   const [discountValue, setDiscountValue] = useState(Number(invoice.discount_value ?? 0));
   const [showDiscount, setShowDiscount] = useState(Boolean(invoice.discount_type && invoice.discount_type !== "none"));
+  const [vatTreatment, setVatTreatment] = useState<InvoiceVatTreatment | "">(invoice.vat_treatment ?? "");
 
   function addDiscount() {
     setShowDiscount(true);
@@ -83,10 +86,15 @@ export default function EditInvoiceForm({
   const discountTotals = computeInvoiceDiscount({ grossSubtotal: totalHT, grossTax: grossTVA, type: discountType, mode: discountMode, value: discountValue });
   const totalTVA = discountTotals.taxAmount;
   const totalTTC = discountTotals.total;
+  const hasZeroRatedLine = lines.some((line) => Number(line.tva) === 0);
 
   async function save(status: "draft" | "sent") {
     if (discountType !== "none" && (discountValue <= 0 || (discountMode === "percent" && discountValue > 100) || (discountMode === "amount" && discountValue > totalHT))) {
       setError("La réduction doit être supérieure à 0 et ne peut pas dépasser le total HT.");
+      return;
+    }
+    if (status === "sent" && hasZeroRatedLine && !vatTreatment) {
+      setError("Choisissez le traitement TVA applicable aux lignes à 0 % avant de finaliser la facture.");
       return;
     }
     setSaving(true);
@@ -105,12 +113,13 @@ export default function EditInvoiceForm({
     const { error: err } = await supabase.from("invoices").update({
       client_id: form.client_id || null,
       invoice_number: form.num,
-      status,
+      status: "draft",
       issue_date: form.date,
       due_date: form.due || null,
       subtotal: totalHT,
       tax_rate: Math.round(avgTVA * 100) / 100,
       tax_amount: totalTVA,
+      ...((hasZeroRatedLine || invoice.vat_treatment) ? { vat_treatment: hasZeroRatedLine ? vatTreatment || null : null } : {}),
       total: totalTTC,
       discount_type: discountType === "none" ? null : discountType,
       discount_mode: discountType === "none" ? null : discountMode,
@@ -119,9 +128,20 @@ export default function EditInvoiceForm({
       items,
     }).eq("id", invoice.id);
 
-    setSaving(false);
-    if (err) { setError(translateError(err)); }
-    else { router.push(backHref ? `${backHref}/${invoice.id}` : `/factures/${invoice.id}`); router.refresh(); }
+    if (err) {
+      setSaving(false);
+      setError(translateError(err));
+      return;
+    }
+    try {
+      if (status === "sent") await finalizeDraftInvoice(invoice.id, invoice.dossier_id ?? null);
+      router.push(backHref ? `${backHref}/${invoice.id}` : `/factures/${invoice.id}`);
+      router.refresh();
+    } catch (finalizeError) {
+      setError(translateError(finalizeError));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -184,6 +204,18 @@ export default function EditInvoiceForm({
           <Plus size={13} /> Ajouter une ligne
         </button>
       </div>
+
+      {hasZeroRatedLine && (
+        <div className="mt-3 rounded-xl border border-[#F59E0B]/25 bg-[#FFFBEB] p-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-semibold text-[#92400E]">Traitement TVA des lignes à 0 % *</span>
+            <select className="input bg-white" value={vatTreatment} onChange={(event) => setVatTreatment(event.target.value as InvoiceVatTreatment | "")}>
+              <option value="">Sélectionner le motif fiscal…</option>
+              {INVOICE_VAT_TREATMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+        </div>
+      )}
 
       <div className="mt-3">
         {!showDiscount ? (

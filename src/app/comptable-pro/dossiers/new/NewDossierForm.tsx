@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { Check, FolderPlus, ChevronRight, ChevronLeft } from "lucide-react";
 import { translateError } from "@/lib/errors";
+import { isMissingDatabaseColumn } from "@/lib/schema-compatibility";
 
 const FORMES = ["SARL", "SA", "SNC", "Auto-ent.", "GIE", "Association"];
 const REGIMES = [
@@ -23,6 +24,9 @@ interface FormData {
   cnss: string;
   regime_tva: string;
   taux_tva_defaut: string;
+  tva_tax_point: string;
+  payroll_amo_regime: string;
+  payroll_tfp_exempt: string;
   date_debut_exercice: string;
   capital_social: string;
   contact_nom: string;
@@ -36,7 +40,8 @@ interface FormData {
 
 const INITIAL: FormData = {
   raison_sociale: "", forme_juridique: "SARL", ice: "", if_fiscal: "", rc: "", cnss: "",
-  regime_tva: "mensuel", taux_tva_defaut: "20",
+  regime_tva: "mensuel", taux_tva_defaut: "20", tva_tax_point: "cash",
+  payroll_amo_regime: "standard", payroll_tfp_exempt: "false",
   date_debut_exercice: `${new Date().getFullYear()}-01-01`,
   capital_social: "0",
   contact_nom: "", contact_email: "", contact_phone: "",
@@ -94,7 +99,7 @@ export default function NewDossierForm() {
     // Use an unguessable mailbox token; this address accepts external email and
     // therefore must not be derived from a dossier ID or Math.random().
     const inboxToken = crypto.randomUUID().replaceAll("-", "").slice(0, 24);
-    const { data, error } = await supabase.from("dossiers").insert({
+    const payload = {
       fiduciaire_user_id: user!.id,
       raison_sociale: form.raison_sociale.trim(),
       inbox_email: `factures-${inboxToken}@mohasibai.com`,
@@ -105,6 +110,9 @@ export default function NewDossierForm() {
       cnss: form.cnss || null,
       regime_tva: form.regime_tva,
       taux_tva_defaut: parseFloat(form.taux_tva_defaut) || 20,
+      tva_tax_point: form.tva_tax_point,
+      payroll_amo_regime: form.payroll_amo_regime,
+      payroll_tfp_exempt: form.payroll_tfp_exempt === "true",
       date_debut_exercice: form.date_debut_exercice || null,
       capital_social: parseFloat(form.capital_social) || 0,
       contact_nom: form.contact_nom || null,
@@ -115,7 +123,16 @@ export default function NewDossierForm() {
       creances_clients_initiales: parseFloat(form.creances_clients_initiales) || 0,
       dettes_fournisseurs_initiales: parseFloat(form.dettes_fournisseurs_initiales) || 0,
       statut: "actif",
-    }).select().single();
+    };
+    let result = await supabase.from("dossiers").insert(payload).select().single();
+    const missingMigration104 = ["tva_tax_point", "payroll_amo_regime", "payroll_tfp_exempt"]
+      .some((column) => isMissingDatabaseColumn(result.error, "dossiers", column));
+    if (missingMigration104 && form.tva_tax_point === "cash" && form.payroll_amo_regime === "standard" && form.payroll_tfp_exempt === "false") {
+      const legacyPayload = Object.fromEntries(Object.entries(payload).filter(([key]) =>
+        !["tva_tax_point", "payroll_amo_regime", "payroll_tfp_exempt"].includes(key)));
+      result = await supabase.from("dossiers").insert(legacyPayload).select().single();
+    }
+    const { data, error } = result;
     setSaving(false);
     if (error) { toast.error(translateError(error)); return; }
     toast.success("Dossier créé !");
@@ -210,6 +227,27 @@ export default function NewDossierForm() {
                 <option value="10">10%</option>
                 <option value="7">7%</option>
                 <option value="0">0%</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[12px] font-medium text-[#374151] mb-1">Fait générateur TVA</label>
+              <select className="input" value={form.tva_tax_point} onChange={e => set("tva_tax_point", e.target.value)}>
+                <option value="cash">Encaissement (défaut légal)</option>
+                <option value="debit">Débit (option exercée)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[12px] font-medium text-[#374151] mb-1">Régime AMO employeur</label>
+              <select className="input" value={form.payroll_amo_regime} onChange={e => set("payroll_amo_regime", e.target.value)}>
+                <option value="standard">Standard</option>
+                <option value="solidarity_only">Solidarité 1,85 %</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[12px] font-medium text-[#374151] mb-1">Taxe de formation professionnelle</label>
+              <select className="input" value={form.payroll_tfp_exempt} onChange={e => set("payroll_tfp_exempt", e.target.value)}>
+                <option value="false">Assujetti</option>
+                <option value="true">Exonéré (justificatif requis)</option>
               </select>
             </div>
             <Field label="Date début d'exercice" value={form.date_debut_exercice} onChange={v => set("date_debut_exercice", v)} type="date" />

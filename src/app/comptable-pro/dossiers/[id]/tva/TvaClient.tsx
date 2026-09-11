@@ -12,11 +12,17 @@ import {
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
+import { calculateTVAForPeriod } from "@/app/(app)/tva/actions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CalcResult {
   ca_total: number;
+  ca_hors_champ: number;
+  ca_exonere_sans_droit: number;
+  ca_exonere_avec_droit: number;
+  ca_suspension: number;
+  ca_zero_non_classe: number;
   ca_7: number; ca_10: number; ca_14: number; ca_20: number;
   tva_7: number; tva_10: number; tva_14: number; tva_20: number;
   tva_collectee_total: number;
@@ -51,6 +57,7 @@ interface HistoryRow {
 interface Dossier {
   id: string; raison_sociale: string; ice: string | null;
   if_fiscal: string | null; rc: string | null; regime_tva: string | null;
+  tva_tax_point: "cash" | "debit" | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -124,7 +131,9 @@ function NumInput({ value, onChange, disabled }: { value: number; onChange: (v: 
 }
 
 const EMPTY: CalcResult = {
-  ca_total: 0, ca_7: 0, ca_10: 0, ca_14: 0, ca_20: 0,
+  ca_total: 0, ca_hors_champ: 0, ca_exonere_sans_droit: 0,
+  ca_exonere_avec_droit: 0, ca_suspension: 0, ca_zero_non_classe: 0,
+  ca_7: 0, ca_10: 0, ca_14: 0, ca_20: 0,
   tva_7: 0, tva_10: 0, tva_14: 0, tva_20: 0, tva_collectee_total: 0,
   deductions_charges: 0, deductions_immobilisations: 0, deductions_total: 0,
   credit_reporte: 0, nb_factures: 0, droits_timbre: 0,
@@ -189,119 +198,20 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
 
   const recalculate = useCallback(async () => {
     setLoading(true);
-
-    const [invRes, expRes, lastDeclRes, yearInvRes] = await Promise.all([
-      supabase.from("invoices")
-        .select("id, invoice_number, subtotal, tax_rate, tax_amount, total, issue_date, items, clients(name)")
-        .eq("dossier_id", dossier.id)
-        .not("status", "in", '("draft","cancelled")')
-        .gte("issue_date", start).lte("issue_date", end)
-        .order("issue_date"),
-      supabase.from("transactions")
-        .select("id, description, category, date, amount, tva_rate, tva_amount, fournisseur, if_fournisseur, ice_fournisseur, mode_paiement, date_paiement, compte_comptable")
-        .eq("dossier_id", dossier.id)
-        .eq("type", "expense")
-        .gte("date", start).lte("date", end)
-        .order("date"),
-      supabase.from("dossier_tva").select("net_du")
-        .eq("dossier_id", dossier.id)
-        .lt("periode", periodKey)
-        .order("periode", { ascending: false }).limit(1),
-      supabase.from("invoices").select("subtotal")
-        .eq("dossier_id", dossier.id)
-        .not("status", "in", '("draft","cancelled")')
-        .gte("issue_date", `${start.slice(0,4)}-01-01`)
-        .lte("issue_date", `${start.slice(0,4)}-12-31`),
-    ]);
-
-    // Section B: CA by rate
-    let ca_7 = 0, ca_10 = 0, ca_14 = 0, ca_20 = 0;
-    const invoices: InvRow[] = [];
-
-    for (const inv of (invRes.data ?? []) as any[]) {
-      const items = (inv.items ?? []) as any[];
-      const hasItemRates = items.some((it: any) => it.tva_rate != null);
-      if (hasItemRates && items.length > 0) {
-        for (const it of items) {
-          const rate = Number(it.tva_rate ?? inv.tax_rate ?? 20);
-          const ht = Number(it.amount ?? 0);
-          if (rate === 7) ca_7 += ht; else if (rate === 10) ca_10 += ht;
-          else if (rate === 14) ca_14 += ht; else ca_20 += ht;
-        }
-      } else {
-        const rate = Number(inv.tax_rate ?? 20);
-        const ht = Number(inv.subtotal ?? 0);
-        if (rate === 7) ca_7 += ht; else if (rate === 10) ca_10 += ht;
-        else if (rate === 14) ca_14 += ht; else ca_20 += ht;
-      }
-      invoices.push({
-        id: inv.id, invoice_number: inv.invoice_number,
-        client_name: inv.clients?.name ?? "—",
-        issue_date: inv.issue_date,
-        subtotal: Number(inv.subtotal), tax_amount: Number(inv.tax_amount), total: Number(inv.total),
-      });
+    const result = await calculateTVAForPeriod(start, end, dossier.id);
+    if (result.error || !result.data) {
+      toast.error(result.error ?? "Calcul TVA indisponible");
+      setLoading(false);
+      return;
     }
-
-    const ca_total = ca_7 + ca_10 + ca_14 + ca_20;
-    const tva_7  = ca_7  * 0.07;
-    const tva_10 = ca_10 * 0.10;
-    const tva_14 = ca_14 * 0.14;
-    const tva_20 = ca_20 * 0.20;
-    const tva_collectee_total = tva_7 + tva_10 + tva_14 + tva_20;
-
-    // Section E: Deductions
-    let deductions_charges = 0, deductions_immobilisations = 0;
-    const deductions: DedRow[] = [];
-
-    for (const exp of (expRes.data ?? []) as any[]) {
-      const rate = Number(exp.tva_rate ?? 20);
-      const ht   = Number(exp.amount ?? 0);
-      const tva  = exp.tva_amount != null ? Number(exp.tva_amount) : ht * rate / 100;
-      const isImmo = exp.compte_comptable?.startsWith("2") ?? false;
-      if (isImmo) deductions_immobilisations += tva; else deductions_charges += tva;
-      deductions.push({
-        id: exp.id,
-        date_facture: exp.date,
-        numero_facture: "",
-        fournisseur_nom: exp.fournisseur ?? exp.description ?? "—",
-        fournisseur_if: exp.if_fournisseur ?? "",
-        fournisseur_ice: exp.ice_fournisseur ?? "",
-        designation: exp.description ?? "—",
-        montant_ht: ht, taux_tva: rate, montant_tva: tva,
-        mode_paiement: exp.mode_paiement ?? "",
-        date_paiement: exp.date_paiement ?? exp.date,
-        prorata: 100, tva_deductible: tva,
-        type_deduction: isImmo ? "immobilisation" : "charge",
-      });
-    }
-
-    const deductions_total = deductions_charges + deductions_immobilisations;
-    const lastDecl = (lastDeclRes.data ?? [])[0];
-    const credit_reporte = Math.max(0, -(Number(lastDecl?.net_du ?? 0)));
-
-    const nb_factures = invoices.length;
-    const droits_timbre = nb_factures * 2;
-
-    const totalDed = deductions_total + credit_reporte;
-    const raw = tva_collectee_total + droits_timbre - totalDed;
-    const tva_nette_due = Math.max(0, raw);
-    const credit_tva    = Math.max(0, -raw);
-
-    const ca_exercice_annuel = (yearInvRes.data ?? []).reduce(
-      (s: number, inv: any) => s + Number(inv.subtotal ?? 0), 0
-    );
-
-    setCalc({
-      ca_total, ca_7, ca_10, ca_14, ca_20,
-      tva_7, tva_10, tva_14, tva_20, tva_collectee_total,
-      deductions_charges, deductions_immobilisations, deductions_total,
-      credit_reporte, nb_factures, droits_timbre,
-      tva_nette_due, credit_tva, ca_exercice_annuel,
-      invoices, deductions,
-    });
+    setCalc(result.data);
+    setCaHorsChamp(result.data.ca_hors_champ);
+    setCaExonere(result.data.ca_exonere_sans_droit);
+    setCaExporte(result.data.ca_exonere_avec_droit);
+    setCaSuspension(result.data.ca_suspension);
     setLastCalc(new Date().toLocaleTimeString("fr-MA", { hour: "2-digit", minute: "2-digit" }));
     setLoading(false);
-  }, [dossier.id, start, end, periodKey]);
+  }, [dossier.id, start, end]);
 
   useEffect(() => { recalculate(); }, [recalculate]);
 
@@ -317,7 +227,7 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
   }, [periodKey, history]);
 
   // ── Derived totals ─────────────────────────────────────────────────────────
-  const caImposable = calc.ca_total - n(caExporte) - n(caExonere) - n(caHorsChamp) - n(caSuspension);
+  const caImposable = calc.ca_total - n(caExporte) - n(caExonere) - n(caHorsChamp) - n(caSuspension) - calc.ca_zero_non_classe;
   const tvaExigible = calc.tva_collectee_total + n(odTva);
   const totalDed    = calc.deductions_total + calc.credit_reporte;
   const raw         = tvaExigible + calc.droits_timbre - totalDed;
@@ -327,8 +237,11 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
 
   // ── Save ───────────────────────────────────────────────────────────────────
   async function handleSave(newStatut: "brouillon"|"validé"|"déposé") {
+    if (newStatut !== "brouillon" && calc.ca_zero_non_classe > 0.01) {
+      toast.error("Classez les factures à 0 % avant de valider la déclaration.");
+      return;
+    }
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from("dossier_tva").upsert({
       dossier_id: dossier.id,
       fiduciaire_user_id: ownerId,
@@ -508,6 +421,12 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
         </div>
       ) : (
         <>
+          {calc.ca_zero_non_classe > 0.01 && (
+            <div className="mb-4 rounded-xl border border-[#F59E0B]/30 bg-[#FFFBEB] px-4 py-3 text-[12px] text-[#92400E]">
+              <div className="font-semibold">{fmtMAD(calc.ca_zero_non_classe)} à 0 % restent à classer</div>
+              <div className="mt-1">Ouvrez les factures concernées et choisissez leur traitement TVA avant de valider la déclaration.</div>
+            </div>
+          )}
           {/* SECTION A */}
           <SectionCard title="A — Chiffre d'affaires total">
             <table className="w-full">
@@ -682,9 +601,9 @@ export default function TvaClient({ dossier }: { dossier: Dossier }) {
                 <p className="text-[12.5px] text-[#374151]">
                   <strong>{calc.nb_factures}</strong> facture{calc.nb_factures !== 1 ? "s" : ""} émise{calc.nb_factures !== 1 ? "s" : ""} sur la période
                 </p>
-                <p className="text-[11px] text-[#9CA3AF] mt-1">Droits de timbre = 2 MAD × {calc.nb_factures} facture{calc.nb_factures !== 1 ? "s" : ""}</p>
+                <p className="text-[11px] text-[#9CA3AF] mt-1">Droits de timbre = 0,25 % des encaissements confirmés en espèces</p>
                 <p className="text-[10.5px] text-[#9CA3AF] mt-0.5 flex items-center gap-1">
-                  <Info size={11} /> Dus sur chaque facture de vente (art. 252 CGI Maroc)
+                  <Info size={11} /> Dus sur les quittances réglées en espèces (art. 252 CGI Maroc)
                 </p>
               </div>
               <div className="text-[22px] font-bold text-[#1A1A2E] flex-shrink-0">{fmtMAD(calc.droits_timbre)}</div>

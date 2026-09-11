@@ -41,6 +41,8 @@ const MESSAGE_MAP: [string, string][] = [
   ["trial_limit_reached:rapprochement_sessions", "L'essai gratuit permet de lancer 1 rapprochement bancaire. Passez à un plan payant pour rapprocher vos comptes."],
   ["trial_limit_reached:rapprochement_matches", "L'essai gratuit permet de rapprocher 20 lignes bancaires. Passez à un plan payant pour finaliser votre rapprochement."],
   ["idx_invoices_number", "Ce numéro de facture existe déjà pour ce dossier. Utilisez un numéro différent."],
+  ["zero_rate_vat_treatment_required", "Choisissez le traitement TVA applicable aux lignes à 0 % avant de finaliser la facture."],
+  ["vat_treatment_period_locked", "Le traitement TVA ne peut pas être modifié car la période concernée est verrouillée."],
   ["duplicate key", "Cette valeur existe déjà."],
   ["new row violates row-level security", "Accès non autorisé."],
   ["violates row-level security", "Accès non autorisé."],

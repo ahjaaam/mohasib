@@ -9,6 +9,7 @@ import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { enforcePeriodLock } from "@/lib/period-check";
 import { computePurchaseAmounts } from "@/lib/purchase-booking";
 import { isValidAccountingAccountCode, type AccountingSettings } from "@/lib/accounting-settings";
+import { isInvoiceBookableStatus } from "@/lib/invoice-accounting-lifecycle";
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,15 +59,27 @@ export async function POST(req: NextRequest) {
 
     // ── Invoice booking ────────────────────────────────────────────────────────
     if (type === "invoice") {
-      const { invoiceId } = body as { invoiceId: string };
+      const { invoiceId, finalizeDraft } = body as { invoiceId: string; finalizeDraft?: boolean };
       let invoiceQuery = supabase
         .from("invoices")
-        .select("id, invoice_number, issue_date, total, subtotal, tax_amount, tax_rate, discount_type, discount_amount, items, clients(name)")
+        .select("id, invoice_number, issue_date, status, total, subtotal, tax_amount, tax_rate, discount_type, discount_amount, items, clients(name)")
         .eq("id", invoiceId);
       invoiceQuery = dossierId ? invoiceQuery.eq("dossier_id", dossierId) : invoiceQuery.is("dossier_id", null);
       const { data: inv } = await invoiceQuery.single();
 
       if (!inv) return NextResponse.json({ error: "Facture introuvable" }, { status: 404 });
+
+      const isDraftFinalization = inv.status === "draft" && finalizeDraft === true;
+      if (!isDraftFinalization && !isInvoiceBookableStatus(inv.status)) {
+        return NextResponse.json(
+          { error: "invoice_not_finalized", message: "Un brouillon ne peut pas être comptabilisé." },
+          { status: 409 },
+        );
+      }
+      const invoiceMonth = Number(String(inv.issue_date).slice(5, 7));
+      const invoiceYear = Number(String(inv.issue_date).slice(0, 4));
+      const locked = await enforcePeriodLock(invoiceMonth, invoiceYear, companyId, dossierId ?? null);
+      if (locked) return locked;
 
       await bookSalesInvoice(supabase, {
         id: inv.id,
@@ -79,7 +92,9 @@ export async function POST(req: NextRequest) {
         discount_amount: Number(inv.discount_amount ?? 0),
         items: (inv.items ?? []) as any[],
         clients: (inv as any).clients,
-      }, companyId, dossierId ?? null, accountingSettings as Partial<AccountingSettings> | null);
+      }, companyId, dossierId ?? null, accountingSettings as Partial<AccountingSettings> | null, {
+        finalizeDraftInvoice: isDraftFinalization,
+      });
 
       await logAudit({
         userId: user.id,
@@ -120,16 +135,35 @@ export async function POST(req: NextRequest) {
       }
       let transactionsQuery = supabase
         .from("transactions")
-        .select("id, date, description, amount, type, category, invoice_id")
+        .select("id, date, description, amount, type, category, invoice_id, workflow_status, vat_status, counterpart_account, tax_amount")
         .in("id", transactionIds);
       transactionsQuery = dossierId ? transactionsQuery.eq("dossier_id", dossierId) : transactionsQuery.is("dossier_id", null);
-      const { data: txs } = await transactionsQuery;
+      const { data: txs, error: transactionsError } = await transactionsQuery;
+      if (transactionsError) throw transactionsError;
+      if ((txs ?? []).length !== transactionIds.length) {
+        return NextResponse.json({ error: "Une ou plusieurs transactions sont introuvables." }, { status: 404 });
+      }
 
       for (const tx of (txs ?? [])) {
-        const accountOverride = accountOverrides[tx.id];
+        if (tx.workflow_status !== "reviewed") {
+          return NextResponse.json({ error: `La transaction ${tx.id} doit être vérifiée avant comptabilisation.` }, { status: 409 });
+        }
+        if (tx.vat_status === "pending_evidence") {
+          return NextResponse.json({ error: `Le traitement TVA de la transaction ${tx.id} reste à décider.` }, { status: 409 });
+        }
+        const accountOverride = tx.counterpart_account;
+        if (accountOverrides[tx.id] && accountOverrides[tx.id] !== accountOverride) {
+          return NextResponse.json({ error: `Le compte de la transaction ${tx.id} a changé depuis sa validation.` }, { status: 409 });
+        }
         const allowedCounterpartClasses = tx.type === "income" ? [3, 4, 7] : [2, 4, 6];
-        if (accountOverride && !isValidAccountingAccountCode(accountOverride, allowedCounterpartClasses)) {
+        if (!accountOverride || !isValidAccountingAccountCode(accountOverride, allowedCounterpartClasses)) {
           return NextResponse.json({ error: `Compte comptable invalide pour la transaction ${tx.id}` }, { status: 400 });
+        }
+        const mois = Number(String(tx.date).slice(5, 7));
+        const annee = Number(String(tx.date).slice(0, 4));
+        if (mois && annee) {
+          const locked = await enforcePeriodLock(mois, annee, companyId, dossierId ?? null);
+          if (locked) return locked;
         }
         const signed = tx.type === "income" ? Number(tx.amount) : -Number(tx.amount);
         await bookBankTransaction(supabase, {
@@ -140,7 +174,20 @@ export async function POST(req: NextRequest) {
           category: tx.category,
           invoice_id: tx.invoice_id ?? null,
           counterpart_account: accountOverride ?? null,
+          vat_status: tx.vat_status,
+          tax_amount: tx.tax_amount,
         }, companyId, dossierId ?? null, accountingSettings as Partial<AccountingSettings> | null);
+
+        const { error: postedError } = await supabase
+          .from("transactions")
+          .update({
+            workflow_status: "posted",
+            posted_by: user.id,
+            posted_at: new Date().toISOString(),
+          })
+          .eq("id", tx.id)
+          .eq("workflow_status", "reviewed");
+        if (postedError) throw postedError;
       }
 
       await logAudit({
@@ -148,7 +195,7 @@ export async function POST(req: NextRequest) {
         userEmail: user.email ?? null,
         companyId,
         dossierId: dossierId ?? null,
-        action: "IMPORT",
+        action: "POST",
         entityType: "transaction",
         entityLabel: `${txs?.length ?? 0} transaction(s)`,
         newValues: { transactionIds, accountOverrides },

@@ -1,3 +1,6 @@
+import { getEmployeePayrollEligibility } from "@/lib/paie/employment-period";
+import { resolveTeamContext } from "@/lib/team";
+
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
 function round2(n: number) {
@@ -32,8 +35,16 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
   annee: number;
   dossierId?: string | null;
 }) {
+  if (!Number.isInteger(mois) || mois < 1 || mois > 12 || !Number.isInteger(annee) || annee < 1900 || annee > 9999) {
+    throw new RangeError("Période CNSS invalide");
+  }
   const periodLabel = `${MONTHS[mois - 1]} ${annee}`;
-  const { data: company } = await supabase.from("companies").select("*").eq("user_id", userId).single();
+  const team = dossierId ? null : await resolveTeamContext(userId);
+  const scopeResult = dossierId
+    ? await supabase.from("dossiers").select("raison_sociale,ice,cnss").eq("id", dossierId).single()
+    : await supabase.from("companies").select("*").eq("id", team?.companyId ?? "00000000-0000-0000-0000-000000000000").single();
+  if (scopeResult.error) throw new Error(scopeResult.error.message);
+  const company = scopeResult.data;
 
   let q = supabase
     .from("bulletins_paie")
@@ -42,7 +53,8 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
     .eq("annee", annee);
   if (dossierId) q = q.eq("dossier_id", dossierId);
   else q = q.is("dossier_id", null);
-  const { data: bulletinRows } = await q;
+  const { data: bulletinRows, error: bulletinError } = await q;
+  if (bulletinError) throw new Error(bulletinError.message);
   const bulletins = (bulletinRows ?? []).filter((b: any) => {
     const status = normalizeStatus(b.statut);
     return status.includes("valid") || status.includes("paye") || status.includes("pay");
@@ -60,19 +72,19 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
       .in("id", employeeIds);
     if (dossierId) empQ = empQ.eq("dossier_id", dossierId);
     else empQ = empQ.is("dossier_id", null);
-    const { data } = await empQ;
+    const { data, error } = await empQ;
+    if (error) throw new Error(error.message);
     employeeRows = data ?? [];
   }
 
   let activeEmployeesQ = supabase
     .from("employees")
-    .select("id, nom, prenom, matricule, numero_cnss, cnss_number, statut")
-    .eq("user_id", userId)
-    .eq("statut", "actif");
+    .select("id, nom, prenom, matricule, numero_cnss, cnss_number, statut, is_active, date_embauche, date_fin_contrat");
   if (dossierId) activeEmployeesQ = activeEmployeesQ.eq("dossier_id", dossierId);
   else activeEmployeesQ = activeEmployeesQ.is("dossier_id", null);
-  const { data: activeEmployeeRows } = await activeEmployeesQ;
-  const activeEmployees = activeEmployeeRows ?? [];
+  const { data: activeEmployeeRows, error: activeEmployeesError } = await activeEmployeesQ;
+  if (activeEmployeesError) throw new Error(activeEmployeesError.message);
+  const activeEmployees = (activeEmployeeRows ?? []).filter((employee: any) => getEmployeePayrollEligibility(employee, mois, annee).eligible);
 
   let hoursRows: any[] = [];
   if (employeeIds.length) {
@@ -84,7 +96,8 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
       .in("employee_id", employeeIds);
     if (dossierId) hq = hq.eq("dossier_id", dossierId);
     else hq = hq.is("dossier_id", null);
-    const { data } = await hq;
+    const { data, error } = await hq;
+    if (error) throw new Error(error.message);
     hoursRows = data ?? [];
   }
 
@@ -100,15 +113,16 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
       const heuresTravaillees = Number(hours?.heures_normales ?? hours?.heures_travaillees ?? hours?.heures_theoriques ?? 0);
       const heuresTheoriques = Number(hours?.heures_theoriques ?? 0);
       const joursDeclares = heuresTheoriques > 0
-        ? roundHalf((heuresTravaillees / heuresTheoriques) * joursOuvres)
+        ? Math.min(26, Math.max(0, roundHalf((heuresTravaillees / heuresTheoriques) * joursOuvres)))
         : 26;
       const salaireBrut = Number(b.salaire_brut ?? 0);
-      const salairePlafonne = Math.min(salaireBrut, 6000);
-      const cnssSalarie = round2(salairePlafonne * 0.0448);
-      const cnssPatronal = round2(salairePlafonne * 0.2109);
-      const amoSalarie = round2(salaireBrut * 0.0226);
-      const amoPatronal = round2(salaireBrut * 0.0411);
-      const totalCotisations = round2(cnssSalarie + cnssPatronal + amoSalarie + amoPatronal);
+      const salairePlafonne = Math.min(Number(b.base_cnss ?? salaireBrut), 6000);
+      const cnssSalarie = Number(b.cnss_salarie ?? 0);
+      const cnssPatronal = Number(b.cnss_patronal ?? 0);
+      const amoSalarie = Number(b.amo_salarie ?? 0);
+      const amoPatronal = Number(b.amo_patronal ?? 0);
+      const formationProfessionnelle = Number(b.taxe_formation_pro ?? 0);
+      const totalCotisations = round2(cnssSalarie + cnssPatronal + amoSalarie + amoPatronal + formationProfessionnelle);
       return {
         n: index + 1,
         matricule_cnss: emp.numero_cnss ?? emp.cnss_number ?? emp.matricule ?? "",
@@ -121,6 +135,7 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
         cnss_patronal: cnssPatronal,
         amo_salarie: amoSalarie,
         amo_patronal: amoPatronal,
+        formation_professionnelle: formationProfessionnelle,
         total_cotisations: totalCotisations,
       };
     })
@@ -135,6 +150,7 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
     acc.total_cnss_patronal += Number(row.cnss_patronal);
     acc.total_amo_salarie += Number(row.amo_salarie);
     acc.total_amo_patronal += Number(row.amo_patronal);
+    acc.total_formation_professionnelle += Number(row.formation_professionnelle);
     acc.total_cotisations += Number(row.total_cotisations);
     return acc;
   }, {
@@ -145,6 +161,7 @@ export async function buildCnssDeclaration({ supabase, userId, mois, annee, doss
     total_cnss_patronal: 0,
     total_amo_salarie: 0,
     total_amo_patronal: 0,
+    total_formation_professionnelle: 0,
     total_cotisations: 0,
   });
 

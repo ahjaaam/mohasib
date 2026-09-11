@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { jsPDF } from "jspdf";
 import { applyPlugin } from "jspdf-autotable";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { authorizePermission } from "@/lib/api-permissions";
 
 applyPlugin(jsPDF);
 
@@ -88,13 +89,21 @@ export async function GET(
     if (bErr || !bulletin)
       return NextResponse.json({ error: "Bulletin introuvable" }, { status: 404 });
 
-    const [{ data: emp }, { data: company }] = await Promise.all([
-      supabase.from("employees").select("*").eq("id", bulletin.employee_id).eq("user_id", user.id).single(),
-      supabase.from("companies").select("*").eq("user_id", user.id).single(),
+    const permission = await authorizePermission("bulletin_paie", "read", { companyId: bulletin.company_id, dossierId: bulletin.dossier_id });
+    if (permission.response) return permission.response;
+
+    const [{ data: emp }, scopeResult, { data: yearRows, error: yearError }] = await Promise.all([
+      supabase.from("employees").select("*").eq("id", bulletin.employee_id).single(),
+      bulletin.dossier_id
+        ? supabase.from("dossiers").select("raison_sociale,ice,cnss,color").eq("id", bulletin.dossier_id).single()
+        : supabase.from("companies").select("*").eq("id", bulletin.company_id).single(),
+      supabase.from("bulletins_paie").select("*").eq("employee_id", bulletin.employee_id).eq("annee", bulletin.annee).lte("mois", bulletin.mois),
     ]);
     if (!emp) return NextResponse.json({ error: "Employé introuvable" }, { status: 404 });
+    if (scopeResult.error || yearError) return NextResponse.json({ error: scopeResult.error?.message ?? yearError?.message }, { status: 500 });
+    const company = scopeResult.data;
 
-    const accentRgb = hexToRgb(company?.invoice_color ?? "#C8924A");
+    const accentRgb = hexToRgb(company?.invoice_color ?? company?.color ?? "#C8924A");
     const colors = {
       ACCENT: accentRgb,
       NAVY: [20, 30, 48] as [number, number, number],
@@ -115,11 +124,18 @@ export async function GET(
     const firstDay = `01/${String(bulletin.mois).padStart(2, "0")}/${bulletin.annee}`;
     const lastDay = `${String(new Date(bulletin.annee, bulletin.mois, 0).getDate()).padStart(2, "0")}/${String(bulletin.mois).padStart(2, "0")}/${bulletin.annee}`;
     const paymentMode = emp.mode_paiement ? String(emp.mode_paiement) : emp.rib ? "Virement bancaire" : "Espèces";
-    const cnssBase = Math.min(Number(bulletin.salaire_brut), 6000);
-    const salaryBase = Number(bulletin.salaire_brut);
-    const totalCotSal = Number(bulletin.cnss_salarie) + Number(bulletin.amo_salarie);
-    const totalCotPat = Number(bulletin.cnss_patronal) + Number(bulletin.amo_patronal) + Number(bulletin.taxe_formation_pro);
+    const grossSalary = Number(bulletin.salaire_brut);
+    const salaryBase = Number(bulletin.salaire_base ?? bulletin.salaire_brut);
+    const contributionBase = Number(bulletin.base_cnss ?? bulletin.salaire_brut);
+    const cnssBase = Math.min(contributionBase, 6000);
+    const totalCotSal = Number(bulletin.cnss_salarie) + Number(bulletin.amo_salarie) + Number(bulletin.mutuelle_salarie ?? 0) + Number(bulletin.cimr_salarie ?? 0);
+    const totalCotPat = Number(bulletin.cnss_patronal) + Number(bulletin.amo_patronal) + Number(bulletin.taxe_formation_pro) + Number(bulletin.mutuelle_patronal ?? 0) + Number(bulletin.cimr_patronal ?? 0);
     const netPay = Number(bulletin.salaire_net_payer);
+    const declaredDays = Math.min(26, Math.max(0, Math.round((Number(bulletin.heures_travaillees ?? 0) / Math.max(1, Number(bulletin.heures_theoriques ?? 191.33))) * 26 * 2) / 2));
+    const dependantCount = Math.min(6, Number(emp.nombre_enfants ?? 0) + (emp.situation_familiale === "Marié(e)" ? 1 : 0));
+    const ytdRows = (yearRows ?? []).filter((row: any) => row.id === bulletin.id || ["validé", "payé"].includes(row.statut));
+    const ytd = (key: string) => ytdRows.reduce((sum: number, row: any) => sum + Number(row[key] ?? 0), 0);
+    const ytdDays = ytdRows.reduce((sum: number, row: any) => sum + Math.min(26, Math.max(0, (Number(row.heures_travaillees ?? 0) / Math.max(1, Number(row.heures_theoriques ?? 191.33))) * 26)), 0);
 
     doc.setFillColor(...colors.WHITE);
     doc.rect(0, 0, pw, ph, "F");
@@ -142,7 +158,7 @@ export async function GET(
     doc.setFontSize(8.2);
     doc.setTextColor(...colors.TEXT);
     doc.text(`Période du : ${firstDay} au : ${lastDay}`, pw - mr, 21, { align: "right" });
-    doc.text(`Paiement le : ${lastDay} - ${paymentMode}`, pw - mr, 26, { align: "right" });
+    doc.text(bulletin.statut === "payé" ? `Paiement le : ${fmtDate(bulletin.date_paiement ?? bulletin.paid_at)} - ${paymentMode}` : "Paiement : non réglé", pw - mr, 26, { align: "right" });
     doc.setDrawColor(...colors.ACCENT);
     doc.setLineWidth(0.8);
     doc.line(ml, 30, pw - mr, 30);
@@ -170,7 +186,7 @@ export async function GET(
       ["Fonction", value(emp.poste), "Département", value(emp.departement)],
       ["Date Naissance", fmtDate(emp.date_naissance), "Date Embauche", fmtDate(emp.date_embauche)],
       ["Situation Fam.", value(emp.situation_familiale), "Nbre Enfants", value(emp.nombre_enfants)],
-      ["Nbre Déductions", value(bulletin.deduction_charge_famille ? fmtAmt(Number(bulletin.deduction_charge_famille)) : null), "Solde Congé", "0,00 j"],
+      ["Personnes à charge", value(dependantCount), "Jours déclarés", `${declaredDays} j`],
       ["Email", value(emp.email), "Adresse", employeeAddress],
       ["RIB", value(emp.rib), "Banque", value(emp.banque)],
     ], colors);
@@ -178,15 +194,31 @@ export async function GET(
     y += 70;
 
     const payrollRows: any[] = [
-      ["30", "Salaire Mensuel", "26 j", fmtAmt(salaryBase), "", fmtAmt(salaryBase), "", "", "", ""],
-      ["", "Total Brut", "", "", "", fmtAmt(salaryBase), "", "", "", ""],
-      ["7010", "Cotisation CNSS", "", fmtAmt(cnssBase), "6,74 %", "", fmtAmt(Number(bulletin.cnss_salarie)), "21,09 %", "", fmtAmt(Number(bulletin.cnss_patronal))],
-      ["7100", "Cotisation A.M.O.", "", fmtAmt(salaryBase), "2,26 %", "", fmtAmt(Number(bulletin.amo_salarie)), "2,26 %", "", fmtAmt(Number(bulletin.amo_patronal))],
-      ["7160", "Formation professionnelle", "", fmtAmt(salaryBase), "", "", "", "1,60 %", "", fmtAmt(Number(bulletin.taxe_formation_pro))],
+      ["30", "Salaire Mensuel", `${declaredDays} j`, fmtAmt(salaryBase), "", fmtAmt(salaryBase), "", "", "", ""],
+    ];
+    if (Number(bulletin.heures_sup) > 0) {
+      payrollRows.push(["40", "Heures supplémentaires", "", "", "", fmtAmt(Number(bulletin.heures_sup)), "", "", "", ""]);
+    }
+    if (Number(bulletin.primes) > 0) {
+      payrollRows.push(["50", "Primes", "", "", "", fmtAmt(Number(bulletin.primes)), "", "", "", ""]);
+    }
+    if (Number(bulletin.indemnites) > 0) {
+      payrollRows.push(["60", "Indemnités", "", "", "", fmtAmt(Number(bulletin.indemnites)), "", "", "", ""]);
+    }
+    if (Number(bulletin.montant_absence_deduit) > 0) {
+      payrollRows.push(["65", "Retenue pour absence", "", "", "", "", fmtAmt(Number(bulletin.montant_absence_deduit)), "", "", ""]);
+    }
+    payrollRows.push(
+      ["", "Total Brut", "", "", "", fmtAmt(grossSalary), "", "", "", ""],
+      ["7010", "CNSS / allocations familiales", "", fmtAmt(cnssBase), "4,48 %", "", fmtAmt(Number(bulletin.cnss_salarie)), "", "", fmtAmt(Number(bulletin.cnss_patronal))],
+      ["7100", "Cotisation A.M.O.", "", fmtAmt(contributionBase), contributionBase > 0 ? `${fmtAmt(Number(bulletin.amo_salarie) / contributionBase * 100)} %` : "", "", fmtAmt(Number(bulletin.amo_salarie)), contributionBase > 0 ? `${fmtAmt(Number(bulletin.amo_patronal) / contributionBase * 100)} %` : "", "", fmtAmt(Number(bulletin.amo_patronal))],
+      ["7160", "Formation professionnelle", "", fmtAmt(contributionBase), "", "", "", contributionBase > 0 ? `${fmtAmt(Number(bulletin.taxe_formation_pro) / contributionBase * 100)} %` : "", "", fmtAmt(Number(bulletin.taxe_formation_pro))],
       ["", "Total Cotisations", "", "", "", "", fmtAmt(totalCotSal), "", "", fmtAmt(totalCotPat)],
       ["8010", "Prélèvement IGR", "", fmtAmt(Number(bulletin.salaire_net_imposable)), "", "", fmtAmt(Number(bulletin.ir_net)), "", "", ""],
       ["90500", "Nbre personnes à Charge (Int.)", "", "", "", fmtAmt(Number(bulletin.deduction_charge_famille)), "", "", "", ""],
-    ];
+    );
+    if (Number(bulletin.mutuelle_salarie ?? 0) + Number(bulletin.mutuelle_patronal ?? 0) > 0) payrollRows.splice(-3, 0, ["7200", "Mutuelle", "", fmtAmt(contributionBase), "", "", fmtAmt(Number(bulletin.mutuelle_salarie)), "", "", fmtAmt(Number(bulletin.mutuelle_patronal))]);
+    if (Number(bulletin.cimr_salarie ?? 0) + Number(bulletin.cimr_patronal ?? 0) > 0) payrollRows.splice(-3, 0, ["7300", "CIMR", "", fmtAmt(contributionBase), "", "", fmtAmt(Number(bulletin.cimr_salarie)), "", "", fmtAmt(Number(bulletin.cimr_patronal))]);
 
     // Main payroll table
     (doc as any).autoTable({
@@ -257,13 +289,13 @@ export async function GET(
 
     const cumulsHead = ["", "Salaire brut", "Net imposable", "Charges sal.", "Fr. Prof.", "IR", "Déd. Charges Fam.", "Jours", "Net payé"];
     const cumulsRow = [
-      fmtAmt(salaryBase),
+      fmtAmt(grossSalary),
       fmtAmt(Number(bulletin.salaire_net_imposable)),
       fmtAmt(totalCotSal),
       fmtAmt(Number(bulletin.frais_pro)),
       fmtAmt(Number(bulletin.ir_net)),
       fmtAmt(Number(bulletin.deduction_charge_famille)),
-      "26",
+      String(declaredDays),
       fmtAmt(netPay),
     ];
 
@@ -274,7 +306,7 @@ export async function GET(
       head: [cumulsHead],
       body: [
         ["Période", ...cumulsRow],
-        ["Année", ...cumulsRow],
+        ["Année", fmtAmt(ytd("salaire_brut")), fmtAmt(ytd("salaire_net_imposable")), fmtAmt(ytd("cnss_salarie") + ytd("amo_salarie") + ytd("mutuelle_salarie") + ytd("cimr_salarie")), fmtAmt(ytd("frais_pro")), fmtAmt(ytd("ir_net")), fmtAmt(ytd("deduction_charge_famille")), String(Math.round(ytdDays * 2) / 2), fmtAmt(ytd("salaire_net_payer"))],
       ],
       theme: "grid",
       styles: {

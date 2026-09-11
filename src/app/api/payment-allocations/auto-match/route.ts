@@ -135,7 +135,14 @@ export async function POST(req: NextRequest) {
         p_allocations: candidates,
         p_match_method: "automatic_exact",
       });
-      if (!allocationError) matchedTransactionIds.push(transaction.id);
+      if (!allocationError) {
+        await supabase
+          .from("transactions")
+          .update({ workflow_status: "matched" })
+          .eq("id", transaction.id)
+          .eq("workflow_status", "imported");
+        matchedTransactionIds.push(transaction.id);
+      }
     }
 
     return NextResponse.json({

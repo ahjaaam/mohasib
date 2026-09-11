@@ -3,6 +3,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { checkPeriodLocked, createVersion, getDiff, lockAccountingPeriod, logAccountingEvent, logAudit } from "@/lib/audit";
+import { annualInvoiceTurnover, invoiceVatContributionsForPeriod, type VatRateBucket, type VatTaxPoint } from "@/lib/tva-invoice-aggregation";
+import { calculatePeriodCashReceiptStampDuty } from "@/lib/stamp-duty";
+import { isMissingDatabaseColumn, isUndefinedDatabaseColumn } from "@/lib/schema-compatibility";
+
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +45,11 @@ export interface TVADeductionRow {
 export interface TVACalcResult {
   // Section A
   ca_total: number;
+  ca_hors_champ: number;
+  ca_exonere_sans_droit: number;
+  ca_exonere_avec_droit: number;
+  ca_suspension: number;
+  ca_zero_non_classe: number;
   // Section B by rate
   ca_7: number; ca_10: number; ca_14: number; ca_20: number;
   // Section D TVA by rate
@@ -84,151 +96,161 @@ export interface TVADeclaration {
 export async function calculateTVAForPeriod(
   periodStart: string,
   periodEnd: string,
+  dossierId?: string,
 ): Promise<{ data?: TVACalcResult; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Non authentifié" };
   const ownerId = await resolveAccountOwnerId(user.id);
+  let scopeRes = dossierId
+    ? await supabase.from("dossiers").select("id, tva_tax_point").eq("id", dossierId).eq("fiduciaire_user_id", ownerId).single()
+    : await supabase.from("companies").select("id, tva_tax_point").eq("user_id", ownerId).single();
+  const scopeTable = dossierId ? "dossiers" : "companies";
+  if (isMissingDatabaseColumn(scopeRes.error, scopeTable, "tva_tax_point")) {
+    const legacyScopeRes = dossierId
+      ? await supabase.from("dossiers").select("id").eq("id", dossierId).eq("fiduciaire_user_id", ownerId).single()
+      : await supabase.from("companies").select("id").eq("user_id", ownerId).single();
+    scopeRes = {
+      ...legacyScopeRes,
+      data: legacyScopeRes.data ? { ...legacyScopeRes.data, tva_tax_point: "cash" } : null,
+    } as typeof scopeRes;
+  }
+  if (scopeRes.error || !scopeRes.data) return { error: scopeRes.error?.message ?? "Périmètre TVA introuvable" };
+  const taxPoint: VatTaxPoint = scopeRes.data.tva_tax_point === "debit" ? "debit" : "cash";
 
-  const [invRes, avoirClientRes, expRes, avoirFournisseurRes, lastDeclRes, yearInvRes] = await Promise.all([
-    // 1. Regular invoices
-    supabase
-      .from("invoices")
-      .select("id, invoice_number, subtotal, tax_rate, tax_amount, total, issue_date, items, clients(name)")
-      .eq("user_id", ownerId)
-      .is("dossier_id", null)
-      .eq("invoice_type", "facture")
-      .not("status", "in", '("draft","cancelled")')
-      .gte("issue_date", periodStart)
-      .lte("issue_date", periodEnd)
-      .order("issue_date", { ascending: true }),
-    // 2. Avoir clients (reduce TVA collectée)
-    supabase
-      .from("invoices")
-      .select("subtotal, tax_rate, tax_amount, items")
-      .eq("user_id", ownerId)
-      .is("dossier_id", null)
-      .eq("invoice_type", "avoir_client")
-      .not("status", "in", '("draft","cancelled")')
-      .gte("issue_date", periodStart)
-      .lte("issue_date", periodEnd),
-    // 3. Expense transactions
-    supabase
-      .from("transactions")
-      .select("id, description, category, date, amount, tva_rate, tva_amount, fournisseur, if_fournisseur, ice_fournisseur, mode_paiement, date_paiement, compte_comptable")
-      .eq("user_id", ownerId)
-      .is("dossier_id", null)
-      .eq("type", "expense")
-      .gte("date", periodStart)
-      .lte("date", periodEnd)
-      .order("date", { ascending: true }),
-    // 4. Avoirs fournisseurs (reduce TVA déductible)
-    supabase
-      .from("avoirs_fournisseurs")
-      .select("tva_amount, tva_rate, compte_comptable")
-      .eq("user_id", ownerId)
-      .gte("date", periodStart)
-      .lte("date", periodEnd),
-    // 5. Last TVA declaration (for credit reporté)
-    supabase
-      .from("tva_declarations")
-      .select("credit_tva, tva_nette_due")
-      .eq("user_id", ownerId)
-      .lt("period_end", periodStart)
-      .order("period_end", { ascending: false })
-      .limit(1),
-    // 6. Annual CA
-    supabase
-      .from("invoices")
-      .select("subtotal")
-      .eq("user_id", ownerId)
-      .is("dossier_id", null)
-      .not("status", "in", '("draft","cancelled")')
-      .gte("issue_date", `${periodStart.slice(0, 4)}-01-01`)
-      .lte("issue_date", `${periodStart.slice(0, 4)}-12-31`),
+  const scope = <T,>(query: T): T => (dossierId
+    ? (query as any).eq("dossier_id", dossierId)
+    : (query as any).eq("user_id", ownerId).is("dossier_id", null)) as T;
+  const periodKey = periodStart.slice(0, 7);
+  const invoicesQuery = scope(supabase.from("invoices")
+    .select("id, invoice_number, subtotal, tax_rate, tax_amount, total, discount_amount, issue_date, invoice_type, vat_treatment, items, paiements, clients(name)")
+    .in("invoice_type", ["facture", "avoir_client"])
+    .not("status", "in", '("draft","cancelled")'));
+  const expensesQuery = scope(supabase.from("transactions")
+    .select("id, description, category, date, amount_ht, tax_rate, tax_amount, fournisseur, if_fournisseur, ice_fournisseur, mode_paiement, date_paiement, compte_comptable")
+    .eq("type", "expense")
+    .eq("workflow_status", "posted")
+    .eq("vat_status", "eligible")
+    .or(`and(date_paiement.gte.${periodStart},date_paiement.lte.${periodEnd}),and(date_paiement.is.null,date.gte.${periodStart},date.lte.${periodEnd})`)
+    .order("date", { ascending: true }));
+  const supplierCreditsQuery = scope(supabase.from("avoirs_fournisseurs")
+    .select("tva_amount, tva_rate, compte_comptable")
+    .gte("date", periodStart).lte("date", periodEnd));
+  const annualInvoicesQuery = scope(supabase.from("invoices")
+    .select("subtotal, discount_amount, invoice_type")
+    .not("status", "in", '("draft","cancelled")')
+    .gte("issue_date", `${periodStart.slice(0, 4)}-01-01`)
+    .lte("issue_date", `${periodStart.slice(0, 4)}-12-31`));
+  const paymentsQuery = (dossierId
+    ? supabase.from("invoice_payments").select("invoice_id, montant, date_paiement, mode_paiement, payment_type, allocation_status").eq("dossier_id", dossierId)
+    : supabase.from("invoice_payments").select("invoice_id, montant, date_paiement, mode_paiement, payment_type, allocation_status, invoices!inner(user_id, dossier_id)").eq("invoices.user_id", ownerId).is("invoices.dossier_id", null))
+    .eq("allocation_status", "confirmed")
+    .eq("payment_type", "encaissement")
+    .gte("date_paiement", periodStart).lte("date_paiement", periodEnd);
+  const lastDeclarationQuery = dossierId
+    ? supabase.from("dossier_tva").select("net_du").eq("dossier_id", dossierId).lt("periode", periodKey).order("periode", { ascending: false }).limit(1)
+    : supabase.from("tva_declarations").select("credit_tva, tva_nette_due").eq("user_id", ownerId).lt("period_end", periodStart).order("period_end", { ascending: false }).limit(1);
+
+  const [initialInvRes, initialExpRes, initialAvoirFournisseurRes, lastDeclRes, yearInvRes, cashPaymentsRes] = await Promise.all([
+    invoicesQuery, expensesQuery, supplierCreditsQuery, lastDeclarationQuery, annualInvoicesQuery, paymentsQuery,
   ]);
+  let invRes = initialInvRes;
+  let expRes = initialExpRes;
+  let avoirFournisseurRes = initialAvoirFournisseurRes;
+
+  if (isMissingDatabaseColumn(invRes.error, "invoices", "vat_treatment")) {
+    invRes = await scope(supabase.from("invoices")
+      .select("id, invoice_number, subtotal, tax_rate, tax_amount, total, discount_amount, issue_date, invoice_type, items, paiements, clients(name)")
+      .in("invoice_type", ["facture", "avoir_client"])
+      .not("status", "in", '("draft","cancelled")')) as typeof invRes;
+  }
+
+  if (isUndefinedDatabaseColumn(expRes.error, "transactions")) {
+    expRes = await scope(supabase.from("transactions")
+      .select("id, description, category, date, amount_ht, tax_rate, tax_amount, compte_comptable, payment_method")
+      .eq("type", "expense")
+      .gte("date", periodStart).lte("date", periodEnd)
+      .order("date", { ascending: true })) as typeof expRes;
+  }
+
+  if (isUndefinedDatabaseColumn(avoirFournisseurRes.error, "avoirs_fournisseurs")) {
+    avoirFournisseurRes = await scope(supabase.from("avoirs_fournisseurs")
+      .select("montant_tva, taux_tva, compte_charge")
+      .gte("date_avoir", periodStart).lte("date_avoir", periodEnd)) as typeof avoirFournisseurRes;
+  }
 
   if (invRes.error) return { error: invRes.error.message };
+  if (expRes.error) return { error: expRes.error.message };
+  if (avoirFournisseurRes.error) return { error: avoirFournisseurRes.error.message };
+  if (lastDeclRes.error) return { error: lastDeclRes.error.message };
+  if (yearInvRes.error) return { error: yearInvRes.error.message };
+  if (cashPaymentsRes.error) return { error: cashPaymentsRes.error.message };
 
   // ── Section A + B: CA by rate ────────────────────────────────────────────
-  let ca_7 = 0, ca_10 = 0, ca_14 = 0, ca_20 = 0;
+  const bases: Record<VatRateBucket, number> = { 7: 0, 10: 0, 14: 0, 20: 0 };
+  const collectedVat: Record<VatRateBucket, number> = { 7: 0, 10: 0, 14: 0, 20: 0 };
+  const zeroRated = {
+    out_of_scope: 0,
+    exempt_without_deduction: 0,
+    exempt_with_deduction: 0,
+    suspension: 0,
+    unclassified: 0,
+  };
   const invoices: TVAInvoiceDetail[] = [];
 
-  for (const inv of invRes.data ?? []) {
-    const items = (inv.items ?? []) as any[];
-    const hasItemRates = items.some((it: any) => it.tva_rate != null);
-
-    if (hasItemRates && items.length > 0) {
-      for (const it of items) {
-        const rate = Number(it.tva_rate ?? inv.tax_rate ?? 20);
-        const ht = Number(it.amount ?? 0);
-        if (rate === 7) ca_7 += ht;
-        else if (rate === 10) ca_10 += ht;
-        else if (rate === 14) ca_14 += ht;
-        else ca_20 += ht;
-      }
-    } else {
-      const rate = Number(inv.tax_rate ?? 20);
-      const ht = Number(inv.subtotal ?? 0);
-      if (rate === 7) ca_7 += ht;
-      else if (rate === 10) ca_10 += ht;
-      else if (rate === 14) ca_14 += ht;
-      else ca_20 += ht;
+  const contributions = invoiceVatContributionsForPeriod(
+    invRes.data ?? [], cashPaymentsRes.data ?? [], taxPoint, periodStart, periodEnd,
+  );
+  for (const { invoice: inv, aggregation, ratio } of contributions) {
+    for (const rate of [7, 10, 14, 20] as const) {
+      bases[rate] += aggregation.bases[rate] * ratio;
+      collectedVat[rate] += aggregation.taxes[rate] * ratio;
     }
-    invoices.push({
-      id: inv.id,
-      invoice_number: inv.invoice_number,
+    for (const treatment of Object.keys(zeroRated) as Array<keyof typeof zeroRated>) {
+      zeroRated[treatment] += aggregation.zeroRatedBases[treatment] * ratio;
+    }
+    if (inv.invoice_type === "facture") invoices.push({
+      id: String(inv.id),
+      invoice_number: String(inv.invoice_number ?? ""),
       client_name: (inv as any).clients?.name ?? "—",
-      issue_date: inv.issue_date,
-      subtotal: Number(inv.subtotal),
+      issue_date: String(inv.issue_date ?? ""),
+      subtotal: Number(inv.subtotal) * Math.abs(ratio),
       tax_rate: Number(inv.tax_rate),
-      tax_amount: Number(inv.tax_amount),
-      total: Number(inv.total),
+      tax_amount: Number(inv.tax_amount) * Math.abs(ratio),
+      total: Number(inv.total) * Math.abs(ratio),
     });
   }
 
-  // ── Subtract avoir clients from CA per rate ─────────────────────────────
-  for (const av of avoirClientRes.data ?? []) {
-    const items = (av.items ?? []) as any[];
-    const hasItemRates = items.some((it: any) => it.tva_rate != null);
-    if (hasItemRates && items.length > 0) {
-      for (const it of items) {
-        const rate = Number(it.tva_rate ?? av.tax_rate ?? 20);
-        const ht = Number(it.amount ?? 0);
-        if (rate === 7) ca_7 -= ht;
-        else if (rate === 10) ca_10 -= ht;
-        else if (rate === 14) ca_14 -= ht;
-        else ca_20 -= ht;
-      }
-    } else {
-      const rate = Number(av.tax_rate ?? 20);
-      const ht = Number(av.subtotal ?? 0);
-      if (rate === 7) ca_7 -= ht;
-      else if (rate === 10) ca_10 -= ht;
-      else if (rate === 14) ca_14 -= ht;
-      else ca_20 -= ht;
-    }
-  }
-
-  const ca_total = Math.max(0, ca_7 + ca_10 + ca_14 + ca_20);
+  const ca_7 = roundMoney(bases[7]);
+  const ca_10 = roundMoney(bases[10]);
+  const ca_14 = roundMoney(bases[14]);
+  const ca_20 = roundMoney(bases[20]);
+  const ca_hors_champ = roundMoney(zeroRated.out_of_scope);
+  const ca_exonere_sans_droit = roundMoney(zeroRated.exempt_without_deduction);
+  const ca_exonere_avec_droit = roundMoney(zeroRated.exempt_with_deduction);
+  const ca_suspension = roundMoney(zeroRated.suspension);
+  const ca_zero_non_classe = roundMoney(zeroRated.unclassified);
+  const ca_total = roundMoney(
+    ca_7 + ca_10 + ca_14 + ca_20 + ca_hors_champ + ca_exonere_sans_droit
+    + ca_exonere_avec_droit + ca_suspension + ca_zero_non_classe,
+  );
 
   // ── Section D: TVA collectée ────────────────────────────────────────────
-  const tva_7  = Math.max(0, ca_7)  * 0.07;
-  const tva_10 = Math.max(0, ca_10) * 0.10;
-  const tva_14 = Math.max(0, ca_14) * 0.14;
-  const tva_20 = Math.max(0, ca_20) * 0.20;
-  const tva_collectee_total = tva_7 + tva_10 + tva_14 + tva_20;
+  const tva_7  = roundMoney(collectedVat[7]);
+  const tva_10 = roundMoney(collectedVat[10]);
+  const tva_14 = roundMoney(collectedVat[14]);
+  const tva_20 = roundMoney(collectedVat[20]);
+  const tva_collectee_total = roundMoney(tva_7 + tva_10 + tva_14 + tva_20);
 
   // ── Section E: Déductions ───────────────────────────────────────────────
   let deductions_charges = 0, deductions_immobilisations = 0;
   const deductions: TVADeductionRow[] = [];
 
   for (const exp of expRes.data ?? []) {
-    const rate = Number((exp as any).tva_rate ?? 20);
-    const ht = Number(exp.amount ?? 0);
-    const tva = (exp as any).tva_amount != null
-      ? Number((exp as any).tva_amount)
-      : ht * rate / 100;
+    const rate = Number((exp as any).tax_rate ?? 0);
+    const ht = Number((exp as any).amount_ht ?? 0);
+    const tva = Number((exp as any).tax_amount ?? 0);
+    if (rate <= 0 || ht <= 0 || tva <= 0) continue;
     const isImmo = (exp as any).compte_comptable?.startsWith("2") ?? false;
     if (isImmo) deductions_immobilisations += tva;
     else deductions_charges += tva;
@@ -244,7 +266,7 @@ export async function calculateTVAForPeriod(
       montant_ht: ht,
       taux_tva: rate,
       montant_tva: tva,
-      mode_paiement: (exp as any).mode_paiement ?? "",
+      mode_paiement: (exp as any).mode_paiement ?? (exp as any).payment_method ?? "",
       date_paiement: (exp as any).date_paiement ?? exp.date,
       prorata: 100,
       tva_deductible: tva,
@@ -254,34 +276,45 @@ export async function calculateTVAForPeriod(
 
   // ── Subtract avoirs fournisseurs from deductions ────────────────────────
   for (const af of avoirFournisseurRes.data ?? []) {
-    const tva = Number((af as any).tva_amount ?? 0);
-    const isImmo = (af as any).compte_comptable?.startsWith("2") ?? false;
+    const tva = Number((af as any).tva_amount ?? (af as any).montant_tva ?? 0);
+    const account = (af as any).compte_comptable ?? (af as any).compte_charge;
+    const isImmo = account?.startsWith("2") ?? false;
     if (isImmo) deductions_immobilisations = Math.max(0, deductions_immobilisations - tva);
     else deductions_charges = Math.max(0, deductions_charges - tva);
   }
 
-  const deductions_total = deductions_charges + deductions_immobilisations;
-  const lastDecl = lastDeclRes.data?.[0];
-  const credit_reporte = Number((lastDecl as any)?.credit_tva ?? 0);
+  deductions_charges = roundMoney(deductions_charges);
+  deductions_immobilisations = roundMoney(deductions_immobilisations);
+  const deductions_total = roundMoney(deductions_charges + deductions_immobilisations);
+  const lastDecl = lastDeclRes.data?.[0] as any;
+  const credit_reporte = dossierId
+    ? Math.max(0, -Number(lastDecl?.net_du ?? 0))
+    : Number(lastDecl?.credit_tva ?? 0);
 
   // ── Droits de timbre ────────────────────────────────────────────────────
   const nb_factures = invoices.length;
-  const droits_timbre = nb_factures * 2;
+  const droits_timbre = calculatePeriodCashReceiptStampDuty(
+    cashPaymentsRes.data ?? [],
+    invRes.data ?? [],
+    periodStart,
+    periodEnd,
+  );
 
   // ── Section F ───────────────────────────────────────────────────────────
   const totalDed = deductions_total + credit_reporte;
-  const raw = tva_collectee_total + droits_timbre - totalDed;
-  const tva_nette_due = Math.max(0, raw);
-  const credit_tva    = Math.max(0, -raw);
+  const raw = roundMoney(tva_collectee_total + droits_timbre - totalDed);
+  const tva_nette_due = roundMoney(Math.max(0, raw));
+  const credit_tva    = roundMoney(Math.max(0, -raw));
 
   // ── Annual ──────────────────────────────────────────────────────────────
-  const ca_exercice_annuel = ((yearInvRes as any)?.data ?? []).reduce(
-    (s: number, inv: any) => s + Number(inv.subtotal ?? 0), 0
-  );
+  const ca_exercice_annuel = roundMoney(((yearInvRes as any)?.data ?? []).reduce(
+    (s: number, inv: any) => s + annualInvoiceTurnover(inv), 0
+  ));
 
   return {
     data: {
-      ca_total, ca_7, ca_10, ca_14, ca_20,
+      ca_total, ca_hors_champ, ca_exonere_sans_droit, ca_exonere_avec_droit,
+      ca_suspension, ca_zero_non_classe, ca_7, ca_10, ca_14, ca_20,
       tva_7, tva_10, tva_14, tva_20, tva_collectee_total,
       deductions_charges, deductions_immobilisations, deductions_total,
       credit_reporte, nb_factures, droits_timbre,
@@ -316,6 +349,9 @@ export async function saveDeclaration(params: {
   const { data: company } = await supabase.from("companies").select("id").eq("user_id", ownerId).single();
 
   const c = { ...params.calc, ...params.overrides };
+  if (params.statut !== "brouillon" && c.ca_zero_non_classe > 0.01) {
+    return { error: "Des factures à 0 % n’ont pas de traitement TVA. Classez-les avant de valider la déclaration." };
+  }
   const tvaNette = c.tva_collectee_total + params.odTva + c.droits_timbre - c.deductions_total - c.credit_reporte;
   const mois = Number(params.periodStart.slice(5, 7));
   const annee = Number(params.periodStart.slice(0, 4));

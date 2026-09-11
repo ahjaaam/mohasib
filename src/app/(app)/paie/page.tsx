@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { calculateSalary, formatMAD } from "@/lib/payroll";
+import { calculateSalary } from "@/lib/payroll";
 import {
   Users, ChevronLeft, ChevronRight, Plus, Edit2, Trash2,
-  FileText, CheckCircle, DollarSign, Download, ExternalLink,
+  FileText, CheckCircle, DollarSign, Download,
   Loader2, X, ChevronDown, ChevronUp, UserRoundCog,
-  CalendarDays, Briefcase, FolderOpen, Eye, EyeOff,
+  CalendarDays, Eye, EyeOff,
   Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -23,6 +23,7 @@ import { getEmployeePayrollEligibility } from "@/lib/paie/employment-period";
 
 interface Employee {
   id: string;
+  company_id?: string | null;
   matricule?: string;
   nom: string;
   prenom: string;
@@ -97,6 +98,17 @@ interface EmployeeHours {
   notes?: string | null;
 }
 
+interface EmployeeEarning {
+  id: string;
+  employee_id: string;
+  prime_type: string;
+  label: string;
+  montant: number;
+  is_imposable: boolean;
+  is_soumis_cnss: boolean;
+  employees?: { nom: string; prenom: string };
+}
+
 interface Holiday {
   id: string;
   date: string;
@@ -121,26 +133,9 @@ interface Bulletin {
   taxe_formation_pro: number;
   cout_total_employeur: number;
   statut: string;
+  social_paid_at?: string | null;
+  ir_paid_at?: string | null;
   employees?: { nom: string; prenom: string; poste?: string };
-}
-
-interface CnssDeclaration {
-  id: string;
-  mois: number;
-  annee: number;
-  period_label: string;
-  total_salaires_bruts: number;
-  total_cnss_salarie: number;
-  total_cnss_patronal: number;
-  total_amo_salarie: number;
-  total_amo_patronal: number;
-  total_ipe: number;
-  total_formation_pro: number;
-  total_a_payer: number;
-  nombre_employes: number;
-  statut: string;
-  deposee_at?: string;
-  payee_at?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -161,10 +156,10 @@ function initials(prenom: string, nom: string) {
   return `${(prenom[0] ?? "").toUpperCase()}${(nom[0] ?? "").toUpperCase()}`;
 }
 
-type Tab = "employes" | "conges" | "heures" | "bulletins" | "cnss";
+type Tab = "employes" | "conges" | "heures" | "variables" | "bulletins" | "cnss";
 
 function isTab(value: string | null): value is Tab {
-  return value === "employes" || value === "conges" || value === "heures" || value === "bulletins" || value === "cnss";
+  return value === "employes" || value === "conges" || value === "heures" || value === "variables" || value === "bulletins" || value === "cnss";
 }
 
 const STATUT_COLORS: Record<string, string> = {
@@ -229,6 +224,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const requestedEmployeeSearch = searchParams.get("search") ?? "";
   const supabase = createClient();
   const [userId, setUserId] = useState("");
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [tabState, setTabState] = useState({ source: requestedTab, value: requestedTab });
   const tab = tabState.source === requestedTab ? tabState.value : requestedTab;
   const setTab = (value: Tab) => setTabState({ source: requestedTab, value });
@@ -280,6 +276,20 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const [hoursLoading, setHoursLoading] = useState(false);
   const [savingHoursId, setSavingHoursId] = useState<string | null>(null);
 
+  // Éléments variables
+  const [earnings, setEarnings] = useState<EmployeeEarning[]>([]);
+  const [earningsLoading, setEarningsLoading] = useState(false);
+  const [earningModal, setEarningModal] = useState(false);
+  const [earningSaving, setEarningSaving] = useState(false);
+  const [earningForm, setEarningForm] = useState({
+    employee_id: "",
+    prime_type: "prime",
+    label: "",
+    montant: "",
+    is_imposable: true,
+    is_soumis_cnss: true,
+  });
+
   // Bulletins
   const [bulletins, setBulletins] = useState<Bulletin[]>([]);
   const [bulletinsLoading, setBulletinsLoading] = useState(false);
@@ -287,13 +297,9 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // CNSS
-  const [cnssDecl, setCnssDecl] = useState<CnssDeclaration | null>(null);
   const [cnssDeclaration, setCnssDeclaration] = useState<any | null>(null);
   const [cnssDeclarationLoading, setCnssDeclarationLoading] = useState(false);
-  const [cnssLoading, setCnssLoading] = useState(false);
-  const [cnssGenerating, setCnssGenerating] = useState(false);
-  const [cnssHistory, setCnssHistory] = useState<CnssDeclaration[]>([]);
-  const [cnssEmployeeBreakdown, setCnssEmployeeBreakdown] = useState<any[]>([]);
+  const [remittances, setRemittances] = useState<any | null>(null);
 
   const periodLabel = `${MONTHS[selectedMonth - 1]} ${selectedYear}`;
   const payrollPopulation = useMemo(() => {
@@ -315,15 +321,19 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     let q = supabase.from("employees").select("*").eq("user_id", ownerId);
     if (dossierId) q = (q as any).eq("dossier_id", dossierId);
     else q = (q as any).is("dossier_id", null);
-    const { data } = await (q as any).order("nom");
+    const [{ data }, { data: company }] = await Promise.all([
+      (q as any).order("nom"),
+      supabase.from("companies").select("id").eq("user_id", ownerId).maybeSingle(),
+    ]);
     setEmployees(data ?? []);
+    setCompanyId(company?.id ?? null);
     setEmpLoading(false);
-  }, [dossierId]);
+  }, [dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scopeInsert = useCallback((payload: any) => ({
     ...payload,
-    ...(dossierId ? { dossier_id: dossierId } : {}),
-  }), [dossierId]);
+    ...(dossierId ? { dossier_id: dossierId } : companyId ? { company_id: companyId } : {}),
+  }), [companyId, dossierId]);
 
   const loadLeaveData = useCallback(async () => {
     setLeavesLoading(true);
@@ -364,6 +374,21 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     setHoursLoading(false);
   }, [dossierId, selectedMonth, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const loadEarnings = useCallback(async () => {
+    setEarningsLoading(true);
+    let q = supabase
+      .from("employee_primes")
+      .select("*, employees(nom, prenom)")
+      .eq("mois", selectedMonth)
+      .eq("annee", selectedYear);
+    if (dossierId) q = (q as any).eq("dossier_id", dossierId);
+    else q = (q as any).is("dossier_id", null);
+    const { data, error } = await (q as any).order("created_at", { ascending: false });
+    if (error) toast.error(error.message);
+    setEarnings((data ?? []) as EmployeeEarning[]);
+    setEarningsLoading(false);
+  }, [dossierId, selectedMonth, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadBulletins = useCallback(async () => {
     setBulletinsLoading(true);
     let q = supabase.from("bulletins_paie")
@@ -374,26 +399,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     const { data } = await (q as any).order("created_at");
     setBulletins(data ?? []);
     setBulletinsLoading(false);
-  }, [selectedMonth, selectedYear, dossierId]);
-
-  const loadCnss = useCallback(async () => {
-    setCnssLoading(true);
-    const [{ data: decl }, { data: hist }] = await Promise.all([
-      supabase.from("cnss_declarations")
-        .select("*").eq("mois", selectedMonth).eq("annee", selectedYear).maybeSingle(),
-      supabase.from("cnss_declarations")
-        .select("*").order("annee", { ascending: false }).order("mois", { ascending: false }).limit(7),
-    ]);
-    setCnssDecl(decl ?? null);
-    setCnssHistory((hist ?? []).filter((h: any) => !(h.mois === selectedMonth && h.annee === selectedYear)));
-    if (decl) {
-      const { data: buls } = await supabase.from("bulletins_paie")
-        .select("*, employees(nom, prenom, numero_cnss)").eq("mois", selectedMonth)
-        .eq("annee", selectedYear).eq("statut", "validé");
-      setCnssEmployeeBreakdown(buls ?? []);
-    }
-    setCnssLoading(false);
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCnssDeclaration = useCallback(async () => {
     setCnssDeclarationLoading(true);
@@ -402,16 +408,22 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       annee: String(selectedYear),
       ...(dossierId ? { dossierId } : {}),
     });
-    const res = await fetch(`/api/paie/cnss-declaration?${params.toString()}`);
-    const json = await res.json();
-    if (res.ok) setCnssDeclaration(json);
+    const [declarationResponse, remittanceResponse] = await Promise.all([
+      fetch(`/api/paie/cnss-declaration?${params.toString()}`),
+      fetch(`/api/paie/remittances?${params.toString()}`),
+    ]);
+    const [json, remittanceJson] = await Promise.all([declarationResponse.json(), remittanceResponse.json()]);
+    if (declarationResponse.ok) setCnssDeclaration(json);
     else toast.error(json.error ?? "Erreur déclaration CNSS");
+    if (remittanceResponse.ok) setRemittances(remittanceJson);
+    else toast.error(remittanceJson.error ?? "Erreur suivi des règlements");
     setCnssDeclarationLoading(false);
   }, [selectedMonth, selectedYear, dossierId]);
 
   useEffect(() => { loadEmployees(); }, [loadEmployees]);
   useEffect(() => { if (tab === "conges") loadLeaveData(); }, [tab, loadLeaveData]);
   useEffect(() => { if (tab === "heures") loadHours(); }, [tab, loadHours]);
+  useEffect(() => { if (tab === "variables") loadEarnings(); }, [tab, loadEarnings]);
   useEffect(() => { if (tab === "bulletins") loadBulletins(); }, [tab, loadBulletins]);
   useEffect(() => { if (tab === "cnss") loadCnssDeclaration(); }, [tab, loadCnssDeclaration, bulletins]);
 
@@ -496,7 +508,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       cimr_taux_salarie: parseFloat(empForm.cimr_taux_salarie) || 3.00,
       cimr_taux_patronal: parseFloat(empForm.cimr_taux_patronal) || 3.90,
       statut: empForm.statut,
-      ...(dossierId ? { dossier_id: dossierId } : {}),
+      ...(dossierId ? { dossier_id: dossierId, company_id: null } : { company_id: companyId }),
     };
     try {
       const { error } = await saveEmployeeWithSchemaCompatibility(payload, (value) => empModal === "add"
@@ -542,7 +554,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
     setLeaveSaving(true);
     const employee = employees.find(e => e.id === leaveForm.employee_id);
     const dailyRate = Number(employee?.salaire_brut ?? 0) / 26;
-    const { error } = await supabase.from("employee_leaves").insert(scopeInsert({
+    const response = await fetch("/api/paie/variables", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_leave",
       employee_id: leaveForm.employee_id,
       leave_type_id: isUuid(leaveForm.leave_type_id) ? leaveForm.leave_type_id : null,
       date_debut: leaveForm.date_debut,
@@ -551,10 +563,10 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       statut: "approuvé",
       is_paid: leaveForm.is_paid,
       impact_salaire: leaveForm.is_paid ? 0 : Math.round(dailyRate * jours * 100) / 100,
-      notes: leaveForm.notes || null,
-    }));
+      notes: leaveForm.notes || null, mois: selectedMonth, annee: selectedYear,
+    }) });
     setLeaveSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (!response.ok) { const result = await response.json(); toast.error(result.error); return; }
     toast.success(`${selectedType?.name ?? "Absence"} enregistrée`);
     setLeaveModal(false);
     loadLeaveData();
@@ -585,19 +597,66 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       montant_absence_deduit: Math.round(absenceHours * hourlyRate * 100) / 100,
       notes: patch.notes ?? base?.notes ?? null,
     });
-    const { data, error } = await supabase.from("employee_heures").upsert(payload, { onConflict: "employee_id,mois,annee" }).select().single();
+    const response = await fetch("/api/paie/variables", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "upsert_hours", ...payload }) });
+    const result = await response.json();
     setSavingHoursId(null);
-    if (error) { toast.error(error.message); return; }
-    setHoursRows(prev => ({ ...prev, [employee.id]: data as EmployeeHours }));
+    if (!response.ok) { toast.error(result.error); return; }
+    setHoursRows(prev => ({ ...prev, [employee.id]: result.data as EmployeeHours }));
     toast.success("Heures enregistrées");
   }
 
+  function openEarningModal() {
+    setEarningForm({
+      employee_id: employees[0]?.id ?? "",
+      prime_type: "prime",
+      label: "",
+      montant: "",
+      is_imposable: true,
+      is_soumis_cnss: true,
+    });
+    setEarningModal(true);
+  }
+
+  async function saveEarning() {
+    const employee = employees.find((item) => item.id === earningForm.employee_id);
+    const value = Number(earningForm.montant);
+    if (!employee || !earningForm.label.trim() || !Number.isFinite(value) || value <= 0) {
+      toast.error("Renseignez un employé, un libellé et un montant positif");
+      return;
+    }
+    setEarningSaving(true);
+    const response = await fetch("/api/paie/variables", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_earning",
+      employee_id: employee.id,
+      mois: selectedMonth,
+      annee: selectedYear,
+      prime_type: earningForm.prime_type,
+      label: earningForm.label.trim(),
+      montant: Math.round(value * 100) / 100,
+      is_imposable: earningForm.is_imposable,
+      is_soumis_cnss: earningForm.is_soumis_cnss,
+    }) });
+    setEarningSaving(false);
+    if (!response.ok) { const result = await response.json(); toast.error(result.error); return; }
+    toast.success("Élément variable enregistré");
+    setEarningModal(false);
+    loadEarnings();
+  }
+
+  async function deleteEarning(id: string) {
+    if (!confirm("Supprimer cet élément variable ?")) return;
+    const response = await fetch("/api/paie/variables", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete_earning", id }) });
+    if (!response.ok) { const result = await response.json(); toast.error(result.error); return; }
+    setEarnings((current) => current.filter((item) => item.id !== id));
+    toast.success("Élément supprimé");
+  }
+
   async function deleteEmployee(id: string) {
-    if (!confirm("Supprimer cet employé ? Ses bulletins seront conservés.")) return;
+    if (!confirm("Archiver cet employé ? Son historique de paie sera conservé.")) return;
     setDeletingId(id);
-    await supabase.from("employees").delete().eq("id", id);
+    const { error } = await supabase.from("employees").update({ statut: "inactif", is_active: false, archived_at: new Date().toISOString() }).eq("id", id);
     setDeletingId(null);
-    toast.success("Employé supprimé");
+    if (error) { toast.error(error.message); return; }
+    toast.success("Employé archivé, historique conservé");
     loadEmployees();
   }
 
@@ -629,26 +688,47 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
 
   async function updateBulletinStatus(id: string, statut: string) {
     setActionLoading(id + statut);
-    const patch: any = { statut };
-    if (statut === "payé") patch.paid_at = new Date().toISOString();
-    await supabase.from("bulletins_paie").update(patch).eq("id", id);
-    setActionLoading(null);
-    loadBulletins();
+    try {
+      const response = await fetch(`/api/paie/bulletins/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statut }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Transition impossible");
+      toast.success(statut === "payé" ? "Paiement enregistré et comptabilisé" : "Bulletin validé et comptabilisé");
+      await loadBulletins();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   async function deleteBulletin(id: string) {
     if (!confirm("Supprimer ce bulletin ?")) return;
-    await supabase.from("bulletins_paie").delete().eq("id", id);
-    toast.success("Bulletin supprimé");
-    loadBulletins();
+    const response = await fetch(`/api/paie/bulletins/${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      toast.error(result.error || "Suppression impossible");
+      return;
+    }
+    toast.success("Brouillon supprimé");
+    await loadBulletins();
   }
 
   async function validateAll() {
     const drafts = bulletins.filter(b => b.statut === "brouillon").map(b => b.id);
     if (!drafts.length) { toast("Aucun brouillon à valider"); return; }
-    await supabase.from("bulletins_paie").update({ statut: "validé" }).in("id", drafts);
-    toast.success(`${drafts.length} bulletin(s) validé(s)`);
-    loadBulletins();
+    const results = await Promise.all(drafts.map((id) => fetch(`/api/paie/bulletins/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statut: "validé" }),
+    })));
+    const failed = results.filter((result) => !result.ok).length;
+    if (failed) toast.error(`${failed} bulletin(s) non validé(s)`);
+    else toast.success(`${drafts.length} bulletin(s) validé(s) et comptabilisé(s)`);
+    await loadBulletins();
   }
 
   async function downloadPdf(id: string, empName: string) {
@@ -672,40 +752,6 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
 
   // ── CNSS actions ────────────────────────────────────────────────────────────
 
-  async function generateCnss() {
-    const validated = bulletins.filter(b => b.statut === "validé");
-    if (validated.length === 0) {
-      toast.error("Validez les bulletins avant de générer la déclaration CNSS");
-      return;
-    }
-    setCnssGenerating(true);
-    try {
-      const res = await fetch("/api/paie/cnss/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mois: selectedMonth, annee: selectedYear }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      toast.success(`Déclaration CNSS générée — ${formatMAD(json.total_a_payer)}`);
-      loadCnss();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setCnssGenerating(false);
-    }
-  }
-
-  async function updateCnssStatus(statut: "deposee" | "payee") {
-    if (!cnssDecl) return;
-    const patch: any = { statut };
-    if (statut === "deposee") patch.deposee_at = new Date().toISOString();
-    if (statut === "payee") patch.payee_at = new Date().toISOString();
-    await supabase.from("cnss_declarations").update(patch).eq("id", cnssDecl.id);
-    toast.success(statut === "deposee" ? "Marqué comme déposée" : "Marqué comme payée");
-    loadCnss();
-  }
-
   async function downloadCnssPdf() {
     setActionLoading("cnss-pdf");
     try {
@@ -725,6 +771,27 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       URL.revokeObjectURL(url);
     } catch (e: any) { toast.error(e.message); }
     finally { setActionLoading(null); }
+  }
+
+  async function settlePayrollLiability(kind: "social" | "ir") {
+    const label = kind === "social" ? "cotisations sociales, mutuelle et CIMR" : "IR sur salaires";
+    if (!confirm(`Confirmer le règlement de ${label} pour ${periodLabel} ? Cette action crée les écritures comptables.`)) return;
+    setActionLoading(`remittance-${kind}`);
+    try {
+      const response = await fetch("/api/paie/remittances", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mois: selectedMonth, annee: selectedYear, dossierId, kind }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Règlement impossible");
+      toast.success(`${label} comptabilisé${result.count ? ` · ${result.count} bulletin(s)` : ""}`);
+      await loadCnssDeclaration();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   async function downloadCnssExcel() {
@@ -751,9 +818,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const masseSalariale = bulletins.reduce((s, b) => s + Number(b.salaire_brut), 0);
-  const chargesPatronales = bulletins.reduce((s, b) => s + Number(b.cnss_patronal) + Number(b.amo_patronal) + Number(b.taxe_formation_pro), 0);
   const irTotal = bulletins.reduce((s, b) => s + Number(b.ir_net), 0);
-  const cnssTotal = bulletins.reduce((s, b) => s + Number(b.cnss_salarie) + Number(b.cnss_patronal), 0);
   const filteredEmployees = useMemo(() => {
     const query = employeeSearch.trim().toLowerCase();
     if (!query) return employees;
@@ -767,23 +832,6 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
       employee.numero_cnss,
     ].some((value) => value?.toLowerCase().includes(query)));
   }, [employeeSearch, employees]);
-
-  const dueDay15 = new Date(selectedYear, selectedMonth - 1, 15);
-  const dueDay28 = new Date(selectedYear, selectedMonth - 1, 28);
-
-  // ── CNSS breakdown ──────────────────────────────────────────────────────────
-  const cnssBreakdownFromBulletins = cnssDecl
-    ? cnssEmployeeBreakdown.map((b: any) => ({
-        nom: `${b.employees?.prenom ?? ""} ${b.employees?.nom ?? ""}`.trim(),
-        numero_cnss: b.employees?.numero_cnss ?? "—",
-        brut: Number(b.salaire_brut),
-        cnss_sal: Number(b.cnss_salarie),
-        cnss_pat: Number(b.cnss_patronal),
-        amo_sal: Number(b.amo_salarie),
-        amo_pat: Number(b.amo_patronal),
-        total: Number(b.cnss_salarie) + Number(b.cnss_patronal) + Number(b.amo_salarie) + Number(b.amo_patronal),
-      }))
-    : [];
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -816,11 +864,11 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
                 <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouvelle absence
               </button>
             </>
-          ) : tab === "heures" ? (
+          ) : tab === "heures" || tab === "variables" ? (
             <>
-              <label className="sr-only" htmlFor="hours-period">Mois des heures</label>
+              <label className="sr-only" htmlFor="payroll-variable-period">Mois des éléments variables</label>
               <select
-                id="hours-period"
+                id="payroll-variable-period"
                 value={selectedMonth}
                 onChange={(event) => setSelectedMonth(Number(event.target.value))}
                 className="h-11 w-full rounded-lg border border-[#9CA3AF] bg-white px-3 text-[12px] font-semibold text-[#1A1A2E] outline-none transition-colors hover:border-[#6B7280] focus:border-[#374151] sm:h-9 sm:w-auto"
@@ -829,6 +877,11 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
                   <option key={month} value={index + 1}>{month}</option>
                 ))}
               </select>
+              {tab === "variables" && (
+                <button data-permission="bulletin_paie:validate" onClick={openEarningModal} className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#111621] bg-[#111621] px-3.5 text-[12px] font-medium text-white transition-colors hover:border-[#25334B] hover:bg-[#25334B] sm:h-9 sm:w-auto">
+                  <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Ajouter un élément
+                </button>
+              )}
             </>
           ) : null
         }
@@ -840,6 +893,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           ["employes","Employés"],
           ["conges","Congés & Absences"],
           ["heures","Heures"],
+          ["variables","Primes & indemnités"],
           ["bulletins","Bulletins"],
           ["cnss","CNSS"],
         ] as const).map(([key, label]) => (
@@ -871,7 +925,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
             onAdd={openAddModal}
             onEdit={openEditModal}
             onDelete={deleteEmployee}
-            onViewBulletin={(emp) => { setTab("bulletins"); }}
+            onViewBulletin={() => { setTab("bulletins"); }}
           />
         </>
       )}
@@ -903,19 +957,28 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
         />
       )}
 
-      {/* ── TAB 4: BULLETINS ── */}
+      {/* ── TAB 4: ÉLÉMENTS VARIABLES ── */}
+      {tab === "variables" && (
+        <EarningsTab
+          earnings={earnings}
+          loading={earningsLoading}
+          periodLabel={periodLabel}
+          onAdd={openEarningModal}
+          onDelete={deleteEarning}
+        />
+      )}
+
+      {/* ── TAB 5: BULLETINS ── */}
       {tab === "bulletins" && (
         <div className="space-y-5">
           <BulletinsTab
             bulletins={bulletins}
-            employees={employees}
             eligibleCount={payrollPopulation.eligible.length}
             excludedCount={payrollPopulation.excluded.length}
             loading={bulletinsLoading}
             generating={generating}
             periodLabel={periodLabel}
             selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
             masseSalariale={masseSalariale}
             irTotal={irTotal}
             onPrev={prevMonth}
@@ -929,7 +992,7 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
         </div>
       )}
 
-      {/* ── TAB 5: CNSS ── */}
+      {/* ── TAB 6: CNSS ── */}
       {tab === "cnss" && (
         <CnssTab
           declaration={cnssDeclaration}
@@ -942,6 +1005,8 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           onNext={nextMonth}
           onDownloadPdf={downloadCnssPdf}
           onDownloadExcel={downloadCnssExcel}
+          remittances={remittances}
+          onSettle={settlePayrollLiability}
         />
       )}
 
@@ -973,6 +1038,16 @@ export default function PaiePage({ dossierId }: { dossierId?: string } = {}) {
           }}
           onSave={saveLeave}
           onClose={() => setLeaveModal(false)}
+        />
+      )}
+      {earningModal && (
+        <EarningModal
+          employees={employees}
+          form={earningForm}
+          saving={earningSaving}
+          onChange={(key: string, value: any) => setEarningForm((current) => ({ ...current, [key]: value }))}
+          onSave={saveEarning}
+          onClose={() => setEarningModal(false)}
         />
       )}
     </div>
@@ -1038,7 +1113,7 @@ function EmployesTab({ employees, hasEmployees, search, loading, deletingId, onA
             {employees.map((emp: Employee, index: number) => {
               const salaryVisible = visibleSalaries.has(emp.id);
               const calc = salaryVisible
-                ? calculateSalary({ salaire_brut: Number(emp.salaire_brut), situation_familiale: emp.situation_familiale, nombre_enfants: Number(emp.nombre_enfants) })
+                ? calculateSalary({ salaire_brut: Number(emp.salaire_brut), situation_familiale: emp.situation_familiale, nombre_enfants: Number(emp.nombre_enfants), has_mutuelle: emp.has_mutuelle, mutuelle_taux_salarie: Number(emp.mutuelle_taux_salarie), mutuelle_taux_patronal: Number(emp.mutuelle_taux_patronal), has_cimr: emp.has_cimr, cimr_taux_salarie: Number(emp.cimr_taux_salarie), cimr_taux_patronal: Number(emp.cimr_taux_patronal) })
                 : null;
               return (
                 <tr key={emp.id} className={`border-b border-[rgba(0,0,0,0.05)] last:border-b-0 hover:bg-[rgba(200,146,74,0.03)] ${index % 2 === 1 ? "bg-[#FAFAFA]" : ""}`}>
@@ -1321,6 +1396,8 @@ function CongesTab({ employees, leaveTypes, leaves, holidays, holidayRows, loadi
 function HeuresTab({ employees, hoursRows, loading, savingId, selectedMonth, selectedYear, onSave }: any) {
   const [drafts, setDrafts] = useState<Record<string, any>>({});
 
+  // The period switch intentionally discards unsaved table drafts.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setDrafts({}); }, [selectedMonth, selectedYear, hoursRows]);
 
   function valueFor(emp: Employee, field: keyof EmployeeHours, fallback: number) {
@@ -1401,9 +1478,58 @@ function HeuresTab({ employees, hoursRows, loading, savingId, selectedMonth, sel
   );
 }
 
+// ─── Éléments variables Tab ─────────────────────────────────────────────────
+
+function EarningsTab({ earnings, loading, periodLabel, onAdd, onDelete }: any) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-[rgba(0,0,0,0.08)] bg-white">
+      {loading ? (
+        <div className="loading-cell">Chargement...</div>
+      ) : earnings.length === 0 ? (
+        <div className="px-5 py-12 text-center">
+          <DollarSign size={30} className="mx-auto mb-3 text-[#9CA3AF]" aria-hidden="true" />
+          <p className="text-[13px] font-semibold text-[#6B7280]">Aucune prime ou indemnité pour {periodLabel}</p>
+          <button onClick={onAdd} className="btn btn-outline mt-4 min-h-10">
+            <Plus size={14} /> Ajouter un élément
+          </button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-[12px]">
+            <thead>
+              <tr className="bg-[#F9F9F6]">
+                {["Employé", "Type", "Libellé", "Montant", "Imposable", "Soumis CNSS", "Action"].map((heading) => (
+                  <th key={heading} className="px-4 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.4px] text-[#6B7280]">{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {earnings.map((earning: EmployeeEarning) => (
+                <tr key={earning.id} className="border-t border-[rgba(0,0,0,0.05)]">
+                  <td className="px-4 py-3 font-medium text-[#1A1A2E]">{earning.employees?.prenom} {earning.employees?.nom}</td>
+                  <td className="px-4 py-3 text-[#6B7280]">{earning.prime_type.includes("indemnit") ? "Indemnité" : "Prime"}</td>
+                  <td className="px-4 py-3 text-[#374151]">{earning.label}</td>
+                  <td className="px-4 py-3 font-semibold text-[#059669]">{fmtAmt(Number(earning.montant))} MAD</td>
+                  <td className="px-4 py-3">{earning.is_imposable ? "Oui" : "Non"}</td>
+                  <td className="px-4 py-3">{earning.is_soumis_cnss ? "Oui" : "Non"}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => onDelete(earning.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(220,38,38,0.2)] text-[#DC2626] hover:bg-[#FEF2F2]" aria-label={`Supprimer ${earning.label}`}>
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Bulletins Tab ────────────────────────────────────────────────────────────
 
-function BulletinsTab({ bulletins, employees, eligibleCount, excludedCount, loading, generating, periodLabel, selectedMonth, selectedYear, masseSalariale, irTotal, onPrev, onNext, onGenerate, onUpdateStatus, onDelete, onDownloadPdf, onValidateAll }: any) {
+function BulletinsTab({ bulletins, eligibleCount, excludedCount, loading, generating, periodLabel, selectedMonth, masseSalariale, irTotal, onPrev, onNext, onGenerate, onUpdateStatus, onDelete, onDownloadPdf, onValidateAll }: any) {
   return (
     <div>
       {/* Month selector */}
@@ -1544,7 +1670,7 @@ function BulletinsTab({ bulletins, employees, eligibleCount, excludedCount, load
 
 // ─── CNSS Tab ─────────────────────────────────────────────────────────────────
 
-function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onNext, onDownloadPdf, onDownloadExcel }: any) {
+function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onNext, onDownloadPdf, onDownloadExcel, remittances, onSettle }: any) {
   const rows = declaration?.employees ?? [];
   const totals = declaration?.totals ?? {};
   const missing = declaration?.missing_bulletins ?? [];
@@ -1561,7 +1687,7 @@ function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onN
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-[18px] font-bold text-[#1A1A2E]">Déclaration CNSS</h2>
-          <p className="text-[12px] text-[#6B7280] mt-0.5">État mensuel pour Damancom</p>
+          <p className="text-[12px] text-[#6B7280] mt-0.5">État mensuel de contrôle pour la saisie Damancom</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[rgba(0,0,0,0.1)] hover:bg-[#F3F4F6] transition-colors">
@@ -1603,12 +1729,39 @@ function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onN
               `${missing.length} employé(s) n'ont pas de bulletin validé ce mois. Les bulletins non validés ne sont pas inclus.`}
           </div>
 
+          {remittances?.count > 0 && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#6B7280]">Organismes sociaux</div>
+                    <div className="mt-1 text-[18px] font-bold text-[#1A1A2E]">{fmtAmt(Number(remittances.social_outstanding ?? 0))} MAD</div>
+                    <p className="mt-1 text-[11px] text-[#9CA3AF]">CNSS, AMO, TFP, mutuelle et CIMR restant à régler</p>
+                  </div>
+                  {remittances.social_paid ? <span className="rounded-full bg-[#D1FAE5] px-2 py-1 text-[10.5px] font-semibold text-[#065F46]">Réglé</span> : null}
+                </div>
+                {!remittances.social_paid && <button data-permission="bulletin_paie:validate" onClick={() => onSettle("social")} disabled={actionLoading === "remittance-social"} className="btn btn-outline mt-3 min-h-9 disabled:opacity-50">{actionLoading === "remittance-social" ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Marquer comme réglé</button>}
+              </div>
+              <div className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#6B7280]">IR sur salaires</div>
+                    <div className="mt-1 text-[18px] font-bold text-[#1A1A2E]">{fmtAmt(Number(remittances.ir_outstanding ?? 0))} MAD</div>
+                    <p className="mt-1 text-[11px] text-[#9CA3AF]">Retenue à la source restant à reverser</p>
+                  </div>
+                  {remittances.ir_paid ? <span className="rounded-full bg-[#D1FAE5] px-2 py-1 text-[10.5px] font-semibold text-[#065F46]">Réglé</span> : null}
+                </div>
+                {!remittances.ir_paid && <button data-permission="bulletin_paie:validate" onClick={() => onSettle("ir")} disabled={actionLoading === "remittance-ir"} className="btn btn-outline mt-3 min-h-9 disabled:opacity-50">{actionLoading === "remittance-ir" ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Marquer comme réglé</button>}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-[11px] border-collapse min-w-[1180px]">
                 <thead>
                   <tr className="bg-[#1A1A2E] text-white">
-                    {["N°","Matricule CNSS","Nom","Prénom","Jours déclarés","Salaire brut","Salaire plafonné","CNSS salarié (4.48%)","CNSS patronal (21.09%)","AMO salarié (2.26%)","AMO patronal (4.11%)","Total cotisations"].map(h => (
+                    {["N°","Matricule CNSS","Nom","Prénom","Jours déclarés","Salaire brut","Salaire plafonné","CNSS salarié (4.48%)","CNSS patronal + AF","AMO salarié (selon régime)","AMO patronal (selon régime)","TFP (selon assujettissement)","Total cotisations"].map(h => (
                       <th key={h} className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.3px] whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -1627,6 +1780,7 @@ function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onN
                       <td className="px-3 py-2 text-right">{fmtAmt(r.cnss_patronal)}</td>
                       <td className="px-3 py-2 text-right">{fmtAmt(r.amo_salarie)}</td>
                       <td className="px-3 py-2 text-right">{fmtAmt(r.amo_patronal)}</td>
+                      <td className="px-3 py-2 text-right">{fmtAmt(r.formation_professionnelle)}</td>
                       <td className="px-3 py-2 text-right font-semibold">{fmtAmt(r.total_cotisations)}</td>
                     </tr>
                   ))}
@@ -1642,6 +1796,7 @@ function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onN
                     <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_cnss_patronal ?? 0)}</td>
                     <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_amo_salarie ?? 0)}</td>
                     <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_amo_patronal ?? 0)}</td>
+                    <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_formation_professionnelle ?? 0)}</td>
                     <td className="px-3 py-2.5 text-right">{fmtAmt(totals.total_cotisations ?? 0)}</td>
                   </tr>
                 </tfoot>
@@ -1655,6 +1810,71 @@ function CnssTab({ declaration, loading, actionLoading, periodLabel, onPrev, onN
 }
 
 // ─── Leave Modal ──────────────────────────────────────────────────────────────
+
+function EarningModal({ employees, form, saving, onChange, onSave, onClose }: any) {
+  const isAllowance = form.prime_type === "indemnite";
+  return (
+    <div className="modal-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="modal max-w-lg">
+        <div className="flex items-center justify-between border-b border-[rgba(0,0,0,0.07)] px-5 py-4">
+          <div>
+            <h2 className="text-[15px] font-bold text-[#1A1A2E]">Ajouter une prime ou indemnité</h2>
+            <p className="mt-0.5 text-[11px] text-[#9CA3AF]">Cet élément sera repris lors de la génération du bulletin.</p>
+          </div>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6]" aria-label="Fermer">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-5">
+          <Field label="Employé">
+            <select className="input" value={form.employee_id} onChange={(event) => onChange("employee_id", event.target.value)}>
+              {employees.map((employee: Employee) => <option key={employee.id} value={employee.id}>{employee.prenom} {employee.nom}</option>)}
+            </select>
+          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Type">
+              <select
+                className="input"
+                value={form.prime_type}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  onChange("prime_type", value);
+                  onChange("is_imposable", value === "prime");
+                  onChange("is_soumis_cnss", value === "prime");
+                }}
+              >
+                <option value="prime">Prime</option>
+                <option value="indemnite">Indemnité</option>
+              </select>
+            </Field>
+            <Field label="Montant (MAD)">
+              <input type="number" min="0" step="0.01" className="input" value={form.montant} onChange={(event) => onChange("montant", event.target.value)} />
+            </Field>
+          </div>
+          <Field label="Libellé">
+            <input className="input" value={form.label} onChange={(event) => onChange("label", event.target.value)} placeholder={isAllowance ? "Ex. indemnité de transport" : "Ex. prime de performance"} />
+          </Field>
+          <div className="rounded-xl border border-[rgba(0,0,0,0.07)] bg-[#F9F9F6] p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#374151]">
+              <input type="checkbox" checked={form.is_imposable} onChange={(event) => onChange("is_imposable", event.target.checked)} />
+              Inclus dans le salaire imposable
+            </label>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-[12px] font-medium text-[#374151]">
+              <input type="checkbox" checked={form.is_soumis_cnss} onChange={(event) => onChange("is_soumis_cnss", event.target.checked)} />
+              Inclus dans la base CNSS / AMO
+            </label>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-[rgba(0,0,0,0.07)] px-5 py-4">
+          <button onClick={onClose} className="btn btn-outline min-h-10">Annuler</button>
+          <button onClick={onSave} disabled={saving} className="btn btn-gold min-h-10 disabled:opacity-50">
+            {saving ? <Loader2 size={13} className="animate-spin" /> : null} Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function LeaveModal({ employees, leaveTypes, form, holidays, saving, onChange, onSave, onClose }: any) {
   const days = countWorkingDays(form.date_debut, form.date_fin, holidays);
@@ -1733,6 +1953,12 @@ function EmployeeModal({ mode, form, saving, onChange, onSave, onClose }: any) {
     salaire_brut: brut,
     situation_familiale: form.situation_familiale,
     nombre_enfants: parseInt(form.nombre_enfants) || 0,
+    has_mutuelle: form.has_mutuelle,
+    mutuelle_taux_salarie: parseFloat(form.mutuelle_taux_salarie) || 0,
+    mutuelle_taux_patronal: parseFloat(form.mutuelle_taux_patronal) || 0,
+    has_cimr: form.has_cimr,
+    cimr_taux_salarie: parseFloat(form.cimr_taux_salarie) || 0,
+    cimr_taux_patronal: parseFloat(form.cimr_taux_patronal) || 0,
   }) : null;
 
   return (

@@ -18,6 +18,11 @@ import {
   parseGlobalPeriod,
 } from "@/lib/global-period";
 import { buildFinanceChartData } from "@/lib/finance-chart";
+import {
+  resolveVatDeclarationStatus,
+  vatDeclarationPeriod,
+  vatDeclarationStatusLabel,
+} from "@/lib/tva-declaration-summary";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA") + " MAD";
@@ -74,29 +79,41 @@ export default async function DashboardPage() {
   const companyId = companyRes.data?.id ?? null;
   const company = companyRes.data;
   const now = new Date();
+  const moroccoToday = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Africa/Casablanca",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  const vatPeriod = vatDeclarationPeriod(company?.tva_regime, moroccoToday);
 
   let invoiceQuery = supabase.from("invoices").select("*, clients(id,name)").eq("user_id", ownerId).is("dossier_id", null)
     .or("invoice_type.is.null,invoice_type.eq.facture");
   let transactionQuery = supabase.from("transactions").select("*").eq("user_id", ownerId).is("dossier_id", null);
   let pendingQuery = supabase.from("invoices").select("total, status, due_date, montant_recu").eq("user_id", ownerId).is("dossier_id", null).in("status", ["sent", "overdue"]);
-  let tvaQuery = supabase.from("invoices").select("tax_amount").eq("user_id", ownerId).is("dossier_id", null).in("status", ["paid", "sent"]);
+  const vatDeclarationQuery = supabase
+    .from("tva_declarations")
+    .select("id, period_label, period_start, period_end, statut, status, tva_nette, tva_nette_due, credit_tva, filed_at, deposee_at")
+    .eq("user_id", ownerId)
+    .eq("period_start", vatPeriod.periodStart)
+    .eq("period_end", vatPeriod.periodEnd)
+    .maybeSingle();
   let supplierQuery = supabase.from("receipts").select("id, status, ocr_data, created_at").eq("user_id", ownerId).is("dossier_id", null).eq("status", "matched");
 
   if (selectedPeriod.start && selectedPeriod.end) {
     invoiceQuery = invoiceQuery.gte("issue_date", selectedPeriod.start).lte("issue_date", selectedPeriod.end);
     transactionQuery = transactionQuery.gte("date", selectedPeriod.start).lte("date", selectedPeriod.end);
     pendingQuery = pendingQuery.gte("issue_date", selectedPeriod.start).lte("issue_date", selectedPeriod.end);
-    tvaQuery = tvaQuery.gte("issue_date", selectedPeriod.start).lte("issue_date", selectedPeriod.end);
     supplierQuery = supplierQuery.gte("created_at", `${selectedPeriod.start}T00:00:00`).lte("created_at", `${selectedPeriod.end}T23:59:59.999Z`);
   }
 
-  const [invoicesRes, periodTransactionsRes, clientCountRes, profileRes, pendingRes, tvaRes, supplierRes, prefsRes] = await Promise.all([
+  const [invoicesRes, periodTransactionsRes, clientCountRes, profileRes, pendingRes, vatDeclarationRes, supplierRes, prefsRes] = await Promise.all([
     invoiceQuery.order("issue_date", { ascending: false }).limit(10),
     transactionQuery.order("date", { ascending: true }),
     supabase.from("clients").select("id", { count: "exact" }).eq("user_id", ownerId).is("dossier_id", null),
     supabase.from("users").select("full_name").eq("id", user!.id).single(),
     pendingQuery,
-    tvaQuery,
+    vatDeclarationQuery,
     supplierQuery,
     supabase.from("user_preferences").select("dashboard_deadlines").eq("user_id", ownerId).maybeSingle(),
   ]);
@@ -115,9 +132,23 @@ export default async function DashboardPage() {
   const pendingInvs = pendingRes.data ?? [];
   const pendingTotal = pendingInvs.reduce((s, i) => s + Number(i.total), 0);
 
-  const tvaEstimate = (tvaRes.data ?? []).reduce((s, i) => s + Number(i.tax_amount), 0);
-
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 20);
+  const vatDeclaration = vatDeclarationRes.data;
+  const vatStatus = resolveVatDeclarationStatus(vatDeclaration?.statut, vatDeclaration?.status);
+  const vatStatusLabel = vatDeclarationStatusLabel(vatStatus);
+  const vatAmount = Number(vatDeclaration?.tva_nette_due ?? vatDeclaration?.tva_nette ?? 0);
+  const vatCredit = Number(vatDeclaration?.credit_tva ?? 0);
+  const vatStatusClass = vatStatus === "filed"
+    ? "bg-[#D1FAE5] text-[#065F46]"
+    : vatStatus === "validated"
+      ? "bg-[#FEF3C7] text-[#92400E]"
+      : vatStatus === "draft"
+        ? "bg-[#EFF6FF] text-[#1D4ED8]"
+        : "bg-[#F3F4F6] text-[#6B7280]";
+  const vatHref = `/declarations-tva?period=${vatPeriod.queryPeriod}`;
+  const vatDeadline = new Date(`${vatPeriod.deadline}T12:00:00`).toLocaleDateString("fr-MA", {
+    day: "numeric",
+    month: "short",
+  });
 
   const todayStr = now.toISOString().slice(0, 10);
   const totalAEncaisser = pendingInvs.reduce((s, i) => s + Math.max(Number(i.total) - Number((i as any).montant_recu ?? 0), 0), 0);
@@ -242,13 +273,25 @@ export default async function DashboardPage() {
               <div className="kpi-value !mb-1.5" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>{fmt(revenue)}</div>
               <div className="truncate text-[11px] text-[#6B7280]" title={selectedPeriodLabel}>{selectedPeriodLabel}</div>
             </div>
-            <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
-              <div className="kpi-label !mb-2">TVA à déclarer</div>
-              <div className="kpi-value !mb-1.5" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>{fmt(Math.round(tvaEstimate))}</div>
-              <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
-                Échéance <span className="tag tag-warn">20 {nextMonth.toLocaleDateString("fr-MA", { month: "short" })}</span>
+            <Link href={vatHref} className="kpi flex min-w-0 flex-col justify-center transition-colors hover:border-[#C8924A]" style={{ padding: "10px 14px" }}>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <div className="kpi-label !mb-0">Déclaration TVA</div>
+                <span className={`rounded-full px-2 py-0.5 text-[9.5px] font-semibold ${vatStatusClass}`}>{vatStatusLabel}</span>
               </div>
-            </div>
+              {company?.tva_assujetti === false ? (
+                <div className="kpi-value !mb-1.5" style={{ fontSize: "17px", fontWeight: 600 }}>Non assujetti</div>
+              ) : vatDeclaration ? (
+                <div className="kpi-value !mb-1.5" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>
+                  {vatCredit > 0 ? `Crédit ${fmt(vatCredit)}` : fmt(Math.max(0, vatAmount))}
+                </div>
+              ) : (
+                <div className="kpi-value !mb-1.5" style={{ fontSize: "17px", fontWeight: 600 }}>Préparer la période</div>
+              )}
+              <div className="flex items-center justify-between gap-1.5 text-[11px] text-[#6B7280]">
+                <span className="truncate">{vatPeriod.periodLabel} · échéance {vatDeadline}</span>
+                <ArrowUpRight size={12} className="flex-shrink-0" aria-hidden="true" />
+              </div>
+            </Link>
             <div className="kpi flex min-w-0 flex-col justify-center" style={{ padding: "10px 14px" }}>
               <div className="kpi-label !mb-2">Factures en attente</div>
               <div className="kpi-value !mb-1.5" style={{ fontSize: "20px", fontWeight: 600, letterSpacing: "-0.25px" }}>{pendingInvs.length}</div>

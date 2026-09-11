@@ -139,6 +139,7 @@ export default function SaisieClient() {
         .select("id, date, description, amount, type, category, receipt_id, invoice_id, reference")
         .eq("user_id", ownerId)
         .is("dossier_id", null)
+        .eq("workflow_status", "posted")
         .gte("date", startDate)
         .lte("date", endDate)
         .order("date");

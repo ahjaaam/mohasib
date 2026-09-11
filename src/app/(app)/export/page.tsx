@@ -4,9 +4,8 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
-import { taxIncludedInAmount } from "@/lib/tax";
 import { normalizeAccountingSettings } from "@/lib/accounting-settings";
-import { getAccountLabel, getExpenseAccount } from "@/lib/cgnc-mapping";
+import { calculateTVAForPeriod, type TVACalcResult } from "@/app/(app)/tva/actions";
 import {
   PAYMENT_DEADLINE_HEADERS,
   buildClientPaymentDeadlineRows,
@@ -23,7 +22,25 @@ function fmtDate(d: string) {
   });
 }
 
-const expenseTax = taxIncludedInAmount;
+interface AccountingEntry {
+  id: string;
+  numero_piece: string | null;
+  date_ecriture: string;
+  journal: string;
+  compte: string;
+  compte_label: string | null;
+  debit: number | string | null;
+  credit: number | string | null;
+  libelle: string | null;
+  source_type: string | null;
+  source_id: string | null;
+  is_validated: boolean | null;
+}
+
+function entryAmount(value: number | string | null) {
+  const amount = Number(value ?? 0);
+  return Number.isFinite(amount) ? amount : 0;
+}
 
 const now = new Date();
 
@@ -140,21 +157,30 @@ export default function ExportPage() {
     setLoadingStats(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const [invRes, txRes] = await Promise.all([
-      supabase.from("invoices").select("total,tax_amount,status").eq("user_id", ownerId).is("dossier_id", null)
-        .gte("issue_date", period.start).lte("issue_date", period.end),
-      supabase.from("transactions").select("amount,type,category,tax_rate,tax_amount").eq("user_id", ownerId).is("dossier_id", null)
-        .gte("date", period.start).lte("date", period.end),
+    const [entriesRes, companyRes] = await Promise.all([
+      supabase.from("ecritures_comptables")
+        .select("id,numero_piece,date_ecriture,journal,compte,compte_label,debit,credit,libelle,source_type,source_id,is_validated")
+        .is("dossier_id", null)
+        .or("is_validated.eq.true,source_type.neq.manual")
+        .gte("date_ecriture", period.start).lte("date_ecriture", period.end),
+      supabase.from("companies").select("accounting_settings").eq("user_id", ownerId).maybeSingle(),
     ]);
-    const invoices = (invRes.data ?? []).filter((i: any) => i.status !== "draft" && i.status !== "cancelled");
-    const expenses = (txRes.data ?? []).filter((t: any) => t.type === "expense");
+    if (entriesRes.error || companyRes.error) {
+      setError(translateError(entriesRes.error ?? companyRes.error));
+      setLoadingStats(false);
+      return;
+    }
+    const entries = (entriesRes.data ?? []) as AccountingEntry[];
+    const accounts = normalizeAccountingSettings(companyRes.data?.accounting_settings);
+    const salesEntries = entries.filter((entry) => entry.journal === "VT");
+    const purchaseEntries = entries.filter((entry) => entry.journal === "AC");
     setStats({
-      invoiceCount:   invoices.length,
-      invoiceTotal:   invoices.reduce((s: number, i: any) => s + Number(i.total), 0),
-      expenseCount:   expenses.length,
-      expenseTotal:   expenses.reduce((s: number, t: any) => s + Number(t.amount), 0),
-      tvaCollected:   invoices.reduce((s: number, i: any) => s + Number(i.tax_amount), 0),
-      tvaDeductible:  expenses.reduce((s: number, t: any) => s + expenseTax(t), 0),
+      invoiceCount: new Set(salesEntries.map((entry) => entry.source_id).filter(Boolean)).size,
+      invoiceTotal: salesEntries.filter((entry) => entry.compte === accounts.clientAccount).reduce((sum, entry) => sum + entryAmount(entry.debit), 0),
+      expenseCount: new Set(purchaseEntries.map((entry) => entry.source_id).filter(Boolean)).size,
+      expenseTotal: purchaseEntries.filter((entry) => entry.compte === accounts.supplierAccount).reduce((sum, entry) => sum + entryAmount(entry.credit), 0),
+      tvaCollected: salesEntries.filter((entry) => entry.compte === accounts.collectedTvaAccount).reduce((sum, entry) => sum + entryAmount(entry.credit) - entryAmount(entry.debit), 0),
+      tvaDeductible: purchaseEntries.filter((entry) => entry.compte === accounts.recoverableTvaAccount).reduce((sum, entry) => sum + entryAmount(entry.debit) - entryAmount(entry.credit), 0),
     });
     setLoadingStats(false);
   }
@@ -166,29 +192,40 @@ export default function ExportPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Non authentifié");
 
-      const [invRes, txRes, receiptRes, companyRes] = await Promise.all([
+      const [invRes, receiptRes, companyRes, entriesRes] = await Promise.all([
         supabase.from("invoices").select("*, clients(id,name,ice,address), invoice_payments(montant,date_paiement,mode_paiement,reference,allocation_status)")
           .eq("user_id", ownerId).is("dossier_id", null).gte("issue_date", period.start).lte("issue_date", period.end)
           .order("issue_date", { ascending: true }),
-        supabase.from("transactions").select("*")
-          .eq("user_id", ownerId).is("dossier_id", null).gte("date", period.start).lte("date", period.end)
-          .order("date", { ascending: true }),
         supabase.from("receipts")
           .select("id,file_name,status,created_at,ocr_data,invoice_payments(montant,date_paiement,mode_paiement,reference,allocation_status)")
           .eq("user_id", ownerId).is("dossier_id", null).eq("status", "matched"),
-        supabase.from("companies").select("accounting_settings").eq("user_id", ownerId).maybeSingle(),
+        supabase.from("companies").select("id").eq("user_id", ownerId).maybeSingle(),
+        supabase.from("ecritures_comptables")
+          .select("id,numero_piece,date_ecriture,journal,compte,compte_label,debit,credit,libelle,source_type,source_id,is_validated")
+          .is("dossier_id", null)
+          .or("is_validated.eq.true,source_type.neq.manual")
+          .gte("date_ecriture", period.start).lte("date_ecriture", period.end)
+          .order("date_ecriture", { ascending: true }),
       ]);
 
       if (invRes.error) throw invRes.error;
-      if (txRes.error) throw txRes.error;
       if (receiptRes.error) throw receiptRes.error;
       if (companyRes.error) throw companyRes.error;
+      if (entriesRes.error) throw entriesRes.error;
 
-      const accounts = normalizeAccountingSettings(companyRes.data?.accounting_settings);
-
-      const invoices: any[] = (invRes.data ?? []).filter((i: any) => i.status !== "draft" && i.status !== "cancelled");
-      const allTx: any[]    = txRes.data ?? [];
-      const expenses        = allTx.filter(t => t.type === "expense");
+      const accountingEntries = (entriesRes.data ?? []) as AccountingEntry[];
+      const bookedInvoiceIds = new Set(accountingEntries.filter((entry) => entry.journal === "VT").map((entry) => entry.source_id).filter(Boolean));
+      const invoices: any[] = (invRes.data ?? []).filter((invoice: any) =>
+        invoice.status !== "draft" && invoice.status !== "cancelled" && bookedInvoiceIds.has(invoice.id)
+      );
+      const salesJournalEntries = accountingEntries.filter((entry) => entry.journal === "VT");
+      const purchaseJournalEntries = accountingEntries.filter((entry) => entry.journal === "AC");
+      let vatCalculation: TVACalcResult | null = null;
+      if (selectedDocuments.has("tva-pdf") || selectedDocuments.has("summary-pdf")) {
+        const vatResult = await calculateTVAForPeriod(period.start, period.end);
+        if (vatResult.error || !vatResult.data) throw new Error(vatResult.error ?? "Calcul TVA indisponible");
+        vatCalculation = vatResult.data;
+      }
       const supplierInvoices = (receiptRes.data ?? []).filter((receipt: any) =>
         receipt.ocr_data?.document_type !== "avoir" && receipt.ocr_data?.is_supplier_invoice !== false
       );
@@ -238,29 +275,28 @@ export default function ExportPage() {
           [profile?.company ?? "Mohasib", "", "", "", "", "", "", ""],
           [`JOURNAL DES VENTES — ${periodLabel}`, "", "", "", "", "", "", ""],
           [],
-          ["Date", "N° Facture", "Client", "ICE Client", "Montant HT", "TVA", "Montant TTC", "Statut"],
+          ["Date", "N° pièce", "Compte", "Intitulé", "Libellé", "Débit", "Crédit", "Source"],
         ];
-        const byMonth: Record<string, any[]> = {};
-        for (const inv of invoices) {
-          const m = inv.issue_date.slice(0, 7);
+        const byMonth: Record<string, AccountingEntry[]> = {};
+        for (const entry of salesJournalEntries) {
+          const m = entry.date_ecriture.slice(0, 7);
           if (!byMonth[m]) byMonth[m] = [];
-          byMonth[m].push(inv);
+          byMonth[m].push(entry);
         }
-        let gHT = 0, gTVA = 0, gTTC = 0;
+        let totalDebit = 0, totalCredit = 0;
         for (const [month, group] of Object.entries(byMonth)) {
           const ml = new Date(month + "-01T00:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
           rows.push([ml.toUpperCase(), "", "", "", "", "", "", ""]);
-          let mHT = 0, mTVA = 0, mTTC = 0;
-          for (const inv of group) {
-            const ht = Number(inv.total) - Number(inv.tax_amount);
-            const statusLabel = inv.status === "paid" ? "Payée" : inv.status === "sent" ? "Envoyée" : "En retard";
-            rows.push([fmtDate(inv.issue_date), inv.invoice_number, inv.clients?.name ?? "—", inv.clients?.ice ?? "—", ht, Number(inv.tax_amount), Number(inv.total), statusLabel]);
-            mHT += ht; mTVA += Number(inv.tax_amount); mTTC += Number(inv.total);
+          let monthDebit = 0, monthCredit = 0;
+          for (const entry of group) {
+            const debit = entryAmount(entry.debit), credit = entryAmount(entry.credit);
+            rows.push([fmtDate(entry.date_ecriture), entry.numero_piece ?? "—", entry.compte, entry.compte_label ?? "—", entry.libelle ?? "—", debit || "", credit || "", entry.source_type ?? "—"]);
+            monthDebit += debit; monthCredit += credit;
           }
-          rows.push(["", "", "", `Sous-total ${ml}`, mHT, mTVA, mTTC, ""]);
-          gHT += mHT; gTVA += mTVA; gTTC += mTTC;
+          rows.push(["", "", "", `Sous-total ${ml}`, "", monthDebit, monthCredit, ""]);
+          totalDebit += monthDebit; totalCredit += monthCredit;
         }
-        rows.push([], ["", "", "", "TOTAL GÉNÉRAL", gHT, gTVA, gTTC, ""]);
+        rows.push([], ["", "", "", "TOTAL GÉNÉRAL", "", totalDebit, totalCredit, ""]);
         const ws = XLSX.utils.aoa_to_sheet(rows);
         ws["!cols"] = [{ wch: 12 }, { wch: 15 }, { wch: 26 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 10 }];
         const wb = XLSX.utils.book_new();
@@ -273,19 +309,18 @@ export default function ExportPage() {
         setCurrentStep(1);
         const doc = new jsPDF({ orientation: "landscape" });
         const startY = addHeader(doc, "JOURNAL DES VENTES");
-        const body = invoices.map((inv: any) => {
-          const ht = Number(inv.total) - Number(inv.tax_amount);
-          return [fmtDate(inv.issue_date), inv.invoice_number, inv.clients?.name ?? "—", inv.clients?.ice ?? "—",
-            `${fmt(ht)} MAD`, `${fmt(Number(inv.tax_amount))} MAD`, `${fmt(Number(inv.total))} MAD`,
-            inv.status === "paid" ? "Payée" : inv.status === "sent" ? "Envoyée" : "En retard"];
-        });
-        const tHT  = invoices.reduce((s: number, i: any) => s + Number(i.total) - Number(i.tax_amount), 0);
-        const tTVA = invoices.reduce((s: number, i: any) => s + Number(i.tax_amount), 0);
-        const tTTC = invoices.reduce((s: number, i: any) => s + Number(i.total), 0);
+        const body = salesJournalEntries.map((entry) => [
+          fmtDate(entry.date_ecriture), entry.numero_piece ?? "—", entry.compte,
+          entry.compte_label ?? "—", entry.libelle ?? "—",
+          entryAmount(entry.debit) ? `${fmt(entryAmount(entry.debit))} MAD` : "",
+          entryAmount(entry.credit) ? `${fmt(entryAmount(entry.credit))} MAD` : "",
+        ]);
+        const totalDebit = salesJournalEntries.reduce((sum, entry) => sum + entryAmount(entry.debit), 0);
+        const totalCredit = salesJournalEntries.reduce((sum, entry) => sum + entryAmount(entry.credit), 0);
         autoTable(doc, {
-          startY, head: [["Date", "N° Facture", "Client", "ICE Client", "HT", "TVA", "TTC", "Statut"]],
+          startY, head: [["Date", "N° pièce", "Compte", "Intitulé", "Libellé", "Débit", "Crédit"]],
           body,
-          foot: [["", "", "", "TOTAL", `${fmt(tHT)} MAD`, `${fmt(tTVA)} MAD`, `${fmt(tTTC)} MAD`, ""]],
+          foot: [["", "", "", "", "TOTAL", `${fmt(totalDebit)} MAD`, `${fmt(totalCredit)} MAD`]],
           styles: { fontSize: 8, cellPadding: 2 },
           headStyles: { fillColor: [13, 21, 38], textColor: 255, fontStyle: "bold" },
           footStyles: { fillColor: [200, 146, 74], textColor: 255, fontStyle: "bold" },
@@ -303,28 +338,15 @@ export default function ExportPage() {
           [profile?.company ?? "Mohasib", "", "", "", "", "", ""],
           [`JOURNAL DES ACHATS — ${periodLabel}`, "", "", "", "", "", ""],
           [],
-          ["Date", "Description", "Catégorie", "N° Compte CGNC", "Montant HT", "TVA (est. 20%)", "Montant TTC"],
+          ["Date", "N° pièce", "N° compte CGNC", "Intitulé", "Libellé", "Débit", "Crédit"],
         ];
-        const byCat: Record<string, any[]> = {};
-        for (const tx of expenses) {
-          const c = tx.category ?? "Autres";
-          if (!byCat[c]) byCat[c] = [];
-          byCat[c].push(tx);
+        let totalDebit = 0, totalCredit = 0;
+        for (const entry of purchaseJournalEntries) {
+          const debit = entryAmount(entry.debit), credit = entryAmount(entry.credit);
+          rows.push([fmtDate(entry.date_ecriture), entry.numero_piece ?? "—", entry.compte, entry.compte_label ?? "—", entry.libelle ?? "—", debit || "", credit || ""]);
+          totalDebit += debit; totalCredit += credit;
         }
-        let gHT = 0, gTVA = 0, gTTC = 0;
-        for (const [cat, group] of Object.entries(byCat)) {
-          const expenseAccount = getExpenseAccount(cat, accounts.expenseCategoryAccounts);
-          rows.push([cat.toUpperCase(), "", "", expenseAccount, "", "", ""]);
-          let cHT = 0, cTVA = 0, cTTC = 0;
-          for (const tx of group) {
-            const ttc = Number(tx.amount), tva = expenseTax(tx), ht = ttc - tva;
-            rows.push([fmtDate(tx.date), tx.description, cat, expenseAccount, ht, tva, ttc]);
-            cHT += ht; cTVA += tva; cTTC += ttc;
-          }
-          rows.push(["", "", `Sous-total ${cat}`, "", cHT, cTVA, cTTC]);
-          gHT += cHT; gTVA += cTVA; gTTC += cTTC;
-        }
-        rows.push([], ["", "", "TOTAL GÉNÉRAL", "", gHT, gTVA, gTTC]);
+        rows.push([], ["", "", "", "", "TOTAL GÉNÉRAL", totalDebit, totalCredit]);
         const ws = XLSX.utils.aoa_to_sheet(rows);
         ws["!cols"] = [{ wch: 12 }, { wch: 32 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
         const wb = XLSX.utils.book_new();
@@ -336,20 +358,14 @@ export default function ExportPage() {
       if (selectedDocuments.has("ledger-xlsx")) {
         setCurrentStep(3);
         type Entry = { num: string; name: string; date: string; label: string; debit: number; credit: number };
-        const entries: Entry[] = [];
-        for (const inv of invoices) {
-          const ht = Number(inv.total) - Number(inv.tax_amount);
-          entries.push({ num: accounts.clientAccount, name: getAccountLabel(accounts.clientAccount), date: inv.issue_date, label: `Facture ${inv.invoice_number}`, debit: Number(inv.total), credit: 0 });
-          entries.push({ num: accounts.salesAccount, name: getAccountLabel(accounts.salesAccount), date: inv.issue_date, label: `Facture ${inv.invoice_number}`, debit: 0, credit: ht });
-          entries.push({ num: accounts.collectedTvaAccount, name: getAccountLabel(accounts.collectedTvaAccount), date: inv.issue_date, label: `TVA – ${inv.invoice_number}`, debit: 0, credit: Number(inv.tax_amount) });
-        }
-        for (const tx of expenses) {
-          const expenseAccount = getExpenseAccount(tx.category ?? "", accounts.expenseCategoryAccounts);
-          const tva = expenseTax(tx), ht = Number(tx.amount) - tva;
-          entries.push({ num: expenseAccount, name: getAccountLabel(expenseAccount), date: tx.date, label: tx.description, debit: ht, credit: 0 });
-          entries.push({ num: accounts.recoverableTvaAccount, name: getAccountLabel(accounts.recoverableTvaAccount), date: tx.date, label: `TVA – ${tx.description}`, debit: tva, credit: 0 });
-          entries.push({ num: accounts.bankAccount, name: getAccountLabel(accounts.bankAccount), date: tx.date, label: tx.description, debit: 0, credit: Number(tx.amount) });
-        }
+        const entries: Entry[] = accountingEntries.map((entry) => ({
+          num: entry.compte,
+          name: entry.compte_label ?? entry.compte,
+          date: entry.date_ecriture,
+          label: entry.libelle ?? "—",
+          debit: entryAmount(entry.debit),
+          credit: entryAmount(entry.credit),
+        }));
         entries.sort((a, b) => a.num.localeCompare(b.num) || a.date.localeCompare(b.date));
 
         const rows: any[][] = [
@@ -386,19 +402,12 @@ export default function ExportPage() {
           if (!bal[num]) bal[num] = { name, debit: 0, credit: 0 };
           bal[num].debit += d; bal[num].credit += c;
         };
-        for (const inv of invoices) {
-          const ht = Number(inv.total) - Number(inv.tax_amount);
-          add(accounts.clientAccount, getAccountLabel(accounts.clientAccount), Number(inv.total), 0);
-          add(accounts.salesAccount, getAccountLabel(accounts.salesAccount), 0, ht);
-          add(accounts.collectedTvaAccount, getAccountLabel(accounts.collectedTvaAccount), 0, Number(inv.tax_amount));
-        }
-        for (const tx of expenses) {
-          const expenseAccount = getExpenseAccount(tx.category ?? "", accounts.expenseCategoryAccounts);
-          const tva = expenseTax(tx), ht = Number(tx.amount) - tva;
-          add(expenseAccount, getAccountLabel(expenseAccount), ht, 0);
-          add(accounts.recoverableTvaAccount, getAccountLabel(accounts.recoverableTvaAccount), tva, 0);
-          add(accounts.bankAccount, getAccountLabel(accounts.bankAccount), 0, Number(tx.amount));
-        }
+        for (const entry of accountingEntries) add(
+          entry.compte,
+          entry.compte_label ?? entry.compte,
+          entryAmount(entry.debit),
+          entryAmount(entry.credit),
+        );
         let tD = 0, tC = 0;
         const rows: any[][] = [
           [profile?.company ?? "Mohasib", "", "", ""],
@@ -421,28 +430,29 @@ export default function ExportPage() {
       // ── 6. Récap TVA — PDF ───────────────────────────────────────────────────
       if (selectedDocuments.has("tva-pdf")) {
         setCurrentStep(5);
+        if (!vatCalculation) throw new Error("Calcul TVA indisponible");
         const doc = new jsPDF();
         let y = addHeader(doc, "RÉCAPITULATIF TVA");
 
-        const byRate: Record<number, { base: number; tva: number }> = {};
-        for (const inv of invoices) {
-          const r = Number(inv.tax_rate);
-          if (!byRate[r]) byRate[r] = { base: 0, tva: 0 };
-          byRate[r].base += Number(inv.total) - Number(inv.tax_amount);
-          byRate[r].tva  += Number(inv.tax_amount);
-        }
-        const tTVAcol  = invoices.reduce((s: number, i: any) => s + Number(i.tax_amount), 0);
-        const tHTventes = invoices.reduce((s: number, i: any) => s + Number(i.total) - Number(i.tax_amount), 0);
-        const tTVAdéd  = expenses.reduce((s: number, t: any) => s + expenseTax(t), 0);
-        const tHTachats = expenses.reduce((s: number, t: any) => s + Number(t.amount) - expenseTax(t), 0);
-        const netTVA   = tTVAcol - tTVAdéd;
+        const byRate = [7, 10, 14, 20].map((rate) => ({
+          rate,
+          base: vatCalculation![`ca_${rate}` as "ca_7" | "ca_10" | "ca_14" | "ca_20"],
+          vat: vatCalculation![`tva_${rate}` as "tva_7" | "tva_10" | "tva_14" | "tva_20"],
+        })).filter((row) => row.base !== 0 || row.vat !== 0);
+        const tTVAcol = vatCalculation.tva_collectee_total;
+        const tHTventes = vatCalculation.ca_total;
+        const tTVAdéd = vatCalculation.deductions_total;
+        const tHTachats = vatCalculation.deductions.reduce((sum, row) => sum + row.montant_ht, 0);
+        const netTVA = vatCalculation.tva_nette_due > 0
+          ? vatCalculation.tva_nette_due
+          : -vatCalculation.credit_tva;
 
         doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(13, 21, 38);
         doc.text("1. TVA Collectée — sur ventes", 14, y); y += 7;
         autoTable(doc, {
           startY: y,
           head: [["Taux TVA", "Base HT (MAD)", "TVA Collectée (MAD)"]],
-          body: Object.entries(byRate).map(([r, v]) => [`${r}%`, fmt(v.base), fmt(v.tva)]),
+          body: byRate.map((row) => [`${row.rate}%`, fmt(row.base), fmt(row.vat)]),
           foot: [["TOTAL", fmt(tHTventes), fmt(tTVAcol)]],
           styles: { fontSize: 9 },
           headStyles: { fillColor: [13, 21, 38], textColor: 255, fontStyle: "bold" },
@@ -452,7 +462,7 @@ export default function ExportPage() {
         y = (doc as any).lastAutoTable.finalY + 12;
 
         doc.setFont("helvetica", "bold"); doc.setFontSize(11);
-        doc.text("2. TVA Déductible — sur achats (taux estimé 20%)", 14, y); y += 7;
+        doc.text("2. TVA Déductible — achats comptabilisés et éligibles", 14, y); y += 7;
         autoTable(doc, {
           startY: y,
           head: [["Base HT (MAD)", "TVA Déductible (MAD)"]],
@@ -479,15 +489,18 @@ export default function ExportPage() {
       // ── 7. Synthèse Financière — PDF ─────────────────────────────────────────
       if (selectedDocuments.has("summary-pdf")) {
         setCurrentStep(6);
+        if (!vatCalculation) throw new Error("Calcul TVA indisponible");
         const doc = new jsPDF();
         addHeader(doc, "SYNTHÈSE FINANCIÈRE");
 
-        const tRevTTC  = invoices.reduce((s: number, i: any) => s + Number(i.total), 0);
-        const tTVAcol  = invoices.reduce((s: number, i: any) => s + Number(i.tax_amount), 0);
-        const tRevHT   = tRevTTC - tTVAcol;
-        const tExpTTC  = expenses.reduce((s: number, t: any) => s + Number(t.amount), 0);
-        const tTVAdéd  = expenses.reduce((s: number, t: any) => s + expenseTax(t), 0);
-        const tExpHT   = tExpTTC - tTVAdéd;
+        const tRevHT = accountingEntries.filter((entry) => entry.compte.startsWith("7"))
+          .reduce((sum, entry) => sum + entryAmount(entry.credit) - entryAmount(entry.debit), 0);
+        const tExpHT = accountingEntries.filter((entry) => entry.compte.startsWith("6"))
+          .reduce((sum, entry) => sum + entryAmount(entry.debit) - entryAmount(entry.credit), 0);
+        const tTVAcol = vatCalculation.tva_collectee_total;
+        const tTVAdéd = vatCalculation.deductions_total;
+        const tRevTTC = tRevHT + tTVAcol;
+        const tExpTTC = tExpHT + tTVAdéd;
         const netHT    = tRevHT - tExpHT;
 
         autoTable(doc, {
@@ -500,10 +513,10 @@ export default function ExportPage() {
             ["Charges totales HT",       `${fmt(tExpHT)} MAD`],
             ["Résultat net (HT)",        `${fmt(netHT)} MAD`],
             ["TVA collectée",            `${fmt(tTVAcol)} MAD`],
-            ["TVA déductible (est.)",    `${fmt(tTVAdéd)} MAD`],
-            ["TVA nette due",            `${fmt(tTVAcol - tTVAdéd)} MAD`],
-            ["Nombre de factures",       String(invoices.length)],
-            ["Nombre de dépenses",       String(expenses.length)],
+            ["TVA déductible validée",   `${fmt(tTVAdéd)} MAD`],
+            ["TVA nette due",            `${fmt(vatCalculation.tva_nette_due)} MAD`],
+            ["Nombre de factures comptabilisées", String(new Set(salesJournalEntries.map((entry) => entry.source_id).filter(Boolean)).size)],
+            ["Nombre d'achats comptabilisés", String(new Set(purchaseJournalEntries.map((entry) => entry.source_id).filter(Boolean)).size)],
           ],
           styles: { fontSize: 10 },
           headStyles: { fillColor: [13, 21, 38], textColor: 255, fontStyle: "bold" },
@@ -511,9 +524,12 @@ export default function ExportPage() {
           margin: { left: 14, right: 14 },
         });
 
-        // Expense breakdown by category
+        // Expense breakdown by posted CGNC account
         const byCat: Record<string, number> = {};
-        for (const tx of expenses) byCat[tx.category ?? "Autres"] = (byCat[tx.category ?? "Autres"] ?? 0) + Number(tx.amount);
+        for (const entry of accountingEntries.filter((row) => row.compte.startsWith("6"))) {
+          const label = `${entry.compte} — ${entry.compte_label ?? "Charge"}`;
+          byCat[label] = (byCat[label] ?? 0) + entryAmount(entry.debit) - entryAmount(entry.credit);
+        }
         if (Object.keys(byCat).length > 0) {
           const y2 = (doc as any).lastAutoTable.finalY + 12;
           autoTable(doc, {

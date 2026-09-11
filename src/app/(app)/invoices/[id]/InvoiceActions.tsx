@@ -8,6 +8,9 @@ import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { AlertTriangle, Check, CheckCircle2, Download, Loader2, Mail, Pencil, Send, Upload, X, XCircle } from "lucide-react";
 import type { PartialPayment } from "@/types";
+import { finalizeDraftInvoice } from "@/lib/invoice-booking-client";
+import { recordInvoicePayment } from "@/lib/invoice-payment-client";
+import { INVOICE_VAT_TREATMENT_OPTIONS, type InvoiceVatTreatment } from "@/lib/invoice-vat-treatment";
 
 type WaState = "idle" | "loading" | "success" | "error";
 
@@ -21,6 +24,10 @@ interface Props {
   clientPhone?: string | null;
   clientEmail?: string | null;
   clientId?: string | null;
+  dossierId?: string | null;
+  invoiceType?: string | null;
+  vatTreatment?: InvoiceVatTreatment | null;
+  hasZeroRatedItems?: boolean;
 }
 
 // ── Partial Payment Modal ──────────────────────────────────────────────────────
@@ -31,17 +38,15 @@ function fmt(n: number) {
 
 const MODES_PAIEMENT = ["Virement", "Chèque", "Espèces", "Carte bancaire"];
 
-function PartialPaymentModal({ invoiceId, invoiceNumber, totalTtc, montantPaye, paiements, onClose, onSaved }: {
+function PartialPaymentModal({ invoiceId, invoiceNumber, totalTtc, montantPaye, onClose, onSaved }: {
   invoiceId: string;
   invoiceNumber: string;
   totalTtc: number;
   montantPaye: number;
-  paiements: PartialPayment[];
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const supabase = createClient();
-  const [montant, setMontant] = useState("");
+  const [montant, setMontant] = useState(String(Math.round(Math.max(0, totalTtc - montantPaye) * 100) / 100));
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [mode, setMode] = useState("Virement");
   const [note, setNote] = useState("");
@@ -55,34 +60,23 @@ function PartialPaymentModal({ invoiceId, invoiceNumber, totalTtc, montantPaye, 
     if (montantSaisi > resteAPayer + 0.01) { toast.error("Le montant dépasse le reste à payer"); return; }
     setSaving(true);
 
-    const nouveauMontantPaye = montantPaye + montantSaisi;
-    const nouveauReste = totalTtc - nouveauMontantPaye;
-    const nouveauStatut =
-      nouveauReste <= 0.01 ? "paid"
-      : nouveauMontantPaye > 0 ? "partiellement_payee"
-      : "sent";
-
-    const newPaiements: PartialPayment[] = [
-      ...paiements,
-      { date, montant: montantSaisi, mode, ...(note ? { note } : {}) },
-    ];
-
-    const { error } = await supabase.from("invoices").update({
-      montant_paye: nouveauMontantPaye,
-      reste_a_payer: nouveauReste,
-      status: nouveauStatut,
-      paiements: newPaiements,
-    }).eq("id", invoiceId);
-
-    setSaving(false);
-    if (error) {
+    try {
+      await recordInvoicePayment({
+        invoiceId,
+        amount: montantSaisi,
+        paymentDate: date,
+        paymentMethod: mode,
+        notes: note || null,
+      });
+      toast.success("Paiement enregistré");
+      onSaved();
+      onClose();
+    } catch (error) {
       console.error("Partial payment error:", error);
-      toast.error(error.message || translateError(error), { duration: 8000 });
-      return;
+      toast.error(translateError(error), { duration: 8000 });
+    } finally {
+      setSaving(false);
     }
-    toast.success("Paiement enregistré");
-    onSaved();
-    onClose();
   }
 
   return (
@@ -222,28 +216,53 @@ export default function InvoiceActions({
   status,
   totalTtc,
   montantPaye,
-  paiements = [],
   clientPhone,
   clientEmail,
   clientId,
+  dossierId,
+  invoiceType = "facture",
+  vatTreatment = null,
+  hasZeroRatedItems = false,
 }: Props) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [waState, setWaState] = useState<WaState>("idle");
   const [emailState, setEmailState] = useState<WaState>("idle");
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [selectedVatTreatment, setSelectedVatTreatment] = useState<InvoiceVatTreatment | "">(vatTreatment ?? "");
   const router = useRouter();
   const supabase = createClient();
 
-  async function updateStatus(newStatus: "paid" | "sent") {
+  async function updateStatus(newStatus: "sent") {
     setLoadingAction(newStatus);
-    const update: Record<string, unknown> = { status: newStatus };
-    if (newStatus === "paid") {
-      update.montant_recu = totalTtc;
-      update.montant_paye = totalTtc;
-      update.reste_a_payer = 0;
+    try {
+      if (invoiceType === "facture") {
+        await finalizeDraftInvoice(invoiceId, dossierId);
+      } else {
+        const { error } = await supabase.from("invoices").update({ status: "sent" }).eq("id", invoiceId);
+        if (error) throw error;
+      }
+      router.refresh();
+    } catch (error) {
+      toast.error(translateError(error), { duration: 6000 });
+    } finally {
+      setLoadingAction(null);
     }
-    await supabase.from("invoices").update(update).eq("id", invoiceId);
-    router.refresh();
+  }
+
+  async function saveVatTreatment() {
+    if (!selectedVatTreatment) {
+      toast.error("Choisissez un traitement TVA");
+      return;
+    }
+    setLoadingAction("vat-treatment");
+    const { error } = await supabase.from("invoices").update({ vat_treatment: selectedVatTreatment }).eq("id", invoiceId);
     setLoadingAction(null);
+    if (error) {
+      toast.error(translateError(error));
+      return;
+    }
+    toast.success("Traitement TVA enregistré");
+    router.refresh();
   }
 
   async function downloadPDF() {
@@ -328,6 +347,21 @@ export default function InvoiceActions({
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4 flex flex-col gap-2">
         <div className="text-[10.5px] text-[#6B7280] uppercase tracking-[0.5px] mb-1">Actions</div>
 
+        {(invoiceType === "facture" || invoiceType === "avoir_client") && hasZeroRatedItems && (
+          <div className="mb-2 rounded-lg border border-[#F59E0B]/25 bg-[#FFFBEB] p-2.5">
+            <label className="block text-[10.5px] font-semibold text-[#92400E]">Traitement TVA à 0 %</label>
+            <select className="input mt-1 bg-white text-[11px]" value={selectedVatTreatment} onChange={(event) => setSelectedVatTreatment(event.target.value as InvoiceVatTreatment | "")}>
+              <option value="">À classer…</option>
+              {INVOICE_VAT_TREATMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            {selectedVatTreatment !== vatTreatment && (
+              <button type="button" onClick={saveVatTreatment} disabled={!!loadingAction} className="btn btn-sm btn-outline mt-2 w-full justify-center">
+                {loadingAction === "vat-treatment" ? "Enregistrement…" : "Enregistrer le traitement"}
+              </button>
+            )}
+          </div>
+        )}
+
         {status === "draft" && (
           <>
             <Link href={`/factures/${invoiceId}/modifier`} className="btn btn-outline justify-center w-full">
@@ -340,33 +374,26 @@ export default function InvoiceActions({
             >
               {loadingAction === "sent" ? "..." : <><Upload size={13} /> Marquer comme envoyée</>}
             </button>
-            <button
-              onClick={() => updateStatus("paid")}
-              disabled={!!loadingAction}
-              className="btn btn-gold justify-center w-full disabled:opacity-60"
-            >
-              {loadingAction === "paid" ? "..." : <><Check size={13} /> Marquer comme payée</>}
-            </button>
           </>
         )}
 
-        {(status === "sent" || status === "overdue") && (
+        {invoiceType === "facture" && (status === "sent" || status === "overdue") && (
           <button
-            onClick={() => updateStatus("paid")}
+            onClick={() => setPaymentOpen(true)}
             disabled={!!loadingAction}
             className="btn btn-gold justify-center w-full disabled:opacity-60"
           >
-            {loadingAction === "paid" ? "..." : <><Check size={13} /> Marquer comme payée</>}
+            <><Check size={13} /> Enregistrer le paiement</>
           </button>
         )}
 
-        {status === "partiellement_payee" && (
+        {invoiceType === "facture" && status === "partiellement_payee" && (
           <button
-            onClick={() => updateStatus("paid")}
+            onClick={() => setPaymentOpen(true)}
             disabled={!!loadingAction}
             className="btn btn-gold justify-center w-full disabled:opacity-60"
           >
-            {loadingAction === "paid" ? "..." : <><Check size={13} /> Solder la facture</>}
+            <><Check size={13} /> Solder la facture</>
           </button>
         )}
 
@@ -442,6 +469,16 @@ export default function InvoiceActions({
         )}
 
       </div>
+      {paymentOpen && (
+        <PartialPaymentModal
+          invoiceId={invoiceId}
+          invoiceNumber={invoiceNumber}
+          totalTtc={totalTtc}
+          montantPaye={montantPaye}
+          onClose={() => setPaymentOpen(false)}
+          onSaved={() => router.refresh()}
+        />
+      )}
     </>
   );
 }

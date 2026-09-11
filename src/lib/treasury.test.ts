@@ -33,6 +33,22 @@ describe("buildTreasurySnapshot", () => {
     expect(result.overdueCount).toBe(1);
   });
 
+  it("keeps social and IR liabilities after salary payment until each remittance is recorded", () => {
+    const basePayroll = {
+      id: "p1", mois: 8, annee: 2026, salaire_net_payer: 8000, ir_net: 900,
+      cnss_salarie: 268.8, cnss_patronal: 538.8, amo_salarie: 226,
+      amo_patronal: 411, taxe_formation_pro: 160, statut: "payé",
+    };
+    const outstanding = buildTreasurySnapshot({ today: "2026-09-01", transactions: [], invoices: [], suppliers: [], payroll: [basePayroll] });
+    expect(outstanding.flows.map((flow) => flow.id)).toEqual(["payroll-social-p1", "payroll-ir-p1"]);
+
+    const socialPaid = buildTreasurySnapshot({ today: "2026-09-01", transactions: [], invoices: [], suppliers: [], payroll: [{ ...basePayroll, social_paid_at: "2026-09-01" }] });
+    expect(socialPaid.flows.map((flow) => flow.id)).toEqual(["payroll-ir-p1"]);
+
+    const allPaid = buildTreasurySnapshot({ today: "2026-09-01", transactions: [], invoices: [], suppliers: [], payroll: [{ ...basePayroll, social_paid_at: "2026-09-01", ir_paid_at: "2026-09-01" }] });
+    expect(allPaid.flows).toHaveLength(0);
+  });
+
   it("detects stable recurring expenses and repeats them through the forecast", () => {
     const transactions = [
       { date: "2026-05-05", type: "expense", amount: 500, description: "Abonnement logiciel 05", category: "Logiciels" },

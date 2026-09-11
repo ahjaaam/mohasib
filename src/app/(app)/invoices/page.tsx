@@ -18,6 +18,8 @@ import SortableTh, { compareValues, nextSort, type SortDirection } from "@/compo
 import TableBulkActions from "@/components/TableBulkActions";
 import TableSelectionCheckbox from "@/components/TableSelectionCheckbox";
 import BulkInvoiceImportModal from "./BulkInvoiceImportModal";
+import { finalizeDraftInvoice } from "@/lib/invoice-booking-client";
+import { canPermanentlyDeleteInvoice } from "@/lib/invoice-accounting-lifecycle";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -115,9 +117,8 @@ const DEVIS_BADGE: Record<string, [string, string, string]> = {
 
 type MenuItem = { label: string; href?: string; action?: () => void; red?: boolean };
 
-function InvoiceMenu({ inv, onMarkPaid, onDelete, basePath, isAvoir, canCreateAvoir }: {
+function InvoiceMenu({ inv, onDelete, basePath, isAvoir, canCreateAvoir }: {
   inv: InvoiceExt;
-  onMarkPaid: (id: string) => void;
   onDelete: (id: string) => void;
   basePath: string;
   isAvoir?: boolean;
@@ -223,7 +224,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, basePath, isAvoir, canCreateAv
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
       { label: "Envoyer par email", action: handleEmail },
-      { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
+      { label: "Enregistrer un paiement", href: `${basePath}/${inv.id}` },
       createAvoir,
       { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
     ],
@@ -232,7 +233,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, basePath, isAvoir, canCreateAv
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
       { label: "Envoyer par email", action: handleEmail },
-      { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
+      { label: "Enregistrer un paiement", href: `${basePath}/${inv.id}` },
       createAvoir,
       { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
     ],
@@ -249,7 +250,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, basePath, isAvoir, canCreateAv
       { label: "Télécharger PDF", action: handlePdf },
       { label: "Envoyer par WhatsApp", action: handleWhatsApp },
       { label: "Envoyer par email", action: handleEmail },
-      { label: "Marquer comme payée", action: () => { setOpen(false); onMarkPaid(inv.id); } },
+      { label: "Enregistrer un paiement", href: `${basePath}/${inv.id}` },
       { label: "Relancer le client", action: handleRelance },
       createAvoir,
       { label: "Supprimer", action: () => { setOpen(false); onDelete(inv.id); }, red: true },
@@ -260,9 +261,13 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, basePath, isAvoir, canCreateAv
     ],
   };
 
-  const AVOIR_EXCLUDED = ["Marquer comme payée", "Créer un avoir"];
+  const AVOIR_EXCLUDED = ["Enregistrer un paiement", "Créer un avoir"];
+  const canDelete = canPermanentlyDeleteInvoice(inv.status, (inv as any).invoice_type);
   const items = (itemsByStatus[inv.status as string] ?? itemsByStatus.sent)
-    .filter((item) => (!isAvoir || !AVOIR_EXCLUDED.includes(item.label)) && (canCreateAvoir || item.label !== "Créer un avoir"));
+    .filter((item) =>
+      (!isAvoir || !AVOIR_EXCLUDED.includes(item.label))
+      && (canCreateAvoir || item.label !== "Créer un avoir")
+      && (item.label !== "Supprimer" || canDelete));
   if (inv.source_document_id) {
     items.unshift({
       label: "Document original",
@@ -276,7 +281,7 @@ function InvoiceMenu({ inv, onMarkPaid, onDelete, basePath, isAvoir, canCreateAv
     ? "invoice:delete"
     : label.startsWith("Envoyer") || label === "Relancer le client"
       ? "invoice:send"
-      : ["Modifier", "Marquer comme payée", "Créer un avoir"].includes(label)
+      : ["Modifier", "Enregistrer un paiement", "Créer un avoir"].includes(label)
         ? "invoice:create"
         : undefined;
 
@@ -567,23 +572,12 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
     if (!entitlements.features.avoirs && mode === "avoirs") setMode("factures");
   }, [entitlements.features.avoirs, mode]);
 
-  async function markPaid(id: string) {
-    const inv = invoices.find((i) => i.id === id);
-    const total = Number(inv?.total ?? 0);
-    const { error } = await supabase.from("invoices").update({
-      status: "paid",
-      montant_recu: total,
-      montant_paye: total,
-      reste_a_payer: 0,
-    }).eq("id", id);
-    if (error) { toast.error("Erreur lors de la mise à jour"); return; }
-    setInvoices((prev) => prev.map((i) => i.id === id
-      ? { ...i, status: "paid" as InvoiceStatus, montant_recu: total, montant_paye: total, reste_a_payer: 0 }
-      : i));
-    toast.success("Facture marquée comme payée");
-  }
-
   async function deleteInvoice(id: string) {
+    const invoice = invoices.find((item) => item.id === id);
+    if (!invoice || !canPermanentlyDeleteInvoice(invoice.status, (invoice as any).invoice_type)) {
+      toast.error("Une facture finalisée ne peut pas être supprimée. Créez un avoir pour la corriger.");
+      return;
+    }
     if (!confirm("Supprimer cette facture ?")) return;
     const { error } = await supabase.from("invoices").delete().eq("id", id);
     if (error) { toast.error("Erreur lors de la suppression"); return; }
@@ -682,31 +676,33 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
     });
   }
 
-  async function bulkSetStatus(status: "sent" | "paid") {
+  async function bulkSetStatus() {
     if (!selectedInvoices.length) return;
     const noun = mode === "avoirs" ? "avoir" : "facture";
     const plural = selectedInvoices.length > 1;
-    const targetStatus = status === "paid"
-      ? `payée${plural ? "s" : ""}`
-      : mode === "avoirs"
-        ? `envoyé${plural ? "s" : ""}`
-        : "en attente";
+    const targetStatus = mode === "avoirs" ? `envoyé${plural ? "s" : ""}` : "en attente";
     if (!confirm(
       `Confirmer : marquer ${selectedInvoices.length} ${noun}${plural ? "s" : ""} sélectionné${plural ? "s" : ""} comme ${targetStatus} ?`
     )) return;
     setBulkBusy(true);
 
-    const results = status === "paid"
-      ? await Promise.all(selectedInvoices.map((invoice) =>
-          supabase.from("invoices").update({
-            status: "paid",
-            montant_recu: Number(invoice.total),
-            montant_paye: Number(invoice.total),
-            reste_a_payer: 0,
-          }).eq("id", invoice.id)
-        ))
-      : [await supabase.from("invoices").update({ status }).in("id", [...selectedIds])];
-    const failed = results.find((result) => result.error)?.error;
+    let failed: unknown = null;
+    if (mode === "factures") {
+      const nonDraft = selectedInvoices.find((invoice) => invoice.status !== "draft");
+      if (nonDraft) {
+        setBulkBusy(false);
+        toast.error("Seuls les brouillons peuvent être finalisés en attente.");
+        return;
+      }
+      try {
+        await Promise.all(selectedInvoices.map((invoice) => finalizeDraftInvoice(invoice.id, dossierId)));
+      } catch (error) {
+        failed = error;
+      }
+    } else {
+      const { error } = await supabase.from("invoices").update({ status: "sent" }).in("id", [...selectedIds]);
+      failed = error;
+    }
 
     setBulkBusy(false);
     if (failed) {
@@ -716,15 +712,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
     }
     setInvoices((current) => current.map((invoice) => {
       if (!selectedIds.has(invoice.id)) return invoice;
-      return status === "paid"
-        ? {
-            ...invoice,
-            status: "paid" as InvoiceStatus,
-            montant_recu: Number(invoice.total),
-            montant_paye: Number(invoice.total),
-            reste_a_payer: 0,
-          }
-        : { ...invoice, status: "sent" as InvoiceStatus };
+      return { ...invoice, status: "sent" as InvoiceStatus };
     }));
     setSelectedIds(new Set());
     toast.success(`${selectedInvoices.length} élément${selectedInvoices.length > 1 ? "s" : ""} mis à jour`);
@@ -756,6 +744,12 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
 
   async function bulkDelete() {
     if (!selectedInvoices.length) return;
+    const protectedInvoice = selectedInvoices.find((invoice) =>
+      !canPermanentlyDeleteInvoice(invoice.status, (invoice as any).invoice_type));
+    if (protectedInvoice) {
+      toast.error("La sélection contient une facture finalisée. Utilisez un avoir pour la corriger.");
+      return;
+    }
     const label = mode === "factures" ? "facture" : mode === "avoirs" ? "avoir" : "devis";
     if (!confirm(`Supprimer ${selectedInvoices.length} ${label}${selectedInvoices.length > 1 ? "s" : ""} sélectionné${selectedInvoices.length > 1 ? "s" : ""} ?`)) return;
     setBulkBusy(true);
@@ -954,16 +948,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
               data-permission="invoice:create"
               type="button"
               disabled={bulkBusy}
-              onClick={() => bulkSetStatus("paid")}
-              className="btn btn-sm border-[#A7D7C5] bg-white text-[#047857] disabled:opacity-50"
-            >
-              <CheckCircle2 size={13} /> Marquer payées
-            </button>
-            <button
-              data-permission="invoice:create"
-              type="button"
-              disabled={bulkBusy}
-              onClick={() => bulkSetStatus("sent")}
+              onClick={bulkSetStatus}
               className="btn btn-sm border-[#BFDBFE] bg-white text-[#1D4ED8] disabled:opacity-50"
             >
               <Send size={13} /> Marquer en attente
@@ -975,7 +960,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
             data-permission="invoice:create"
             type="button"
             disabled={bulkBusy}
-            onClick={() => bulkSetStatus("sent")}
+            onClick={bulkSetStatus}
             className="btn btn-sm border-[#BFDBFE] bg-white text-[#1D4ED8] disabled:opacity-50"
           >
             <Send size={13} /> Marquer envoyés
@@ -1186,7 +1171,6 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
                   <td>
                     <InvoiceMenu
                       inv={inv}
-                      onMarkPaid={markPaid}
                       onDelete={deleteInvoice}
                       basePath={basePath}
                       isAvoir={mode === "avoirs"}

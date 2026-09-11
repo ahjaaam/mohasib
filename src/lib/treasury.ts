@@ -41,6 +41,18 @@ export type TreasuryPayrollItem = {
   mois: number;
   annee: number;
   salaire_net_payer: number | string;
+  ir_net?: number | string;
+  cnss_salarie?: number | string;
+  cnss_patronal?: number | string;
+  amo_salarie?: number | string;
+  amo_patronal?: number | string;
+  taxe_formation_pro?: number | string;
+  mutuelle_salarie?: number | string;
+  mutuelle_patronal?: number | string;
+  cimr_salarie?: number | string;
+  cimr_patronal?: number | string;
+  social_paid_at?: string | null;
+  ir_paid_at?: string | null;
   statut: string | null;
 };
 
@@ -280,11 +292,9 @@ export function buildTreasurySnapshot({
   }
 
   for (const item of payroll) {
-    if (item.statut === "payé") continue;
     const amount = Math.max(Number(item.salaire_net_payer) || 0, 0);
-    if (!amount) continue;
     const contractualDate = endOfMonth(item.annee, item.mois);
-    flows.push({
+    if (item.statut !== "payé" && amount > 0) flows.push({
       id: `payroll-${item.id}`,
       date: contractualDate < today ? today : contractualDate,
       direction: "out",
@@ -297,6 +307,12 @@ export function buildTreasurySnapshot({
       confidence: "high",
       assumption: "Bulletin de paie non soldé",
     });
+    const socialAmount = ["cnss_salarie", "cnss_patronal", "amo_salarie", "amo_patronal", "taxe_formation_pro", "mutuelle_salarie", "mutuelle_patronal", "cimr_salarie", "cimr_patronal"]
+      .reduce((sum, key) => sum + Math.max(Number(item[key as keyof TreasuryPayrollItem]) || 0, 0), 0);
+    const liabilityDate = addDays(endOfMonth(item.annee, item.mois), 15);
+    if (!item.social_paid_at && socialAmount > 0) flows.push({ id: `payroll-social-${item.id}`, date: liabilityDate < today ? today : liabilityDate, direction: "out", source: "payroll", label: `Cotisations sociales ${String(item.mois).padStart(2, "0")}/${item.annee}`, counterparty: "CNSS / organismes sociaux", amount: socialAmount, baseAmount: socialAmount, overdue: liabilityDate < today, confidence: "high", assumption: "Échéance sociale estimée au 15 du mois suivant" });
+    const irAmount = Math.max(Number(item.ir_net) || 0, 0);
+    if (!item.ir_paid_at && irAmount > 0) flows.push({ id: `payroll-ir-${item.id}`, date: liabilityDate < today ? today : liabilityDate, direction: "out", source: "payroll", label: `IR salaires ${String(item.mois).padStart(2, "0")}/${item.annee}`, counterparty: "Administration fiscale", amount: irAmount, baseAmount: irAmount, overdue: liabilityDate < today, confidence: "high", assumption: "Retenue IR à reverser" });
   }
 
   const recurrenceEnd = addDays(today, horizonDays);

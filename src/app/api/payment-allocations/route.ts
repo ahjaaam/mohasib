@@ -286,6 +286,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: known ? messages[known] : error.message }, { status: 400 });
     }
 
+    await supabase
+      .from("transactions")
+      .update({ workflow_status: "matched" })
+      .eq("id", transaction.id)
+      .eq("workflow_status", "imported");
+
     await logAudit({
       userId: user.id,
       userEmail: user.email ?? null,

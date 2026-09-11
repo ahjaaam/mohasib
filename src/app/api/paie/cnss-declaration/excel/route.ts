@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildCnssDeclaration } from "@/lib/paie/cnss-declaration";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { authorizePermission } from "@/lib/api-permissions";
 import * as XLSX from "xlsx";
 
 function safeName(value: string) {
@@ -16,24 +17,26 @@ export async function GET(req: NextRequest) {
     const mois = Number(searchParams.get("mois"));
     const annee = Number(searchParams.get("annee"));
     const dossierId = searchParams.get("dossierId");
-    if (!mois || !annee) return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
+    if (!Number.isInteger(mois) || mois < 1 || mois > 12 || !Number.isInteger(annee) || annee < 1900 || annee > 9999) return NextResponse.json({ error: "Période CNSS invalide" }, { status: 400 });
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    const permission = await authorizePermission("bulletin_paie", "read", { dossierId });
+    if (permission.response) return permission.response;
 
     const data = await buildCnssDeclaration({ supabase, userId: user.id, mois, annee, dossierId });
     const wb = XLSX.utils.book_new();
     const title = `Déclaration CNSS ${data.period.label}`;
     const headers = [
       "N°", "Matricule CNSS", "Nom", "Prénom", "Jours déclarés", "Salaire brut",
-      "Salaire plafonné", "CNSS salarié (4.48%)", "CNSS patronal (21.09%)",
-      "AMO salarié (2.26%)", "AMO patronal (4.11%)", "Total cotisations",
+      "Salaire plafonné", "CNSS salarié (4.48%)", "CNSS patronal (8.98% plafonné + AF 6.40%)",
+      "AMO salarié (selon régime)", "AMO patronal (selon régime)", "TFP (selon assujettissement)", "Total cotisations",
     ];
     const rows = data.employees.map((e: any) => [
       e.n, e.matricule_cnss, e.nom, e.prenom, e.jours_declares, e.salaire_brut,
       e.salaire_plafonne, e.cnss_salarie, e.cnss_patronal, e.amo_salarie,
-      e.amo_patronal, e.total_cotisations,
+      e.amo_patronal, e.formation_professionnelle, e.total_cotisations,
     ]);
     const totals = data.totals;
     const ws = XLSX.utils.aoa_to_sheet([
@@ -44,9 +47,9 @@ export async function GET(req: NextRequest) {
       ...rows,
       ["TOTAL", "", "", "", totals.total_jours, totals.total_brut, totals.total_plafonne,
         totals.total_cnss_salarie, totals.total_cnss_patronal, totals.total_amo_salarie,
-        totals.total_amo_patronal, totals.total_cotisations],
+        totals.total_amo_patronal, totals.total_formation_professionnelle, totals.total_cotisations],
     ]);
-    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 11 } }];
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 12 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 12 } }];
     ws["!cols"] = headers.map((_, i) => ({ wch: i < 4 ? 18 : 16 }));
     XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31));
 

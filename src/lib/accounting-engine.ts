@@ -55,6 +55,8 @@ export interface BookableBankLine {
   category: string | null;
   invoice_id?: string | null; // if this payment settles an invoice
   counterpart_account?: string | null; // user-confirmed account opposite bank
+  vat_status?: "not_applicable" | "pending_evidence" | "eligible" | "rejected";
+  tax_amount?: number | null;
 }
 
 interface JournalEntry {
@@ -94,6 +96,7 @@ async function insertEntries(
   entries: JournalEntry[],
   companyId?: string | null,
   dossierId?: string | null,
+  options?: { finalizeDraftInvoice?: boolean },
 ) {
   const rows = entries.map((e) => ({
     ...e,
@@ -102,6 +105,24 @@ async function insertEntries(
     ...(companyId ? { company_id: companyId } : {}),
     ...(dossierId ? { dossier_id: dossierId } : {}),
   }));
+
+  if (typeof supabase.rpc === "function") {
+    const source = entries[0];
+    const rpcName = options?.finalizeDraftInvoice
+      ? "finalize_invoice_accounting_entries"
+      : "book_accounting_entries";
+    const { error } = await supabase.rpc(rpcName, {
+      p_company_id: companyId ?? null,
+      p_dossier_id: dossierId ?? null,
+      p_source_type: source.source_type,
+      p_source_id: source.source_id,
+      p_entries: rows,
+    });
+    if (error) throw new Error(`Failed to insert journal entries: ${error.message}`);
+    return;
+  }
+
+  // Test doubles and non-Supabase adapters keep the direct insertion path.
   const { error } = await supabase.from("ecritures_comptables").insert(rows);
   if (error) throw new Error(`Failed to insert journal entries: ${error.message}`);
 }
@@ -114,8 +135,9 @@ export async function bookSalesInvoice(
   companyId?: string | null,
   dossierId?: string | null,
   accountingSettings?: Partial<AccountingSettings> | null,
+  options?: { finalizeDraftInvoice?: boolean },
 ) {
-  if (await isAlreadyBooked(supabase, invoice.id)) return;
+  if (!options?.finalizeDraftInvoice && await isAlreadyBooked(supabase, invoice.id)) return;
 
   const accounts = normalizeAccountingSettings(accountingSettings);
   const clientName = invoice.clients?.name ?? "Client";
@@ -199,7 +221,7 @@ export async function bookSalesInvoice(
   }
 
   validateBalance(entries);
-  await insertEntries(supabase, entries, companyId, dossierId);
+  await insertEntries(supabase, entries, companyId, dossierId, options);
 }
 
 // ── bookPurchaseInvoice ───────────────────────────────────────────────────────
@@ -382,18 +404,32 @@ export async function bookBankTransaction(
   } else {
     // Expense: DEBIT expense account, CREDIT bank
     const expenseAccount = bankLine.counterpart_account || getExpenseAccount(bankLine.category ?? "", accounts.expenseCategoryAccounts);
+    const deductibleVat = bankLine.vat_status === "eligible"
+      ? Math.min(Math.max(Number(bankLine.tax_amount ?? 0), 0), absAmount)
+      : 0;
     entries.push(
       {
         journal: "BQ",
         compte: expenseAccount,
         compte_label: getAccountLabel(expenseAccount),
-        debit: absAmount,
+        debit: absAmount - deductibleVat,
         credit: 0,
         libelle: bankLine.description,
         source_type: "bank",
         source_id: bankLine.id,
         date_ecriture: bankLine.date,
       },
+      ...(deductibleVat > 0 ? [{
+        journal: "BQ",
+        compte: accounts.recoverableTvaAccount,
+        compte_label: getAccountLabel(accounts.recoverableTvaAccount),
+        debit: deductibleVat,
+        credit: 0,
+        libelle: `TVA déductible · ${bankLine.description}`,
+        source_type: "bank",
+        source_id: bankLine.id,
+        date_ecriture: bankLine.date,
+      }] : []),
       {
         journal: "BQ",
         compte: accounts.bankAccount,

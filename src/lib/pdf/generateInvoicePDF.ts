@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { applyPlugin } from "jspdf-autotable";
+import { INVOICE_VAT_TREATMENT_OPTIONS, normalizeInvoiceVatTreatment } from "@/lib/invoice-vat-treatment";
 
 // Attach autoTable plugin to jsPDF
 applyPlugin(jsPDF);
@@ -46,6 +47,7 @@ export interface GeneratePDFInput {
     subtotal: number;
     tax_rate: number;
     tax_amount: number;
+    vat_treatment?: string | null;
     total: number;
     discount_type?: string | null;
     discount_mode?: string | null;
@@ -336,6 +338,16 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   doc.text(fmtAmt(invoice.total), totX + totW - 4, dividerY + 6, { align: "right" });
 
   y += totalsHeight + 6;
+
+  const vatTreatment = normalizeInvoiceVatTreatment(invoice.vat_treatment);
+  const vatTreatmentLabel = INVOICE_VAT_TREATMENT_OPTIONS.find((option) => option.value === vatTreatment)?.label;
+  if (vatTreatmentLabel) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...MUTED_RGB);
+    doc.text(`Traitement TVA à 0 % : ${vatTreatmentLabel}`, marginL, y);
+    y += 6;
+  }
 
   // ── PAYMENT INFO / DEVIS CONDITIONS ────────────────────────
   if (isDevis) {

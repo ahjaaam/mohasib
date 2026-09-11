@@ -90,6 +90,7 @@ async function buildInput(inv: any, company: any) {
         subtotal: Number(inv.subtotal),
         tax_rate: Number(inv.tax_rate),
         tax_amount: Number(inv.tax_amount),
+        vat_treatment: inv.vat_treatment ?? null,
         total: Number(inv.total),
         discount_type: inv.discount_type ?? null,
         discount_mode: inv.discount_mode ?? null,

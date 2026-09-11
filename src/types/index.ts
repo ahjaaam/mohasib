@@ -50,6 +50,7 @@ export interface PartialPayment {
 }
 
 export type InvoiceType = "facture" | "avoir_client" | "proforma" | "devis";
+export type InvoiceVatTreatment = "out_of_scope" | "exempt_without_deduction" | "exempt_with_deduction" | "suspension";
 
 export type DevisStatus = "brouillon" | "envoyé" | "accepté" | "refusé" | "expiré";
 
@@ -67,6 +68,7 @@ export interface Invoice {
   subtotal: number;
   tax_rate: number;
   tax_amount: number;
+  vat_treatment?: InvoiceVatTreatment | null;
   total: number;
   discount_type?: "remise_commerciale" | "rabais" | "reduction" | "ristourne" | "escompte" | null;
   discount_mode?: "percent" | "amount" | null;
@@ -185,6 +187,8 @@ export interface Receipt {
 
 export type TransactionType = "income" | "expense";
 export type TransactionSource = "manual" | "bank_import";
+export type TransactionWorkflowStatus = "imported" | "matched" | "reviewed" | "posted";
+export type TransactionVatStatus = "not_applicable" | "pending_evidence" | "eligible" | "rejected";
 
 export interface Transaction {
   id: string;
@@ -201,6 +205,18 @@ export interface Transaction {
   reference: string | null;
   notes: string | null;
   source: TransactionSource;
+  workflow_status: TransactionWorkflowStatus;
+  vat_status: TransactionVatStatus;
+  counterpart_account?: string | null;
+  review_reason?: string | null;
+  vat_evidence_receipt_id?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  posted_by?: string | null;
+  posted_at?: string | null;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
+  amount_ht?: number | null;
   bank_reference?: string | null;
   fournisseur?: string | null;
   if_fournisseur?: string | null;

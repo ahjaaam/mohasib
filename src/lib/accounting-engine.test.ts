@@ -157,6 +157,67 @@ describe("bookPurchaseInvoice", () => {
 });
 
 describe("bookSalesInvoice", () => {
+  it("uses the atomic database booking function when available", async () => {
+    let rpcName = "";
+    let rpcArgs: Record<string, unknown> = {};
+    const supabase = {
+      from: () => ({
+        select: () => ({ eq: () => ({ limit: async () => ({ data: [] }) }) }),
+      }),
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        rpcName = name;
+        rpcArgs = args;
+        return { data: true, error: null };
+      },
+    };
+
+    await bookSalesInvoice(supabase, {
+      id: "00000000-0000-4000-8000-000000000001",
+      invoice_number: "F-ATOMIC",
+      issue_date: "2026-09-10",
+      subtotal: 100,
+      tax_amount: 20,
+      total: 120,
+      items: [{ description: "Prestation", amount: 100, tva_rate: 20 }],
+    }, "00000000-0000-4000-8000-000000000002");
+
+    expect(rpcName).toBe("book_accounting_entries");
+    expect(rpcArgs).toMatchObject({
+      p_company_id: "00000000-0000-4000-8000-000000000002",
+      p_dossier_id: null,
+      p_source_type: "invoice",
+      p_source_id: "00000000-0000-4000-8000-000000000001",
+    });
+    expect(rpcArgs.p_entries).toHaveLength(3);
+  });
+
+  it("uses the finalize transaction when booking an editable draft", async () => {
+    let rpcName = "";
+    const supabase = {
+      from: () => {
+        throw new Error("Draft finalization must not use the non-atomic pre-check");
+      },
+      rpc: async (name: string) => {
+        rpcName = name;
+        return { data: true, error: null };
+      },
+    };
+
+    await bookSalesInvoice(supabase, {
+      id: "00000000-0000-4000-8000-000000000003",
+      invoice_number: "F-DRAFT",
+      issue_date: "2026-09-10",
+      subtotal: 100,
+      tax_amount: 20,
+      total: 120,
+      items: [{ description: "Prestation", amount: 100, tva_rate: 20 }],
+    }, "00000000-0000-4000-8000-000000000002", null, null, {
+      finalizeDraftInvoice: true,
+    });
+
+    expect(rpcName).toBe("finalize_invoice_accounting_entries");
+  });
+
   it("books an escompte as a financial charge", async () => {
     let insertedRows: Array<Record<string, unknown>> = [];
     const supabase = {
@@ -242,5 +303,61 @@ describe("bookBankTransaction", () => {
 
     expect(insertedBatches[0].map(row => row.compte)).toEqual(["5141", "7311"]);
     expect(insertedBatches[1].map(row => row.compte)).toEqual(["6141", "5141"]);
+  });
+
+  it("splits only reviewed eligible VAT into the recoverable VAT account", async () => {
+    let insertedRows: Array<Record<string, unknown>> = [];
+    const supabase = {
+      from: () => ({
+        select: () => ({ eq: () => ({ limit: async () => ({ data: [] }) }) }),
+        insert: async (rows: Array<Record<string, unknown>>) => {
+          insertedRows = rows;
+          return { error: null };
+        },
+      }),
+    };
+
+    await bookBankTransaction(supabase, {
+      id: "bank-expense-with-evidence",
+      date: "2026-09-10",
+      description: "Fournitures justifiées",
+      amount: -120,
+      category: "Fournitures",
+      counterpart_account: "6125",
+      vat_status: "eligible",
+      tax_amount: 20,
+    });
+
+    expect(insertedRows.map(row => ({ compte: row.compte, debit: row.debit, credit: row.credit }))).toEqual([
+      { compte: "6125", debit: 100, credit: 0 },
+      { compte: "3455", debit: 20, credit: 0 },
+      { compte: "5141", debit: 0, credit: 120 },
+    ]);
+  });
+
+  it("does not deduct a supplied tax amount unless VAT is eligible", async () => {
+    let insertedRows: Array<Record<string, unknown>> = [];
+    const supabase = {
+      from: () => ({
+        select: () => ({ eq: () => ({ limit: async () => ({ data: [] }) }) }),
+        insert: async (rows: Array<Record<string, unknown>>) => {
+          insertedRows = rows;
+          return { error: null };
+        },
+      }),
+    };
+
+    await bookBankTransaction(supabase, {
+      id: "bank-expense-without-evidence",
+      date: "2026-09-10",
+      description: "Frais sans TVA",
+      amount: -120,
+      category: "Autre dépense",
+      vat_status: "not_applicable",
+      tax_amount: 20,
+    });
+
+    expect(insertedRows.map(row => row.compte)).toEqual(["6143", "5141"]);
+    expect(insertedRows[0].debit).toBe(120);
   });
 });

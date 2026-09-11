@@ -195,6 +195,10 @@ export default async function DossierInvoiceDetailPage({
             clientPhone={client?.phone ?? null}
             clientEmail={client?.email ?? null}
             clientId={client?.id ?? null}
+            dossierId={dossierId}
+            invoiceType={(inv as any).invoice_type ?? "facture"}
+            vatTreatment={(inv as any).vat_treatment ?? null}
+            hasZeroRatedItems={Number(inv.tax_rate) === 0 || (Array.isArray(inv.items) && inv.items.some((item: any) => Number(item.tva_rate) === 0))}
           />
         </div>
       </div>

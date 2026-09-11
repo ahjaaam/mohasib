@@ -74,48 +74,47 @@ export async function POST(req: NextRequest) {
       if (locked) return locked;
     }
 
-    // 1. Insert into invoice_payments
-    const { data: payment, error: payErr } = await supabase
-      .from("invoice_payments")
-      .insert({
-        invoice_id: invoice_id ?? null,
-        inbox_item_id: inbox_item_id ?? null,
-        company_id: company?.id ?? null,
-        dossier_id: dossierId,
-        montant: amount,
-        date_paiement,
-        mode_paiement: mode_paiement ?? null,
-        reference: reference ?? null,
-        notes: notes ?? null,
-        payment_type: payment_type ?? "encaissement",
-        allocation_status: "confirmed",
-        match_confidence: 1,
-        match_method: "manual_payment_entry",
-        confirmed_by: user.id,
-        confirmed_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    let payment: Record<string, unknown> | null = null;
 
-    if (payErr) throw new Error(payErr.message);
-
-    // 2a. Update client invoice
+    // Client invoice settlement is one database transaction: evidence first,
+    // then the derived paid amount and status.
     if (invoice_id) {
       if (invoice) {
-        const newMontantRecu = currentInvoicePaid + amount;
-        const isPaid = newMontantRecu >= Number(invoice.total) - 0.01;
-        const { error: invoiceUpdateError } = await supabase.from("invoices").update({
-          montant_recu: newMontantRecu,
-          status: isPaid ? "paid" : "partiellement_payee",
-          payment_method: mode_paiement ?? null,
-          payment_reference: reference ?? null,
-        }).eq("id", invoice_id);
-        if (invoiceUpdateError) throw invoiceUpdateError;
+        const { data: recorded, error: paymentError } = await supabase.rpc("record_invoice_payment", {
+          p_invoice_id: invoice_id,
+          p_amount: amount,
+          p_payment_date: date_paiement,
+          p_payment_method: mode_paiement ?? null,
+          p_reference: reference ?? null,
+          p_notes: notes ?? null,
+        });
+        if (paymentError) {
+          const paymentErrors: Record<string, string> = {
+            draft_invoice_must_be_finalized: "La facture doit être finalisée avant d’enregistrer un paiement",
+            cancelled_invoice_cannot_be_paid: "Une facture annulée ne peut pas être payée",
+            payment_exceeds_invoice_balance: "Le paiement dépasse le solde de la facture",
+            payment_requires_client_invoice: "Le paiement doit concerner une facture client",
+          };
+          const translated = Object.entries(paymentErrors).find(([code]) => paymentError.message.includes(code))?.[1];
+          return NextResponse.json({ error: translated ?? paymentError.message }, { status: 400 });
+        }
+
+        const result = (recorded ?? {}) as {
+          payment?: Record<string, unknown>;
+          invoice?: { montant_recu?: number; montant_paye?: number; reste_a_payer?: number; status?: string };
+        };
+        payment = result.payment ?? null;
+        const newMontantRecu = Number(result.invoice?.montant_recu ?? currentInvoicePaid + amount);
+        const nextStatus = result.invoice?.status
+          ?? (newMontantRecu >= Number(invoice.total) - 0.01 ? "paid" : "partiellement_payee");
+        const isPaid = nextStatus === "paid";
 
         const updatedInvoice = {
           ...invoice,
           montant_recu: newMontantRecu,
-          status: isPaid ? "paid" : "partiellement_payee",
+          montant_paye: Number(result.invoice?.montant_paye ?? newMontantRecu),
+          reste_a_payer: Number(result.invoice?.reste_a_payer ?? Math.max(Number(invoice.total) - newMontantRecu, 0)),
+          status: nextStatus,
           payment_method: mode_paiement ?? null,
           payment_reference: reference ?? null,
         };
@@ -156,13 +155,36 @@ export async function POST(req: NextRequest) {
           periodAnnee: date_paiement ? Number(String(date_paiement).slice(0, 4)) : null,
           eventData: { payment, invoice: updatedInvoice },
         });
-
       }
     }
 
-    // 2b. Update supplier receipt ocr_data
+    // Supplier-document settlement keeps its existing allocation path.
     if (inbox_item_id) {
       if (receipt) {
+        const { data: insertedPayment, error: payErr } = await supabase
+          .from("invoice_payments")
+          .insert({
+            invoice_id: null,
+            inbox_item_id,
+            company_id: company?.id ?? null,
+            dossier_id: dossierId,
+            montant: amount,
+            date_paiement,
+            mode_paiement: mode_paiement ?? null,
+            reference: reference ?? null,
+            notes: notes ?? null,
+            payment_type: payment_type ?? "decaissement",
+            allocation_status: "confirmed",
+            match_confidence: 1,
+            match_method: "manual_payment_entry",
+            confirmed_by: user.id,
+            confirmed_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+        if (payErr) throw new Error(payErr.message);
+        payment = insertedPayment;
+
         const currentPaid = Number(receipt.ocr_data?.montant_paye ?? 0);
         const newPaid = currentPaid + amount;
         const total = Math.abs(Number(receipt.ocr_data?.amount ?? 0));

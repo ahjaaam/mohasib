@@ -16,6 +16,7 @@ import { DEFAULT_ENABLED_CODES, TVA_LINES, withAlwaysShown } from "@/lib/tva-lin
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import { translateError } from "@/lib/errors";
+import { resolveVatDeclarationStatus } from "@/lib/tva-declaration-summary";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -118,12 +119,19 @@ interface LockedPeriod {
   locked_at?: string | null;
 }
 
-interface Props { company: Company | null; userName: string; lockedPeriods?: LockedPeriod[]; }
+interface Props {
+  company: Company | null;
+  userName: string;
+  lockedPeriods?: LockedPeriod[];
+  initialPeriod?: string;
+}
 
 // ─── Default empty calc ───────────────────────────────────────────────────────
 
 const EMPTY_CALC: TVACalcResult = {
-  ca_total: 0, ca_7: 0, ca_10: 0, ca_14: 0, ca_20: 0,
+  ca_total: 0, ca_hors_champ: 0, ca_exonere_sans_droit: 0,
+  ca_exonere_avec_droit: 0, ca_suspension: 0, ca_zero_non_classe: 0,
+  ca_7: 0, ca_10: 0, ca_14: 0, ca_20: 0,
   tva_7: 0, tva_10: 0, tva_14: 0, tva_20: 0, tva_collectee_total: 0,
   deductions_charges: 0, deductions_immobilisations: 0, deductions_total: 0,
   credit_reporte: 0, nb_factures: 0, droits_timbre: 0,
@@ -133,17 +141,23 @@ const EMPTY_CALC: TVACalcResult = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
+export default function TVACalculator({ company, lockedPeriods = [], initialPeriod }: Props) {
   const entitlements = usePlanEntitlements();
   const { period: globalPeriod } = useGlobalPeriod();
   const regime = company?.tva_regime === "Trimestriel" ? "Trimestriel" : "Mensuel";
   const now = new Date();
-  const year = /^\d{4}-/.test(globalPeriod.start)
+  const requestedYear = initialPeriod && /^\d{4}-\d{2}$/.test(initialPeriod)
+    ? Number(initialPeriod.slice(0, 4))
+    : null;
+  const requestedMonth = initialPeriod && /^\d{4}-\d{2}$/.test(initialPeriod)
+    ? Number(initialPeriod.slice(5, 7))
+    : null;
+  const year = requestedYear ?? (/^\d{4}-/.test(globalPeriod.start)
     ? Number(globalPeriod.start.slice(0, 4))
-    : now.getFullYear();
+    : now.getFullYear());
 
-  const [month, setMonth]     = useState(now.getMonth() + 1);
-  const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3));
+  const [month, setMonth]     = useState(requestedMonth ?? now.getMonth() + 1);
+  const [quarter, setQuarter] = useState(Math.ceil((requestedMonth ?? now.getMonth() + 1) / 3));
 
   const [calc, setCalc]       = useState<TVACalcResult>(EMPTY_CALC);
   const [loading, setLoading] = useState(false);
@@ -185,6 +199,10 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
     if (res.error) { setFetchError(res.error); setLoading(false); return; }
     if (res.data) {
       setCalc(res.data);
+      setCaHorsChamp(res.data.ca_hors_champ);
+      setCaExonere(res.data.ca_exonere_sans_droit);
+      setCaExporte(res.data.ca_exonere_avec_droit);
+      setCaSuspension(res.data.ca_suspension);
       setLastCalc(new Date().toLocaleTimeString("fr-MA", { hour: "2-digit", minute: "2-digit" }));
     }
     setLoading(false);
@@ -269,7 +287,7 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
   filteredCalc.tva_collectee_total = activeBTotalTVA;
   filteredCalc.deductions_total = filteredCalc.deductions_charges + filteredCalc.deductions_immobilisations;
 
-  const caImposable   = calc.ca_total - caExporte - caExonere - caHorsChamp - caSuspension;
+  const caImposable   = calc.ca_total - caExporte - caExonere - caHorsChamp - caSuspension - calc.ca_zero_non_classe;
   const tvaExigible   = filteredCalc.tva_collectee_total + (sectionDEnabled ? n(odTva) : 0);
   const totalDed      = filteredCalc.deductions_total + filteredCalc.credit_reporte;
   const raw           = tvaExigible + calc.droits_timbre - totalDed;
@@ -580,8 +598,8 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
   useEffect(() => {
     const found = history.find(d => d.period_start === start);
     if (found) {
-      const s = found.statut ?? found.status;
-      setStatut(s === "filed" || s === "déposé" ? "déposé" : s === "validé" ? "validé" : "brouillon");
+      const status = resolveVatDeclarationStatus(found.statut, found.status);
+      setStatut(status === "filed" ? "déposé" : status === "validated" ? "validé" : "brouillon");
     } else {
       setStatut("brouillon");
     }
@@ -685,6 +703,13 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
         </div>
       ) : (
         <>
+          {calc.ca_zero_non_classe > 0.01 && (
+            <div className="mb-4 rounded-xl border border-[#F59E0B]/30 bg-[#FFFBEB] px-4 py-3 text-[12px] text-[#92400E]">
+              <div className="font-semibold">{fmtMAD(calc.ca_zero_non_classe)} à 0 % restent à classer</div>
+              <div className="mt-1">Ouvrez les factures concernées et choisissez leur traitement TVA avant de valider la déclaration.</div>
+              <Link href="/factures" className="mt-1.5 inline-block font-semibold underline">Voir les factures</Link>
+            </div>
+          )}
           {/* ─────────────────────────────────────────────────────────────── */}
           {/* SECTION A — CA Total                                           */}
           {/* ─────────────────────────────────────────────────────────────── */}
@@ -941,10 +966,10 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
                   <strong>{calc.nb_factures}</strong> facture{calc.nb_factures !== 1 ? "s" : ""} émise{calc.nb_factures !== 1 ? "s" : ""} sur la période
                 </p>
                 <p className="text-[11px] text-[#9CA3AF] mt-1">
-                  Droits de timbre = 2 MAD × {calc.nb_factures} facture{calc.nb_factures !== 1 ? "s" : ""}
+                  Droits de timbre = 0,25 % des encaissements confirmés en espèces
                 </p>
                 <p className="text-[10.5px] text-[#9CA3AF] mt-0.5 flex items-center gap-1">
-                  <Info size={11} /> Dus sur chaque facture de vente (art. 252 CGI Maroc)
+                  <Info size={11} /> Dus sur les quittances réglées en espèces (art. 252 CGI Maroc)
                 </p>
               </div>
               <div className="text-right flex-shrink-0">
@@ -1142,15 +1167,15 @@ export default function TVACalculator({ company, lockedPeriods = [] }: Props) {
                 <tbody>
                   {history.map(decl => {
                     const due = Number(decl.tva_nette_due ?? decl.tva_nette ?? 0);
-                    const st = decl.statut ?? decl.status;
+                    const declarationStatus = resolveVatDeclarationStatus(decl.statut, decl.status);
                     return (
                       <tr key={decl.id} className="border-t border-[rgba(0,0,0,0.05)] hover:bg-[#FAFAF6]">
                         <td className="px-3 py-2.5 text-[12px] font-medium text-[#1A1A2E]">{decl.period_label}</td>
                         <td className="px-3 py-2.5 text-[11.5px] font-semibold text-right text-[#DC2626]">{fmtMAD(due)}</td>
                         <td className="px-3 py-2.5 text-right">
-                          {(st === "filed" || st === "déposé")
+                          {declarationStatus === "filed"
                             ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#065F46] bg-[#D1FAE5] px-1.5 py-0.5 whitespace-nowrap"><CheckCircle size={10} aria-hidden="true" /> Déposée</span>
-                            : st === "validé"
+                            : declarationStatus === "validated"
                               ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#92400E] bg-[#FEF3C7] px-1.5 py-0.5 whitespace-nowrap"><Lock size={10} /> Validée</span>
                               : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 whitespace-nowrap"><FilePenLine size={10} /> Brouillon</span>}
                         </td>

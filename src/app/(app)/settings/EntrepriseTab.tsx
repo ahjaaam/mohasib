@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { Upload } from "lucide-react";
+import { isMissingDatabaseColumn } from "@/lib/schema-compatibility";
 
 interface Props {
   userId: string;
@@ -43,6 +44,9 @@ export default function EntrepriseTab({ userId, company }: Props) {
     tva_assujetti: company.tva_assujetti ?? true,
     tva_taux_defaut: company.tva_taux_defaut ?? 20,
     tva_regime: company.tva_regime ?? "Mensuel",
+    tva_tax_point: company.tva_tax_point ?? "cash",
+    payroll_amo_regime: company.payroll_amo_regime ?? "standard",
+    payroll_tfp_exempt: company.payroll_tfp_exempt ?? false,
     invoice_prefix: company.invoice_prefix ?? "F-",
     invoice_payment_delay: company.invoice_payment_delay ?? "30 jours",
     invoice_mentions_legales: company.invoice_mentions_legales ?? "Paiement à 30 jours. Tout retard de paiement entraînera des pénalités conformément à la loi marocaine.",
@@ -78,11 +82,20 @@ export default function EntrepriseTab({ userId, company }: Props) {
     const err = validate();
     if (err) { toast.error(err); return; }
     setSaving(true);
-    const { data, error } = await supabase.from("companies").update({
+    const payload = {
       ...form,
       capital_social: form.capital_social ? Number(form.capital_social) : null,
       tva_taux_defaut: Number(form.tva_taux_defaut),
-    }).eq("user_id", userId).select("id").maybeSingle();
+    };
+    let result = await supabase.from("companies").update(payload).eq("user_id", userId).select("id").maybeSingle();
+    const missingMigration104 = ["tva_tax_point", "payroll_amo_regime", "payroll_tfp_exempt"]
+      .some((column) => isMissingDatabaseColumn(result.error, "companies", column));
+    if (missingMigration104 && form.tva_tax_point === "cash" && form.payroll_amo_regime === "standard" && !form.payroll_tfp_exempt) {
+      const legacyPayload = Object.fromEntries(Object.entries(payload).filter(([key]) =>
+        !["tva_tax_point", "payroll_amo_regime", "payroll_tfp_exempt"].includes(key)));
+      result = await supabase.from("companies").update(legacyPayload).eq("user_id", userId).select("id").maybeSingle();
+    }
+    const { data, error } = result;
     setSaving(false);
     if (error) toast.error(translateError(error));
     else if (!data) toast.error("Entreprise introuvable. Rechargez la page avant de réessayer.");
@@ -236,9 +249,35 @@ export default function EntrepriseTab({ userId, company }: Props) {
                   {TVA_REGIME.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label className="text-[11px] font-medium text-[#6B7280]">Fait générateur de la TVA</label>
+                <select className="input" value={form.tva_tax_point} onChange={e => set("tva_tax_point", e.target.value)}>
+                  <option value="cash">Encaissement (régime légal par défaut)</option>
+                  <option value="debit">Débit — option formellement exercée</option>
+                </select>
+                <span className="text-[10.5px] text-[#9CA3AF]">Ne choisissez « Débit » que si l&apos;option a été exercée auprès de l&apos;administration fiscale.</span>
+              </div>
             </div>
           )}
         </div>
+      </div>
+
+      <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-5">
+        <h3 className="text-[13px] font-semibold text-[#1A1A2E] mb-4">Paramètres sociaux employeur</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-medium text-[#6B7280]">Régime AMO</label>
+            <select className="input" value={form.payroll_amo_regime} onChange={e => set("payroll_amo_regime", e.target.value)}>
+              <option value="standard">AMO standard</option>
+              <option value="solidarity_only">Solidarité 1,85 % — couverture groupe éligible</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-3 rounded-lg border border-[rgba(0,0,0,0.08)] px-3 py-2.5 text-[12px] text-[#374151]">
+            <input type="checkbox" checked={form.payroll_tfp_exempt} onChange={e => set("payroll_tfp_exempt", e.target.checked)} />
+            Employeur légalement exonéré de la TFP
+          </label>
+        </div>
+        <p className="text-[10.5px] text-[#9CA3AF] mt-2">Ces exceptions doivent être justifiées par la situation CNSS de l&apos;employeur.</p>
       </div>
 
       {/* Invoice Settings */}

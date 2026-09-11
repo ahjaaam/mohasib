@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildCnssDeclaration } from "@/lib/paie/cnss-declaration";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { authorizePermission } from "@/lib/api-permissions";
 import { jsPDF } from "jspdf";
 import { applyPlugin } from "jspdf-autotable";
 
@@ -40,6 +41,7 @@ function generateFallbackPdf(data: any) {
     fmtAmt(e.cnss_patronal),
     fmtAmt(e.amo_salarie),
     fmtAmt(e.amo_patronal),
+    fmtAmt(e.formation_professionnelle),
     fmtAmt(e.total_cotisations),
   ]);
   const t = data.totals ?? {};
@@ -51,13 +53,14 @@ function generateFallbackPdf(data: any) {
     fmtAmt(t.total_cnss_patronal ?? 0),
     fmtAmt(t.total_amo_salarie ?? 0),
     fmtAmt(t.total_amo_patronal ?? 0),
+    fmtAmt(t.total_formation_professionnelle ?? 0),
     fmtAmt(t.total_cotisations ?? 0),
   ]);
 
   (doc as any).autoTable({
     startY: 30,
     margin: { left: ml, right: mr },
-    head: [["N°", "Matricule", "Nom", "Prénom", "Jours", "Brut", "Plafonné", "CNSS sal.", "CNSS pat.", "AMO sal.", "AMO pat.", "Total"]],
+    head: [["N°", "Matricule", "Nom", "Prénom", "Jours", "Brut", "Plafonné", "CNSS sal.", "CNSS pat.", "AMO sal.", "AMO pat.", "TFP", "Total"]],
     body: rows,
     theme: "grid",
     styles: { fontSize: 7, cellPadding: 1.8, overflow: "linebreak" },
@@ -74,7 +77,8 @@ function generateFallbackPdf(data: any) {
       8: { cellWidth: 23, halign: "right" },
       9: { cellWidth: 23, halign: "right" },
       10: { cellWidth: 23, halign: "right" },
-      11: { cellWidth: 28, halign: "right" },
+      11: { cellWidth: 18, halign: "right" },
+      12: { cellWidth: 25, halign: "right" },
     },
     didParseCell: (hook: any) => {
       if (hook.section === "body" && hook.row.index === rows.length - 1) {
@@ -111,11 +115,13 @@ export async function GET(req: NextRequest) {
     const mois = Number(searchParams.get("mois"));
     const annee = Number(searchParams.get("annee"));
     const dossierId = searchParams.get("dossierId");
-    if (!mois || !annee) return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
+    if (!Number.isInteger(mois) || mois < 1 || mois > 12 || !Number.isInteger(annee) || annee < 1900 || annee > 9999) return NextResponse.json({ error: "Période CNSS invalide" }, { status: 400 });
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    const permission = await authorizePermission("bulletin_paie", "read", { dossierId });
+    if (permission.response) return permission.response;
 
     const data = await buildCnssDeclaration({ supabase, userId: user.id, mois, annee, dossierId });
     const serviceUrl = process.env.PDF_SERVICE_URL ?? "http://localhost:5050";
@@ -133,7 +139,7 @@ export async function GET(req: NextRequest) {
         throw new Error(detail || "Erreur génération PDF CNSS");
       }
       pdfBytes = await res.arrayBuffer();
-    } catch (err) {
+    } catch {
       pdfBytes = generateFallbackPdf(data);
     }
 

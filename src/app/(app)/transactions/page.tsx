@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { Transaction } from "@/types";
+import type { Transaction, TransactionVatStatus } from "@/types";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { getAccountLabel, getExpenseAccount, getRevenueAccount } from "@/lib/cgnc-mapping";
 import { cgncAccounts } from "@/lib/cgnc-accounts";
@@ -51,6 +51,8 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [confirmingTransaction, setConfirmingTransaction] = useState<Transaction | null>(null);
   const [bookingTransaction, setBookingTransaction] = useState(false);
   const [accountingAccount, setAccountingAccount] = useState("");
+  const [vatStatus, setVatStatus] = useState<TransactionVatStatus>("pending_evidence");
+  const [reviewReason, setReviewReason] = useState("");
   const [accountingSettings, setAccountingSettings] = useState(() => normalizeAccountingSettings(null));
 
   // Filters
@@ -197,6 +199,21 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     if (!confirmingTransaction || !isValidAccountingAccountCode(accountingAccount, [2, 3, 4, 6, 7]) || bookingTransaction) return;
     setBookingTransaction(true);
     setError(null);
+    const reviewResponse = await fetch(`/api/transactions/${confirmingTransaction.id}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        counterpartAccount: accountingAccount,
+        vatStatus,
+        reviewReason,
+      }),
+    });
+    const reviewResult = await reviewResponse.json().catch(() => ({}));
+    if (!reviewResponse.ok) {
+      setError(reviewResult.message ?? reviewResult.error ?? "La validation a échoué.");
+      setBookingTransaction(false);
+      return;
+    }
     const response = await fetch("/api/accounting/book", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -216,6 +233,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     setBookedTransactionIds(current => new Set(current).add(confirmingTransaction.id));
     setBookingTransaction(false);
     setConfirmingTransaction(null);
+    await load(false);
   }
 
   function openTransactionConfirmation(transaction: Transaction) {
@@ -226,6 +244,8 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
         : getExpenseAccount(transaction.category ?? "", accountingSettings.expenseCategoryAccounts);
     setError(null);
     setAccountingAccount(suggestedAccount);
+    setVatStatus(transaction.type === "income" ? "not_applicable" : "pending_evidence");
+    setReviewReason("");
     setConfirmingTransaction(transaction);
   }
 
@@ -319,6 +339,8 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
           ? account.code.startsWith("7") || account.code.startsWith("3") || account.code.startsWith("4")
           : account.code.startsWith("6") || account.code.startsWith("2") || account.code.startsWith("4"));
         const validCounterpartAccount = isValidAccountingAccountCode(accountingAccount, isIncome ? [3, 4, 7] : [2, 4, 6]);
+        const hasSupportingDocument = (allocationCounts[confirmingTransaction.id] ?? 0) > 0;
+        const validVatDecision = isIncome || vatStatus === "eligible" || ((vatStatus === "not_applicable" || vatStatus === "rejected") && reviewReason.trim().length > 0);
         return (
           <div
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
@@ -349,6 +371,26 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
                     {validCounterpartAccount ? getAccountLabel(accountingAccount) : "Saisissez un compte compatible de 4 à 12 chiffres."}
                   </span>
                 </label>
+                {!isIncome && <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Traitement TVA</span>
+                    <select className="input w-full" value={vatStatus} onChange={(event) => setVatStatus(event.target.value as TransactionVatStatus)}>
+                      <option value="pending_evidence" disabled>À décider</option>
+                      <option value="eligible" disabled={!hasSupportingDocument}>TVA déductible · justificatif requis</option>
+                      <option value="not_applicable">Sans déduction de TVA</option>
+                      <option value="rejected">TVA rejetée</option>
+                    </select>
+                    <span className="mt-1 block text-[9.5px] text-[#9CA3AF]">
+                      {hasSupportingDocument
+                        ? "Le serveur vérifiera les montants HT, TVA, TTC et le fichier lié."
+                        : "Aucun document fournisseur lié : la TVA ne peut pas être déduite."}
+                    </span>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#8A909B]">Motif {vatStatus === "eligible" ? "(facultatif)" : "(requis)"}</span>
+                    <input className="input w-full" maxLength={500} placeholder="Ex. frais bancaire sans TVA" value={reviewReason} onChange={(event) => setReviewReason(event.target.value)} />
+                  </label>
+                </div>}
               </div>
               <div className="p-5">
                 <div className="mb-2 text-[11px] font-bold text-[#1A1A2E]">Aperçu de l’écriture · Journal BQ</div>
@@ -361,11 +403,14 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
                     </tbody>
                   </table>
                 </div>
+                {!isIncome && vatStatus === "eligible" && <p className="mt-2 text-[10px] text-[#6B7280]">
+                  Après vérification du justificatif, la part de TVA sera débitée au compte {accountingSettings.recoverableTvaAccount}; le solde restera sur le compte de charge.
+                </p>}
               </div>
               {error && <p className="mx-5 mb-4 rounded-lg bg-[#FEE2E2] px-3 py-2 text-[12px] text-[#DC2626]">{error}</p>}
               <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
                 <button disabled={bookingTransaction} onClick={() => setConfirmingTransaction(null)} className="btn btn-outline">Annuler</button>
-                <button disabled={bookingTransaction || !validCounterpartAccount} onClick={confirmTransactionBooking} className="btn btn-gold">
+                <button disabled={bookingTransaction || !validCounterpartAccount || !validVatDecision} onClick={confirmTransactionBooking} className="btn btn-gold">
                   {bookingTransaction ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                   {bookingTransaction ? "Comptabilisation…" : "Confirmer et créer l’écriture"}
                 </button>
@@ -593,6 +638,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
               <SortableTh sortKey="category" label="Catégorie" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
               <SortableTh sortKey="source" label="Source" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
               <th>Affectation</th>
+              <th>Contrôle</th>
               <th>Comptabilisation</th>
               <SortableTh sortKey="debit" label="Débit" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="left" />
               <SortableTh sortKey="credit" label="Crédit" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="left" />
@@ -600,10 +646,10 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={8} className="loading-cell">Chargement...</td></tr>
+              <tr><td colSpan={9} className="loading-cell">Chargement...</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={8} className="text-center py-10 text-[#6B7280] text-[12px]">
+              <tr><td colSpan={9} className="text-center py-10 text-[#6B7280] text-[12px]">
                 {hasFilter ? "Aucun résultat" : "Aucune transaction"}
               </td></tr>
             )}
@@ -636,7 +682,15 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
                   </button>
                 </td>
                 <td>
-                  {bookedTransactionIds.has(tx.id) ? (
+                  <span className={`badge ${tx.workflow_status === "posted" || tx.workflow_status === "reviewed" ? "b-paid" : "b-draft"}`}>
+                    {tx.workflow_status === "posted" ? "Validée" : tx.workflow_status === "reviewed" ? "Vérifiée" : allocationCounts[tx.id] ? "Affectée" : "À vérifier"}
+                  </span>
+                  {tx.type === "expense" && <div className="mt-1 text-[9.5px] text-[#6B7280]">
+                    {tx.vat_status === "eligible" ? "TVA justifiée" : tx.vat_status === "pending_evidence" ? "TVA en attente" : "TVA non déduite"}
+                  </div>}
+                </td>
+                <td>
+                  {tx.workflow_status === "posted" || bookedTransactionIds.has(tx.id) ? (
                     <span className="badge b-paid">Comptabilisée</span>
                   ) : (
                     <button
