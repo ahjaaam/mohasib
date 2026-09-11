@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type AuthUser, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test, type Page } from "@playwright/test";
 import { mohasibDemoCorpus, verifiedSupplierInvoice } from "./mohasib-demo-corpus";
 
@@ -48,7 +48,8 @@ async function login(page: Page, email: string, password: string) {
 async function userIdForEmail(admin: SupabaseClient, email: string) {
   const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1_000 });
   if (error) throw error;
-  const user = data.users.find((candidate) => candidate.email?.toLowerCase() === email.toLowerCase());
+  const users: AuthUser[] = data.users;
+  const user = users.find((candidate) => candidate.email?.toLowerCase() === email.toLowerCase());
   if (!user) throw new Error(`No test user exists for ${email}. Seed the isolated test project first.`);
   return user.id;
 }
