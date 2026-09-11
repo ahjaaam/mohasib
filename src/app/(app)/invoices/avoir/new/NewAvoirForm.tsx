@@ -9,6 +9,7 @@ import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from 
 import { Check, Trash2, Plus, Loader2, Mail, Download, Send, Save, PartyPopper, Lightbulb } from "lucide-react";
 import type { Client } from "@/types";
 import { INVOICE_VAT_TREATMENT_OPTIONS, type InvoiceVatTreatment } from "@/lib/invoice-vat-treatment";
+import { finalizeDraftCreditNote } from "@/lib/invoice-booking-client";
 
 interface LineItem {
   desc: string;
@@ -208,7 +209,9 @@ export default function NewAvoirForm({
           invoice_type: "avoir_client",
           linked_invoice_id: form.linked_invoice_id || null,
           avoir_reason: form.motif,
-          status,
+          // Every credit note starts as a draft. Issuance and journal booking
+          // are committed together by the server-side finalization RPC.
+          status: "draft",
           issue_date: form.date,
           due_date: null,
           subtotal: totalHT,
@@ -243,20 +246,14 @@ export default function NewAvoirForm({
       return;
     }
 
-    // Book in saisie comptable when emitting (not draft)
+    // Atomically issue and book the credit note when emitting it.
     if (status === "sent") {
       try {
-        await fetch("/api/accounting/book", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "avoir",
-            invoiceId: row.id,
-            ...(dossierId ? { dossierId } : {}),
-          }),
-        });
-      } catch {
-        // Booking failure is non-blocking — avoir is still created
+        await finalizeDraftCreditNote(row.id, dossierId);
+      } catch (bookingError) {
+        setSaving(false);
+        setError(`${translateError(bookingError)} L’avoir a été conservé en brouillon.`);
+        return;
       }
     }
 

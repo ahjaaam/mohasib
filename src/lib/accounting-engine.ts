@@ -96,7 +96,7 @@ async function insertEntries(
   entries: JournalEntry[],
   companyId?: string | null,
   dossierId?: string | null,
-  options?: { finalizeDraftInvoice?: boolean },
+  options?: { finalizeDraftInvoice?: boolean; finalizeDraftCreditNote?: boolean },
 ) {
   const rows = entries.map((e) => ({
     ...e,
@@ -110,7 +110,9 @@ async function insertEntries(
     const source = entries[0];
     const rpcName = options?.finalizeDraftInvoice
       ? "finalize_invoice_accounting_entries"
-      : "book_accounting_entries";
+      : options?.finalizeDraftCreditNote
+        ? "finalize_credit_note_accounting_entries"
+        : "book_accounting_entries";
     const { error } = await supabase.rpc(rpcName, {
       p_company_id: companyId ?? null,
       p_dossier_id: dossierId ?? null,
@@ -457,8 +459,9 @@ export async function bookAvoirClient(
   companyId?: string | null,
   dossierId?: string | null,
   accountingSettings?: Partial<AccountingSettings> | null,
+  options?: { finalizeDraftCreditNote?: boolean },
 ) {
-  if (await isAlreadyBooked(supabase, avoir.id)) return;
+  if (!options?.finalizeDraftCreditNote && await isAlreadyBooked(supabase, avoir.id)) return;
 
   const accounts = normalizeAccountingSettings(accountingSettings);
   const clientName = avoir.clients?.name ?? "Client";
@@ -520,5 +523,5 @@ export async function bookAvoirClient(
   }
 
   validateBalance(entries);
-  await insertEntries(supabase, entries, companyId, dossierId);
+  await insertEntries(supabase, entries, companyId, dossierId, options);
 }

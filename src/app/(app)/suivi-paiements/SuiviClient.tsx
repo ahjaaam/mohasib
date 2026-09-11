@@ -13,6 +13,7 @@ import {
   Circle, MessageCircle,
 } from "lucide-react";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
+import { recordInvoicePayment, recordSupplierPayment } from "@/lib/invoice-payment-client";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -468,12 +469,11 @@ function SupplierMoreMenu({ onPartialPayment }: { onPartialPayment: () => void }
 // ── PaidModal ──────────────────────────────────────────────────────────────────
 
 function PaidModal({
-  item, type, intent, companyId, onClose, onSuccess,
+  item, type, intent, onClose, onSuccess,
 }: {
   item: ClientInvoice | SupplierItem;
   type: "client" | "supplier";
   intent: PaymentIntent;
-  companyId: string | null;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -489,6 +489,7 @@ function PaidModal({
   const [montant, setMontant] = useState(intent === "partial" ? "" : solde.toFixed(2));
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const paymentRequestId = useRef<string | null>(null);
 
   const montantNum = parseFloat(montant) || 0;
   const isPartial = montantNum > 0 && montantNum < solde - 0.01;
@@ -501,25 +502,27 @@ function PaidModal({
       return;
     }
     setSaving(true);
+    paymentRequestId.current ??= crypto.randomUUID();
     try {
-      const res = await fetch("/api/invoice-payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoice_id: isClient ? item.id : undefined,
-          inbox_item_id: !isClient ? item.id : undefined,
-          company_id: companyId,
-          montant: montantNum,
-          date_paiement: date,
-          mode_paiement: mode,
+      if (isClient) {
+        await recordInvoicePayment({
+          invoiceId: item.id,
+          amount: montantNum,
+          paymentDate: date,
+          paymentMethod: mode,
           reference: reference || null,
           notes: notes || null,
-          payment_type: isClient ? "encaissement" : "decaissement",
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Erreur");
+        });
+      } else {
+        await recordSupplierPayment({
+          receiptId: item.id,
+          amount: montantNum,
+          paymentDate: date,
+          paymentMethod: mode,
+          reference: reference || null,
+          notes: notes || null,
+          requestId: paymentRequestId.current,
+        });
       }
       toast.success(isPartial ? "Paiement partiel enregistré" : "Paiement enregistré");
       onSuccess();
@@ -1411,7 +1414,6 @@ export default function SuiviClient({
           item={paidModal.item}
           type={paidModal.type}
           intent={paidModal.intent}
-          companyId={companyId}
           onClose={() => setPaidModal(null)}
           onSuccess={reload}
         />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookBankTransaction, bookPurchaseInvoice, bookSalesInvoice } from "./accounting-engine";
+import { bookAvoirClient, bookBankTransaction, bookPurchaseInvoice, bookSalesInvoice } from "./accounting-engine";
 
 describe("bookPurchaseInvoice", () => {
   it("books a TTC discount separately and keeps the supplier entry balanced", async () => {
@@ -359,5 +359,40 @@ describe("bookBankTransaction", () => {
 
     expect(insertedRows.map(row => row.compte)).toEqual(["6143", "5141"]);
     expect(insertedRows[0].debit).toBe(120);
+  });
+});
+
+describe("bookAvoirClient", () => {
+  it("uses the atomic credit-note finalization transaction for a draft", async () => {
+    let rpcName = "";
+    let rpcArgs: Record<string, unknown> = {};
+    const supabase = {
+      from: () => {
+        throw new Error("Credit-note finalization must not use the non-atomic pre-check");
+      },
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        rpcName = name;
+        rpcArgs = args;
+        return { data: true, error: null };
+      },
+    };
+
+    await bookAvoirClient(supabase, {
+      id: "00000000-0000-4000-8000-000000000004",
+      invoice_number: "AV-DRAFT",
+      issue_date: "2026-09-11",
+      subtotal: 100,
+      tax_amount: 20,
+      total: 120,
+      items: [{ description: "Correction", amount: 100, tva_rate: 20 }],
+    }, "00000000-0000-4000-8000-000000000002", null, null, {
+      finalizeDraftCreditNote: true,
+    });
+
+    expect(rpcName).toBe("finalize_credit_note_accounting_entries");
+    expect(rpcArgs).toMatchObject({
+      p_source_type: "avoir_client",
+      p_source_id: "00000000-0000-4000-8000-000000000004",
+    });
   });
 });

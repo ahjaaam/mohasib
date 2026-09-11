@@ -290,15 +290,31 @@ export async function POST(req: NextRequest) {
 
     // ── Avoir client booking ──────────────────────────────────────────────────
     if (type === "avoir") {
-      const { invoiceId } = body as { invoiceId: string };
+      const { invoiceId, finalizeDraft } = body as { invoiceId: string; finalizeDraft?: boolean };
       let avoirQuery = supabase
         .from("invoices")
-        .select("id, invoice_number, issue_date, total, subtotal, tax_amount, tax_rate, items, clients(name)")
+        .select("id, invoice_number, invoice_type, status, issue_date, total, subtotal, tax_amount, tax_rate, items, clients(name)")
         .eq("id", invoiceId);
       avoirQuery = dossierId ? avoirQuery.eq("dossier_id", dossierId) : avoirQuery.is("dossier_id", null);
       const { data: inv } = await avoirQuery.single();
 
       if (!inv) return NextResponse.json({ error: "Avoir introuvable" }, { status: 404 });
+      if (inv.invoice_type !== "avoir_client") {
+        return NextResponse.json({ error: "credit_note_type_required", message: "Le document n’est pas un avoir client." }, { status: 409 });
+      }
+
+      const isDraftFinalization = inv.status === "draft" && finalizeDraft === true;
+      if (inv.status === "draft" && !isDraftFinalization) {
+        return NextResponse.json({ error: "credit_note_not_finalized", message: "Un brouillon d’avoir ne peut pas être comptabilisé." }, { status: 409 });
+      }
+      if (inv.status === "cancelled") {
+        return NextResponse.json({ error: "credit_note_cancelled", message: "Un avoir annulé ne peut pas être comptabilisé." }, { status: 409 });
+      }
+
+      const creditMonth = Number(String(inv.issue_date).slice(5, 7));
+      const creditYear = Number(String(inv.issue_date).slice(0, 4));
+      const locked = await enforcePeriodLock(creditMonth, creditYear, companyId, dossierId ?? null);
+      if (locked) return locked;
 
       await bookAvoirClient(supabase, {
         id: inv.id,
@@ -309,7 +325,9 @@ export async function POST(req: NextRequest) {
         tax_amount: Number(inv.tax_amount),
         items: (inv.items ?? []) as any[],
         clients: (inv as any).clients,
-      }, companyId, dossierId ?? null, accountingSettings as Partial<AccountingSettings> | null);
+      }, companyId, dossierId ?? null, accountingSettings as Partial<AccountingSettings> | null, {
+        finalizeDraftCreditNote: isDraftFinalization,
+      });
 
       await logAudit({
         userId: user.id,

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
-const EXPECTED_SCHEMA_VERSION = 107;
+const EXPECTED_SCHEMA_VERSION = 108;
 
 export async function GET() {
   const requiredConfiguration = {

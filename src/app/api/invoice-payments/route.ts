@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       mode_paiement,
       reference,
       notes,
-      payment_type,
+      request_id,
     } = body;
 
     if (!montant || Number(montant) <= 0) {
@@ -158,46 +158,43 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Supplier-document settlement keeps its existing allocation path.
+    // Supplier-document settlement is one row-locked database transaction:
+    // recheck the confirmed balance, insert evidence, and update the summary.
     if (inbox_item_id) {
       if (receipt) {
-        const { data: insertedPayment, error: payErr } = await supabase
-          .from("invoice_payments")
-          .insert({
-            invoice_id: null,
-            inbox_item_id,
-            company_id: company?.id ?? null,
-            dossier_id: dossierId,
-            montant: amount,
-            date_paiement,
-            mode_paiement: mode_paiement ?? null,
-            reference: reference ?? null,
-            notes: notes ?? null,
-            payment_type: payment_type ?? "decaissement",
-            allocation_status: "confirmed",
-            match_confidence: 1,
-            match_method: "manual_payment_entry",
-            confirmed_by: user.id,
-            confirmed_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-        if (payErr) throw new Error(payErr.message);
-        payment = insertedPayment;
+        const normalizedRequestId = typeof request_id === "string" && request_id
+          ? request_id
+          : crypto.randomUUID();
+        const { data: recorded, error: paymentError } = await supabase.rpc("record_supplier_payment", {
+          p_receipt_id: inbox_item_id,
+          p_amount: amount,
+          p_payment_date: date_paiement,
+          p_payment_method: mode_paiement ?? null,
+          p_reference: reference ?? null,
+          p_notes: notes ?? null,
+          p_request_id: normalizedRequestId,
+        });
+        if (paymentError) {
+          const paymentErrors: Record<string, string> = {
+            payment_amount_invalid: "Montant invalide",
+            payment_date_required: "Date de paiement requise",
+            supplier_document_not_found_or_out_of_scope: "Document fournisseur introuvable",
+            supplier_document_amount_missing: "Le montant du document fournisseur est invalide",
+            payment_exceeds_supplier_balance: "Le paiement dépasse le solde fournisseur",
+            payment_request_conflict: "Cette demande de paiement a déjà été utilisée",
+            period_locked: "La période comptable est verrouillée",
+          };
+          const translated = Object.entries(paymentErrors).find(([code]) => paymentError.message.includes(code))?.[1];
+          return NextResponse.json({ error: translated ?? paymentError.message }, { status: 400 });
+        }
 
-        const currentPaid = Number(receipt.ocr_data?.montant_paye ?? 0);
-        const newPaid = currentPaid + amount;
-        const total = Math.abs(Number(receipt.ocr_data?.amount ?? 0));
-        const isPaid = newPaid >= total - 0.01;
-
-        const { error: receiptUpdateError } = await supabase.from("receipts").update({
-          ocr_data: {
-            ...receipt.ocr_data,
-            montant_paye: newPaid,
-            payment_status: isPaid ? "paid" : "partial",
-          },
-        }).eq("id", inbox_item_id);
-        if (receiptUpdateError) throw receiptUpdateError;
+        const result = (recorded ?? {}) as {
+          payment?: Record<string, unknown>;
+          receipt?: { montant_paye?: number; payment_status?: string };
+        };
+        payment = result.payment ?? null;
+        const newPaid = Number(result.receipt?.montant_paye ?? 0);
+        const isPaid = result.receipt?.payment_status === "paid";
 
         await logAudit({
           userId: user.id,
