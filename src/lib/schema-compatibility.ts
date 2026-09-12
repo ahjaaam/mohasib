@@ -12,6 +12,7 @@ export function isUndefinedDatabaseColumn(error: DatabaseError, table: string) {
 }
 
 export function isMissingDatabaseColumn(error: DatabaseError, table: string, column: string) {
+  if (!error) return false;
   const message = String(error.message ?? "").toLowerCase();
   return isUndefinedDatabaseColumn(error, table) && message.includes(column.toLowerCase());
 }

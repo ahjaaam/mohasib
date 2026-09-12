@@ -24,8 +24,8 @@ export interface Notification {
 const ACCOUNTING_AUTOMATION_GUIDE_NOTIFICATION = {
   type: "accounting_automation_guide",
   title: "Découvrez les écritures automatiques",
-  message: "Consultez le PDF des écritures générées automatiquement pour les ventes, achats, reçus et mouvements bancaires.",
-  link: "/documents/carte-ecritures-automatiques-mohasib.pdf",
+  message: "Configurez les écritures générées automatiquement pour les ventes, achats, reçus et mouvements bancaires.",
+  link: "/parametres?tab=ecritures",
   priority: "normal" as const,
   unique_key: "accounting_automation_guide",
 };
@@ -60,8 +60,7 @@ export async function ensureAccountingAutomationGuideNotification() {
       user_id: user.id,
       ...ACCOUNTING_AUTOMATION_GUIDE_NOTIFICATION,
     }, {
-      onConflict: "id",
-      ignoreDuplicates: true,
+      onConflict: "user_id,unique_key",
     });
 
   if (error) throw error;

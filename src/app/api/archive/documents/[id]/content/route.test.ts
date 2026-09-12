@@ -13,13 +13,14 @@ vi.mock("@/lib/api-permissions", () => ({ authorizePermission: mocks.authorizePe
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.createAdminClient }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/google-drive", () => ({ driveClientForConnection: mocks.driveClientForConnection }));
+vi.mock("@/lib/account-owner", () => ({ resolveAccountOwnerId: vi.fn() }));
 
 import { GET } from "./route";
 
 describe("archive document content", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.authorizePermission.mockResolvedValue({ response: null });
+    mocks.authorizePermission.mockResolvedValue({ response: null, user: { id: "user-id" } });
   });
 
   it("streams Supabase files from the same-origin route instead of redirecting to a signed URL", async () => {

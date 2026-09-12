@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authorizePermission } from "@/lib/api-permissions";
 import { driveClientForConnection } from "@/lib/google-drive";
+import { resolveAccountOwnerId } from "@/lib/account-owner";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,7 +16,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!document) return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
 
   const permission = await authorizePermission("document", "read", { dossierId: document.dossier_id });
-  if (permission.response) return permission.response;
+  if (permission.response || !permission.user) {
+    return permission.response ?? NextResponse.json({ error: "Non autorisé." }, { status: 401 });
+  }
 
   const admin = createAdminClient();
   if (document.storage_provider !== "google_drive") {
@@ -36,17 +39,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
   }
 
-  if (!document.external_file_id || !document.archive_id) {
+  if (!document.external_file_id) {
     return NextResponse.json({ error: "La connexion Google Drive de ce document n'est plus disponible." }, { status: 409 });
   }
-  const { data: archive } = await admin
-    .from("document_archives")
-    .select("google_drive_connections!inner(id,token_encrypted)")
-    .eq("id", document.archive_id)
-    .maybeSingle();
-  const relation = Array.isArray(archive?.google_drive_connections)
-    ? archive.google_drive_connections[0]
-    : archive?.google_drive_connections;
+  let relation: { id: string; token_encrypted: string } | null = null;
+  if (document.archive_id) {
+    const { data: archive } = await admin
+      .from("document_archives")
+      .select("google_drive_connections!inner(id,token_encrypted)")
+      .eq("id", document.archive_id)
+      .maybeSingle();
+    relation = Array.isArray(archive?.google_drive_connections)
+      ? archive.google_drive_connections[0]
+      : archive?.google_drive_connections ?? null;
+  } else {
+    const ownerId = await resolveAccountOwnerId(permission.user.id);
+    const { data: connection } = await admin
+      .from("google_drive_connections")
+      .select("id,token_encrypted")
+      .eq("user_id", ownerId)
+      .maybeSingle();
+    relation = connection;
+  }
   if (!relation) return NextResponse.json({ error: "Google Drive n'est plus connecté." }, { status: 409 });
 
   try {

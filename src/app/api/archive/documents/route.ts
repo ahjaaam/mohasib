@@ -86,16 +86,30 @@ export async function POST(request: NextRequest) {
       externalWebUrl = uploaded.webViewLink ?? uploaded.webContentLink ?? null;
       storageProvider = "google_drive";
     } else {
-      const extension = file.name.includes(".") ? `.${file.name.split(".").pop()}` : "";
-      const scope = dossierId ? `dossiers/${dossierId}` : "main";
-      storagePath = `${ownerId}/${scope}/${Date.now()}-${crypto.randomUUID()}${extension}`;
-      const { error } = await admin.storage
-        .from("company-documents")
-        .upload(storagePath, Buffer.from(await file.arrayBuffer()), {
-          contentType: file.type,
-          upsert: false,
-        });
-      if (error) throw error;
+      const { data: connection } = await admin
+        .from("google_drive_connections")
+        .select("id,token_encrypted,root_folder_id")
+        .eq("user_id", ownerId)
+        .maybeSingle();
+
+      if (connection?.root_folder_id) {
+        drive = await driveClientForConnection(request, connection);
+        const uploaded = await uploadDriveFile(drive, connection.root_folder_id, file);
+        externalFileId = uploaded.id ?? null;
+        externalWebUrl = uploaded.webViewLink ?? uploaded.webContentLink ?? null;
+        storageProvider = "google_drive";
+      } else {
+        const extension = file.name.includes(".") ? `.${file.name.split(".").pop()}` : "";
+        const scope = dossierId ? `dossiers/${dossierId}` : "main";
+        storagePath = `${ownerId}/${scope}/${Date.now()}-${crypto.randomUUID()}${extension}`;
+        const { error } = await admin.storage
+          .from("company-documents")
+          .upload(storagePath, Buffer.from(await file.arrayBuffer()), {
+            contentType: file.type,
+            upsert: false,
+          });
+        if (error) throw error;
+      }
     }
 
     const { data: inserted, error } = await admin

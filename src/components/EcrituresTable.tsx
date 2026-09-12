@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { FileText, Landmark, PenLine } from "lucide-react";
 import SortableTh, { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 import type { JournalCode } from "@/types/fiduciaire";
 
@@ -28,21 +26,6 @@ function fmtDate(d: string) {
   catch { return d; }
 }
 
-function SourceBadge({ source }: { source: EcritureRow["source"] }) {
-  const map = {
-    facture: { label: "Facture", className: "bg-[#EFF6FF] text-[#1D4ED8]", icon: FileText },
-    document: { label: "Document", className: "bg-[#FEF3C7] text-[#92400E]", icon: FileText },
-    banque: { label: "Relevé bancaire", className: "bg-[#D1FAE5] text-[#065F46]", icon: Landmark },
-    manuel: { label: "Manuel", className: "bg-[#F3F4F6] text-[#6B7280]", icon: PenLine },
-  } as const;
-  const { label, className, icon: Icon } = map[source];
-  return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 ${className}`}>
-      <Icon size={9} /> {label}
-    </span>
-  );
-}
-
 export default function EcrituresTable({
   rows,
   compteLabel = "Compte",
@@ -65,7 +48,7 @@ export default function EcrituresTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[820px]">
+      <table className="w-full min-w-[720px]">
         <thead>
           <tr className="bg-[#F9FAFB] border-b border-[rgba(0,0,0,0.06)]">
             <SortableTh sortKey="date" label="Date" activeKey={sortKey} direction={sortDirection} onSort={handleSort}
@@ -76,7 +59,6 @@ export default function EcrituresTable({
               className="px-3 py-2 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-wide" />
             <SortableTh sortKey="libelle" label="Libellé" activeKey={sortKey} direction={sortDirection} onSort={handleSort}
               className="px-3 py-2 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-wide" />
-            <th className="text-left px-3 py-2 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-wide">Source</th>
             <SortableTh sortKey="debit" label="Débit" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="right"
               className="px-3 py-2 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-wide" />
             <SortableTh sortKey="credit" label="Crédit" activeKey={sortKey} direction={sortDirection} onSort={handleSort} align="right"
@@ -87,20 +69,13 @@ export default function EcrituresTable({
         </thead>
         <tbody>
           {sorted.length === 0 ? (
-            <tr><td colSpan={8} className="empty-cell">Aucune écriture pour cette période.</td></tr>
+            <tr><td colSpan={7} className="empty-cell">Aucune écriture pour cette période.</td></tr>
           ) : sorted.map((row, idx) => (
             <tr key={idx} className="border-b border-[rgba(0,0,0,0.04)] hover:bg-[#FAFAF6]">
               <td className="px-3 py-2 text-[12px] text-[#374151]">{fmtDate(row.date)}</td>
               <td className="px-3 py-2 text-[12px] text-[#374151]">{row.numero_piece || "—"}</td>
               <td className="px-3 py-2 text-[12px] font-mono text-[#374151]">{row.compte || "—"}</td>
               <td className="px-3 py-2 text-[12px] text-[#374151]">{row.libelle}</td>
-              <td className="px-3 py-2">
-                {row.href ? (
-                  <Link href={row.href}><SourceBadge source={row.source} /></Link>
-                ) : (
-                  <SourceBadge source={row.source} />
-                )}
-              </td>
               <td className="px-3 py-2 text-right text-[12px] tabular-nums text-[#374151]">{row.debit > 0 ? fmt(row.debit) : ""}</td>
               <td className="px-3 py-2 text-right text-[12px] tabular-nums text-[#374151]">{row.credit > 0 ? fmt(row.credit) : ""}</td>
               <td className="px-3 py-2 text-[11px] font-semibold text-[#6B7280]">{row.journal}</td>
@@ -109,7 +84,7 @@ export default function EcrituresTable({
         </tbody>
         <tfoot>
           <tr className="bg-[#F9F9F6] border-t border-[rgba(0,0,0,0.08)]">
-            <td colSpan={5} className="px-3 py-2 text-right text-[12px] font-semibold text-[#1A1A2E]">Total</td>
+            <td colSpan={4} className="px-3 py-2 text-right text-[12px] font-semibold text-[#1A1A2E]">Total</td>
             <td className="px-3 py-2 text-right text-[12px] font-bold tabular-nums text-[#1A1A2E]">{fmt(totalDebit)}</td>
             <td className="px-3 py-2 text-right text-[12px] font-bold tabular-nums text-[#1A1A2E]">{fmt(totalCredit)}</td>
             <td />

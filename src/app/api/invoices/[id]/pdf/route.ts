@@ -108,7 +108,7 @@ async function buildInput(inv: any, company: any) {
 }
 
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -139,12 +139,13 @@ export async function GET(
       ? client.name.replace(/[^a-zA-Z0-9\u00C0-\u024F\s-]/g, "").trim().replace(/\s+/g, "-")
       : "Client";
     const filename = `Facture-${inv.invoice_number}-${clientName}.pdf`;
+    const disposition = request.nextUrl.searchParams.get("preview") === "1" ? "inline" : "attachment";
 
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `${disposition}; filename="${filename}"`,
         "Cache-Control": "no-store",
       },
     });

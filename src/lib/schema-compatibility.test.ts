@@ -23,6 +23,11 @@ describe("database schema compatibility", () => {
     }, "companies", "tva_tax_point")).toBe(false);
   });
 
+  it("handles a successful database response without an error", () => {
+    expect(isMissingDatabaseColumn(null, "companies", "tva_tax_point")).toBe(false);
+    expect(isMissingDatabaseColumn(undefined, "companies", "tva_tax_point")).toBe(false);
+  });
+
   it("recognizes an unspecified missing column for a known table", () => {
     expect(isUndefinedDatabaseColumn({
       code: "42703",

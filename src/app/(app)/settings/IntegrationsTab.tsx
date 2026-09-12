@@ -284,8 +284,9 @@ function GoogleDriveCard() {
         )}
       </div>
       <p className="mt-3 pt-2.5 border-t border-[rgba(0,0,0,0.05)] text-[11px] text-[#6B7280]">
-        Créez plusieurs archives dans Mohasib. Chaque archive correspond à un dossier privé dans votre Google Drive.
-        {status?.connected ? ` ${status.archives.length} archive(s) configurée(s).` : ""}
+        {status?.connected
+          ? "Chaque document ajouté à Archive est automatiquement sauvegardé dans le dossier Mohasib de votre Google Drive."
+          : "Connectez Google Drive pour sauvegarder automatiquement chaque document ajouté à Archive."}
       </p>
     </div>
   );

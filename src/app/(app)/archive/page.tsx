@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import {
-  FolderOpen, Receipt, Download, X, Plus, Files,
-  Search, Loader2, Building2, FileArchive, FileText, Inbox, UploadCloud,
+  FolderOpen, Download, X, Plus,
+  Search, Loader2, FileArchive, FileText, Inbox, UploadCloud,
 } from "lucide-react";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
@@ -34,27 +34,22 @@ interface ArchiveDoc {
   expiration_date?: string | null;
   notes?: string | null;
   archive_id?: string | null;
-}
-
-interface NamedArchive {
-  id: string;
-  name: string;
-  created_at: string;
+  storage_provider?: "supabase" | "google_drive";
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 function sourceMeta(doc: ArchiveDoc) {
   if (doc.type === "invoice") {
-    return { label: "Facturation", color: "#2563EB", bg: "#EFF6FF", Icon: FileText };
+    return { label: "Facturation", color: "#C8924A", bg: "#FAF3EA", Icon: FileText };
   }
   if (doc.type === "recu") {
-    return { label: "Achats", color: "#D97706", bg: "#FFF7ED", Icon: Inbox };
+    return { label: "Achats", color: "#C8924A", bg: "#FAF3EA", Icon: Inbox };
   }
-  if (doc.archive_id) {
-    return { label: "Google Drive", color: "#2563EB", bg: "#F4F7FB", Icon: GoogleDriveIcon };
+  if (doc.storage_provider === "google_drive" || doc.archive_id) {
+    return { label: "Google Drive", color: "#C8924A", bg: "#FAF3EA", Icon: GoogleDriveIcon };
   }
-  return { label: "Ajout manuel", color: "#6B7280", bg: "#F3F4F6", Icon: UploadCloud };
+  return { label: "Ajout manuel", color: "#C8924A", bg: "#FAF3EA", Icon: UploadCloud };
 }
 
 const DOC_CATEGORIES = [
@@ -67,6 +62,59 @@ function fmtDate(d: string) {
 }
 function fmtAmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 
+const PREVIEW_CACHE_LIMIT = 4;
+const previewCache = new Map<string, string>();
+const pendingPreviews = new Map<string, Promise<string>>();
+
+function isPreviewable(doc: ArchiveDoc) {
+  return !!doc.url && (
+    doc.mime_type?.includes("pdf") ||
+    doc.mime_type?.startsWith("image/") ||
+    doc.url.includes(".pdf") ||
+    /\.(jpe?g|png|webp)$/i.test(doc.url)
+  );
+}
+
+function cachedPreview(url: string, refresh = false) {
+  const objectUrl = previewCache.get(url);
+  if (!objectUrl) return null;
+  if (refresh) {
+    previewCache.delete(url);
+    previewCache.set(url, objectUrl);
+  }
+  return objectUrl;
+}
+
+function loadPreview(url: string) {
+  const cached = cachedPreview(url, true);
+  if (cached) return Promise.resolve(cached);
+
+  const pending = pendingPreviews.get(url);
+  if (pending) return pending;
+
+  const request = fetch(url, { credentials: "include" })
+    .then(async (response) => {
+      if (!response.ok) throw new Error("Aperçu indisponible");
+      const objectUrl = URL.createObjectURL(await response.blob());
+      previewCache.set(url, objectUrl);
+      while (previewCache.size > PREVIEW_CACHE_LIMIT) {
+        const oldest = previewCache.entries().next().value as [string, string] | undefined;
+        if (!oldest) break;
+        previewCache.delete(oldest[0]);
+        URL.revokeObjectURL(oldest[1]);
+      }
+      return objectUrl;
+    })
+    .finally(() => pendingPreviews.delete(url));
+
+  pendingPreviews.set(url, request);
+  return request;
+}
+
+function prefetchPreview(doc: ArchiveDoc) {
+  if (isPreviewable(doc) && doc.url) void loadPreview(doc.url).catch(() => undefined);
+}
+
 // ─── Preview panel ────────────────────────────────────────────────────────────
 
 function PreviewPanel({ doc, onClose, onDelete }: {
@@ -77,20 +125,67 @@ function PreviewPanel({ doc, onClose, onDelete }: {
   const { Icon, label, bg, color } = sourceMeta(doc);
   const isPdf = doc.mime_type?.includes("pdf") || doc.url?.includes(".pdf");
   const isImg = doc.mime_type?.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(doc.url ?? "");
+  const previewable = isPdf || isImg;
+  const initialPreviewUrl = doc.url ? cachedPreview(doc.url) : null;
+  const [preview, setPreview] = useState<{
+    url: string | null;
+    status: "loading" | "ready" | "error";
+  }>(() => ({
+    url: initialPreviewUrl,
+    status: previewable && !initialPreviewUrl ? "loading" : "ready",
+  }));
+
+  useEffect(() => {
+    if (!doc.url || !previewable || initialPreviewUrl) return;
+    let active = true;
+    loadPreview(doc.url)
+      .then((url) => {
+        if (active) setPreview({ url, status: "ready" });
+      })
+      .catch(() => {
+        // Some storage providers cannot be fetched by browser JavaScript even
+        // though the browser can still display their URL in an iframe/image.
+        if (active) setPreview({ url: doc.url, status: "ready" });
+      });
+    return () => { active = false; };
+  }, [doc.url, initialPreviewUrl, previewable]);
 
   return (
     <div className="flex flex-col h-full bg-[#FAFAF6]">
       {/* Preview area */}
-      <div className="flex-1 bg-[#F0EDE5] flex items-center justify-center overflow-hidden relative">
-        {doc.url ? (
+      <div className="flex-1 bg-[#F3F4F6] flex items-center justify-center overflow-hidden relative">
+        {preview.status === "loading" ? (
+          <div className="flex flex-col items-center gap-2 text-[#6B7280]" role="status" aria-live="polite">
+            <Loader2 size={24} className="animate-spin text-[#C8924A]" />
+            <p className="text-[12px]">Chargement de l’aperçu…</p>
+          </div>
+        ) : preview.status === "error" ? (
+          <div className="text-center p-8">
+            <FileArchive size={48} className="text-[#6B7280] mx-auto mb-3" />
+            <p className="text-[13px] text-[#6B7280] mb-4">Impossible de charger l’aperçu</p>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => {
+                if (!doc.url) return;
+                setPreview({ url: null, status: "loading" });
+                loadPreview(doc.url)
+                  .then((url) => setPreview({ url, status: "ready" }))
+                  .catch(() => setPreview({ url: null, status: "error" }));
+              }}
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : doc.url ? (
           isPdf ? (
             <iframe
-              src={doc.url + "#toolbar=0&navpanes=0"}
+              src={(preview.url ?? doc.url) + "#toolbar=0&navpanes=0"}
               className="w-full h-full border-0"
               title={doc.name}
             />
           ) : isImg ? (
-            <img src={doc.url} alt={doc.name} className="object-contain w-full h-full p-4" />
+            <img src={preview.url ?? doc.url} alt={doc.name} className="object-contain w-full h-full p-4" />
           ) : (
             <div className="text-center p-8">
               <FileArchive size={48} className="text-[#6B7280] mx-auto mb-3" />
@@ -175,7 +270,7 @@ function PreviewPanel({ doc, onClose, onDelete }: {
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           {doc.url && (
-            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-gold btn-sm">
+            <a href={doc.url} download className="btn btn-gold btn-sm">
               <Download size={12} /> Télécharger
             </a>
           )}
@@ -196,10 +291,8 @@ function PreviewPanel({ doc, onClose, onDelete }: {
 
 // ─── Upload modal ─────────────────────────────────────────────────────────────
 
-function UploadModal({ dossierId, archives, driveConnected, onClose, onUploaded }: {
+function UploadModal({ dossierId, onClose, onUploaded }: {
   dossierId?: string;
-  archives: NamedArchive[];
-  driveConnected: boolean;
   onClose: () => void;
   onUploaded: (doc: ArchiveDoc) => void;
 }) {
@@ -208,7 +301,6 @@ function UploadModal({ dossierId, archives, driveConnected, onClose, onUploaded 
   const [customName, setCustomName] = useState("");
   const [expiry, setExpiry] = useState("");
   const [notes, setNotes] = useState("");
-  const [archiveId, setArchiveId] = useState(archives[0]?.id ?? "");
   const [uploading, setUploading] = useState(false);
 
   async function handleUpload() {
@@ -222,7 +314,6 @@ function UploadModal({ dossierId, archives, driveConnected, onClose, onUploaded 
       form.set("expiry", expiry);
       form.set("notes", notes);
       if (dossierId) form.set("dossierId", dossierId);
-      if (archiveId) form.set("archiveId", archiveId);
       const response = await fetch("/api/archive/documents", { method: "POST", body: form });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(json.error || "Ajout du document impossible.");
@@ -241,6 +332,7 @@ function UploadModal({ dossierId, archives, driveConnected, onClose, onUploaded 
         notes: inserted.notes,
         subtitle: inserted.document_category ?? "",
         archive_id: inserted.archive_id,
+        storage_provider: inserted.storage_provider,
       });
       onClose();
     } catch (err: unknown) {
@@ -273,24 +365,6 @@ function UploadModal({ dossierId, archives, driveConnected, onClose, onUploaded 
               </>
             )}
           </label>
-
-          {/* Category */}
-          {driveConnected && (
-            <div>
-              <label className="block text-[11.5px] font-medium text-[#6B7280] mb-1.5">Destination</label>
-              <select className="input" value={archiveId} onChange={(event) => setArchiveId(event.target.value)}>
-                <option value="">Stockage Mohasib</option>
-                {archives.map(archive => (
-                  <option key={archive.id} value={archive.id}>Google Drive — {archive.name}</option>
-                ))}
-              </select>
-              {archives.length === 0 && (
-                <p className="text-[10.5px] text-[#9CA3AF] mt-1">
-                  Créez une archive Drive depuis l'écran Archive pour l'utiliser ici.
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Category */}
           <div>
@@ -344,11 +418,11 @@ function UploadModal({ dossierId, archives, driveConnected, onClose, onUploaded 
 
 type FolderKey = "all" | DocType;
 
-const FOLDERS: { key: FolderKey; label: string; Icon: React.ElementType }[] = [
-  { key: "all",              label: "Tous les fichiers", Icon: Files },
-  { key: "invoice",          label: "Factures",          Icon: FileText },
-  { key: "recu",             label: "Pièces d'achat",    Icon: Receipt },
-  { key: "company_document", label: "Entreprise",        Icon: Building2 },
+const FOLDERS: { key: FolderKey; label: string }[] = [
+  { key: "all",              label: "Tous les fichiers" },
+  { key: "invoice",          label: "Factures" },
+  { key: "recu",             label: "Pièces d'achat" },
+  { key: "company_document", label: "Entreprise" },
 ];
 
 export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) {
@@ -363,20 +437,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
   const search = searchState.source === requestedSearch ? searchState.value : requestedSearch;
   const setSearch = (value: string) => setSearchState({ source: requestedSearch, value });
   const [showUpload, setShowUpload] = useState(false);
-  const [archives, setArchives] = useState<NamedArchive[]>([]);
-  const [driveConnected, setDriveConnected] = useState(false);
-  const [activeArchive, setActiveArchive] = useState("all");
-  const [creatingArchive, setCreatingArchive] = useState(false);
   const supabase = createClient();
-
-  const loadArchives = useCallback(async () => {
-    const query = dossierId ? `?dossierId=${encodeURIComponent(dossierId)}` : "";
-    const response = await fetch(`/api/google-drive/archives${query}`);
-    if (!response.ok) return;
-    const json = await response.json();
-    setDriveConnected(!!json.connected);
-    setArchives(json.archives ?? []);
-  }, [dossierId]);
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -412,7 +473,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         name: invoice.invoice_number || "Facture",
         type: "invoice",
         date: invoice.issue_date,
-        url: `/api/invoices/${invoice.id}/pdf`,
+        url: `/api/invoices/${invoice.id}/pdf?preview=1`,
         mime_type: "application/pdf",
         amount: total,
         client: client ?? undefined,
@@ -453,6 +514,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         notes: cd.notes,
         storage_path: cd.storage_path,
         archive_id: cd.archive_id,
+        storage_provider: cd.storage_provider,
       });
     }
 
@@ -462,31 +524,6 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
   }, [dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadArchives(); }, [loadArchives]);
-
-  async function createArchive() {
-    const name = prompt("Nom de la nouvelle archive");
-    if (!name?.trim()) return;
-    setCreatingArchive(true);
-    try {
-      const response = await fetch("/api/google-drive/archives", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), dossierId: dossierId ?? null }),
-      });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(json.error || "Création impossible.");
-      setArchives(previous => [...previous, json.archive]);
-      setActiveArchive(json.archive.id);
-      setFolder("all");
-      setSelected(null);
-      toast.success("Archive Google Drive créée");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Création impossible.");
-    } finally {
-      setCreatingArchive(false);
-    }
-  }
 
   function selectDoc(doc: ArchiveDoc) {
     setSelected(doc);
@@ -519,7 +556,6 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
   // ── Filter ────────────────────────────────────────────────────────────────
 
   const filtered = docs.filter((d) => {
-    if (activeArchive !== "all" && (d.type !== "company_document" || d.archive_id !== activeArchive)) return false;
     if (folder !== "all" && d.type !== folder) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -532,11 +568,8 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
     return true;
   });
 
-  const docsInLocation = docs.filter((doc) =>
-    activeArchive === "all" || (doc.type === "company_document" && doc.archive_id === activeArchive)
-  );
   const countFor = (key: FolderKey) =>
-    key === "all" ? docsInLocation.length : docsInLocation.filter((doc) => doc.type === key).length;
+    key === "all" ? docs.length : docs.filter((doc) => doc.type === key).length;
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -545,8 +578,6 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
       {showUpload && (
         <UploadModal
           dossierId={dossierId}
-          archives={archives}
-          driveConnected={driveConnected}
           onClose={() => setShowUpload(false)}
           onUploaded={(doc) => { setDocs((prev) => [doc, ...prev]); setSelected(doc); }}
         />
@@ -559,101 +590,62 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
 
           {/* Page header */}
           <div className="px-3.5 pt-3.5 pb-3 border-b border-[rgba(0,0,0,0.06)] flex-shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(200,146,74,0.12)" }}>
-                <FolderOpen size={18} className="text-[#C8924A]" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <div className="w-9 h-9 flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(200,146,74,0.12)" }}>
+                  <FolderOpen size={18} className="text-[#C8924A]" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Archive</h1>
+                  <p className="truncate text-[11px] text-[#9CA3AF] mt-0.5">Documents et pièces justificatives</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Archive</h1>
-                <p className="text-[11px] text-[#9CA3AF] mt-0.5">Documents et pièces justificatives</p>
-              </div>
+              <button
+                data-permission="document:create"
+                onClick={() => setShowUpload(true)}
+                className="ui-control inline-flex h-11 flex-shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#111621] bg-[#111621] px-3.5 text-[12px] font-medium text-white transition-colors hover:border-[#25334B] hover:bg-[#25334B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9"
+              >
+                <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Ajouter
+              </button>
             </div>
           </div>
 
           {/* Search + Add */}
           <div className="px-3.5 pt-3.5 pb-2 flex-shrink-0">
-            <div className="flex items-center gap-2 mb-2">
-              <select
-                className="input flex-1 text-[12px]"
-                value={activeArchive}
-                onChange={(event) => {
-                  setActiveArchive(event.target.value);
-                  setFolder("all");
-                  setSelected(null);
-                }}
-              >
-                <option value="all">Toutes les archives</option>
-                {archives.map(archive => (
-                  <option key={archive.id} value={archive.id}>{archive.name} · Google Drive</option>
-                ))}
-              </select>
-              {driveConnected ? (
-                <button
-                  data-permission="document:create"
-                  onClick={createArchive}
-                  disabled={creatingArchive}
-                  className="btn btn-outline flex-shrink-0 text-[11.5px]"
-                  title="Créer une archive Google Drive"
-                >
-                  {creatingArchive ? <Loader2 size={12} className="animate-spin" /> : <GoogleDriveIcon size={12} />}
-                  Nouvelle
-                </button>
-              ) : (
-                <a href="/parametres?tab=integrations" className="btn btn-outline flex-shrink-0 text-[11.5px]">
-                  <GoogleDriveIcon size={12} /> Connecter Drive
-                </a>
-              )}
-            </div>
-            <div className="flex items-stretch gap-2">
-              <div className="relative flex-1">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6B7280]" />
-                <input
-                  className="input pl-8 text-[12px] h-full"
-                  placeholder="Rechercher un document..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <button data-permission="document:create" onClick={() => setShowUpload(true)} className="btn btn-gold flex-shrink-0 flex items-center gap-1.5 text-[12px]">
-                <Plus size={12} /> Ajouter
-              </button>
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6B7280]" />
+              <input
+                className="input pl-8 text-[12px] h-full"
+                placeholder="Rechercher un document..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
             <p className="text-[10.5px] text-[#6B7280] mt-1.5 pl-0.5">
               {filtered.length} document{filtered.length !== 1 ? "s" : ""}
             </p>
           </div>
 
-          {/* Folders */}
-          <div className="flex-shrink-0 border-b border-[rgba(0,0,0,0.06)] px-3.5 pb-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9CA3AF]">Dossiers</p>
-            <div className="grid grid-cols-2 gap-2">
-              {FOLDERS.map(({ key, label, Icon }) => {
-                const isActive = folder === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      setFolder(key);
-                      setSelected(null);
-                    }}
-                    aria-pressed={isActive}
-                    className={`flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                      isActive
-                        ? "bg-[#0D1526] text-white shadow-sm"
-                        : "bg-[#F7F7F3] text-[#1A1A2E] hover:bg-[#F0EDE5]"
-                    }`}
-                  >
-                    <Icon size={15} className={isActive ? "text-[#D9AA67]" : "text-[#C8924A]"} />
-                    <span className="min-w-0 flex-1 truncate text-[11.5px] font-medium">{label}</span>
-                    <span className={`text-[10px] ${isActive ? "text-white/60" : "text-[#9CA3AF]"}`}>
-                      {countFor(key)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Folder navigation */}
+          <div className="tabs mb-0 flex-shrink-0 overflow-x-auto">
+            {FOLDERS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setFolder(key);
+                  setSelected(null);
+                }}
+                aria-pressed={folder === key}
+                className={`tab flex flex-shrink-0 items-center gap-1 whitespace-nowrap ${folder === key ? "active" : ""}`}
+              >
+                {label}
+                <span className="rounded-full bg-[rgba(0,0,0,0.06)] px-1.5 py-0.5 text-[9.5px]">
+                  {countFor(key)}
+                </span>
+              </button>
+            ))}
           </div>
 
           {/* List */}
@@ -681,10 +673,12 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
                 <button
                   key={doc.id}
                   onClick={() => selectDoc(doc)}
+                  onMouseEnter={() => prefetchPreview(doc)}
+                  onFocus={() => prefetchPreview(doc)}
                   aria-pressed={isSelected}
                   className={`mx-2 my-1 flex w-[calc(100%-16px)] items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${
                     isSelected
-                      ? "bg-[#F5EDE2] shadow-[inset_0_0_0_1px_rgba(200,146,74,0.28)]"
+                      ? "bg-[#F3F4F6] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.10)]"
                       : "hover:bg-[#FAFAF6]"
                   }`}
                 >
@@ -719,6 +713,7 @@ export default function ArchivePage({ dossierId }: { dossierId?: string } = {}) 
         <div className={`${selected ? "block" : "hidden md:block"} min-w-0 flex-1 overflow-hidden`}>
           {selected ? (
             <PreviewPanel
+              key={selected.id}
               doc={selected}
               onClose={() => setSelected(null)}
               onDelete={deleteDoc}

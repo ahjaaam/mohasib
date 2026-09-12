@@ -20,7 +20,7 @@ describe("receipt content", () => {
     mocks.authorizePermission.mockResolvedValue({ response: null });
   });
 
-  it("authorizes the stable invoice URL then redirects to a fresh signed storage URL", async () => {
+  it("streams the receipt from the same-origin route for inline previews", async () => {
     const receipt = {
       id: "receipt-id",
       dossier_id: null,
@@ -35,12 +35,12 @@ describe("receipt content", () => {
     };
     mocks.createClient.mockResolvedValue({ from: vi.fn(() => receiptQuery) });
 
-    const createSignedUrl = vi.fn().mockResolvedValue({
-      data: { signedUrl: "https://storage.example.com/signed/invoice.pdf?token=fresh" },
+    const download = vi.fn().mockResolvedValue({
+      data: new Blob(["pdf bytes"], { type: "application/pdf" }),
       error: null,
     });
     mocks.createAdminClient.mockReturnValue({
-      storage: { from: vi.fn(() => ({ createSignedUrl })) },
+      storage: { from: vi.fn(() => ({ download })) },
     });
 
     const response = await GET(
@@ -48,10 +48,13 @@ describe("receipt content", () => {
       { params: Promise.resolve({ id: "receipt-id" }) },
     );
 
-    expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://storage.example.com/signed/invoice.pdf?token=fresh");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("content-disposition")).toBe('inline; filename="invoice.pdf"');
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(createSignedUrl).toHaveBeenCalledWith(receipt.storage_path, 5 * 60);
+    expect(await response.text()).toBe("pdf bytes");
+    expect(download).toHaveBeenCalledWith(receipt.storage_path);
     expect(mocks.authorizePermission).toHaveBeenCalledWith("document", "read", { dossierId: null });
   });
 });

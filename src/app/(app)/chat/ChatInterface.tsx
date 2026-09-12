@@ -20,13 +20,6 @@ const WELCOME: Message = {
     "Bonjour, je suis l’agent Mohasib. Je peux analyser vos données comptables et agir dans Mohasib. Demandez-moi par exemple de préparer une facture pour un client.",
 };
 
-const SUGGESTIONS = [
-  "Crée une facture de 5 000 MAD HT pour Atlas",
-  "Quelles factures sont en retard ?",
-  "Comment calculer la TVA à déclarer ?",
-  "Quel est mon chiffre d’affaires ce mois-ci ?",
-];
-
 function MessageContent({ content }: { content: string }) {
   const blocks = content.split(/\n{2,}/).filter(Boolean);
 
@@ -328,8 +321,8 @@ export default function ChatInterface({
         </>
       )}
 
-      <section className="flex min-w-0 flex-1 flex-col bg-white">
-        <div className="flex h-[52px] flex-shrink-0 items-center justify-between border-b border-[rgba(0,0,0,0.07)] bg-white px-3">
+      <section className="flex min-w-0 flex-1 flex-col bg-[#FAFAF6]">
+        <div className="flex h-[52px] flex-shrink-0 items-center justify-between border-b border-[rgba(0,0,0,0.07)] bg-[#FAFAF6] px-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <button
               type="button"
@@ -358,7 +351,7 @@ export default function ChatInterface({
           )}
         </div>
 
-        <div className="flex flex-1 flex-col overflow-y-auto bg-white px-3 py-5 sm:px-5 sm:py-8" aria-live="polite">
+        <div className="flex flex-1 flex-col overflow-y-auto bg-[#FAFAF6] px-3 py-5 sm:px-5 sm:py-8" aria-live="polite">
           <div className={`mx-auto flex w-full max-w-[720px] flex-1 flex-col ${isEmptyConversation ? "justify-center" : "gap-6"}`}>
             {isEmptyConversation && (
               <div className="mx-auto mb-7 max-w-[520px] text-center">
@@ -368,7 +361,7 @@ export default function ChatInterface({
                 <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-[#1A1A2E] sm:text-[24px]">
                   Comment puis-je vous aider ?
                 </h2>
-                <p className="mx-auto mt-2 max-w-[440px] text-[12px] leading-relaxed text-[#7B818C]">
+                <p className="mx-auto mt-2 max-w-[440px] text-[16px] leading-relaxed text-[#7B818C]">
                   Posez une question sur votre comptabilité ou demandez-moi d’effectuer une tâche dans Mohasib.
                 </p>
               </div>
@@ -407,32 +400,18 @@ export default function ChatInterface({
               </div>
             ))}
 
-            {isEmptyConversation && (
-              <div className="mx-auto grid w-full max-w-[600px] grid-cols-1 gap-2 sm:grid-cols-2">
-                {SUGGESTIONS.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => void send(suggestion)}
-                    className="min-h-14 border border-[#E2E1DC] bg-white px-4 py-3.5 text-left text-[11.5px] leading-snug text-[#525866] transition-colors hover:border-[#C9C8C2] hover:bg-[#F8F8F5] hover:text-[#1A1A2E] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A]"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
             <div ref={bottomRef} />
           </div>
         </div>
 
         <form
-          className="flex-shrink-0 bg-white px-3 pb-3 pt-2 sm:px-5 sm:pb-4"
+          className="flex-shrink-0 bg-[#FAFAF6] px-3 pb-3 pt-2 sm:px-5 sm:pb-4"
           onSubmit={(event) => {
             event.preventDefault();
             void send(input);
           }}
         >
-          <div className="chat-composer mx-auto flex max-w-[720px] items-end gap-2 border border-[#D8D8D3] bg-[#FAFAF8] p-1.5 shadow-[0_2px_12px_rgba(13,21,38,0.07)] transition-[border-color,box-shadow] focus-within:border-[#B9B8B2] focus-within:bg-white focus-within:shadow-[0_3px_16px_rgba(13,21,38,0.10)]">
+          <div className="chat-composer mx-auto flex max-w-[720px] items-end gap-2 border border-[#D8D8D3] bg-white p-1.5 shadow-[0_2px_12px_rgba(13,21,38,0.07)] transition-[border-color,box-shadow] focus-within:border-[#B9B8B2] focus-within:shadow-[0_3px_16px_rgba(13,21,38,0.10)]">
             <label htmlFor="mohasib-chat-input" className="sr-only">Votre message</label>
             <textarea
               id="mohasib-chat-input"

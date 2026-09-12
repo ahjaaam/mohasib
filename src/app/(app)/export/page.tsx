@@ -4,14 +4,13 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { translateError } from "@/lib/errors";
-import { normalizeAccountingSettings } from "@/lib/accounting-settings";
 import { calculateTVAForPeriod, type TVACalcResult } from "@/app/(app)/tva/actions";
 import {
   PAYMENT_DEADLINE_HEADERS,
   buildClientPaymentDeadlineRows,
   buildSupplierPaymentDeadlineRows,
 } from "@/lib/payment-deadlines-export";
-import { Download, Package, CheckCircle, AlertCircle, RefreshCw, BookMarked, FileSpreadsheet, FileText, CalendarDays, History } from "lucide-react";
+import { Download, CheckCircle, AlertCircle, RefreshCw, BookMarked, FileSpreadsheet, FileText, CalendarDays, History, Archive, FolderTree } from "lucide-react";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -20,6 +19,31 @@ function fmtDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("fr-FR", {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
+}
+
+function archiveName(value: string | null | undefined, fallback: string, extension?: string) {
+  const cleaned = (value || fallback)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!extension || /\.[a-z0-9]{1,8}$/i.test(cleaned)) return cleaned;
+  return `${cleaned}.${extension}`;
+}
+
+function archiveExtension(mimeType: string | null | undefined) {
+  const extensions: Record<string, string> = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "text/csv": "csv",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  };
+  return mimeType ? extensions[mimeType] : undefined;
 }
 
 interface AccountingEntry {
@@ -71,6 +95,8 @@ const STEPS = [
   "Récap TVA (PDF)",
   "Synthèse Financière (PDF)",
   "Suivi des délais de paiement (Excel)",
+  "Archive principale (fichiers)",
+  "Archives des dossiers (fichiers)",
 ];
 
 const EXPORT_DOCUMENTS = [
@@ -82,16 +108,16 @@ const EXPORT_DOCUMENTS = [
   { id: "tva-pdf", label: "Récapitulatif TVA", format: "PDF", icon: FileText },
   { id: "summary-pdf", label: "Synthèse Financière", format: "PDF", icon: FileText },
   { id: "payment-deadlines-xlsx", label: "Délais de paiement — DGI", format: "Excel", icon: FileSpreadsheet },
+  { id: "archive-main", label: "Archive principale", format: "Fichiers · ZIP", icon: Archive },
+  { id: "archive-dossiers", label: "Archives des dossiers", format: "Tous les dossiers · ZIP", icon: FolderTree },
 ] as const;
 
 type ExportDocumentId = typeof EXPORT_DOCUMENTS[number]["id"];
+const DEFAULT_EXPORT_DOCUMENT_IDS = EXPORT_DOCUMENTS
+  .filter((document) => !document.id.startsWith("archive-"))
+  .map((document) => document.id);
 
 interface HistoryItem { date: string; periodLabel: string; filename: string }
-interface Stats {
-  invoiceCount: number; invoiceTotal: number;
-  expenseCount: number; expenseTotal: number;
-  tvaCollected: number; tvaDeductible: number;
-}
 
 export default function ExportPage() {
   const ownerId = useAccountOwnerId();
@@ -101,15 +127,13 @@ export default function ExportPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [profile, setProfile] = useState<Record<string, string> | null>(null);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<Set<ExportDocumentId>>(
-    () => new Set(EXPORT_DOCUMENTS.map((document) => document.id))
+    () => new Set(DEFAULT_EXPORT_DOCUMENT_IDS)
   );
 
   const supabase = createClient();
@@ -147,43 +171,9 @@ export default function ExportPage() {
 
   useEffect(() => {
     if (!period.start || !period.end) return;
-    setStats(null);
     setDone(false);
     setError(null);
-    fetchStats();
   }, [period.start, period.end]);
-
-  async function fetchStats() {
-    setLoadingStats(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const [entriesRes, companyRes] = await Promise.all([
-      supabase.from("ecritures_comptables")
-        .select("id,numero_piece,date_ecriture,journal,compte,compte_label,debit,credit,libelle,source_type,source_id,is_validated")
-        .is("dossier_id", null)
-        .or("is_validated.eq.true,source_type.neq.manual")
-        .gte("date_ecriture", period.start).lte("date_ecriture", period.end),
-      supabase.from("companies").select("accounting_settings").eq("user_id", ownerId).maybeSingle(),
-    ]);
-    if (entriesRes.error || companyRes.error) {
-      setError(translateError(entriesRes.error ?? companyRes.error));
-      setLoadingStats(false);
-      return;
-    }
-    const entries = (entriesRes.data ?? []) as AccountingEntry[];
-    const accounts = normalizeAccountingSettings(companyRes.data?.accounting_settings);
-    const salesEntries = entries.filter((entry) => entry.journal === "VT");
-    const purchaseEntries = entries.filter((entry) => entry.journal === "AC");
-    setStats({
-      invoiceCount: new Set(salesEntries.map((entry) => entry.source_id).filter(Boolean)).size,
-      invoiceTotal: salesEntries.filter((entry) => entry.compte === accounts.clientAccount).reduce((sum, entry) => sum + entryAmount(entry.debit), 0),
-      expenseCount: new Set(purchaseEntries.map((entry) => entry.source_id).filter(Boolean)).size,
-      expenseTotal: purchaseEntries.filter((entry) => entry.compte === accounts.supplierAccount).reduce((sum, entry) => sum + entryAmount(entry.credit), 0),
-      tvaCollected: salesEntries.filter((entry) => entry.compte === accounts.collectedTvaAccount).reduce((sum, entry) => sum + entryAmount(entry.credit) - entryAmount(entry.debit), 0),
-      tvaDeductible: purchaseEntries.filter((entry) => entry.compte === accounts.recoverableTvaAccount).reduce((sum, entry) => sum + entryAmount(entry.debit) - entryAmount(entry.credit), 0),
-    });
-    setLoadingStats(false);
-  }
 
   async function generatePackage() {
     if (!period.start || !period.end || selectedDocuments.size === 0) return;
@@ -236,6 +226,36 @@ export default function ExportPage() {
       const { default: autoTable } = await import("jspdf-autotable");
       const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
+      const usedArchivePaths = new Set<string>();
+      const archiveDownloadErrors: string[] = [];
+
+      function uniqueArchivePath(path: string, id: string) {
+        if (!usedArchivePaths.has(path)) {
+          usedArchivePaths.add(path);
+          return path;
+        }
+        const dot = path.lastIndexOf(".");
+        const suffix = `_${id.slice(0, 8)}`;
+        const unique = dot > path.lastIndexOf("/")
+          ? `${path.slice(0, dot)}${suffix}${path.slice(dot)}`
+          : `${path}${suffix}`;
+        usedArchivePaths.add(unique);
+        return unique;
+      }
+
+      async function addArchiveFiles(files: Array<{ id: string; path: string; url: string }>) {
+        for (let index = 0; index < files.length; index += 4) {
+          await Promise.all(files.slice(index, index + 4).map(async (file) => {
+            try {
+              const response = await fetch(file.url, { credentials: "include" });
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              zip.file(uniqueArchivePath(file.path, file.id), await response.arrayBuffer());
+            } catch {
+              archiveDownloadErrors.push(file.path);
+            }
+          }));
+        }
+      }
 
       // ── PDF helpers ──────────────────────────────────────────────────────────
       function addHeader(doc: any, title: string) {
@@ -571,6 +591,109 @@ export default function ExportPage() {
         zip.file(`08_Delais_Paiement_DGI_${safePeriod}.xlsx`, XLSX.write(workbook, { bookType: "xlsx", type: "array" }));
       }
 
+      // ── 9. Main archive files ───────────────────────────────────────────────
+      if (selectedDocuments.has("archive-main")) {
+        setCurrentStep(8);
+        const timestampStart = `${period.start}T00:00:00`;
+        const timestampEnd = `${period.end}T23:59:59.999`;
+        const [archiveReceiptsRes, archiveDocumentsRes] = await Promise.all([
+          supabase.from("receipts")
+            .select("id,file_name,created_at,mime_type")
+            .eq("user_id", ownerId).is("dossier_id", null)
+            .gte("created_at", timestampStart).lte("created_at", timestampEnd),
+          supabase.from("company_documents")
+            .select("id,file_name,name,created_at,mime_type")
+            .eq("user_id", ownerId).is("dossier_id", null)
+            .gte("created_at", timestampStart).lte("created_at", timestampEnd),
+        ]);
+        if (archiveReceiptsRes.error) throw archiveReceiptsRes.error;
+        if (archiveDocumentsRes.error) throw archiveDocumentsRes.error;
+
+        const archiveInvoices = (invRes.data ?? []).filter((invoice: any) =>
+          !invoice.invoice_type || invoice.invoice_type === "facture"
+        );
+        await addArchiveFiles([
+          ...archiveInvoices.map((invoice: any) => ({
+            id: invoice.id,
+            path: `Archive_principale/Factures/${archiveName(invoice.invoice_number, "Facture", "pdf")}`,
+            url: `/api/invoices/${invoice.id}/pdf?preview=1`,
+          })),
+          ...(archiveReceiptsRes.data ?? []).map((receipt) => ({
+            id: receipt.id,
+            path: `Archive_principale/Pieces_achat/${archiveName(receipt.file_name, "Piece_achat", archiveExtension(receipt.mime_type))}`,
+            url: `/api/receipts/${receipt.id}/content`,
+          })),
+          ...(archiveDocumentsRes.data ?? []).map((file) => ({
+            id: file.id,
+            path: `Archive_principale/Documents_entreprise/${archiveName(file.file_name || file.name, "Document", archiveExtension(file.mime_type))}`,
+            url: `/api/archive/documents/${file.id}/content`,
+          })),
+        ]);
+      }
+
+      // ── 10. All dossier archive files ───────────────────────────────────────
+      if (selectedDocuments.has("archive-dossiers")) {
+        setCurrentStep(9);
+        const timestampStart = `${period.start}T00:00:00`;
+        const timestampEnd = `${period.end}T23:59:59.999`;
+        const [dossiersRes, dossierInvoicesRes, dossierReceiptsRes, dossierDocumentsRes] = await Promise.all([
+          supabase.from("dossiers").select("id,raison_sociale").eq("fiduciaire_user_id", ownerId).order("raison_sociale"),
+          supabase.from("invoices")
+            .select("id,invoice_number,issue_date,invoice_type,dossier_id")
+            .eq("user_id", ownerId).not("dossier_id", "is", null)
+            .gte("issue_date", period.start).lte("issue_date", period.end),
+          supabase.from("receipts")
+            .select("id,file_name,created_at,mime_type,dossier_id")
+            .eq("user_id", ownerId).not("dossier_id", "is", null)
+            .gte("created_at", timestampStart).lte("created_at", timestampEnd),
+          supabase.from("company_documents")
+            .select("id,file_name,name,created_at,mime_type,dossier_id")
+            .eq("user_id", ownerId).not("dossier_id", "is", null)
+            .gte("created_at", timestampStart).lte("created_at", timestampEnd),
+        ]);
+        const dossierError = dossiersRes.error || dossierInvoicesRes.error || dossierReceiptsRes.error || dossierDocumentsRes.error;
+        if (dossierError) throw dossierError;
+
+        const dossierNames = new Map((dossiersRes.data ?? []).map((dossier) => [
+          dossier.id,
+          archiveName(dossier.raison_sociale, `Dossier_${dossier.id.slice(0, 8)}`),
+        ]));
+        for (const folder of dossierNames.values()) zip.folder(`Archives_dossiers/${folder}`);
+        const dossierFolder = (dossierId: string | null) =>
+          dossierId ? dossierNames.get(dossierId) : null;
+
+        await addArchiveFiles([
+          ...(dossierInvoicesRes.data ?? [])
+            .filter((invoice) => (!invoice.invoice_type || invoice.invoice_type === "facture") && dossierFolder(invoice.dossier_id))
+            .map((invoice) => ({
+              id: invoice.id,
+              path: `Archives_dossiers/${dossierFolder(invoice.dossier_id)}/Factures/${archiveName(invoice.invoice_number, "Facture", "pdf")}`,
+              url: `/api/invoices/${invoice.id}/pdf?preview=1`,
+            })),
+          ...(dossierReceiptsRes.data ?? [])
+            .filter((receipt) => dossierFolder(receipt.dossier_id))
+            .map((receipt) => ({
+              id: receipt.id,
+              path: `Archives_dossiers/${dossierFolder(receipt.dossier_id)}/Pieces_achat/${archiveName(receipt.file_name, "Piece_achat", archiveExtension(receipt.mime_type))}`,
+              url: `/api/receipts/${receipt.id}/content`,
+            })),
+          ...(dossierDocumentsRes.data ?? [])
+            .filter((file) => dossierFolder(file.dossier_id))
+            .map((file) => ({
+              id: file.id,
+              path: `Archives_dossiers/${dossierFolder(file.dossier_id)}/Documents_entreprise/${archiveName(file.file_name || file.name, "Document", archiveExtension(file.mime_type))}`,
+              url: `/api/archive/documents/${file.id}/content`,
+            })),
+        ]);
+      }
+
+      if (archiveDownloadErrors.length > 0) {
+        zip.file(
+          "Fichiers_non_telecharges.txt",
+          `Ces fichiers n'ont pas pu être téléchargés :\n\n${archiveDownloadErrors.join("\n")}`,
+        );
+      }
+
       // ── Build & download ZIP ─────────────────────────────────────────────────
       const blob = await zip.generateAsync({ type: "blob" });
       const url  = URL.createObjectURL(blob);
@@ -608,7 +731,7 @@ export default function ExportPage() {
   }
 
   return (
-    <div className="max-w-6xl">
+    <div className="w-full max-w-none">
 
       {/* ─── Page header ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-2.5 mb-5">
@@ -622,8 +745,9 @@ export default function ExportPage() {
         </div>
       </div>
 
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0">
       {/* ── Period selector ── */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <div className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
         <div className="mb-4 flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F3F4F6] text-[#6B7280]"><CalendarDays size={15} /></div>
@@ -673,53 +797,6 @@ export default function ExportPage() {
             <strong className="text-[#1A1A2E]">{fmtDate(period.start)}</strong> → <strong className="text-[#1A1A2E]">{fmtDate(period.end)}</strong>
           </div>
         )}
-      </div>
-
-      {/* ── Stats preview ── */}
-      {period.start && period.end && (
-        <div className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-[13px] font-semibold text-[#1A1A2E]">Aperçu de la période</div>
-            {loadingStats && <RefreshCw size={13} className="text-[#6B7280] animate-spin" />}
-          </div>
-          {stats ? (
-            stats.invoiceCount === 0 && stats.expenseCount === 0 ? (
-              <div className="flex items-center gap-2 text-[12px] text-[#92400E] bg-[#FEF3C7] border border-[rgba(217,119,6,0.2)] rounded-lg px-3 py-2.5">
-                <AlertCircle size={13} /> Aucune donnée pour cette période.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="kpi p-3">
-                  <div className="kpi-label">Factures</div>
-                  <div className="kpi-value text-[17px]">{stats.invoiceCount}</div>
-                  <div className="text-[11px] text-[#059669] font-medium">{fmt(stats.invoiceTotal)} MAD</div>
-                </div>
-                <div className="kpi p-3">
-                  <div className="kpi-label">Dépenses</div>
-                  <div className="kpi-value text-[17px]">{stats.expenseCount}</div>
-                  <div className="text-[11px] text-[#DC2626] font-medium">{fmt(stats.expenseTotal)} MAD</div>
-                </div>
-                <div className="kpi p-3">
-                  <div className="kpi-label">TVA collectée</div>
-                  <div className="kpi-value text-[17px]">{fmt(stats.tvaCollected)}</div>
-                  <div className="text-[11px] text-[#6B7280]">MAD</div>
-                </div>
-                <div className="kpi p-3">
-                  <div className="kpi-label">TVA nette due</div>
-                  <div className="kpi-value text-[17px]">{fmt(Math.max(0, stats.tvaCollected - stats.tvaDeductible))}</div>
-                  <div className="text-[11px] text-[#6B7280]">MAD</div>
-                </div>
-              </div>
-            )
-          ) : (
-            <div className="text-[12px] text-[#6B7280]">Chargement des données...</div>
-          )}
-          <div className="mt-3 flex items-center gap-2 text-[11px] text-[#6B7280]">
-            <Package size={12} />
-            <span>{selectedDocuments.size} document{selectedDocuments.size !== 1 ? "s" : ""} sélectionné{selectedDocuments.size !== 1 ? "s" : ""} pour le package ZIP</span>
-          </div>
-        </div>
-      )}
       </div>
 
       {/* ── Generate button ── */}
@@ -807,24 +884,28 @@ export default function ExportPage() {
           <div className="mt-2 text-center text-[10.5px] text-[#6B7280] truncate">{zipName}</div>
         )}
       </div>
+      </div>
 
       {/* ── Export history ── */}
-      {history.length > 0 && (
-        <div className="mt-4 rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5">
+      <aside className="rounded-xl border border-[rgba(0,0,0,0.08)] bg-white p-5 xl:sticky xl:top-4">
           <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-[#1A1A2E]"><History size={14} className="text-[#C8924A]" /> Historique des exports</div>
+          {history.length > 0 ? (
           <div className="space-y-0">
             {history.map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-[12px] py-2 border-b border-[rgba(0,0,0,0.06)] last:border-0">
-                <div className="flex items-center gap-2">
+              <div key={i} className="border-b border-[rgba(0,0,0,0.06)] py-2 text-[12px] last:border-0">
+                <div className="flex min-w-0 items-center justify-between gap-2">
                   <span className="font-medium text-[#1A1A2E]">{item.periodLabel}</span>
-                  <span className="text-[#6B7280]">— {new Date(item.date).toLocaleDateString("fr-FR")}</span>
+                  <span className="shrink-0 text-[#6B7280]">{new Date(item.date).toLocaleDateString("fr-FR")}</span>
                 </div>
-                <span className="text-[10.5px] text-[#6B7280] truncate max-w-[180px] hidden md:block">{item.filename}</span>
+                <span className="mt-0.5 block truncate text-[10.5px] text-[#9CA3AF]" title={item.filename}>{item.filename}</span>
               </div>
             ))}
           </div>
-        </div>
-      )}
+          ) : (
+            <p className="py-5 text-center text-[11.5px] text-[#9CA3AF]">Aucun export généré</p>
+          )}
+      </aside>
+      </div>
     </div>
   );
 }
