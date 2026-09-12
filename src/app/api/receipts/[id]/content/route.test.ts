@@ -57,4 +57,40 @@ describe("receipt content", () => {
     expect(download).toHaveBeenCalledWith(receipt.storage_path);
     expect(mocks.authorizePermission).toHaveBeenCalledWith("document", "read", { dossierId: null });
   });
+
+  it("serves Arabic filenames with an ASCII fallback and a UTF-8 filename", async () => {
+    const receipt = {
+      id: "receipt-id",
+      dossier_id: null,
+      storage_path: "owner/receipt.pdf",
+      file_name: "فاتورة المورد.pdf",
+      mime_type: "application/pdf",
+    };
+    const receiptQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: receipt }),
+    };
+    mocks.createClient.mockResolvedValue({ from: vi.fn(() => receiptQuery) });
+    mocks.createAdminClient.mockReturnValue({
+      storage: {
+        from: vi.fn(() => ({
+          download: vi.fn().mockResolvedValue({
+            data: new Blob(["pdf bytes"], { type: "application/pdf" }),
+            error: null,
+          }),
+        })),
+      },
+    });
+
+    const response = await GET(
+      new NextRequest("https://app.mohasibai.com/api/receipts/receipt-id/content"),
+      { params: Promise.resolve({ id: "receipt-id" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toBe(
+      `inline; filename="document.pdf"; filename*=UTF-8''${encodeURIComponent(receipt.file_name)}`,
+    );
+  });
 });

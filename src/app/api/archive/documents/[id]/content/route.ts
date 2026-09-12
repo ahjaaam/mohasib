@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { authorizePermission } from "@/lib/api-permissions";
 import { driveClientForConnection } from "@/lib/google-drive";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
+import { contentDisposition } from "../../../../../../lib/content-disposition";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,11 +30,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (error || !data) {
       return NextResponse.json({ error: "Lecture du document impossible." }, { status: 502 });
     }
-    const safeName = (document.file_name || "document").replace(/["\r\n]/g, "_");
     return new Response(data, {
       headers: {
         "Content-Type": document.mime_type || data.type || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${safeName}"`,
+        "Content-Disposition": contentDisposition("inline", document.file_name),
         "Cache-Control": "private, no-store",
       },
     });
@@ -70,11 +70,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       { responseType: "arraybuffer" },
     );
     const bytes = new Uint8Array(response.data as ArrayBuffer);
-    const safeName = (document.file_name || "document").replace(/["\r\n]/g, "_");
     return new Response(bytes, {
       headers: {
         "Content-Type": document.mime_type || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${safeName}"`,
+        "Content-Disposition": contentDisposition("inline", document.file_name),
         "Cache-Control": "private, no-store",
       },
     });

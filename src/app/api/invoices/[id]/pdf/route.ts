@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
 import sharp from "sharp";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { contentDisposition } from "../../../../../lib/content-disposition";
 
 // Invoices created inside a dossier are owned (invoices.user_id) by the
 // cabinet's own account, never by the dossier's client_portal member — so
@@ -145,7 +146,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `${disposition}; filename="${filename}"`,
+        "Content-Disposition": contentDisposition(disposition, filename, "Facture.pdf"),
         "Cache-Control": "no-store",
       },
     });

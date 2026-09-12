@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authorizePermission } from "@/lib/api-permissions";
+import { contentDisposition } from "../../../../../lib/content-disposition";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,11 +31,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Lecture de la note de frais impossible." }, { status: 502 });
   }
 
-  const safeName = (receipt.file_name || "document").replace(/["\r\n]/g, "_");
   return new Response(data, {
     headers: {
       "Content-Type": receipt.mime_type || data.type || "application/octet-stream",
-      "Content-Disposition": `inline; filename="${safeName}"`,
+      "Content-Disposition": contentDisposition("inline", receipt.file_name),
       "Cache-Control": "private, no-store",
     },
   });

@@ -11,6 +11,7 @@ import {
   buildSupplierPaymentDeadlineRows,
 } from "@/lib/payment-deadlines-export";
 import { Download, CheckCircle, AlertCircle, RefreshCw, BookMarked, FileSpreadsheet, FileText, CalendarDays, History, Archive, FolderTree } from "lucide-react";
+import { archiveExtension, archiveName } from "@/lib/archive-filenames";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -19,31 +20,6 @@ function fmtDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("fr-FR", {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
-}
-
-function archiveName(value: string | null | undefined, fallback: string, extension?: string) {
-  const cleaned = (value || fallback)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!extension || /\.[a-z0-9]{1,8}$/i.test(cleaned)) return cleaned;
-  return `${cleaned}.${extension}`;
-}
-
-function archiveExtension(mimeType: string | null | undefined) {
-  const extensions: Record<string, string> = {
-    "application/pdf": "pdf",
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "text/csv": "csv",
-    "application/vnd.ms-excel": "xls",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  };
-  return mimeType ? extensions[mimeType] : undefined;
 }
 
 interface AccountingEntry {
