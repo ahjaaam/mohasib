@@ -133,7 +133,10 @@ module.exports = withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  widenClientFileUpload: true,
+  // Keep Vercel builds within the Hobby runner's memory budget. The default
+  // upload set still covers application source maps without scanning every
+  // client chunk and dependency.
+  widenClientFileUpload: false,
   tunnelRoute: "/monitoring",
   silent: !process.env.CI,
   sourcemaps: {
