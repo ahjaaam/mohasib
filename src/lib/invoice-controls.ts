@@ -57,10 +57,6 @@ function invoiceReference(data: InvoiceControlData) {
   return normalize(data.invoice_number ?? data.receipt_number);
 }
 
-function bankIdentity(data: InvoiceControlData) {
-  return normalize(data.supplier_iban ?? data.supplier_rib);
-}
-
 function amountsMatch(left: unknown, right: unknown, tolerance = 0.5) {
   const a = finite(left);
   const b = finite(right);
@@ -175,22 +171,6 @@ export function evaluateInvoiceControls(
         title: "Facture similaire détectée",
         message: "Même fournisseur, même date et même montant qu'un document existant.",
         relatedReceiptId: probableDuplicate.id,
-      });
-    }
-  }
-
-  const currentBank = bankIdentity(current);
-  if (supplier && currentBank) {
-    const previousWithBank = sameSupplier
-      .filter(document => bankIdentity(document.ocr_data))
-      .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))[0];
-    if (previousWithBank && bankIdentity(previousWithBank.ocr_data) !== currentBank) {
-      checks.push({
-        code: "supplier_bank_changed",
-        severity: "critical",
-        title: "Coordonnées bancaires modifiées",
-        message: "Le RIB/IBAN diffère du dernier document connu de ce fournisseur. Vérifiez-le avant paiement.",
-        relatedReceiptId: previousWithBank.id,
       });
     }
   }

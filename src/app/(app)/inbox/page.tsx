@@ -231,12 +231,10 @@ const sessionLocalUrls: Record<string, string> = {};
 function ConfidenceBadge({ confidence, overallConfidence }: { confidence?: number | null; overallConfidence?: string | null }) {
   const level = overallConfidence
     ?? (confidence == null ? null : confidence >= 0.8 ? "high" : confidence >= 0.5 ? "medium" : "low");
-  if (!level) return null;
-  if (level === "high")
-    return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#D1FAE5] text-[#065F46]">IA sûre</span>;
+  if (!level || level === "high") return null;
   if (level === "medium")
-    return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">À vérifier</span>;
-  return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#991B1B]">Saisie manuelle</span>;
+    return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">Vérifiez manuellement les informations du document</span>;
+  return <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#991B1B]">Renseignez manuellement les informations du document</span>;
 }
 
 function SourceBadge({ provider }: { provider?: string }) {

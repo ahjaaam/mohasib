@@ -77,12 +77,12 @@ describe("evaluateInvoiceControls", () => {
     expect(highestInvoiceControlSeverity(checks)).toBe("info");
   });
 
-  it("flags changed supplier banking details", () => {
+  it("does not treat changed supplier banking details as an anomaly", () => {
     const checks = evaluateInvoiceControls(
       { vendor_name: "Atlas", receipt_number: "2", date: "2026-08-02", amount: 100, supplier_iban: "MA64 NEW" },
       [{ id: "previous", created_at: "2026-08-01", ocr_data: { vendor_name: "Atlas", receipt_number: "1", amount: 100, supplier_iban: "MA64 OLD" } }],
     );
-    expect(highestInvoiceControlSeverity(checks)).toBe("critical");
-    expect(checks).toContainEqual(expect.objectContaining({ code: "supplier_bank_changed" }));
+    expect(highestInvoiceControlSeverity(checks)).toBe("info");
+    expect(checks).not.toContainEqual(expect.objectContaining({ code: "supplier_bank_changed" }));
   });
 });
