@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "npm run typecheck && next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
@@ -15,7 +15,7 @@
     "test:e2e": "playwright test",
     "test:e2e:accounting": "playwright test tests/e2e/authenticated-accounting-corpus.spec.ts --project=chromium",
     "test:e2e:ui": "playwright test --ui",
-    "verify": "npm run migrations:check && npm run typecheck && npm run lint && npm test && npm run build",
+    "verify": "npm run migrations:check && npm run lint && npm test && npm run build",
     "migrations:check": "node scripts/check-migration-history.mjs",
     "release:parity": "node scripts/check-production-parity.mjs",
     "resources:download-onebox": "node scripts/download-onebox-documents.mjs",
