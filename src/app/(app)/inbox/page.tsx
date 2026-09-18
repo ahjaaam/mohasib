@@ -12,7 +12,7 @@ import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "@/lib/purch
 import { purchaseCommercialDiscountAccount } from "@/lib/invoice-discounts";
 import { isValidAccountingAccountCode, normalizeAccountingSettings, type AccountingSettings } from "@/lib/accounting-settings";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceControlCheck } from "@/lib/invoice-controls";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
@@ -327,6 +327,7 @@ export default function InboxPage({
   const [savingEdits, setSavingEdits] = useState<Set<string>>(new Set());
   const [dirtyReceipts, setDirtyReceipts] = useState<Set<string>>(new Set());
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
+  const [deletingReceiptId, setDeletingReceiptId] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [previewReceipt, setPreviewReceipt] = useState<ReceiptWithUrl | null>(null);
@@ -741,6 +742,23 @@ export default function InboxPage({
     setTab("pending");
   }
 
+  async function deleteIgnoredReceipt(receipt: ReceiptWithUrl) {
+    if (deletingReceiptId || !window.confirm(`Supprimer définitivement « ${receipt.file_name ?? receipt.ocr_data.vendor_name ?? "Facture"} » et son fichier ?`)) return;
+    setDeletingReceiptId(receipt.id);
+    try {
+      const response = await fetch(`/api/receipts/${receipt.id}`, { method: "DELETE" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? "Suppression impossible");
+      setReceipts((current) => current.filter((item) => item.id !== receipt.id));
+      if (previewReceipt?.id === receipt.id) closePreview();
+      toast.success("Facture supprimée définitivement");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Suppression impossible");
+    } finally {
+      setDeletingReceiptId(null);
+    }
+  }
+
   function dismissCard(id: string) {
     setDismissing((s) => new Set([...s, id]));
     setTimeout(async () => {
@@ -1067,7 +1085,9 @@ export default function InboxPage({
                 key={r.id}
                 receipt={r}
                 previewing={previewReceipt?.id === r.id}
+                deleting={deletingReceiptId === r.id}
                 onRecover={() => recoverReceipt(r.id)}
+                onDelete={isExpenseNotes ? undefined : () => deleteIgnoredReceipt(r)}
                 onPreview={() => setPreviewReceipt(previewReceipt?.id === r.id ? null : r)}
               />
             )
@@ -2284,12 +2304,16 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
 function ProcessedCard({
   receipt: r,
   previewing,
+  deleting,
   onRecover,
+  onDelete,
   onPreview,
 }: {
   receipt: ReceiptWithUrl;
   previewing: boolean;
+  deleting: boolean;
   onRecover?: () => void;
+  onDelete?: () => void;
   onPreview: () => void;
 }) {
   const ocr = r.ocr_data;
@@ -2334,8 +2358,21 @@ function ProcessedCard({
       </button>
 
       {onRecover && (
-        <button onClick={onRecover} className="text-[11px] text-[#C8924A] hover:underline flex-shrink-0">
+        <button onClick={onRecover} disabled={deleting} className="text-[11px] text-[#C8924A] hover:underline flex-shrink-0 disabled:opacity-50">
           Récupérer
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          data-permission="document:delete"
+          onClick={onDelete}
+          disabled={deleting}
+          title="Supprimer définitivement"
+          aria-label="Supprimer définitivement la facture"
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-[#9CA3AF] transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+        >
+          {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
         </button>
       )}
     </div>
