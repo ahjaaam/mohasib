@@ -880,7 +880,7 @@ export default function InboxPage({
                   <Upload size={13} /> Importer des documents
                 </button>
                 <button data-permission="document:create" onClick={() => cameraInputRef.current?.click()}
-                  className="btn btn-outline">
+                  className="btn btn-outline lg:hidden">
                   <Camera size={13} /> Prendre une photo
                 </button>
               </div>
@@ -1755,10 +1755,6 @@ function PurchaseReviewWorkspace({
         </section>
 
         <section className={`${mobilePane === "data" ? "block" : "hidden"} min-h-0 overflow-y-auto border-l border-black/10 bg-[#FAFAF6] md:block`} aria-label="Données extraites à vérifier">
-          <div className="border-b border-black/10 bg-white px-4 py-3">
-            <div className="text-[12px] font-bold text-[#1A1A2E]">Comparez puis corrigez les données extraites</div>
-            <p className="mt-0.5 text-[10.5px] text-[#8A909B]">Le document reste visible à gauche pendant vos modifications.</p>
-          </div>
           <ReceiptCard
             receipt={receipt}
             suppliers={suppliers}
