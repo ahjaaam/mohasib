@@ -73,3 +73,23 @@ export function computePurchaseAmounts(ocr: Record<string, unknown>): PurchaseAm
     grossTtc,
   };
 }
+
+export function computePurchaseAmountsFromHt(input: {
+  amountHt: number;
+  tvaRate: number;
+  commercialDiscountAmount: number;
+  settlementDiscountAmount: number;
+}): PurchaseAmounts {
+  const ht = money(finiteAbsolute(input.amountHt));
+  const tva = money(ht * finiteAbsolute(input.tvaRate) / 100);
+  const discount = money(finiteAbsolute(input.commercialDiscountAmount) + finiteAbsolute(input.settlementDiscountAmount));
+  const ttc = money(ht + tva - discount);
+  return computePurchaseAmounts({
+    amount: ttc,
+    amount_ht: ht,
+    tva_amount: tva,
+    commercial_discount_amount: input.commercialDiscountAmount,
+    settlement_discount_amount: input.settlementDiscountAmount,
+    tva_rate: input.tvaRate,
+  });
+}

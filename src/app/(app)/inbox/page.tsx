@@ -8,7 +8,7 @@ import { visibleDocumentAreas } from "@/lib/document-area";
 import type { Receipt, OcrData } from "@/types";
 import { normalizeExpenseCategory, TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte, expenseNoteCategoryToCompte } from "@/lib/cgnc-accounts";
-import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "@/lib/purchase-booking";
+import { computePurchaseAmounts, computePurchaseAmountsFromHt, shouldBookConfirmedPurchase } from "@/lib/purchase-booking";
 import { purchaseCommercialDiscountAccount } from "@/lib/invoice-discounts";
 import { isValidAccountingAccountCode, normalizeAccountingSettings, type AccountingSettings } from "@/lib/accounting-settings";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceControlCheck } from "@/lib/invoice-controls";
@@ -53,6 +53,27 @@ function computeAmounts(ocr: OcrData) {
     settlementDiscount: amounts.settlementDiscountAmount,
     ttc: amounts.totalTtc,
   };
+}
+
+// The invoice review field is gross HT; persisted `amount` remains net TTC.
+function computeReviewAmounts(form: CardForm, ttcInput: boolean) {
+  const enteredAmount = Number(form.amount || 0);
+  const commercialDiscount = Number(form.commercial_discount_amount || 0);
+  const settlementDiscount = Number(form.settlement_discount_amount || 0);
+  const tvaRate = Number(form.tva_rate || 0);
+  if (ttcInput) return computePurchaseAmounts({
+    amount: enteredAmount,
+    commercial_discount_amount: commercialDiscount,
+    settlement_discount_amount: settlementDiscount,
+    tva_rate: tvaRate,
+  });
+
+  return computePurchaseAmountsFromHt({
+    amountHt: enteredAmount,
+    tvaRate,
+    commercialDiscountAmount: commercialDiscount,
+    settlementDiscountAmount: settlementDiscount,
+  });
 }
 
 function matchesInvoiceSearch(receipt: Receipt, query: string) {
@@ -204,6 +225,10 @@ function initForm(ocr: OcrData, expenseNotes = false, accountingSettings?: Accou
     : ocr.type === "expense" && ocr.amount != null
       ? String(-Math.abs(ocr.amount))
       : String(ocr.amount ?? "");
+  const grossHt = ocr.amount_ht ?? computeAmounts(ocr).ht;
+  const reviewAmount = expenseNotes || ocr.document_type === "avoir" ? signedAmt : grossHt > 0
+    ? String(signedAmt.startsWith("-") ? -grossHt : grossHt)
+    : signedAmt;
   const category = expenseNotes ? normalizeExpenseCategory(ocr.category) : ocr.category ?? "Achats";
   const categoryAccount = expenseNotes
     ? expenseNoteCategoryToCompte[category] ?? ""
@@ -213,7 +238,7 @@ function initForm(ocr: OcrData, expenseNotes = false, accountingSettings?: Accou
   const invoiceDate = ocr.date ?? new Date().toISOString().split("T")[0];
   return {
     supplier: vendor,
-    amount: signedAmt,
+    amount: reviewAmount,
     commercial_discount_type: ocr.discount_type && ocr.discount_type !== "escompte" && ocr.discount_type !== "none" ? ocr.discount_type : "remise_commerciale",
     commercial_discount_amount: String(ocr.commercial_discount_amount ?? (ocr.discount_type === "escompte" ? "" : ocr.discount_amount ?? "")),
     settlement_discount_amount: String(ocr.settlement_discount_amount ?? (ocr.discount_type === "escompte" ? ocr.discount_amount ?? "" : "")),
@@ -579,18 +604,21 @@ export default function InboxPage({
       setSaving((s) => { s.delete(id); return new Set(s); });
       return;
     }
-    const confirmedAmounts = computePurchaseAmounts({
-      amount: amt,
-      commercial_discount_amount: commercialDiscountAmount,
-      settlement_discount_amount: settlementDiscountAmount,
-      tva_rate: tvaRate,
-    });
+    const confirmedAmounts = computeReviewAmounts(form, isExpenseNotes || isAvoir);
+    if (confirmedAmounts.totalTtc <= 0) {
+      toast.error("Le total TTC calculé doit être positif.");
+      setSaving((s) => { s.delete(id); return new Set(s); });
+      return;
+    }
+    const confirmedTtc = Math.sign(amt) * confirmedAmounts.totalTtc;
     const confirmedOcr = {
       ...receipt.ocr_data,
       vendor_name: form.supplier.trim() || null,
       vendor: form.supplier.trim() || null,
-      amount: amt,
-      type: amt >= 0 ? "income" : "expense",
+      amount: confirmedTtc,
+      amount_ttc: confirmedAmounts.totalTtc,
+      amount_ht: confirmedAmounts.totalHt,
+      type: confirmedTtc >= 0 ? "income" : "expense",
       date: form.date,
       due_date: form.due_date || receipt.ocr_data.due_date || null,
       is_supplier_invoice: receipt.ocr_data.is_supplier_invoice ?? true,
@@ -674,18 +702,20 @@ export default function InboxPage({
       return;
     }
 
-    const amounts = computePurchaseAmounts({
-      amount,
-      commercial_discount_amount: commercialDiscountAmount,
-      settlement_discount_amount: settlementDiscountAmount,
-      tva_rate: tvaRate,
-    });
+    const amounts = computeReviewAmounts(form, isExpenseNotes || receipt.ocr_data.document_type === "avoir");
+    if (amounts.totalTtc <= 0) {
+      toast.error("Le total TTC calculé doit être positif.");
+      return;
+    }
+    const savedTtc = Math.sign(amount) * amounts.totalTtc;
     const editedOcr: OcrData = {
       ...receipt.ocr_data,
       vendor_name: form.supplier.trim() || null,
       vendor: form.supplier.trim() || null,
-      amount,
-      type: amount >= 0 ? "income" : "expense",
+      amount: savedTtc,
+      amount_ttc: amounts.totalTtc,
+      amount_ht: amounts.totalHt,
+      type: savedTtc >= 0 ? "income" : "expense",
       date: form.date,
       due_date: form.due_date || receipt.ocr_data.due_date || null,
       is_supplier_invoice: receipt.ocr_data.is_supplier_invoice ?? true,
@@ -2031,13 +2061,9 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
   const isExpense = isNaN(amt) ? true : amt < 0;
   const isAvoir = !expenseNotes && (ocr as any).document_type === "avoir";
   const emailProvider = (ocr as any).email_provider as string | undefined;
-  const tvaRate = Number(form.tva_rate || 0);
-  const entryPreview = computePurchaseAmounts({
-    amount: Number.isFinite(amt) ? amt : 0,
-    commercial_discount_amount: Number(form.commercial_discount_amount || 0),
-    settlement_discount_amount: Number(form.settlement_discount_amount || 0),
-    tva_rate: tvaRate,
-  });
+  const entryPreview = computeReviewAmounts(form, expenseNotes || isAvoir);
+  const extractedTtc = Math.abs(Number(ocr.amount_ttc ?? ocr.amount ?? 0));
+  const extractedTva = Math.abs(Number(ocr.tva_amount ?? ocr.tax_amount ?? 0));
   const categoryAccounts = expenseNotes ? expenseNoteCategoryToCompte : categoryToCompte;
   const expenseAccount = form.compte_comptable || categoryAccounts[form.category] || (expenseNotes ? "" : "6111");
   const expenseLabel = cgncAccounts.find((account) => account.code === expenseAccount)?.label ?? (expenseNotes ? "Compte à sélectionner" : "Compte de charge");
@@ -2118,7 +2144,7 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
         </div>
 
         <div className="lg:col-span-3">
-          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant TTC net (MAD)</label>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">{expenseNotes || isAvoir ? "Montant TTC net (MAD)" : "TOTAL HT"}</label>
           <div className="relative">
             <input
               type="number" step="0.01"
@@ -2136,6 +2162,17 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
               </span>
             )}
           </div>
+          {!expenseNotes && !isAvoir && Number.isFinite(amt) && amt !== 0 && (
+            <div className="mt-1 text-[10px] text-[#6B7280]">
+              TTC calculé : {fmt(entryPreview.totalTtc)} MAD
+              {extractedTtc > 0 && Math.abs(extractedTtc - entryPreview.totalTtc) > 0.01 && (
+                <span className="ml-1 text-[#B45309]">· TTC lu sur la facture : {fmt(extractedTtc)} MAD</span>
+              )}
+              {extractedTva > 0 && Math.abs(extractedTva - entryPreview.tvaAmount) > 0.01 && (
+                <span className="ml-1 text-[#B45309]">· TVA lue sur la facture : {fmt(extractedTva)} MAD</span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-3">

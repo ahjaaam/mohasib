@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computePurchaseAmounts, shouldBookConfirmedPurchase } from "./purchase-booking";
+import { computePurchaseAmounts, computePurchaseAmountsFromHt, shouldBookConfirmedPurchase } from "./purchase-booking";
 
 describe("shouldBookConfirmedPurchase", () => {
   it("books a confirmed expense report even when it is not classified as an invoice", () => {
@@ -120,6 +120,25 @@ describe("computePurchaseAmounts", () => {
       commercialDiscountAmount: 6,
       settlementDiscountAmount: 4,
       grossTtc: 118,
+    });
+  });
+});
+
+describe("computePurchaseAmountsFromHt", () => {
+  it("uses the invoice HT as the purchase debit and derives the payable TTC", () => {
+    expect(computePurchaseAmountsFromHt({
+      amountHt: 47205,
+      tvaRate: 20,
+      commercialDiscountAmount: 566.46,
+      settlementDiscountAmount: 0,
+    })).toEqual({
+      totalHt: 47205,
+      totalTtc: 56079.54,
+      tvaAmount: 9441,
+      discountAmount: 566.46,
+      commercialDiscountAmount: 566.46,
+      settlementDiscountAmount: 0,
+      grossTtc: 56646,
     });
   });
 });
