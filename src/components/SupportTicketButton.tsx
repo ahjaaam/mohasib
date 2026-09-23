@@ -1,8 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { CircleHelp, Send, CheckCircle2, X } from "lucide-react";
+
+type SupportTicket = {
+  id: string;
+  subject: string;
+  message: string;
+  status: string;
+  created_at: string;
+};
+
+const ticketDate = new Intl.DateTimeFormat("fr-MA", { day: "numeric", month: "short", year: "numeric" });
+const statusLabels: Record<string, string> = {
+  nouveau: "Nouveau",
+  "contacté": "Contacté",
+  "finalisé": "Finalisé",
+  cancelled: "Annulé",
+};
 
 export default function SupportTicketButton({
   dossierId,
@@ -20,7 +36,32 @@ export default function SupportTicketButton({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    async function loadHistory() {
+      setHistoryLoading(true);
+      setHistoryError(false);
+      try {
+        const response = await fetch("/api/support/tickets", { signal: controller.signal, cache: "no-store" });
+        if (!response.ok) throw new Error();
+        const data: { tickets: SupportTicket[] } = await response.json();
+        if (!controller.signal.aborted) setTickets(data.tickets);
+      } catch {
+        if (!controller.signal.aborted) setHistoryError(true);
+      } finally {
+        if (!controller.signal.aborted) setHistoryLoading(false);
+      }
+    }
+    void loadHistory();
+    return () => controller.abort();
+  }, [open, historyVersion]);
 
   function reset() {
     setSubject("");
@@ -42,6 +83,7 @@ export default function SupportTicketButton({
       });
       if (!response.ok) throw new Error();
       setSent(true);
+      setHistoryVersion((version) => version + 1);
       setTimeout(() => {
         onClose();
         reset();
@@ -88,14 +130,15 @@ export default function SupportTicketButton({
             </button>
           </div>
 
-          {sent ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 text-center">
-              <CheckCircle2 size={22} className="text-[#059669]" aria-hidden="true" />
-              <p className="text-[12px] font-semibold text-[#1A1A2E]">Demande envoyée</p>
-              <p className="text-[11px] text-[#6B7280]">Notre équipe vous répond rapidement.</p>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="flex-1 overflow-y-auto p-5">
+          <div className="flex-1 overflow-y-auto">
+            {sent ? (
+              <div className="flex flex-col items-center justify-center gap-2 px-5 py-8 text-center">
+                <CheckCircle2 size={22} className="text-[#059669]" aria-hidden="true" />
+                <p className="text-[12px] font-semibold text-[#1A1A2E]">Demande envoyée</p>
+                <p className="text-[11px] text-[#6B7280]">Notre équipe vous répond rapidement.</p>
+              </div>
+            ) : (
+              <form onSubmit={submit} className="p-5">
               <p className="mb-5 text-[12px] leading-5 text-[#6B7280]">
                 Décrivez votre problème, notre équipe reçoit votre demande immédiatement.
               </p>
@@ -130,8 +173,40 @@ export default function SupportTicketButton({
               >
                 {sending ? "Envoi…" : <>Envoyer <Send size={13} /></>}
               </button>
-            </form>
-          )}
+              </form>
+            )}
+
+            <section aria-labelledby="support-history-title" className="border-t border-black/[0.07] px-5 py-5">
+              <h2 id="support-history-title" className="text-[12px] font-bold text-[#1A1A2E]">Historique de mes demandes</h2>
+              {historyLoading ? (
+                <p className="mt-3 text-[11px] text-[#6B7280]">Chargement de l&apos;historique…</p>
+              ) : historyError ? (
+                <div className="mt-3 text-[11px] text-[#6B7280]">
+                  <p>Impossible de charger l&apos;historique.</p>
+                  <button type="button" onClick={() => setHistoryVersion((version) => version + 1)} className="mt-1 font-semibold text-[#A66C25] hover:underline">Réessayer</button>
+                </div>
+              ) : tickets.length === 0 ? (
+                <p className="mt-3 text-[11px] text-[#6B7280]">Vous n&apos;avez pas encore envoyé de demande.</p>
+              ) : (
+                <ul className="mt-3 divide-y divide-black/[0.07] border-y border-black/[0.07]">
+                  {tickets.map((ticket) => (
+                    <li key={ticket.id} className="py-3">
+                      <details className="group">
+                        <summary className="cursor-pointer list-none marker:hidden [&::-webkit-details-marker]:hidden">
+                          <span className="flex items-start justify-between gap-2">
+                            <span className="min-w-0 break-words text-[11.5px] font-semibold text-[#1A1A2E] group-open:text-[#A66C25]">{ticket.subject}</span>
+                            <span className="shrink-0 bg-[#F7F1E8] px-2 py-0.5 text-[10px] font-medium text-[#8A612D]">{statusLabels[ticket.status] ?? ticket.status}</span>
+                          </span>
+                          <span className="mt-1 block text-[10px] text-[#777E8B]">{ticketDate.format(new Date(ticket.created_at))}</span>
+                        </summary>
+                        <p className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-4 text-[#6B7280]">{ticket.message}</p>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
         </aside>
       )}
     </>

@@ -112,6 +112,10 @@ export interface AvoirFournisseur {
   total: number;
   motif: string | null;
   compte_comptable: string | null;
+  adjustment_type: "commercial_reduction" | "purchase_return" | "invoice_correction" | "partial_cancellation" | "settlement_discount" | "other";
+  original_purchase_account: string | null;
+  linked_receipt_id: string | null;
+  source_receipt_id: string | null;
   statut: string;
   notes: string | null;
   created_at: string;
@@ -154,6 +158,8 @@ export interface OcrData {
   supplier_if?: string | null;
   supplier_rib?: string | null;
   supplier_iban?: string | null;
+  credit_note_adjustment_type?: "commercial_reduction" | "purchase_return" | "invoice_correction" | "partial_cancellation" | "settlement_discount" | "other" | null;
+  linked_purchase_receipt_id?: string | null;
 }
 
 export interface Receipt {

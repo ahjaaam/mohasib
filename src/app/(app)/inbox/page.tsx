@@ -9,8 +9,12 @@ import type { Receipt, OcrData } from "@/types";
 import { normalizeExpenseCategory, TRANSACTION_CATEGORIES } from "@/lib/utils";
 import { cgncAccounts, categoryToCompte, expenseNoteCategoryToCompte } from "@/lib/cgnc-accounts";
 import { computePurchaseAmounts, computePurchaseAmountsFromHt, shouldBookConfirmedPurchase } from "@/lib/purchase-booking";
-import { purchaseCommercialDiscountAccount } from "@/lib/invoice-discounts";
 import { isValidAccountingAccountCode, normalizeAccountingSettings, type AccountingSettings } from "@/lib/accounting-settings";
+import {
+  supplierCreditNoteCounterpartAccount,
+  type SupplierCreditNoteAdjustmentType,
+} from "@/lib/accounting-engine";
+import { finalizeSupplierCreditNote } from "@/lib/supplier-credit-note-booking-client";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceControlCheck } from "@/lib/invoice-controls";
 import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -47,6 +51,7 @@ function computeAmounts(ocr: OcrData) {
   });
   return {
     ht: amounts.totalHt,
+    grossHt: amounts.grossHt,
     tva: amounts.tvaAmount,
     remise: amounts.discountAmount,
     commercialDiscount: amounts.commercialDiscountAmount,
@@ -127,6 +132,14 @@ const TVA_OPTIONS = [
   { label: "14%", value: "14" },
   { label: "20%", value: "20" },
 ];
+const SUPPLIER_CREDIT_NOTE_TYPES: Array<{ value: SupplierCreditNoteAdjustmentType; label: string }> = [
+  { value: "commercial_reduction", label: "Remise, rabais ou ristourne hors facture" },
+  { value: "purchase_return", label: "Retour de marchandise" },
+  { value: "invoice_correction", label: "Correction de facturation" },
+  { value: "partial_cancellation", label: "Annulation partielle" },
+  { value: "settlement_discount", label: "Escompte de règlement" },
+  { value: "other", label: "Autre correction" },
+];
 
 type Tab = "pending" | "matched" | "suppliers" | "ignored";
 
@@ -144,6 +157,16 @@ interface CardForm {
   due_date: string;
   tva_rate: string;
   compte_comptable: string;
+  credit_note_adjustment_type: SupplierCreditNoteAdjustmentType;
+  linked_purchase_receipt_id: string;
+}
+
+interface OriginalPurchaseOption {
+  id: string;
+  reference: string;
+  supplier: string;
+  date: string;
+  account: string;
 }
 
 interface UploadingFile {
@@ -218,6 +241,7 @@ function supplierSummaries(receipts: ReceiptWithUrl[], includeNonSupplier = fals
 
 
 function initForm(ocr: OcrData, expenseNotes = false, accountingSettings?: AccountingSettings): CardForm {
+  const isSupplierCreditNote = !expenseNotes && ocr.document_type === "avoir";
   const vendor = ocr.vendor_name ?? ocr.vendor ?? "";
   const desc = ocr.description ?? "";
   const signedAmt = typeof ocr.amount === "number"
@@ -225,7 +249,7 @@ function initForm(ocr: OcrData, expenseNotes = false, accountingSettings?: Accou
     : ocr.type === "expense" && ocr.amount != null
       ? String(-Math.abs(ocr.amount))
       : String(ocr.amount ?? "");
-  const grossHt = ocr.amount_ht ?? computeAmounts(ocr).ht;
+  const grossHt = ocr.amount_ht ?? computeAmounts(ocr).grossHt;
   const reviewAmount = expenseNotes || ocr.document_type === "avoir" ? signedAmt : grossHt > 0
     ? String(signedAmt.startsWith("-") ? -grossHt : grossHt)
     : signedAmt;
@@ -236,18 +260,31 @@ function initForm(ocr: OcrData, expenseNotes = false, accountingSettings?: Accou
   const compte = expenseNotes && ocr.compte === "6111" ? categoryAccount : ocr.compte ?? categoryAccount;
   const tvaRate = ocr.tva_rate ?? (!expenseNotes && ocr.amount != null ? 20 : null);
   const invoiceDate = ocr.date ?? new Date().toISOString().split("T")[0];
+  const descriptionLower = String(ocr.description ?? "").toLocaleLowerCase("fr");
+  const inferredCreditNoteType: SupplierCreditNoteAdjustmentType = ocr.credit_note_adjustment_type
+    ?? (descriptionLower.includes("escompte")
+      ? "settlement_discount"
+      : descriptionLower.includes("retour")
+        ? "purchase_return"
+        : descriptionLower.includes("annul")
+          ? "partial_cancellation"
+          : descriptionLower.includes("erreur") || descriptionLower.includes("correct")
+            ? "invoice_correction"
+            : "commercial_reduction");
   return {
     supplier: vendor,
     amount: reviewAmount,
     commercial_discount_type: ocr.discount_type && ocr.discount_type !== "escompte" && ocr.discount_type !== "none" ? ocr.discount_type : "remise_commerciale",
-    commercial_discount_amount: String(ocr.commercial_discount_amount ?? (ocr.discount_type === "escompte" ? "" : ocr.discount_amount ?? "")),
-    settlement_discount_amount: String(ocr.settlement_discount_amount ?? (ocr.discount_type === "escompte" ? ocr.discount_amount ?? "" : "")),
+    commercial_discount_amount: isSupplierCreditNote ? "" : String(ocr.commercial_discount_amount ?? (ocr.discount_type === "escompte" ? "" : ocr.discount_amount ?? "")),
+    settlement_discount_amount: isSupplierCreditNote ? "" : String(ocr.settlement_discount_amount ?? (ocr.discount_type === "escompte" ? ocr.discount_amount ?? "" : "")),
     category,
     description: vendor ? (desc ? `${vendor} — ${desc}` : vendor) : desc,
     date: invoiceDate,
     due_date: ocr.due_date ?? (expenseNotes ? "" : addDays(invoiceDate, 60)),
     tva_rate: String(tvaRate ?? ""),
     compte_comptable: compte,
+    credit_note_adjustment_type: inferredCreditNoteType,
+    linked_purchase_receipt_id: ocr.linked_purchase_receipt_id ?? "",
   };
 }
 
@@ -536,7 +573,20 @@ export default function InboxPage({
     const isAvoir = !isExpenseNotes && (receipt.ocr_data as any).document_type === "avoir";
 
     if (isAvoir) {
-      const { ht, tva, ttc } = computeAmounts(receipt.ocr_data);
+      const amounts = computeReviewAmounts(form, true);
+      const ht = amounts.totalHt;
+      const tva = amounts.tvaAmount;
+      const ttc = amounts.totalTtc;
+      if (ttc <= 0) {
+        toast.error("Le montant de l’avoir doit être supérieur à zéro.");
+        setSaving((current) => { const next = new Set(current); next.delete(id); return next; });
+        return;
+      }
+      if (!isValidAccountingAccountCode(form.compte_comptable, [2, 6])) {
+        toast.error("Sélectionnez le compte d’achat ou d’immobilisation de la facture d’origine.");
+        setSaving((current) => { const next = new Set(current); next.delete(id); return next; });
+        return;
+      }
       const year = new Date().getFullYear();
       const { data: lastAv } = await supabase
         .from("avoirs_fournisseurs")
@@ -549,7 +599,7 @@ export default function InboxPage({
         ? parseInt(lastAv[0].numero_interne.split("-").pop() ?? "0", 10) : 0;
       const numero = `AV-FOURN-${year}-${String(lastNum + 1).padStart(4, "0")}`;
 
-      const { error } = await supabase.from("avoirs_fournisseurs").insert({
+      const creditNoteValues = {
         user_id: userId,
         ...(dossierId ? { dossier_id: dossierId } : {}),
         numero_interne: numero,
@@ -557,31 +607,79 @@ export default function InboxPage({
         ref_fournisseur: receipt.ocr_data.receipt_number ?? null,
         date: form.date,
         montant_ht: ht,
-        tva_rate: receipt.ocr_data.tva_rate ?? 0,
+        tva_rate: Number(form.tva_rate || 0),
         tva_amount: tva,
         total: ttc,
         motif: form.description || "Avoir fournisseur",
-        compte_comptable: form.compte_comptable || accountingSettings?.supplierAccount || "4411",
-        statut: "recu",
-      });
+        compte_comptable: accountingSettings?.supplierAccount || "4411",
+        statut: "brouillon",
+        adjustment_type: form.credit_note_adjustment_type,
+        original_purchase_account: form.compte_comptable,
+        linked_receipt_id: form.linked_purchase_receipt_id || null,
+        source_receipt_id: receipt.id,
+      };
 
-      if (error) {
+      const { data: existingCreditNote } = await supabase
+        .from("avoirs_fournisseurs")
+        .select("id, statut, numero_interne")
+        .eq("source_receipt_id", receipt.id)
+        .maybeSingle();
+      const creditNoteResult = existingCreditNote?.statut === "comptabilise"
+        ? { data: { id: existingCreditNote.id }, error: null }
+        : existingCreditNote
+        ? await supabase
+          .from("avoirs_fournisseurs")
+          .update({ ...creditNoteValues, numero_interne: existingCreditNote.numero_interne })
+          .eq("id", existingCreditNote.id)
+          .select("id")
+          .single()
+        : await supabase
+          .from("avoirs_fournisseurs")
+          .insert(creditNoteValues)
+          .select("id")
+          .single();
+      const bookedNumber = existingCreditNote?.numero_interne ?? numero;
+
+      if (creditNoteResult.error || !creditNoteResult.data) {
         toast.error("Erreur lors de l'enregistrement");
-        setSaving((s) => { s.delete(id); return new Set(s); });
+        setSaving((current) => { const next = new Set(current); next.delete(id); return next; });
         return;
       }
-      await supabase.from("receipts").update({
+
+      try {
+        await finalizeSupplierCreditNote(creditNoteResult.data.id, dossierId);
+      } catch (bookingError) {
+        toast.error(`${bookingError instanceof Error ? bookingError.message : "Échec de la comptabilisation"}. L’avoir reste en brouillon.`);
+        setSaving((current) => { const next = new Set(current); next.delete(id); return next; });
+        return;
+      }
+
+      const { error: receiptUpdateError } = await supabase.from("receipts").update({
         status: "matched",
         ocr_data: {
           ...receipt.ocr_data,
           vendor_name: form.supplier.trim() || null,
           vendor: form.supplier.trim() || null,
+          amount: ttc,
+          amount_ttc: ttc,
+          amount_ht: ht,
+          tva_amount: tva,
+          tva_rate: Number(form.tva_rate || 0),
+          compte: form.compte_comptable,
+          credit_note_adjustment_type: form.credit_note_adjustment_type,
+          linked_purchase_receipt_id: form.linked_purchase_receipt_id || null,
         },
       }).eq("id", id);
-      setSaving((s) => { s.delete(id); return new Set(s); });
+      if (receiptUpdateError) {
+        toast.error("L’avoir est comptabilisé, mais le document n’a pas pu être marqué comme traité.");
+        setSaving((current) => { const next = new Set(current); next.delete(id); return next; });
+        await load();
+        return;
+      }
+      setSaving((current) => { const next = new Set(current); next.delete(id); return next; });
       advanceReviewAfterAction(id);
       dismissCard(id);
-      toast.success(`Avoir fournisseur ${numero} enregistré !`);
+      toast.success(`Avoir fournisseur ${bookedNumber} comptabilisé !`);
       return;
     }
 
@@ -617,11 +715,12 @@ export default function InboxPage({
       vendor: form.supplier.trim() || null,
       amount: confirmedTtc,
       amount_ttc: confirmedAmounts.totalTtc,
-      amount_ht: confirmedAmounts.totalHt,
+      amount_ht: confirmedAmounts.grossHt,
       type: confirmedTtc >= 0 ? "income" : "expense",
       date: form.date,
       due_date: form.due_date || receipt.ocr_data.due_date || null,
       is_supplier_invoice: receipt.ocr_data.is_supplier_invoice ?? true,
+      document_type: receipt.ocr_data.document_type ?? (isExpenseNotes ? "receipt" : "invoice"),
       category: form.category || receipt.ocr_data.category || null,
       description: form.description || receipt.ocr_data.description || null,
       tva_rate: tvaRate,
@@ -633,21 +732,20 @@ export default function InboxPage({
       compte: form.compte_comptable || (receipt.ocr_data as any).compte || null,
     };
     const shouldBookPurchase = isExpenseNotes || shouldBookConfirmedPurchase(confirmedOcr);
-    const { error: ocrUpdateError } = await supabase
-      .from("receipts")
-      .update({ ocr_data: confirmedOcr })
-      .eq("id", id);
-    if (ocrUpdateError) {
-      toast.error("Erreur lors de la confirmation");
-      setSaving((s) => { s.delete(id); return new Set(s); });
-      return;
-    }
-
     if (shouldBookPurchase) {
+      const criticalChecks = evaluateInvoiceControls(
+        confirmedOcr,
+        receipts.filter(item => item.id !== id && item.created_at < receipt.created_at),
+      ).filter(check => check.severity === "critical");
+      if (criticalChecks.length) {
+        toast.error(criticalChecks.map(check => check.message).join(" "), { duration: 5000 });
+        setSaving((current) => { const next = new Set(current); next.delete(id); return next; });
+        return;
+      }
       const bookingResponse = await fetch("/api/accounting/book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "purchase", receiptId: id, dossierId }),
+        body: JSON.stringify({ type: "purchase", receiptId: id, dossierId, confirmedOcr }),
       });
       const bookingResult = await bookingResponse.json().catch(() => ({}));
       if (!bookingResponse.ok) {
@@ -660,19 +758,15 @@ export default function InboxPage({
         setSaving((s) => { s.delete(id); return new Set(s); });
         return;
       }
-    }
-
-    const { error: statusUpdateError } = await supabase
-      .from("receipts")
-      .update({ status: "matched" })
-      .eq("id", id);
-    if (statusUpdateError) {
-      toast.error(`${isExpenseNotes ? "La note de frais" : "La facture"} est comptabilisée, mais son statut n'a pas pu être mis à jour.`);
-      setSaving((s) => { s.delete(id); return new Set(s); });
-      return;
-    }
-    if (dossierId) {
-      await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
+    } else {
+      const { error } = await supabase.from("receipts")
+        .update({ ocr_data: confirmedOcr, status: "matched" })
+        .eq("id", id);
+      if (error) {
+        toast.error("Erreur lors de la confirmation");
+        setSaving((current) => { const next = new Set(current); next.delete(id); return next; });
+        return;
+      }
     }
     setSaving((s) => { s.delete(id); return new Set(s); });
     advanceReviewAfterAction(id);
@@ -714,7 +808,7 @@ export default function InboxPage({
       vendor: form.supplier.trim() || null,
       amount: savedTtc,
       amount_ttc: amounts.totalTtc,
-      amount_ht: amounts.totalHt,
+      amount_ht: amounts.grossHt,
       type: savedTtc >= 0 ? "income" : "expense",
       date: form.date,
       due_date: form.due_date || receipt.ocr_data.due_date || null,
@@ -728,6 +822,8 @@ export default function InboxPage({
       commercial_discount_amount: amounts.commercialDiscountAmount,
       settlement_discount_amount: amounts.settlementDiscountAmount,
       compte: form.compte_comptable || receipt.ocr_data.compte || null,
+      credit_note_adjustment_type: form.credit_note_adjustment_type,
+      linked_purchase_receipt_id: form.linked_purchase_receipt_id || null,
     };
 
     setSavingEdits((current) => new Set([...current, id]));
@@ -816,6 +912,21 @@ export default function InboxPage({
   const matched = receipts.filter((r) => r.status === "matched");
   const ignored = receipts.filter((r) => r.status === "ignored");
   const suppliers = supplierSummaries(receipts, isExpenseNotes);
+  const originalPurchases: OriginalPurchaseOption[] = matched
+    .filter(receipt => receipt.ocr_data.document_type !== "avoir")
+    .map(receipt => {
+      const ocr = receipt.ocr_data;
+      const category = ocr.category ?? "Achats";
+      return {
+        id: receipt.id,
+        reference: ocr.receipt_number ?? ocr.invoice_number ?? receipt.id.slice(0, 8),
+        supplier: ocr.vendor_name ?? ocr.vendor ?? "Fournisseur",
+        date: ocr.date ?? receipt.created_at.slice(0, 10),
+        account: ocr.compte
+          ?? accountingSettings.expenseCategoryAccounts[category]
+          ?? accountingSettings.expenseCategoryAccounts.__default,
+      };
+    });
   const categoryOptions = Array.from(new Set([
     ...ALL_CATS,
     ...Object.keys(accountingSettings.expenseCategoryAccounts).filter(category => category !== "__default"),
@@ -1095,6 +1206,8 @@ export default function InboxPage({
                 key={r.id}
                 receipt={r}
                 suppliers={suppliers}
+                originalPurchases={originalPurchases}
+                accountingSettings={accountingSettings}
                 form={forms[r.id] ?? initForm(r.ocr_data, isExpenseNotes, accountingSettings)}
                 saving={saving.has(r.id)}
                 savingEdits={savingEdits.has(r.id)}
@@ -1108,7 +1221,6 @@ export default function InboxPage({
                 onPreview={() => setPreviewReceipt(previewReceipt?.id === r.id ? null : r)}
                 expenseNotes={isExpenseNotes}
                 categoryOptions={categoryOptions}
-                accountingSettings={accountingSettings}
               />
             ) : (
               <ProcessedCard
@@ -1131,6 +1243,8 @@ export default function InboxPage({
           key={previewReceipt.id}
           receipt={previewReceipt}
           suppliers={suppliers}
+          originalPurchases={originalPurchases}
+          accountingSettings={accountingSettings}
           form={forms[previewReceipt.id] ?? initForm(previewReceipt.ocr_data, isExpenseNotes, accountingSettings)}
           saving={saving.has(previewReceipt.id)}
           savingEdits={savingEdits.has(previewReceipt.id)}
@@ -1148,7 +1262,6 @@ export default function InboxPage({
           total={reviewReceipts.length}
           expenseNotes={isExpenseNotes}
           categoryOptions={categoryOptions}
-          accountingSettings={accountingSettings}
         />
       ) : previewReceipt ? (
         <PreviewPanel
@@ -1661,6 +1774,8 @@ function PreviewPanel({ receipt: r, onClose }: { receipt: ReceiptWithUrl; onClos
 function PurchaseReviewWorkspace({
   receipt,
   suppliers,
+  originalPurchases,
+  accountingSettings,
   form,
   saving,
   savingEdits,
@@ -1678,10 +1793,11 @@ function PurchaseReviewWorkspace({
   total,
   expenseNotes,
   categoryOptions,
-  accountingSettings,
 }: {
   receipt: ReceiptWithUrl;
   suppliers: SupplierSummary[];
+  originalPurchases: OriginalPurchaseOption[];
+  accountingSettings: AccountingSettings;
   form: CardForm;
   saving: boolean;
   savingEdits: boolean;
@@ -1699,7 +1815,6 @@ function PurchaseReviewWorkspace({
   total: number;
   expenseNotes: boolean;
   categoryOptions: string[];
-  accountingSettings: AccountingSettings;
 }) {
   const [mobilePane, setMobilePane] = useState<"document" | "data">("document");
   const ocr = receipt.ocr_data;
@@ -1808,6 +1923,8 @@ function PurchaseReviewWorkspace({
           <ReceiptCard
             receipt={receipt}
             suppliers={suppliers}
+            originalPurchases={originalPurchases}
+            accountingSettings={accountingSettings}
             form={form}
             saving={saving}
             savingEdits={savingEdits}
@@ -1822,7 +1939,6 @@ function PurchaseReviewWorkspace({
             onPreview={onClose}
             expenseNotes={expenseNotes}
             categoryOptions={categoryOptions}
-            accountingSettings={accountingSettings}
           />
         </section>
       </div>
@@ -1980,6 +2096,8 @@ function CompteSelect({ value, onChange }: { value: string; onChange: (val: stri
 interface CardProps {
   receipt: ReceiptWithUrl;
   suppliers: SupplierSummary[];
+  originalPurchases: OriginalPurchaseOption[];
+  accountingSettings: AccountingSettings;
   form: CardForm;
   saving: boolean;
   savingEdits: boolean;
@@ -1994,7 +2112,6 @@ interface CardProps {
   embedded?: boolean;
   expenseNotes?: boolean;
   categoryOptions?: string[];
-  accountingSettings?: AccountingSettings;
 }
 
 function SupplierSelect({
@@ -2054,7 +2171,7 @@ function SupplierSelect({
   );
 }
 
-function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsavedChanges, dismissing, previewing, onFormChange, onConfirm, onSave, onIgnore, onPreview, embedded = false, expenseNotes = false, categoryOptions = ALL_CATS, accountingSettings }: CardProps) {
+function ReceiptCard({ receipt: r, suppliers, originalPurchases, accountingSettings, form, saving, savingEdits, hasUnsavedChanges, dismissing, previewing, onFormChange, onConfirm, onSave, onIgnore, onPreview, embedded = false, expenseNotes = false, categoryOptions = ALL_CATS }: CardProps) {
   const [referenceTime] = useState(() => Date.now());
   const ocr = r.ocr_data;
   const amt = parseFloat(form.amount);
@@ -2067,11 +2184,10 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
   const categoryAccounts = expenseNotes ? expenseNoteCategoryToCompte : categoryToCompte;
   const expenseAccount = form.compte_comptable || categoryAccounts[form.category] || (expenseNotes ? "" : "6111");
   const expenseLabel = cgncAccounts.find((account) => account.code === expenseAccount)?.label ?? (expenseNotes ? "Compte à sélectionner" : "Compte de charge");
-  const commercialDiscountAccount = purchaseCommercialDiscountAccount(
+  const creditNoteCounterpartAccount = supplierCreditNoteCounterpartAccount(
+    form.credit_note_adjustment_type,
     expenseAccount,
-    accountingSettings?.purchaseDiscountAccount,
-    accountingSettings?.purchaseConsumedDiscountAccount,
-    accountingSettings?.purchaseExternalDiscountAccount,
+    accountingSettings,
   );
 
   return (
@@ -2217,35 +2333,75 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
           </select>
         </div>
 
-        <div className="lg:col-span-2">
-          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Réduction commerciale</label>
-          <select className="input" value={form.commercial_discount_type} onChange={(e) => onFormChange("commercial_discount_type", e.target.value)}>
-            <option value="remise_commerciale">Remise commerciale</option>
-            <option value="rabais">Rabais</option>
-            <option value="reduction">Réduction</option>
-            <option value="ristourne">Ristourne</option>
-          </select>
-        </div>
-        <div className="lg:col-span-2">
-          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant commercial HT</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            className="input"
-            value={form.commercial_discount_amount}
-            onChange={(e) => onFormChange("commercial_discount_amount", e.target.value)}
-            placeholder="0,00"
-          />
-        </div>
+        {!isAvoir && (
+          <>
+            <div className="lg:col-span-2">
+              <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Réduction commerciale</label>
+              <select className="input" value={form.commercial_discount_type} onChange={(e) => onFormChange("commercial_discount_type", e.target.value)}>
+                <option value="remise_commerciale">Remise commerciale</option>
+                <option value="rabais">Rabais</option>
+                <option value="reduction">Réduction</option>
+                <option value="ristourne">Ristourne</option>
+              </select>
+            </div>
+            <div className="lg:col-span-2">
+              <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant commercial HT</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="input"
+                value={form.commercial_discount_amount}
+                onChange={(e) => onFormChange("commercial_discount_amount", e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
 
-        <div className="lg:col-span-2">
-          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Escompte HT</label>
-          <input type="number" min="0" step="0.01" className="input" value={form.settlement_discount_amount} onChange={(e) => onFormChange("settlement_discount_amount", e.target.value)} placeholder="0,00" />
-        </div>
+            <div className="lg:col-span-2">
+              <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Escompte HT</label>
+              <input type="number" min="0" step="0.01" className="input" value={form.settlement_discount_amount} onChange={(e) => onFormChange("settlement_discount_amount", e.target.value)} placeholder="0,00" />
+            </div>
+          </>
+        )}
+
+        {isAvoir && (
+          <>
+            <div className="col-span-2 lg:col-span-3">
+              <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Facture d’origine</label>
+              <select
+                className="input"
+                value={form.linked_purchase_receipt_id}
+                onChange={(event) => {
+                  const purchase = originalPurchases.find(item => item.id === event.target.value);
+                  onFormChange("linked_purchase_receipt_id", event.target.value);
+                  if (purchase) onFormChange("compte_comptable", purchase.account);
+                }}
+              >
+                <option value="">Aucune facture liée</option>
+                {originalPurchases.map(purchase => (
+                  <option key={purchase.id} value={purchase.id}>
+                    {purchase.reference} — {purchase.supplier} — {purchase.date}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2 lg:col-span-3">
+              <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Nature comptable</label>
+              <select
+                className="input"
+                value={form.credit_note_adjustment_type}
+                onChange={(event) => onFormChange("credit_note_adjustment_type", event.target.value)}
+              >
+                {SUPPLIER_CREDIT_NOTE_TYPES.map(item => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
 
         <div className="col-span-2 lg:col-span-6">
-          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Compte comptable</label>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">{isAvoir ? "Compte d’achat ou d’immobilisation d’origine" : "Compte comptable"}</label>
           <CompteSelect value={form.compte_comptable} onChange={(val) => onFormChange("compte_comptable", val)} />
         </div>
       </div>
@@ -2278,14 +2434,6 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
                     <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
                   </tr>
                 )}
-                {entryPreview.commercialDiscountAmount > 0 && (
-                  <tr>
-                    <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">{commercialDiscountAccount}</td>
-                    <td className="px-3 py-2 text-[#4B5563]">Réduction commerciale obtenue</td>
-                    <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
-                    <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.commercialDiscountAmount)} MAD</td>
-                  </tr>
-                )}
                 {entryPreview.settlementDiscountAmount > 0 && (
                   <tr>
                     <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">7386</td>
@@ -2300,6 +2448,46 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
                   <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
                   <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.totalTtc)} MAD</td>
                 </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {isAvoir && (
+        <div className="mx-4 mb-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9CA3AF]">Aperçu de l’écriture créée</div>
+          <div className="overflow-x-auto rounded-lg border border-[rgba(0,0,0,0.10)]">
+            <table className="w-full min-w-[520px] text-[11px]">
+              <thead className="bg-white text-[9.5px] uppercase tracking-wide text-[#9CA3AF]">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold">Compte</th>
+                  <th className="px-3 py-2 text-left font-semibold">Libellé</th>
+                  <th className="px-3 py-2 text-right font-semibold">Débit</th>
+                  <th className="px-3 py-2 text-right font-semibold">Crédit</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">{accountingSettings.supplierAccount}</td>
+                  <td className="px-3 py-2 text-[#4B5563]">Fournisseurs</td>
+                  <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.totalTtc)} MAD</td>
+                  <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">{creditNoteCounterpartAccount}</td>
+                  <td className="px-3 py-2 text-[#4B5563]">Contrepartie de l’avoir</td>
+                  <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
+                  <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.totalHt)} MAD</td>
+                </tr>
+                {entryPreview.tvaAmount > 0 && (
+                  <tr>
+                    <td className="px-3 py-2 font-mono font-semibold text-[#1A1A2E]">{accountingSettings.recoverableTvaAccount}</td>
+                    <td className="px-3 py-2 text-[#4B5563]">TVA récupérable annulée</td>
+                    <td className="px-3 py-2 text-right text-[#9CA3AF]">—</td>
+                    <td className="px-3 py-2 text-right font-semibold">{fmt(entryPreview.tvaAmount)} MAD</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -2324,12 +2512,14 @@ function ReceiptCard({ receipt: r, suppliers, form, saving, savingEdits, hasUnsa
         </button>
         <button
           onClick={onConfirm}
-          disabled={saving || savingEdits || (!isAvoir && (!form.description || !form.amount || (expenseNotes && !form.compte_comptable)))}
+          disabled={saving || savingEdits || (isAvoir
+            ? !form.amount || !form.supplier || !isValidAccountingAccountCode(form.compte_comptable, [2, 6])
+            : !form.description || !form.amount || (expenseNotes && !form.compte_comptable))}
           className="inline-flex items-center gap-1 rounded-md border border-[#0D1526] bg-[#0D1526] px-2.5 py-1.5 text-[11.5px] font-semibold text-white transition-colors hover:bg-[#1C2940] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving
             ? <Loader2 size={12} className="animate-spin" />
-            : isAvoir ? "Enregistrer l'avoir" : "Confirmer"}
+            : isAvoir ? "Comptabiliser l'avoir" : "Confirmer"}
         </button>
       </div>
     </div>

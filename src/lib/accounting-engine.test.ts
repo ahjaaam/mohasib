@@ -1,8 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { bookAvoirClient, bookBankTransaction, bookPurchaseInvoice, bookSalesInvoice } from "./accounting-engine";
+import {
+  bookAvoirClient,
+  bookBankTransaction,
+  bookPurchaseInvoice,
+  bookSalesInvoice,
+  bookSupplierCreditNote,
+  supplierCreditNoteCounterpartAccount,
+} from "./accounting-engine";
 
 describe("bookPurchaseInvoice", () => {
-  it("books a TTC discount separately and keeps the supplier entry balanced", async () => {
+  it("sends confirmed OCR and the balanced purchase lines to the atomic receipt finalizer", async () => {
+    let rpcName = "";
+    let rpcArgs: Record<string, unknown> = {};
+    const supabase = {
+      from: () => { throw new Error("Atomic confirmation must not pre-check or write separately"); },
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        rpcName = name;
+        rpcArgs = args;
+        return { data: true, error: null };
+      },
+    };
+    const confirmedOcr = {
+      document_type: "invoice", amount_ht: 100, amount_ttc: 120,
+      tva_amount: 20, tva_rate: 20, compte: "6111",
+    };
+
+    await bookPurchaseInvoice(supabase, {
+      id: "receipt-atomic", date: "2026-09-23", description: "Achat",
+      total_ht: 100, total_ttc: 120, tva_amount: 20, category: "Achats",
+    }, "company-1", null, null, { finalizeReceiptPurchase: true, confirmedOcr });
+
+    expect(rpcName).toBe("finalize_receipt_purchase_accounting_entries");
+    expect(rpcArgs).toMatchObject({
+      p_source_type: "purchase", p_source_id: "receipt-atomic", p_ocr_data: confirmedOcr,
+    });
+    expect(rpcArgs.p_entries).toHaveLength(3);
+  });
+
+  it("books an on-invoice commercial reduction at net commercial HT without an RRR line", async () => {
     let insertedRows: Array<Record<string, unknown>> = [];
     const supabase = {
       from: () => ({
@@ -21,11 +56,12 @@ describe("bookPurchaseInvoice", () => {
     await bookPurchaseInvoice(supabase, {
       id: "purchase-with-discount",
       date: "2026-01-19",
-      description: "Achat réfrigérateurs",
-      total_ht: 47205,
-      total_ttc: 56079.54,
-      tva_amount: 9441,
-      discount_amount: 566.46,
+      description: "Achat de marchandises",
+      total_ht: 9000,
+      total_ttc: 10800,
+      tva_amount: 1800,
+      discount_amount: 1000,
+      commercial_discount_amount: 1000,
       category: "Achats",
       supplier_name: "Géant Import et Export",
       reference: "2026/15",
@@ -36,10 +72,9 @@ describe("bookPurchaseInvoice", () => {
       debit: row.debit,
       credit: row.credit,
     }))).toEqual([
-      { compte: "6111", debit: 47205, credit: 0 },
-      { compte: "3455", debit: 9441, credit: 0 },
-      { compte: "6119", debit: 0, credit: 566.46 },
-      { compte: "4411", debit: 0, credit: 56079.54 },
+      { compte: "6111", debit: 9000, credit: 0 },
+      { compte: "3455", debit: 1800, credit: 0 },
+      { compte: "4411", debit: 0, credit: 10800 },
     ]);
   });
 
@@ -60,7 +95,7 @@ describe("bookPurchaseInvoice", () => {
       date: "2026-09-09",
       description: "Achat avec schéma personnalisé",
       total_ht: 100,
-      total_ttc: 114,
+      total_ttc: 120,
       tva_amount: 20,
       discount_amount: 6,
       category: "Achats",
@@ -70,10 +105,10 @@ describe("bookPurchaseInvoice", () => {
       supplierAccount: "4491",
     });
 
-    expect(insertedRows.map(row => row.compte)).toEqual(["6111", "4456", "6146", "4491"]);
+    expect(insertedRows.map(row => row.compte)).toEqual(["6111", "4456", "4491"]);
   });
 
-  it("books commercial reductions and escompte to distinct accounts", async () => {
+  it("includes commercial reductions in net HT and books only escompte separately", async () => {
     let insertedRows: Array<Record<string, unknown>> = [];
     const supabase = {
       from: () => ({
@@ -89,7 +124,7 @@ describe("bookPurchaseInvoice", () => {
       id: "typed-discounts",
       date: "2026-09-09",
       description: "Achat avec réductions",
-      total_ht: 100,
+      total_ht: 94,
       total_ttc: 108,
       tva_amount: 18,
       commercial_discount_amount: 6,
@@ -97,10 +132,10 @@ describe("bookPurchaseInvoice", () => {
       category: "Achats",
     });
 
-    expect(insertedRows.map(row => row.compte)).toEqual(["6111", "3455", "6119", "7386", "4411"]);
+    expect(insertedRows.map(row => row.compte)).toEqual(["6111", "3455", "7386", "4411"]);
   });
 
-  it("uses customized RRR subaccounts for each purchase family", async () => {
+  it("does not use an RRR subaccount for a reduction printed on the invoice", async () => {
     let insertedRows: Array<Record<string, unknown>> = [];
     const supabase = {
       from: () => ({
@@ -117,7 +152,7 @@ describe("bookPurchaseInvoice", () => {
       date: "2026-09-09",
       description: "Fournitures avec remise",
       total_ht: 100,
-      total_ttc: 114,
+      total_ttc: 120,
       tva_amount: 20,
       commercial_discount_amount: 6,
       category: "Fournitures",
@@ -125,7 +160,7 @@ describe("bookPurchaseInvoice", () => {
       purchaseConsumedDiscountAccount: "61290001",
     });
 
-    expect(insertedRows.map(row => row.compte)).toEqual(["61254", "3455", "61290001", "4411"]);
+    expect(insertedRows.map(row => row.compte)).toEqual(["61254", "3455", "4411"]);
   });
 
   it("uses a customized expense category mapping when no account was confirmed", async () => {
@@ -153,6 +188,79 @@ describe("bookPurchaseInvoice", () => {
     });
 
     expect(insertedRows.map(row => row.compte)).toEqual(["6144", "3455", "4411"]);
+  });
+});
+
+describe("bookSupplierCreditNote", () => {
+  it("books a post-invoice commercial reduction to the matching RRR account", async () => {
+    let insertedRows: Array<Record<string, unknown>> = [];
+    const supabase = {
+      from: () => ({
+        select: () => ({ eq: () => ({ limit: async () => ({ data: [] }) }) }),
+        insert: async (rows: Array<Record<string, unknown>>) => {
+          insertedRows = rows;
+          return { error: null };
+        },
+      }),
+    };
+
+    await bookSupplierCreditNote(supabase, {
+      id: "supplier-credit-1",
+      number: "AV-FOURN-2026-0001",
+      date: "2026-09-23",
+      supplier_name: "Géant Import et Export",
+      total_ht: 1_000,
+      tva_amount: 200,
+      total_ttc: 1_200,
+      original_purchase_account: "6111",
+      adjustment_type: "commercial_reduction",
+    });
+
+    expect(insertedRows.map(row => ({ compte: row.compte, debit: row.debit, credit: row.credit }))).toEqual([
+      { compte: "4411", debit: 1200, credit: 0 },
+      { compte: "6119", debit: 0, credit: 1000 },
+      { compte: "3455", debit: 0, credit: 200 },
+    ]);
+  });
+
+  it("selects the RRR family from the original purchase account", () => {
+    expect(supplierCreditNoteCounterpartAccount("commercial_reduction", "6111")).toBe("6119");
+    expect(supplierCreditNoteCounterpartAccount("commercial_reduction", "61254")).toBe("6129");
+    expect(supplierCreditNoteCounterpartAccount("commercial_reduction", "6144")).toBe("6149");
+    expect(supplierCreditNoteCounterpartAccount("commercial_reduction", "2350")).toBe("2350");
+  });
+
+  it("reverses the original account for returns and uses 7386 for settlement discounts", () => {
+    expect(supplierCreditNoteCounterpartAccount("purchase_return", "6111")).toBe("6111");
+    expect(supplierCreditNoteCounterpartAccount("invoice_correction", "2350")).toBe("2350");
+    expect(supplierCreditNoteCounterpartAccount("settlement_discount", "6111")).toBe("7386");
+  });
+
+  it("uses the atomic supplier-credit-note finalizer", async () => {
+    let rpcName = "";
+    const supabase = {
+      from: () => {
+        throw new Error("Atomic finalization must not use the non-atomic pre-check");
+      },
+      rpc: async (name: string) => {
+        rpcName = name;
+        return { data: true, error: null };
+      },
+    };
+
+    await bookSupplierCreditNote(supabase, {
+      id: "supplier-credit-atomic",
+      number: "AV-FOURN-2026-0002",
+      date: "2026-09-23",
+      supplier_name: "Fournisseur",
+      total_ht: 100,
+      tva_amount: 20,
+      total_ttc: 120,
+      original_purchase_account: "6111",
+      adjustment_type: "commercial_reduction",
+    }, "company-1", null, null, { finalizeSupplierCreditNote: true });
+
+    expect(rpcName).toBe("finalize_supplier_credit_note_accounting_entries");
   });
 });
 

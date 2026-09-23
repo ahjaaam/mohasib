@@ -6,6 +6,21 @@ import { getUserAccessProfile } from "@/lib/team";
 import { sendLeadNotification } from "@/lib/lead-notifications";
 import { appUrl } from "@/lib/public-urls";
 
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const { data: tickets, error } = await supabase.from("support_tickets")
+    .select("id, subject, message, status, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) return NextResponse.json({ error: "load_failed" }, { status: 500 });
+  return NextResponse.json({ tickets });
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

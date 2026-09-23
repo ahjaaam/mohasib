@@ -8,7 +8,6 @@ import {
 import { normalizeAccountingSettings, type AccountingSettings } from "./accounting-settings";
 import {
   DISCOUNT_LABELS,
-  purchaseCommercialDiscountAccount,
   type DiscountType,
 } from "./invoice-discounts";
 
@@ -44,6 +43,28 @@ export interface BookablePurchase {
   category: string | null;
   expense_account?: string | null;
   supplier_name?: string | null;
+  reference?: string | null;
+}
+
+export type SupplierCreditNoteAdjustmentType =
+  | "commercial_reduction"
+  | "purchase_return"
+  | "invoice_correction"
+  | "partial_cancellation"
+  | "settlement_discount"
+  | "other";
+
+export interface BookableSupplierCreditNote {
+  id: string;
+  number: string;
+  date: string;
+  supplier_name: string;
+  total_ht: number;
+  total_ttc: number;
+  tva_amount: number;
+  supplier_account?: string | null;
+  original_purchase_account: string;
+  adjustment_type: SupplierCreditNoteAdjustmentType;
   reference?: string | null;
 }
 
@@ -96,7 +117,13 @@ async function insertEntries(
   entries: JournalEntry[],
   companyId?: string | null,
   dossierId?: string | null,
-  options?: { finalizeDraftInvoice?: boolean; finalizeDraftCreditNote?: boolean },
+  options?: {
+    finalizeDraftInvoice?: boolean;
+    finalizeDraftCreditNote?: boolean;
+    finalizeSupplierCreditNote?: boolean;
+    finalizeReceiptPurchase?: boolean;
+    confirmedOcr?: Record<string, unknown>;
+  },
 ) {
   const rows = entries.map((e) => ({
     ...e,
@@ -112,6 +139,10 @@ async function insertEntries(
       ? "finalize_invoice_accounting_entries"
       : options?.finalizeDraftCreditNote
         ? "finalize_credit_note_accounting_entries"
+        : options?.finalizeSupplierCreditNote
+          ? "finalize_supplier_credit_note_accounting_entries"
+          : options?.finalizeReceiptPurchase
+            ? "finalize_receipt_purchase_accounting_entries"
         : "book_accounting_entries";
     const { error } = await supabase.rpc(rpcName, {
       p_company_id: companyId ?? null,
@@ -119,6 +150,7 @@ async function insertEntries(
       p_source_type: source.source_type,
       p_source_id: source.source_id,
       p_entries: rows,
+      ...(options?.finalizeReceiptPurchase ? { p_ocr_data: options.confirmedOcr } : {}),
     });
     if (error) throw new Error(`Failed to insert journal entries: ${error.message}`);
     return;
@@ -234,8 +266,9 @@ export async function bookPurchaseInvoice(
   companyId?: string | null,
   dossierId?: string | null,
   accountingSettings?: Partial<AccountingSettings> | null,
+  options?: { finalizeReceiptPurchase?: boolean; confirmedOcr?: Record<string, unknown> },
 ) {
-  if (await isAlreadyBooked(supabase, purchase.id)) return;
+  if (!options?.finalizeReceiptPurchase && await isAlreadyBooked(supabase, purchase.id)) return;
 
   const accounts = normalizeAccountingSettings(accountingSettings);
   const expenseAccount = purchase.expense_account || getExpenseAccount(purchase.category ?? "", accounts.expenseCategoryAccounts);
@@ -272,33 +305,10 @@ export async function bookPurchaseInvoice(
     });
   }
 
-  const commercialDiscount = purchase.commercial_discount_amount
-    ?? ((purchase.settlement_discount_amount ?? 0) === 0 ? purchase.discount_amount ?? 0 : 0);
   const settlementDiscount = purchase.settlement_discount_amount ?? 0;
 
-  // 3 — Credit the relevant RRR account for commercial reductions.
-  if (commercialDiscount > 0) {
-    const discountAccount = purchaseCommercialDiscountAccount(
-      expenseAccount,
-      accounts.purchaseDiscountAccount,
-      accounts.purchaseConsumedDiscountAccount,
-      accounts.purchaseExternalDiscountAccount,
-    );
-    entries.push({
-      journal: "AC",
-      compte: discountAccount,
-      compte_label: getAccountLabel(discountAccount),
-      debit: 0,
-      credit: commercialDiscount,
-      libelle: `Réduction commerciale obtenue — ${purchase.reference ?? purchase.description}`,
-      source_type: "purchase",
-      source_id: purchase.id,
-      date_ecriture: purchase.date,
-      numero_piece: purchase.reference ?? undefined,
-    });
-  }
-
-  // 4 — Credit financial income separately for settlement discounts.
+  // 3 — Commercial reductions printed on the invoice are already included in
+  // the net-commercial purchase debit. Only settlement discounts are separate.
   if (settlementDiscount > 0) {
     entries.push({
       journal: "AC",
@@ -314,7 +324,7 @@ export async function bookPurchaseInvoice(
     });
   }
 
-  // 5 — Credit the configured supplier account for the net TTC payable
+  // 4 — Credit the configured supplier account for the net TTC payable
   entries.push({
     journal: "AC",
     compte: accounts.supplierAccount,
@@ -329,7 +339,95 @@ export async function bookPurchaseInvoice(
   });
 
   validateBalance(entries);
-  await insertEntries(supabase, entries, companyId, dossierId);
+  await insertEntries(supabase, entries, companyId, dossierId, options);
+}
+
+// ── bookSupplierCreditNote ───────────────────────────────────────────────────
+
+export function supplierCreditNoteCounterpartAccount(
+  adjustmentType: SupplierCreditNoteAdjustmentType,
+  originalPurchaseAccount: string,
+  accountingSettings?: Partial<AccountingSettings> | null,
+) {
+  const accounts = normalizeAccountingSettings(accountingSettings);
+  if (adjustmentType === "settlement_discount") {
+    return accounts.purchaseSettlementDiscountAccount;
+  }
+  if (adjustmentType !== "commercial_reduction") {
+    return originalPurchaseAccount;
+  }
+  if (originalPurchaseAccount.startsWith("611")) return accounts.purchaseDiscountAccount;
+  if (originalPurchaseAccount.startsWith("612")) return accounts.purchaseConsumedDiscountAccount;
+  if (originalPurchaseAccount.startsWith("613") || originalPurchaseAccount.startsWith("614")) {
+    return accounts.purchaseExternalDiscountAccount;
+  }
+  // A reduction related to an asset or another purchase class reverses that
+  // original account because there is no matching 61x9 RRR family.
+  return originalPurchaseAccount;
+}
+
+export async function bookSupplierCreditNote(
+  supabase: any,
+  creditNote: BookableSupplierCreditNote,
+  companyId?: string | null,
+  dossierId?: string | null,
+  accountingSettings?: Partial<AccountingSettings> | null,
+  options?: { finalizeSupplierCreditNote?: boolean },
+) {
+  if (!options?.finalizeSupplierCreditNote && await isAlreadyBooked(supabase, creditNote.id)) return;
+
+  const accounts = normalizeAccountingSettings(accountingSettings);
+  const supplierAccount = creditNote.supplier_account || accounts.supplierAccount;
+  const counterpartAccount = supplierCreditNoteCounterpartAccount(
+    creditNote.adjustment_type,
+    creditNote.original_purchase_account,
+    accountingSettings,
+  );
+  const piece = creditNote.reference || creditNote.number;
+  const entries: JournalEntry[] = [
+    {
+      journal: "AC",
+      compte: supplierAccount,
+      compte_label: getAccountLabel(supplierAccount),
+      debit: creditNote.total_ttc,
+      credit: 0,
+      libelle: `Avoir ${piece} — ${creditNote.supplier_name}`,
+      source_type: "supplier_credit_note",
+      source_id: creditNote.id,
+      date_ecriture: creditNote.date,
+      numero_piece: piece,
+    },
+    {
+      journal: "AC",
+      compte: counterpartAccount,
+      compte_label: getAccountLabel(counterpartAccount),
+      debit: 0,
+      credit: creditNote.total_ht,
+      libelle: `Avoir fournisseur — ${piece}`,
+      source_type: "supplier_credit_note",
+      source_id: creditNote.id,
+      date_ecriture: creditNote.date,
+      numero_piece: piece,
+    },
+  ];
+
+  if (creditNote.tva_amount > 0) {
+    entries.push({
+      journal: "AC",
+      compte: accounts.recoverableTvaAccount,
+      compte_label: getAccountLabel(accounts.recoverableTvaAccount),
+      debit: 0,
+      credit: creditNote.tva_amount,
+      libelle: `TVA récupérable annulée — ${piece}`,
+      source_type: "supplier_credit_note",
+      source_id: creditNote.id,
+      date_ecriture: creditNote.date,
+      numero_piece: piece,
+    });
+  }
+
+  validateBalance(entries);
+  await insertEntries(supabase, entries, companyId, dossierId, options);
 }
 
 // ── bookBankTransaction ───────────────────────────────────────────────────────

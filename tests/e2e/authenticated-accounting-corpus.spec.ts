@@ -142,10 +142,32 @@ test.describe("authenticated accounting corpus", () => {
     expect(money(receipt.ocr_data.amount_ttc)).toBe(verifiedSupplierInvoice.amountTtc);
     expect(money(receipt.ocr_data.tva_rate)).toBe(verifiedSupplierInvoice.vatRate);
 
-    const bookingRequest = () => page.request.post("/api/accounting/book", { data: { type: "purchase", receiptId } });
+    const prematureBooking = await page.request.post("/api/accounting/book", { data: { type: "purchase", receiptId } });
+    expect(prematureBooking.status()).toBe(400);
+    const confirmedOcr = {
+      ...receipt.ocr_data,
+      document_type: "invoice",
+      is_supplier_invoice: true,
+      compte: "6111",
+      amount: verifiedSupplierInvoice.amountTtc,
+      amount_ttc: verifiedSupplierInvoice.amountTtc,
+      amount_ht: verifiedSupplierInvoice.amountHt,
+      tva_amount: verifiedSupplierInvoice.vatAmount,
+      tva_rate: verifiedSupplierInvoice.vatRate,
+      commercial_discount_amount: 0,
+      settlement_discount_amount: 0,
+    };
+    const bookingRequest = () => page.request.post("/api/accounting/book", { data: { type: "purchase", receiptId, confirmedOcr } });
     const [firstBooking, retryBooking] = await Promise.all([bookingRequest(), bookingRequest()]);
     expect(firstBooking.status(), await firstBooking.text()).toBe(200);
     expect(retryBooking.status(), await retryBooking.text()).toBe(200);
+
+    const { data: confirmedReceipt } = await admin.from("receipts")
+      .select("status,ocr_data")
+      .eq("id", receiptId)
+      .single();
+    expect(confirmedReceipt?.status).toBe("matched");
+    expect(confirmedReceipt?.ocr_data?.compte).toBe("6111");
 
     const { data: entries, error: entriesError } = await admin
       .from("ecritures_comptables")

@@ -23,7 +23,6 @@ import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
 import { cgncAccounts, expenseNoteCategoryToCompte } from "@/lib/cgnc-accounts";
 import { computePurchaseAmounts } from "@/lib/purchase-booking";
-import { purchaseCommercialDiscountAccount } from "@/lib/invoice-discounts";
 import { isValidAccountingAccountCode, normalizeAccountingSettings } from "@/lib/accounting-settings";
 import { TRANSACTION_CATEGORIES } from "@/lib/utils";
 import type { OcrData, Receipt, ReceiptStatus } from "@/types";
@@ -272,7 +271,10 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
     const confirmedOcr: OcrData = {
       ...confirming.ocr_data,
       amount: -Math.abs(amount),
+      amount_ttc: amounts.totalTtc,
+      amount_ht: amounts.grossHt,
       type: "expense" as const,
+      document_type: confirming.ocr_data.document_type ?? "receipt",
       date: confirmationForm.date,
       description: confirmationForm.description,
       category: confirmationForm.category,
@@ -286,40 +288,16 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       is_supplier_invoice: confirming.ocr_data.is_supplier_invoice ?? true,
     };
 
-    const { error: updateError } = await supabase
-      .from("receipts")
-      .update({ ocr_data: confirmedOcr })
-      .eq("id", confirming.id);
-    if (updateError) {
-      toast.error("Impossible d’enregistrer les données de la note de frais.");
-      setBooking(false);
-      return;
-    }
-
     const bookingResponse = await fetch("/api/accounting/book", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "purchase", receiptId: confirming.id, dossierId }),
+      body: JSON.stringify({ type: "purchase", receiptId: confirming.id, dossierId, confirmedOcr }),
     });
     const bookingResult = await bookingResponse.json().catch(() => ({}));
     if (!bookingResponse.ok) {
       toast.error(bookingResult.message ?? bookingResult.error ?? "La comptabilisation a échoué.");
       setBooking(false);
       return;
-    }
-
-    const statusResponse = await fetch(`/api/receipts/${confirming.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "matched" }),
-    });
-    if (!statusResponse.ok) {
-      toast.error("L’écriture est créée, mais le statut de la note de frais n’a pas été mis à jour.");
-      setBooking(false);
-      return;
-    }
-    if (dossierId) {
-      await supabase.from("dossiers").update({ derniere_ecriture: new Date().toISOString() }).eq("id", dossierId);
     }
 
     setReceipts((current) => current.map((receipt) => receipt.id === confirming.id
@@ -359,12 +337,6 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
   const confirmationAccountLabel = confirmationForm
     ? cgncAccounts.find((account) => account.code === confirmationForm.account)?.label ?? "Compte de charge"
     : "";
-  const confirmationCommercialDiscountAccount = confirmationForm ? purchaseCommercialDiscountAccount(
-    confirmationForm.account,
-    accountingSettings.purchaseDiscountAccount,
-    accountingSettings.purchaseConsumedDiscountAccount,
-    accountingSettings.purchaseExternalDiscountAccount,
-  ) : accountingSettings.purchaseDiscountAccount;
   const expenseCategories = Array.from(new Set([
     ...TRANSACTION_CATEGORIES.expense,
     ...Object.keys(accountingSettings.expenseCategoryAccounts).filter(category => category !== "__default"),
@@ -626,14 +598,6 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
                         <td className="px-4 py-2.5 text-[#4B5563]">État TVA récupérable</td>
                         <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.tvaAmount)}</td>
                         <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
-                      </tr>
-                    )}
-                    {confirmationAmounts.commercialDiscountAmount > 0 && (
-                      <tr>
-                        <td className="px-4 py-2.5 font-mono font-semibold text-[#C8924A]">{confirmationCommercialDiscountAccount}</td>
-                        <td className="px-4 py-2.5 text-[#4B5563]">Réduction commerciale obtenue</td>
-                        <td className="px-4 py-2.5 text-right text-[#9CA3AF]">—</td>
-                        <td className="px-4 py-2.5 text-right font-semibold">{formatAmount(confirmationAmounts.commercialDiscountAmount)}</td>
                       </tr>
                     )}
                     {confirmationAmounts.settlementDiscountAmount > 0 && (
