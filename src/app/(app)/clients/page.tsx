@@ -7,7 +7,6 @@ import Link from "next/link";
 import { Users, Plus, FileText, Upload, Download, X, Loader2, CheckCircle, AlertCircle, Info, ArrowDown, ArrowUp, Search, LayoutGrid, Rows3 } from "lucide-react";
 import type { Client } from "@/types";
 import ClientModal from "./ClientModal";
-import * as XLSX from "xlsx";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { compareValues, nextSort, type SortDirection } from "@/components/SortableTh";
 
@@ -85,7 +84,8 @@ const SAMPLE_ROWS = [
   ["Entreprise Test SA",   "info@test.ma",       "0522000000", "Bd Zerktouni 45",    "Rabat",      "10000", "",                "",         ""],
 ];
 
-function downloadSample() {
+async function downloadSample() {
+  const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([SAMPLE_COLUMNS, ...SAMPLE_ROWS]);
   ws["!cols"] = SAMPLE_COLUMNS.map((_, i) => ({ wch: [30, 28, 15, 30, 15, 12, 18, 14, 25][i] }));
@@ -99,8 +99,9 @@ interface ImportResult { added: number; skipped: number; errors: string[] }
 function parseExcel(file: File): Promise<ImportRow[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
+        const XLSX = await import("xlsx");
         const wb = XLSX.read(e.target!.result, { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }) as string[][];

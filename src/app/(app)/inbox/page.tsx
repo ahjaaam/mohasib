@@ -418,13 +418,15 @@ export default function InboxPage({
     const resolvedAccountingSettings = normalizeAccountingSettings(settingsRow?.accounting_settings);
     setAccountingSettings(resolvedAccountingSettings);
     const list: Receipt[] = data ?? [];
-    const withUrls: ReceiptWithUrl[] = await Promise.all(list.map(async (r) => {
-      let signedUrl: string | undefined;
-      if (r.storage_path) {
-        const { data: urlData } = await supabase.storage
-          .from("receipts").createSignedUrl(r.storage_path, 60 * 60);
-        signedUrl = urlData?.signedUrl ?? undefined;
-      }
+    const storagePaths = [...new Set(list.flatMap((receipt) => receipt.storage_path ? [receipt.storage_path] : []))];
+    const { data: signedUrlRows } = storagePaths.length
+      ? await supabase.storage.from("receipts").createSignedUrls(storagePaths, 60 * 60)
+      : { data: [] };
+    const signedUrls = new Map(
+      (signedUrlRows ?? []).flatMap((row) => row.path && row.signedUrl ? [[row.path, row.signedUrl] as const] : []),
+    );
+    const withUrls: ReceiptWithUrl[] = list.map((r) => {
+      const signedUrl = r.storage_path ? signedUrls.get(r.storage_path) : undefined;
       return {
         ...r,
         control_status: r.control_status ?? (r.status === "matched" ? "recorded" : "review"),
@@ -435,7 +437,7 @@ export default function InboxPage({
         ),
         signedUrl: sessionLocalUrls[r.id] ?? signedUrl,
       };
-    }));
+    });
     setReceipts(withUrls);
     setForms((prev) => {
       const next = { ...prev };

@@ -1,9 +1,10 @@
 import "server-only";
+import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_PLAN_LIMITS, FEATURE_COLUMNS, type PlanEntitlements, type PlanFeature } from "@/lib/plan-features";
 import { resolveTeamContext } from "@/lib/team";
 
-export async function getPlanEntitlements(userId: string): Promise<PlanEntitlements> {
+export const getPlanEntitlements = cache(async function getPlanEntitlements(userId: string): Promise<PlanEntitlements> {
   const context = await resolveTeamContext(userId);
   const plan = context?.plan ?? "starter";
   const fallback = DEFAULT_PLAN_LIMITS[plan] ?? DEFAULT_PLAN_LIMITS.starter;
@@ -16,7 +17,7 @@ export async function getPlanEntitlements(userId: string): Promise<PlanEntitleme
       .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString().slice(0, 10)}`).maybeSingle(),
   ]);
   return build(plan, { ...fallback, ...(limits ?? {}) }, override);
-}
+});
 
 function build(plan: string, limits: Record<string, any>, override: Record<string, any> | null): PlanEntitlements {
   const effective = (key: string) => override?.[key] ?? limits[key];

@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectivePermissions } from "@/lib/rbac";
 
@@ -12,7 +13,7 @@ export type TeamContext = {
   track: "business" | "comptable";
 };
 
-export async function resolveTeamContext(userId: string): Promise<TeamContext | null> {
+export const resolveTeamContext = cache(async function resolveTeamContext(userId: string): Promise<TeamContext | null> {
   const admin = createAdminClient();
 
   const { data: membership } = await admin
@@ -66,7 +67,7 @@ export async function resolveTeamContext(userId: string): Promise<TeamContext | 
     plan: company.plan ?? "trial",
     track,
   };
-}
+});
 
 export const ROLE_LABELS: Record<string, string> = {
   owner: "Propriétaire",
@@ -95,7 +96,7 @@ export async function resolveClientPortalRedirect(userId: string): Promise<strin
   return `/comptable-pro/dossiers/${dossierId}/tableau-de-bord`;
 }
 
-export async function getUserAccessProfile(userId: string) {
+export const getUserAccessProfile = cache(async function getUserAccessProfile(userId: string) {
   const admin = createAdminClient();
   const { data: membership } = await admin.from("user_memberships")
     .select("id,role_name,dossier_scope,status,access_scope")
@@ -138,4 +139,4 @@ export async function getUserAccessProfile(userId: string) {
     dossierScope: membership.dossier_scope as string[] | null,
     accessScope: membership.access_scope ?? "both",
   };
-}
+});
