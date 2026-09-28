@@ -327,7 +327,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             showBrand
             topBarTheme={sidebarTheme}
             workspaceLabel={pathname.startsWith("/comptable-pro") ? "Mon Cabinet" : businessWorkspaceLabel}
-            cabinetMenuItems={!freePlan && isFiduciaire && accessScope !== "business_only"
+            cabinetMenuItems={!freePlan
               ? [
                   {
                     href: "/tableau-de-bord",
@@ -335,12 +335,14 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                     icon: LayoutDashboard,
                     active: !pathname.startsWith("/comptable-pro"),
                   },
-                  ...cabinetCompanies.map((company) => ({
-                    href: `/comptable-pro/dossiers/${company.id}/tableau-de-bord`,
-                    label: company.name,
-                    icon: Building2,
-                    active: pathname.startsWith(`/comptable-pro/dossiers/${company.id}`),
-                  })),
+                  ...(isFiduciaire && accessScope !== "business_only"
+                    ? cabinetCompanies.map((company) => ({
+                        href: `/comptable-pro/dossiers/${company.id}/tableau-de-bord`,
+                        label: company.name,
+                        icon: Building2,
+                        active: pathname.startsWith(`/comptable-pro/dossiers/${company.id}`),
+                      }))
+                    : []),
                 ]
               : undefined}
             cabinetCreateHref={!freePlan && isFiduciaire && accessScope !== "business_only" && isOwner

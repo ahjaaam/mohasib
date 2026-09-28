@@ -355,7 +355,7 @@ export default function AppTopBar({
             )}
           </div>
         )}
-        {!guestMode && cabinetMenuItems.length > 0 && (
+        {!guestMode && (
           <GlobalPeriodSelector
             align="left"
             onOpen={() => {
@@ -555,17 +555,6 @@ export default function AppTopBar({
             }}
             onClose={() => setSupportOpen(false)}
           />
-        )}
-
-        {!guestMode && cabinetMenuItems.length === 0 && (
-          <GlobalPeriodSelector onOpen={() => {
-            setSearchOpen(false);
-            setCabinetMenuOpen(false);
-            setProfileOpen(false);
-            setChatOpen(false);
-            setNotificationsOpen(false);
-            setSupportOpen(false);
-          }} />
         )}
 
         {!invoicingOnly && <button
