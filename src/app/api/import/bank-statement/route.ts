@@ -6,6 +6,8 @@ import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 import { checkRateLimit, getClientIp, tooManyRequests } from "@/lib/rate-limit";
 import { authorizePermission } from "@/lib/api-permissions";
 import { requirePlanFeature } from "@/lib/api-plan";
+import { classifyDocumentBeforeOcr } from "@/lib/ocr-engine";
+import { isVerifiedBankStatement } from "@/lib/bank-statement-verification";
 import { BANK_STATEMENT_PDF_MAX_PAGES, countBankStatementPdfPages } from "@/lib/bank-import-limits";
 import {
   BANK_STATEMENT_PDF_CHUNK_PAGES,
@@ -25,6 +27,7 @@ import {
 
 const IMPORT_LIMIT = 20;
 const IMPORT_OPTS = { maxAttempts: IMPORT_LIMIT, windowMs: 5 * 60_000, blockMs: 10 * 60_000 };
+const NOT_BANK_STATEMENT_ERROR = "Le document n’a pas pu être confirmé comme relevé bancaire. Vérifiez le fichier ou classez-le dans la bonne section.";
 
 export const maxDuration = 300;
 
@@ -286,8 +289,7 @@ async function extractPdfChunk(
   }
 }
 
-async function extractPdfInChunks(bytes: Uint8Array, bank?: string) {
-  const chunks = await splitBankStatementPdf(bytes, BANK_STATEMENT_PDF_CHUNK_PAGES);
+async function extractPdfInChunks(chunks: BankStatementPdfChunk[], bank?: string) {
   const results = await mapWithConcurrency(
     chunks,
     BANK_STATEMENT_PDF_CONCURRENCY,
@@ -405,7 +407,18 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const result = await extractPdfInChunks(bytes, bank);
+      // Verify every page group before transaction extraction, including later attachments.
+      const chunks = await splitBankStatementPdf(bytes, BANK_STATEMENT_PDF_CHUNK_PAGES);
+      const classifications = await mapWithConcurrency(
+        chunks,
+        BANK_STATEMENT_PDF_CONCURRENCY,
+        chunk => classifyDocumentBeforeOcr(Buffer.from(chunk.bytes), "application/pdf"),
+      );
+      if (classifications.some(classification => !isVerifiedBankStatement(classification))) {
+        return NextResponse.json({ error: NOT_BANK_STATEMENT_ERROR, code: "not_bank_statement" }, { status: 422 });
+      }
+
+      const result = await extractPdfInChunks(chunks, bank);
       // Chunks never overlap, so retain identical-looking rows: two legitimate
       // bank operations can have the same date, amount, description, and reference.
       const transactions = normalizeTxs(result.transactions);
@@ -475,6 +488,10 @@ export async function POST(req: NextRequest) {
     } else {
       csvText = await file.text();
     }
+    const classification = await classifyDocumentBeforeOcr(Buffer.from(csvText, "utf8"), "text/csv");
+    if (!isVerifiedBankStatement(classification)) {
+      return NextResponse.json({ error: NOT_BANK_STATEMENT_ERROR, code: "not_bank_statement" }, { status: 422 });
+    }
     baseMessages = [{
       role: "user",
       content: `${EXTRACTION_PROMPT}\n\nCSV content:\n\`\`\`\n${csvText}\n\`\`\``,
@@ -482,6 +499,10 @@ export async function POST(req: NextRequest) {
   } else {
     // Image — still needs vision
     const bytes = await file.arrayBuffer();
+    const classification = await classifyDocumentBeforeOcr(Buffer.from(bytes), file.type);
+    if (!isVerifiedBankStatement(classification)) {
+      return NextResponse.json({ error: NOT_BANK_STATEMENT_ERROR, code: "not_bank_statement" }, { status: 422 });
+    }
     const base64 = Buffer.from(bytes).toString("base64");
     const mimeType = (file.type === "image/jpg" ? "image/jpeg" : file.type) as
       "image/jpeg" | "image/png" | "image/webp";

@@ -162,11 +162,14 @@ export default function ReceiptsManager({ dossierId }: { dossierId?: string } = 
       try {
         const body = new FormData();
         body.append("file", file);
-        body.append("document_area", "supporting_document");
         if (dossierId) body.append("dossier_id", dossierId);
-        const response = await fetch("/api/ocr", { method: "POST", body });
+        const response = await fetch("/api/ocr/expense-notes", { method: "POST", body });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.message ?? result.error ?? "Import impossible");
+        if (result.quarantined) {
+          toast(result.message ?? "Document placé dans Documents à classer.", { icon: "🗂️" });
+          continue;
+        }
         imported += 1;
       } catch (error) {
         toast.error(`${file.name} : ${error instanceof Error ? error.message : "Import impossible"}`);

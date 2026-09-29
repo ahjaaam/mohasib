@@ -1,3 +1,5 @@
+import type { DocumentType } from "@/lib/document-classification";
+
 export interface User {
   id: string;
   full_name: string | null;
@@ -123,9 +125,14 @@ export interface AvoirFournisseur {
 }
 
 export type ReceiptStatus = "pending" | "matched" | "ignored";
-export type ReceiptDocumentArea = "purchase" | "supporting_document" | "legacy";
+export type ReceiptDocumentArea = "purchase" | "supporting_document" | "unclassified";
 
 export interface OcrData {
+  ocr_section?: "purchases" | "expense_notes" | "unclassified";
+  classification_confidence?: "high" | "medium" | "low";
+  classification_reason?: string | null;
+  classification_source?: "automatic" | "user";
+  requested_section?: "purchases" | "expense_notes";
   date?: string | null;
   amount?: number | null;       // signed: negative = expense
   currency?: string | null;
@@ -144,7 +151,7 @@ export interface OcrData {
   due_date?: string | null;
   due_date_confidence?: string | null;
   is_supplier_invoice?: boolean | null;
-  document_type?: "invoice" | "receipt" | "purchase_order" | "delivery_note" | "avoir" | "bank_statement" | "other" | null;
+  document_type?: DocumentType | null;
   montant_paye?: number | null;
   payment_status?: string | null;
   amount_ht?: number | null;

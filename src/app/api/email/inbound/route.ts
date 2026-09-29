@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 import crypto from "node:crypto";
 import { simpleParser } from "mailparser";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { extractWithFallback } from "@/lib/ocr-engine";
+import { classifyDocumentBeforeOcr, extractWithFallback, isAmbiguousReceiptType } from "@/lib/ocr-engine";
+import { validateOcrSection } from "@/lib/ocr-sections";
 import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -168,7 +169,7 @@ export async function POST(request: Request) {
         continue;
       }
 
-      const storagePath = `${dossier.fiduciaire_user_id}/${dossier.id}/email-${Date.now()}-${crypto.randomUUID()}.${ext}`;
+      let storagePath = `${dossier.fiduciaire_user_id}/unclassified/${dossier.id}/email-${Date.now()}-${crypto.randomUUID()}.${ext}`;
 
       const { error: uploadErr } = await supabase.storage
         .from("receipts")
@@ -182,20 +183,47 @@ export async function POST(request: Request) {
 
       // OCR extraction
       let ocrData: Record<string, unknown> = {};
-      try {
-        ocrData = await extractWithFallback(fileBuffer, mime);
-        if (typeof ocrData.amount === "number") {
-          ocrData.type = ocrData.amount >= 0 ? "income" : "expense";
+      const classification = await classifyDocumentBeforeOcr(fileBuffer, mime);
+      if (classification.section === "purchases") {
+        try {
+          ocrData = await extractWithFallback(fileBuffer, mime);
+          if (typeof ocrData.amount === "number") {
+            ocrData.type = ocrData.amount >= 0 ? "income" : "expense";
+          }
+        } catch {
+          // The independent classifier still prevents cross-section placement.
         }
-      } catch {
-        // OCR failed — user fills manually
       }
+      const sectionMismatch = validateOcrSection("purchases", ocrData);
+      let belongsToPurchases = classification.section === "purchases"
+        && !sectionMismatch
+        && !isAmbiguousReceiptType(ocrData.document_type);
+      ocrData.document_type ??= classification.documentType;
+      if (isAmbiguousReceiptType(ocrData.document_type)) ocrData.document_type = "receipt";
+      ocrData.classification_confidence = belongsToPurchases ? classification.confidence : "low";
+      ocrData.classification_reason = isAmbiguousReceiptType(ocrData.document_type)
+        ? "Un reçu seul ne permet pas de distinguer un achat d’une note de frais."
+        : classification.reason;
+      ocrData.classification_source = "automatic";
 
       // Attach email metadata
+      ocrData.ocr_section = belongsToPurchases ? "purchases" : "unclassified";
       ocrData.email_import_id = dedupeId;
       ocrData.email_from = safeFrom;
       ocrData.email_subject = safeSubject;
       ocrData.email_provider = "inbound";
+
+      if (belongsToPurchases) {
+        const purchasePath = `${dossier.fiduciaire_user_id}/purchases/${dossier.id}/email-${Date.now()}-${crypto.randomUUID()}.${ext}`;
+        const { error: moveError } = await supabase.storage.from("receipts").move(storagePath, purchasePath);
+        if (moveError) {
+          belongsToPurchases = false;
+          ocrData.ocr_section = "unclassified";
+          ocrData.classification_reason = "Le document a été reconnu, mais son classement automatique n’a pas pu être finalisé.";
+        } else {
+          storagePath = purchasePath;
+        }
+      }
 
       // Fall back to sender display name if OCR didn't find a vendor
       if (!ocrData.vendor_name) {
@@ -210,7 +238,7 @@ export async function POST(request: Request) {
         file_name: originalName,
         mime_type: mime,
         status: "pending",
-        document_area: "purchase",
+        document_area: belongsToPurchases ? "purchase" : "unclassified",
         email_message_id: dedupeId,
         ocr_data: ocrData,
       });

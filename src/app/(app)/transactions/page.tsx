@@ -19,6 +19,7 @@ import { buildFinanceChartData } from "@/lib/finance-chart";
 import { periodForPreset } from "@/lib/global-period";
 import { BANK_STATEMENT_PDF_MAX_PAGES } from "@/lib/bank-import-limits";
 import { isValidAccountingAccountCode, normalizeAccountingSettings } from "@/lib/accounting-settings";
+import { takePendingBankStatement } from "@/lib/pending-bank-statement";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
@@ -45,6 +46,7 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [error, setError] = useState<string | null>(null);
   const [addTransactionOpen, setAddTransactionOpen] = useState(requestedAction === "expense");
   const [bankImportOpen, setBankImportOpen] = useState(false);
+  const [bankImportInitialFile, setBankImportInitialFile] = useState<File | null>(null);
   const [allocationTransaction, setAllocationTransaction] = useState<Transaction | null>(null);
   const [allocationCounts, setAllocationCounts] = useState<Record<string, number>>({});
   const [bookedTransactionIds, setBookedTransactionIds] = useState<Set<string>>(new Set());
@@ -73,6 +75,22 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
 
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
   const supabase = createClient();
+
+  useEffect(() => {
+    const token = searchParams.get("token");
+    if (searchParams.get("upload") !== "bank-statement" || !token) return;
+    const timeout = window.setTimeout(() => {
+      const pendingFile = takePendingBankStatement(token);
+      if (!pendingFile) return;
+      setBankImportInitialFile(pendingFile);
+      setBankImportOpen(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("upload");
+      url.searchParams.delete("token");
+      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [searchParams]);
 
   const [form, setForm] = useState({
     date: today,
@@ -318,10 +336,15 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     <div>
       {entitlements.features.bank_import && <BankImportModal
         open={bankImportOpen}
-        onClose={() => setBankImportOpen(false)}
+        onClose={() => {
+          setBankImportOpen(false);
+          setBankImportInitialFile(null);
+        }}
         userId={userId}
         dossierId={dossierId}
         onImported={load}
+        initialFile={bankImportInitialFile}
+        autoAnalyzeInitialFile={Boolean(bankImportInitialFile)}
       />}
       {allocationTransaction && (
         <AllocateTransactionModal

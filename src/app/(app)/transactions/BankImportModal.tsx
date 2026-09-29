@@ -26,6 +26,8 @@ interface Props {
   userId: string;
   dossierId?: string | null;
   onImported: () => void;
+  initialFile?: File | null;
+  autoAnalyzeInitialFile?: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -147,7 +149,7 @@ function StepIndicator({ step }: { step: number }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function BankImportModal({ open, onClose, userId, dossierId, onImported }: Props) {
+export default function BankImportModal({ open, onClose, userId, dossierId, onImported, initialFile = null, autoAnalyzeInitialFile = false }: Props) {
   const supabase = createClient();
 
   // Flow state
@@ -196,6 +198,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const analysisAbortRef = useRef<AbortController | null>(null);
+  const autoAnalyzeStartedRef = useRef(false);
 
   useEffect(() => {
     if (!file) {
@@ -221,6 +224,7 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       analysisAbortRef.current?.abort();
       analysisAbortRef.current = null;
       setTimeout(() => {
+        autoAnalyzeStartedRef.current = false;
         setStep(1); setFile(null); setBank(""); setApiError(null);
         setAnalysisStartedAt(null); setElapsedSeconds(0); setTransactions([]); setPeriod(null); setAnalysisUsage(null);
         setFilter("all"); setSearch(""); setEditingId(null);
@@ -273,6 +277,10 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
       setValidating(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (open && initialFile) void handleFile(initialFile);
+  }, [handleFile, initialFile, open]);
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -377,6 +385,12 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
     setMobileReviewPane("document");
     setStep(3);
   }
+
+  useEffect(() => {
+    if (!open || !autoAnalyzeInitialFile || !initialFile || file !== initialFile || !fileValidation?.valid || validating || step !== 1 || autoAnalyzeStartedRef.current) return;
+    autoAnalyzeStartedRef.current = true;
+    void analyze();
+  }, [autoAnalyzeInitialFile, file, fileValidation, initialFile, open, step, validating]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Review helpers ─────────────────────────────────────────────────────────
 

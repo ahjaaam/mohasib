@@ -22,6 +22,11 @@ describe("shouldBookConfirmedPurchase", () => {
       is_supplier_invoice: false,
     })).toBe(false);
   });
+
+  it.each(["bank_statement", "other", "unknown", "made_up", undefined])(
+    "does not book an unrecognized or quarantined type: %s",
+    documentType => expect(shouldBookConfirmedPurchase({ document_type: documentType, is_supplier_invoice: true })).toBe(false),
+  );
 });
 
 describe("computePurchaseAmounts", () => {

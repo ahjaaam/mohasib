@@ -20,6 +20,7 @@ import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
+import { normalizeDocumentType } from "@/lib/document-classification";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -454,6 +455,15 @@ export default function InboxPage({
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
+    const handler = (event: Event) => {
+      const section = (event as CustomEvent<{ section?: string }>).detail?.section;
+      if (section === (isExpenseNotes ? "expense_notes" : "purchases")) void load();
+    };
+    document.addEventListener("mohasib:document-uploaded", handler);
+    return () => document.removeEventListener("mohasib:document-uploaded", handler);
+  }, [isExpenseNotes, load]);
+
+  useEffect(() => {
     const requestedSearch = new URLSearchParams(window.location.search).get("search");
     if (requestedSearch) setInvoiceSearch(requestedSearch);
   }, []);
@@ -507,13 +517,17 @@ export default function InboxPage({
         setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "processing" } : f));
         const fd = new FormData();
         fd.append("file", file);
-        fd.append("document_area", isExpenseNotes ? "supporting_document" : "purchase");
         if (dossierId) fd.append("dossier_id", dossierId);
-        const res = await fetch("/api/ocr", { method: "POST", body: fd });
+        const endpoint = isExpenseNotes ? "/api/ocr/expense-notes" : "/api/ocr/purchases";
+        const res = await fetch(endpoint, { method: "POST", body: fd });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Erreur");
+        if (json.quarantined) {
+          URL.revokeObjectURL(objectUrl);
+          toast(json.message ?? "Document placé dans Documents à classer.", { icon: "🗂️" });
+        }
         if (json.receipt?.id) {
-          sessionLocalUrls[json.receipt.id] = objectUrl;
+          if (!json.quarantined) sessionLocalUrls[json.receipt.id] = objectUrl;
         }
         setUploadingFiles((prev) => prev.map((f) => f.tempId === tempId ? { ...f, state: "done" } : f));
         await load();
@@ -733,6 +747,13 @@ export default function InboxPage({
       settlement_discount_amount: confirmedAmounts.settlementDiscountAmount,
       compte: form.compte_comptable || (receipt.ocr_data as any).compte || null,
     };
+    const confirmedDocumentType = normalizeDocumentType(confirmedOcr.document_type);
+    if (confirmedDocumentType === "unknown" || confirmedDocumentType === "other" || confirmedDocumentType === "bank_statement") {
+      toast.error("Ce document doit rester dans Documents à classer tant que son type n’est pas confirmé.");
+      setSaving((current) => { const next = new Set(current); next.delete(id); return next; });
+      return;
+    }
+    confirmedOcr.document_type = confirmedDocumentType;
     const shouldBookPurchase = isExpenseNotes || shouldBookConfirmedPurchase(confirmedOcr);
     if (shouldBookPurchase) {
       const criticalChecks = evaluateInvoiceControls(

@@ -2,12 +2,13 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decodeTokenPayload, encodeTokenPayload, type EmailProvider } from "@/lib/email-oauth";
-import { extractWithFallback } from "@/lib/ocr-engine";
+import { classifyDocumentBeforeOcr, extractWithFallback, isAmbiguousReceiptType } from "@/lib/ocr-engine";
 import { getMonthlyUsage, incrementUploadCount } from "@/lib/usage";
 import {
   shouldImportEmailDocument,
   type EmailImportMode,
 } from "@/lib/email-document-filter";
+import { normalizeDocumentType, type DocumentType } from "@/lib/document-classification";
 
 type OAuthToken = {
   access_token?: string;
@@ -64,6 +65,69 @@ function normalizedMimeType(fileName: string, mimeType: string) {
 
 function isSupportedAttachment(fileName: string, mimeType: string) {
   return ALLOWED_MIME_TYPES.has(normalizedMimeType(fileName, mimeType));
+}
+
+async function storeUnclassifiedEmailDocument(input: {
+  admin: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  dossierId?: string;
+  companyId?: string;
+  provider: EmailProvider;
+  attachment: EmailAttachment;
+  dedupeId: string;
+  mode: EmailImportMode;
+  extractedData?: Record<string, unknown>;
+  documentType: DocumentType;
+  reason: string | null;
+}): Promise<{ status: "imported" | "skipped" | "failed"; error?: string }> {
+  const { admin, ownerId, dossierId, companyId, provider, attachment, dedupeId, mode, extractedData, documentType, reason } = input;
+  const extension = attachment.fileName.split(".").pop()?.toLowerCase()
+    || (attachment.mimeType === "application/pdf" ? "pdf" : "jpg");
+  const dossierFolder = dossierId ? `${dossierId}/` : "";
+  const storagePath = `${ownerId}/unclassified/${dossierFolder}email/${provider}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const { error: uploadError } = await admin.storage.from("receipts")
+    .upload(storagePath, attachment.content, { contentType: attachment.mimeType, upsert: false });
+  if (uploadError) return { status: "failed", error: `Stockage ${attachment.fileName}: ${uploadError.message}` };
+
+  const { error: insertError } = await admin.from("receipts").insert({
+    user_id: ownerId,
+    ...(dossierId ? { dossier_id: dossierId } : {}),
+    storage_path: storagePath,
+    file_name: attachment.fileName,
+    mime_type: attachment.mimeType,
+    status: "pending",
+    document_area: "unclassified",
+    email_message_id: dedupeId,
+    ocr_data: {
+      ...extractedData,
+      document_type: documentType,
+      is_supplier_invoice: null,
+      ocr_section: "unclassified",
+      classification_confidence: "low",
+      classification_reason: reason,
+      classification_source: "automatic",
+      requested_section: mode === "receipts_only" ? "expense_notes" : "purchases",
+      email_import_id: dedupeId,
+      email_provider: provider,
+      email_from: attachment.sender,
+      email_subject: attachment.subject,
+      email_received_at: attachment.receivedAt,
+    },
+  });
+  if (insertError) {
+    await admin.storage.from("receipts").remove([storagePath]);
+    return insertError.code === "23505"
+      ? { status: "skipped" }
+      : { status: "failed", error: `Enregistrement ${attachment.fileName}: ${insertError.message}` };
+  }
+  if (companyId) {
+    await incrementUploadCount(companyId, ownerId, {
+      fileName: attachment.fileName,
+      fileType: attachment.mimeType,
+      source: `email_${provider}`,
+    });
+  }
+  return { status: "imported" };
 }
 
 function tokenExpired(token: OAuthToken) {
@@ -305,23 +369,56 @@ export async function syncCompanyEmail(
       continue;
     }
 
+    const quarantineDocument = async (documentType: DocumentType, reason: string | null, extractedData?: Record<string, unknown>) => {
+      const result = await storeUnclassifiedEmailDocument({
+        admin, ownerId: company.user_id, companyId, provider, attachment, dedupeId, mode,
+        extractedData, documentType, reason,
+      });
+      if (result.status === "imported") imported++;
+      else if (result.status === "skipped") skipped++;
+      else {
+        failed++;
+        if (result.error) errors.push(result.error);
+      }
+    };
     let ocrData: Record<string, unknown> = {};
+    const classification = await classifyDocumentBeforeOcr(attachment.content, attachment.mimeType);
+    if (classification.section === "unclassified") {
+      await quarantineDocument(classification.documentType, classification.reason);
+      continue;
+    }
+    const expectedSection = mode === "receipts_only" ? "expense_notes" : "purchases";
+    if (classification.section !== expectedSection) {
+      skipped++;
+      continue;
+    }
     try {
-      ocrData = await extractWithFallback(attachment.content, attachment.mimeType);
+      ocrData = await extractWithFallback(
+        attachment.content,
+        attachment.mimeType,
+        mode === "receipts_only" ? "expense_note" : "supplier_invoice",
+      );
       if (typeof ocrData.amount === "number") ocrData.type = ocrData.amount >= 0 ? "income" : "expense";
     } catch {
-      // Filename/subject classification below can still identify an invoice.
+      // The independent content classifier remains authoritative.
     }
-    if (!shouldImportEmailDocument(ocrData, mode, {
-      fileName: attachment.fileName,
-      subject: attachment.subject,
-    })) {
-      skipped++;
+    if (isAmbiguousReceiptType(ocrData.document_type)) {
+      await quarantineDocument(
+        "receipt",
+        "Un reçu seul ne permet pas de distinguer un achat d’une note de frais.",
+        ocrData,
+      );
+      continue;
+    }
+    if (!shouldImportEmailDocument(ocrData, mode)) {
+      const extractedType = normalizeDocumentType(ocrData.document_type);
+      await quarantineDocument(extractedType, "Le type extrait ne correspond pas à la section attendue.", ocrData);
       continue;
     }
 
     const extension = attachment.fileName.split(".").pop()?.toLowerCase() || (attachment.mimeType === "application/pdf" ? "pdf" : "jpg");
-    const storagePath = `${company.user_id}/email/${provider}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const sectionFolder = mode === "receipts_only" ? "expense-notes" : "purchases";
+    const storagePath = `${company.user_id}/${sectionFolder}/email/${provider}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await admin.storage
       .from("receipts")
       .upload(storagePath, attachment.content, { contentType: attachment.mimeType, upsert: false });
@@ -332,6 +429,7 @@ export async function syncCompanyEmail(
     }
 
     Object.assign(ocrData, {
+      ocr_section: mode === "receipts_only" ? "expense_notes" : "purchases",
       email_import_id: dedupeId,
       email_provider: provider,
       email_from: attachment.sender,
@@ -345,6 +443,7 @@ export async function syncCompanyEmail(
       file_name: attachment.fileName,
       mime_type: attachment.mimeType,
       status: "pending",
+      document_area: mode === "receipts_only" ? "supporting_document" : "purchase",
       email_message_id: dedupeId,
       ocr_data: ocrData,
     });
@@ -452,23 +551,56 @@ export async function syncDossierEmail(
       continue;
     }
 
+    const quarantineDocument = async (documentType: DocumentType, reason: string | null, extractedData?: Record<string, unknown>) => {
+      const result = await storeUnclassifiedEmailDocument({
+        admin, ownerId: dossier.fiduciaire_user_id, dossierId, companyId: company?.id,
+        provider, attachment, dedupeId, mode, extractedData, documentType, reason,
+      });
+      if (result.status === "imported") imported++;
+      else if (result.status === "skipped") skipped++;
+      else {
+        failed++;
+        if (result.error) errors.push(result.error);
+      }
+    };
     let ocrData: Record<string, unknown> = {};
+    const classification = await classifyDocumentBeforeOcr(attachment.content, attachment.mimeType);
+    if (classification.section === "unclassified") {
+      await quarantineDocument(classification.documentType, classification.reason);
+      continue;
+    }
+    const expectedSection = mode === "receipts_only" ? "expense_notes" : "purchases";
+    if (classification.section !== expectedSection) {
+      skipped++;
+      continue;
+    }
     try {
-      ocrData = await extractWithFallback(attachment.content, attachment.mimeType);
+      ocrData = await extractWithFallback(
+        attachment.content,
+        attachment.mimeType,
+        mode === "receipts_only" ? "expense_note" : "supplier_invoice",
+      );
       if (typeof ocrData.amount === "number") ocrData.type = ocrData.amount >= 0 ? "income" : "expense";
     } catch {
-      // Filename/subject classification below can still identify an invoice.
+      // The independent content classifier remains authoritative.
     }
-    if (!shouldImportEmailDocument(ocrData, mode, {
-      fileName: attachment.fileName,
-      subject: attachment.subject,
-    })) {
-      skipped++;
+    if (isAmbiguousReceiptType(ocrData.document_type)) {
+      await quarantineDocument(
+        "receipt",
+        "Un reçu seul ne permet pas de distinguer un achat d’une note de frais.",
+        ocrData,
+      );
+      continue;
+    }
+    if (!shouldImportEmailDocument(ocrData, mode)) {
+      const extractedType = normalizeDocumentType(ocrData.document_type);
+      await quarantineDocument(extractedType, "Le type extrait ne correspond pas à la section attendue.", ocrData);
       continue;
     }
 
     const extension = attachment.fileName.split(".").pop()?.toLowerCase() || (attachment.mimeType === "application/pdf" ? "pdf" : "jpg");
-    const storagePath = `${dossier.fiduciaire_user_id}/email/${provider}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const sectionFolder = mode === "receipts_only" ? "expense-notes" : "purchases";
+    const storagePath = `${dossier.fiduciaire_user_id}/${sectionFolder}/email/${provider}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await admin.storage
       .from("receipts")
       .upload(storagePath, attachment.content, { contentType: attachment.mimeType, upsert: false });
@@ -479,6 +611,7 @@ export async function syncDossierEmail(
     }
 
     Object.assign(ocrData, {
+      ocr_section: mode === "receipts_only" ? "expense_notes" : "purchases",
       email_import_id: dedupeId,
       email_provider: provider,
       email_from: attachment.sender,
@@ -493,6 +626,7 @@ export async function syncDossierEmail(
       file_name: attachment.fileName,
       mime_type: attachment.mimeType,
       status: "pending",
+      document_area: mode === "receipts_only" ? "supporting_document" : "purchase",
       email_message_id: dedupeId,
       ocr_data: ocrData,
     });

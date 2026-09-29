@@ -1,3 +1,5 @@
+import { normalizeDocumentType, type DocumentType } from "./document-classification";
+
 export type InvoiceControlSeverity = "info" | "warning" | "critical";
 
 export type InvoiceControlCheck = {
@@ -9,7 +11,7 @@ export type InvoiceControlCheck = {
 };
 
 export type InvoiceControlData = {
-  document_type?: "invoice" | "receipt" | "purchase_order" | "delivery_note" | "avoir" | "bank_statement" | "other" | null;
+  document_type?: DocumentType | null;
   is_supplier_invoice?: boolean | null;
   vendor?: string | null;
   vendor_name?: string | null;
@@ -68,9 +70,8 @@ export function evaluateInvoiceControls(
   priorDocuments: PriorSupplierDocument[] = [],
 ): InvoiceControlCheck[] {
   const checks: InvoiceControlCheck[] = [];
-  const documentType = current.document_type ?? null;
-  const unsupportedDocumentType = documentType != null
-    && !["invoice", "receipt", "avoir"].includes(documentType);
+  const documentType = normalizeDocumentType(current.document_type);
+  const unsupportedDocumentType = !["invoice", "receipt", "avoir"].includes(documentType);
   const outgoingInvoice = documentType === "invoice" && current.is_supplier_invoice === false;
   const supplier = supplierName(current);
   const reference = invoiceReference(current);

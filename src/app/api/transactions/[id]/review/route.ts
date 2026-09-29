@@ -85,7 +85,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .maybeSingle();
       const inSameScope = receipt && receipt.dossier_id === transaction.dossier_id
         && (transaction.dossier_id != null || receipt.user_id === transaction.user_id);
-      if (!inSameScope || !receipt?.storage_path || !["purchase", "legacy"].includes(receipt.document_area)) {
+      if (!inSameScope || !receipt?.storage_path || receipt.document_area !== "purchase") {
         return NextResponse.json({ error: "Le justificatif fournisseur est absent ou invalide." }, { status: 400 });
       }
 

@@ -21,7 +21,7 @@ export default async function NewAvoirFournisseurPage() {
     .select("id, ocr_data, created_at")
     .eq("user_id", ownerId)
     .is("dossier_id", null)
-    .in("document_area", ["purchase", "legacy"])
+    .eq("document_area", "purchase")
     .eq("status", "matched")
     .order("created_at", { ascending: false })
     .limit(100);

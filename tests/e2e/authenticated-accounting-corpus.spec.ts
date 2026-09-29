@@ -114,7 +114,7 @@ test.describe("authenticated accounting corpus", () => {
     await login(page, requireEnvironment("MOHASIB_E2E_USER_EMAIL"), requireEnvironment("MOHASIB_E2E_USER_PASSWORD"));
     await page.goto("/inbox");
 
-    const ocrResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/ocr") && response.request().method() === "POST", { timeout: 150_000 });
+    const ocrResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/ocr/purchases") && response.request().method() === "POST", { timeout: 150_000 });
     await page.locator('input[type="file"][accept*="application/pdf"]').first().setInputFiles(sample(verifiedSupplierInvoice.path));
     const ocrResponse = await ocrResponsePromise;
     const payload = await ocrResponse.json();

@@ -8,7 +8,7 @@ import {
   LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeftRight, PenLine, Scale,
   Calculator, Download, UserRoundCog, FolderOpen, BarChart2,
   Inbox, Building2, GitMerge, Lock, Menu, CreditCard, LogOut,
-  ReceiptText, Landmark, ArrowLeft, Settings,
+  ReceiptText, Landmark, ArrowLeft, Settings, FileQuestion,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import AccessRestricted from "@/components/AccessRestricted";
@@ -34,6 +34,7 @@ const NAV_ITEMS = [
   { slug: "tableau-de-bord", icon: ChartNoAxesCombined, label: "Tableau de bord", permission: "report:read" },
   { slug: "achats", icon: Inbox, label: "Achats", permission: "document:read" },
   { slug: "notes-de-frais", icon: ReceiptText, label: "Notes de frais", permission: "document:read" },
+  { slug: "documents-a-classer", icon: FileQuestion, label: "Documents à classer", permission: "document:read" },
   { slug: "factures", icon: FileText, label: "Factures", permission: "invoice:read" },
   { slug: "suivi-paiements", icon: CreditCard, label: "Suivi des échéances", permission: "invoice:read" },
   { slug: "clients", icon: Users, label: "Clients", permission: "invoice:read" },

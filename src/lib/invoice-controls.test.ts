@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity } from "./invoice-controls";
 
 describe("evaluateInvoiceControls", () => {
+  it.each([undefined, null, "unknown"])("flags an unclassified document type: %s", documentType => {
+    const checks = evaluateInvoiceControls({
+      document_type: documentType as "unknown" | null | undefined,
+      vendor_name: "Atlas SARL",
+      date: "2026-08-01",
+      amount: 1200,
+    });
+    expect(checks).toContainEqual(expect.objectContaining({ code: "not_supplier_invoice", severity: "critical" }));
+  });
+
   it("flags a non-invoice document uploaded to purchases as an anomaly", () => {
     const checks = evaluateInvoiceControls({
       document_type: "delivery_note",
@@ -64,6 +74,7 @@ describe("evaluateInvoiceControls", () => {
 
   it("accepts a balanced invoice with a TTC discount", () => {
     const checks = evaluateInvoiceControls({
+      document_type: "invoice",
       vendor_name: "Géant Import et Export",
       receipt_number: "2026/15",
       date: "2026-01-19",
@@ -79,7 +90,7 @@ describe("evaluateInvoiceControls", () => {
 
   it("does not treat changed supplier banking details as an anomaly", () => {
     const checks = evaluateInvoiceControls(
-      { vendor_name: "Atlas", receipt_number: "2", date: "2026-08-02", amount: 100, supplier_iban: "MA64 NEW" },
+      { document_type: "invoice", vendor_name: "Atlas", receipt_number: "2", date: "2026-08-02", amount: 100, supplier_iban: "MA64 NEW" },
       [{ id: "previous", created_at: "2026-08-01", ocr_data: { vendor_name: "Atlas", receipt_number: "1", amount: 100, supplier_iban: "MA64 OLD" } }],
     );
     expect(highestInvoiceControlSeverity(checks)).toBe("info");

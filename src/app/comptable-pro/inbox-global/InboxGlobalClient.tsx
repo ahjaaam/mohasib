@@ -56,35 +56,71 @@ export default function InboxGlobalClient({ items: initial, dossiers }: Props) {
 
   async function assign(item: GlobalItem, dossierId: string, dossierName: string) {
     setSaving(item.id);
-    // 1. Create receipt in the dossier inbox
-    await supabase.from("receipts").insert({
-      user_id: ownerId,
-      dossier_id: dossierId,
-      status: "pending",
-      source: "email",
-      storage_path: item.file_url ?? null,
-      ocr_data: {
-        email_from: item.email_from,
-        email_subject: item.email_subject,
-        routing_method: "manual",
-      },
-    });
-    // 2. Mark global inbox item as assigned
-    await supabase
-      .from("inbox_global")
-      .update({ status: "assigned", assigned_dossier_id: dossierId, assigned_at: new Date().toISOString() })
-      .eq("id", item.id);
+    let receiptId: string | null = null;
 
-    setItems(prev => prev.map(i => i.id === item.id
-      ? { ...i, status: "assigned", assigned_dossier: { id: dossierId, raison_sociale: dossierName } }
-      : i,
-    ));
-    setSaving(null);
-    toast.success(`Assigné à ${dossierName}`);
+    try {
+      // Keep manually routed attachments neutral until their document type is confirmed.
+      // Emails without an attachment can be assigned without creating an empty document.
+      if (item.file_url) {
+        const { data: receipt, error: receiptError } = await supabase
+          .from("receipts")
+          .insert({
+            user_id: ownerId,
+            dossier_id: dossierId,
+            status: "pending",
+            document_area: "unclassified",
+            source: "email",
+            storage_path: item.file_url,
+            file_name: item.file_name,
+            mime_type: item.file_type,
+            ocr_data: {
+              ocr_section: "unclassified",
+              classification_confidence: "low",
+              classification_reason: "Pièce assignée manuellement depuis la boîte globale.",
+              email_from: item.email_from,
+              email_subject: item.email_subject,
+              routing_method: "manual",
+            },
+          })
+          .select("id")
+          .single();
 
-    // Offer to create routing rule for the sender
-    if (item.email_from) {
-      setLearnPrompt({ itemId: item.id, from: item.email_from, dossierName, dossierId });
+        if (receiptError || !receipt) {
+          throw new Error(receiptError?.message ?? "Le document n’a pas pu être créé.");
+        }
+        receiptId = receipt.id;
+      }
+
+      const { error: assignmentError } = await supabase
+        .from("inbox_global")
+        .update({ status: "assigned", assigned_dossier_id: dossierId, assigned_at: new Date().toISOString() })
+        .eq("id", item.id);
+
+      if (assignmentError) {
+        // Avoid leaving an orphaned document when the inbox assignment fails.
+        if (receiptId) await supabase.from("receipts").delete().eq("id", receiptId);
+        throw new Error(assignmentError.message);
+      }
+
+      setItems(prev => prev.map(i => i.id === item.id
+        ? { ...i, status: "assigned", assigned_dossier: { id: dossierId, raison_sociale: dossierName } }
+        : i,
+      ));
+      toast.success(
+        item.file_url
+          ? `Assigné à ${dossierName} — document à classer`
+          : `Assigné à ${dossierName}`,
+      );
+
+      // Offer to create routing rule for the sender.
+      if (item.email_from) {
+        setLearnPrompt({ itemId: item.id, from: item.email_from, dossierName, dossierId });
+      }
+    } catch (error) {
+      console.error("Global inbox assignment failed", error);
+      toast.error("L’assignation a échoué. Aucun document n’a été classé dans Achats.");
+    } finally {
+      setSaving(null);
     }
   }
 

@@ -23,6 +23,7 @@ import {
   Settings,
   Sparkles,
   Truck,
+  Upload,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +37,8 @@ import { appUrl } from "@/lib/public-urls";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import SidebarLogo from "@/components/SidebarLogo";
+import toast from "react-hot-toast";
+import { stagePendingBankStatement } from "@/lib/pending-bank-statement";
 
 export type TopBarSearchItem = {
   href: string;
@@ -108,11 +111,12 @@ export default function AppTopBar({
   onSignOut,
 }: Props) {
   const router = useRouter();
-  const { isOwner } = usePermissions();
+  const { can, isOwner } = usePermissions();
   const entitlements = usePlanEntitlements();
   const darkTopBar = topBarTheme === "dark";
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [cabinetMenuOpen, setCabinetMenuOpen] = useState(false);
@@ -120,6 +124,7 @@ export default function AppTopBar({
   const [chatOpen, setChatOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [documentUploading, setDocumentUploading] = useState(false);
   const [recordMatches, setRecordMatches] = useState<GlobalSearchResult[]>([]);
   const [recordSearchLoading, setRecordSearchLoading] = useState(false);
   const [recordSearchFailed, setRecordSearchFailed] = useState(false);
@@ -231,6 +236,71 @@ export default function AppTopBar({
     router.push(href);
   }
 
+  function destinationPath(slug: string) {
+    return dossierId ? `/comptable-pro/dossiers/${dossierId}/${slug}` : `/${slug}`;
+  }
+
+  async function uploadDocument(file: File) {
+    setDocumentUploading(true);
+    const toastId = toast.loading("Analyse du document…");
+
+    try {
+      const classifyForm = new FormData();
+      classifyForm.set("file", file);
+      const classifyResponse = await fetch("/api/ocr/classify", { method: "POST", body: classifyForm });
+      const classification = await classifyResponse.json().catch(() => ({}));
+      if (!classifyResponse.ok) throw new Error(classification.error || "Impossible d’analyser ce document.");
+
+      if (classification.section === "bank_statements") {
+        if (!can("accounting", "create")) {
+          throw new Error("Vous n’avez pas l’autorisation d’importer des transactions.");
+        }
+        if (!entitlements.features.bank_import) {
+          throw new Error("L’import de relevés bancaires n’est pas inclus dans votre offre.");
+        }
+        const token = stagePendingBankStatement(file);
+        toast.success("Relevé détecté — ouverture de l’import bancaire.", { id: toastId });
+        router.push(`${destinationPath("transactions")}?upload=bank-statement&token=${encodeURIComponent(token)}`);
+        return;
+      }
+
+      if (!can("document", "create")) {
+        throw new Error("Vous n’avez pas l’autorisation d’importer des documents.");
+      }
+
+      const targetSection = classification.section === "expense_notes" ? "expense_notes" : "purchases";
+      const uploadForm = new FormData();
+      uploadForm.set("file", file);
+      uploadForm.set("upload_source", "topbar");
+      if (dossierId) uploadForm.set("dossier_id", dossierId);
+      const uploadResponse = await fetch(
+        targetSection === "expense_notes" ? "/api/ocr/expense-notes" : "/api/ocr/purchases",
+        { method: "POST", body: uploadForm },
+      );
+      const result = await uploadResponse.json().catch(() => ({}));
+      if (!uploadResponse.ok) throw new Error(result.error || "Impossible d’importer ce document.");
+
+      if (result.quarantined) {
+        document.dispatchEvent(new CustomEvent("mohasib:document-uploaded", { detail: { section: "unclassified" } }));
+        toast.success("Document ajouté à Documents à classer.", { id: toastId });
+        router.push(destinationPath("documents-a-classer"));
+      } else if (targetSection === "expense_notes") {
+        document.dispatchEvent(new CustomEvent("mohasib:document-uploaded", { detail: { section: "expense_notes" } }));
+        toast.success("Justificatif ajouté aux Notes de frais.", { id: toastId });
+        router.push(destinationPath("notes-de-frais"));
+      } else {
+        document.dispatchEvent(new CustomEvent("mohasib:document-uploaded", { detail: { section: "purchases" } }));
+        toast.success("Facture fournisseur ajoutée aux Achats.", { id: toastId });
+        router.push(destinationPath("achats"));
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Impossible d’importer ce document.", { id: toastId, duration: 5000 });
+    } finally {
+      setDocumentUploading(false);
+      if (documentInputRef.current) documentInputRef.current.value = "";
+    }
+  }
+
   return (
     <>
       <header
@@ -248,7 +318,7 @@ export default function AppTopBar({
             className={`flex-shrink-0 items-center ${
               guestMode
                 ? "flex w-[120px]"
-                : `hidden sm:flex ${cabinetMenuItems.length > 0 ? "w-7" : "w-20"}`
+                : `hidden sm:flex md:-ml-2.5 ${cabinetMenuItems.length > 0 ? "w-7" : "w-20"}`
             }`}
             aria-label="Mohasib"
           >
@@ -526,6 +596,31 @@ export default function AppTopBar({
       </div>
 
       <div className="flex flex-shrink-0 items-center gap-1">
+        {userId && !guestMode && !invoicingOnly && (
+          <>
+            <input
+              ref={documentInputRef}
+              type="file"
+              accept=".pdf,.csv,.xls,.xlsx,image/jpeg,image/png,image/gif,image/webp"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadDocument(file);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => documentInputRef.current?.click()}
+              disabled={documentUploading}
+              className="ui-control relative flex h-10 w-10 items-center justify-center border border-transparent bg-[rgba(200,146,74,0.08)] text-[#777E8B] transition-colors hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)] hover:text-[#C8924A] disabled:cursor-wait disabled:opacity-70"
+              title="Importer un document"
+              aria-label={documentUploading ? "Analyse du document en cours" : "Importer un document"}
+            >
+              {documentUploading ? <Loader2 size={18} className="animate-spin text-[#C8924A]" /> : <Upload size={18} />}
+            </button>
+          </>
+        )}
+
         {userId && (
           <NotificationBell
             userId={userId}
@@ -571,7 +666,7 @@ export default function AppTopBar({
           aria-label="Ouvrir Mohasib Agent"
           aria-expanded={chatOpen}
           aria-controls="mohasib-chat-dock"
-          className={`hidden h-10 w-10 items-center justify-center border text-[#C8924A] transition-colors sm:flex ${
+          className={`hidden h-10 w-10 items-center justify-center border text-[#C8924A] transition-colors sm:flex md:-mr-[11px] ${
             chatOpen
               ? "border-[#C8924A] bg-[rgba(200,146,74,0.16)]"
               : "border-transparent bg-[rgba(200,146,74,0.08)] hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)]"

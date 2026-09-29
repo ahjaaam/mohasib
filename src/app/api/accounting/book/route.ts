@@ -18,6 +18,7 @@ import { computePurchaseAmounts } from "@/lib/purchase-booking";
 import { evaluateInvoiceControls } from "@/lib/invoice-controls";
 import { isValidAccountingAccountCode, type AccountingSettings } from "@/lib/accounting-settings";
 import { isInvoiceBookableStatus } from "@/lib/invoice-accounting-lifecycle";
+import { normalizeDocumentType } from "@/lib/document-classification";
 
 export async function POST(req: NextRequest) {
   try {
@@ -351,10 +352,13 @@ export async function POST(req: NextRequest) {
       if (!["not_requested", "approved"].includes(receipt.approval_status)) {
         return NextResponse.json({ error: "La validation du document est encore nécessaire." }, { status: 409 });
       }
-      if (!["invoice", "receipt"].includes(String(confirmedOcr.document_type ?? ""))
+      const confirmedDocumentType = normalizeDocumentType(confirmedOcr.document_type);
+      const storedDocumentType = normalizeDocumentType(receipt.ocr_data?.document_type);
+      if (!["purchase", "supporting_document"].includes(String(receipt.document_area ?? ""))
+        || !["invoice", "receipt"].includes(confirmedDocumentType)
         || (receipt.document_area !== "supporting_document" && confirmedOcr.is_supplier_invoice === false)
         || (receipt.document_area !== "supporting_document" && receipt.ocr_data?.is_supplier_invoice === false)
-        || (!["invoice", "receipt"].includes(String(receipt.ocr_data?.document_type ?? "")) && receipt.ocr_data?.document_type != null)) {
+        || !["invoice", "receipt"].includes(storedDocumentType)) {
         return NextResponse.json({ error: "Ce document n’est pas une facture ou un reçu fournisseur." }, { status: 409 });
       }
       let priorQuery = supabase.from("receipts")
