@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { Upload } from "lucide-react";
 import { isMissingDatabaseColumn } from "@/lib/schema-compatibility";
+import Switch from "@/components/Switch";
 
 interface Props {
   userId: string;
@@ -223,17 +224,16 @@ export default function EntrepriseTab({ userId, company }: Props) {
       <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-5">
         <h3 className="text-[13px] font-semibold text-[#1A1A2E] mb-4">Paramètres TVA</h3>
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between py-1">
-            <div>
+          <div className="flex min-h-14 items-center justify-between gap-4 py-1">
+            <div className="min-w-0">
               <div className="text-[12.5px] font-medium text-[#1A1A2E]">Assujetti à la TVA</div>
               <div className="text-[11px] text-[#6B7280]">Activer la TVA sur vos factures</div>
             </div>
-            <button
-              onClick={() => set("tva_assujetti", !form.tva_assujetti)}
-              className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${form.tva_assujetti ? "bg-[#C8924A]" : "bg-[#D1D5DB]"}`}
-            >
-              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${form.tva_assujetti ? "left-5" : "left-0.5"}`} />
-            </button>
+            <Switch
+              checked={form.tva_assujetti}
+              onCheckedChange={(checked) => set("tva_assujetti", checked)}
+              label="Assujetti à la TVA"
+            />
           </div>
           {form.tva_assujetti && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

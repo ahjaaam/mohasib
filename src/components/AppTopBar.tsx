@@ -13,8 +13,10 @@ import {
   CornerDownRight,
   FileText,
   FolderOpen,
+  Download,
   Loader2,
   Lock,
+  ListTodo,
   LogOut,
   Menu,
   Phone,
@@ -29,6 +31,7 @@ import {
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import NotificationsDock from "@/components/NotificationsDock";
+import AssistantDock from "@/components/AssistantDock";
 import SupportTicketButton from "@/components/SupportTicketButton";
 import GlobalPeriodSelector from "@/components/GlobalPeriodSelector";
 import ChatInterface from "@/app/(app)/chat/ChatInterface";
@@ -39,6 +42,8 @@ import { usePlanEntitlements } from "@/hooks/usePlanEntitlements";
 import SidebarLogo from "@/components/SidebarLogo";
 import toast from "react-hot-toast";
 import { stagePendingBankStatement } from "@/lib/pending-bank-statement";
+
+const QUICK_UPLOAD_ENABLED = false;
 
 export type TopBarSearchItem = {
   href: string;
@@ -56,6 +61,9 @@ type Props = {
   avatarUrl?: string | null;
   settingsHref?: string;
   dossierId?: string;
+  assistantMode?: "business" | "accountant" | "client_portal";
+  exportHref?: string;
+  exportLocked?: boolean;
   invoicingOnly?: boolean;
   showBrand?: boolean;
   topBarTheme?: "dark" | "cream";
@@ -100,6 +108,9 @@ export default function AppTopBar({
   avatarUrl,
   settingsHref = "/parametres",
   dossierId,
+  assistantMode = "business",
+  exportHref,
+  exportLocked = false,
   invoicingOnly = false,
   showBrand = false,
   topBarTheme = "cream",
@@ -122,6 +133,7 @@ export default function AppTopBar({
   const [cabinetMenuOpen, setCabinetMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [nextStepsOpen, setNextStepsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [documentUploading, setDocumentUploading] = useState(false);
@@ -201,6 +213,7 @@ export default function AppTopBar({
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setChatOpen(false);
+        setNextStepsOpen(false);
         setNotificationsOpen(false);
         setSupportOpen(false);
         setCabinetMenuOpen(false);
@@ -210,6 +223,7 @@ export default function AppTopBar({
       }
       if (event.key === "Escape") {
         setChatOpen(false);
+        setNextStepsOpen(false);
         setNotificationsOpen(false);
         setSupportOpen(false);
         setCabinetMenuOpen(false);
@@ -225,10 +239,10 @@ export default function AppTopBar({
   }, []);
 
   useEffect(() => {
-    const sideCardOpen = chatOpen || notificationsOpen || supportOpen;
+    const sideCardOpen = chatOpen || nextStepsOpen || notificationsOpen || supportOpen;
     document.documentElement.classList.toggle("mohasib-side-card-open", sideCardOpen);
     return () => document.documentElement.classList.remove("mohasib-side-card-open");
-  }, [chatOpen, notificationsOpen, supportOpen]);
+  }, [chatOpen, nextStepsOpen, notificationsOpen, supportOpen]);
 
   function openResult(href: string) {
     setSearchOpen(false);
@@ -345,6 +359,7 @@ export default function AppTopBar({
                 setSearchOpen(false);
                 setProfileOpen(false);
                 setChatOpen(false);
+                setNextStepsOpen(false);
               }}
               className={`app-topbar-workspace flex h-10 items-center gap-2 border px-3 text-[13px] font-semibold transition-colors ${
                 cabinetMenuOpen
@@ -433,6 +448,7 @@ export default function AppTopBar({
               setCabinetMenuOpen(false);
               setProfileOpen(false);
               setChatOpen(false);
+              setNextStepsOpen(false);
             }}
           />
         )}
@@ -483,6 +499,7 @@ export default function AppTopBar({
               setCabinetMenuOpen(false);
               setProfileOpen(false);
               setChatOpen(false);
+              setNextStepsOpen(false);
             }}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -598,26 +615,45 @@ export default function AppTopBar({
       <div className="flex flex-shrink-0 items-center gap-1">
         {userId && !guestMode && !invoicingOnly && (
           <>
-            <input
-              ref={documentInputRef}
-              type="file"
-              accept=".pdf,.csv,.xls,.xlsx,image/jpeg,image/png,image/gif,image/webp"
-              className="sr-only"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void uploadDocument(file);
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => documentInputRef.current?.click()}
-              disabled={documentUploading}
-              className="ui-control relative flex h-10 w-10 items-center justify-center border border-transparent bg-[rgba(200,146,74,0.08)] text-[#777E8B] transition-colors hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)] hover:text-[#C8924A] disabled:cursor-wait disabled:opacity-70"
-              title="Importer un document"
-              aria-label={documentUploading ? "Analyse du document en cours" : "Importer un document"}
-            >
-              {documentUploading ? <Loader2 size={18} className="animate-spin text-[#C8924A]" /> : <Upload size={18} />}
-            </button>
+            {QUICK_UPLOAD_ENABLED && (
+              <>
+                <input
+                  ref={documentInputRef}
+                  type="file"
+                  accept=".pdf,.csv,.xls,.xlsx,image/jpeg,image/png,image/gif,image/webp"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadDocument(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => documentInputRef.current?.click()}
+                  disabled={documentUploading}
+                  className="ui-control relative flex h-10 w-10 items-center justify-center border border-transparent bg-[rgba(200,146,74,0.08)] text-[#777E8B] transition-colors hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)] hover:text-[#C8924A] disabled:cursor-wait disabled:opacity-70"
+                  title="Importer un document"
+                  aria-label={documentUploading ? "Analyse du document en cours" : "Importer un document"}
+                >
+                  {documentUploading ? <Loader2 size={18} className="animate-spin text-[#C8924A]" /> : <Upload size={18} />}
+                </button>
+              </>
+            )}
+            {exportHref && (
+              <Link
+                href={exportHref}
+                className={`ui-control relative flex h-10 w-10 items-center justify-center border border-transparent bg-[rgba(200,146,74,0.08)] transition-colors hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)] ${
+                  exportLocked
+                    ? "text-[#B0B4BB] hover:text-[#777E8B]"
+                    : "text-[#777E8B] hover:text-[#C8924A]"
+                }`}
+                title={exportLocked ? "Exports — accès restreint" : "Exports"}
+                aria-label={exportLocked ? "Exports — accès restreint" : "Exports"}
+              >
+                <Download size={18} />
+                {exportLocked && <Lock size={9} className="absolute right-1.5 top-1.5" />}
+              </Link>
+            )}
           </>
         )}
 
@@ -629,6 +665,7 @@ export default function AppTopBar({
               setNotificationsOpen((open) => !open);
               setSupportOpen(false);
               setChatOpen(false);
+              setNextStepsOpen(false);
               setSearchOpen(false);
               setCabinetMenuOpen(false);
               setProfileOpen(false);
@@ -644,6 +681,7 @@ export default function AppTopBar({
               setSupportOpen((open) => !open);
               setNotificationsOpen(false);
               setChatOpen(false);
+              setNextStepsOpen(false);
               setSearchOpen(false);
               setCabinetMenuOpen(false);
               setProfileOpen(false);
@@ -656,6 +694,7 @@ export default function AppTopBar({
           type="button"
           onClick={() => {
             setChatOpen((open) => !open);
+            setNextStepsOpen(false);
             setNotificationsOpen(false);
             setSupportOpen(false);
             setSearchOpen(false);
@@ -666,13 +705,32 @@ export default function AppTopBar({
           aria-label="Ouvrir Mohasib Agent"
           aria-expanded={chatOpen}
           aria-controls="mohasib-chat-dock"
-          className={`hidden h-10 w-10 items-center justify-center border text-[#C8924A] transition-colors sm:flex md:-mr-[11px] ${
-            chatOpen
+          className={`flex h-10 w-10 items-center justify-center border text-[#C8924A] transition-colors ${chatOpen ? "border-[#C8924A] bg-[rgba(200,146,74,0.16)]" : "border-transparent bg-[rgba(200,146,74,0.08)] hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)]"}`}
+        >
+          <Sparkles size={18} />
+        </button>}
+
+        {!invoicingOnly && <button
+          type="button"
+          onClick={() => {
+            setNextStepsOpen((open) => !open);
+            setNotificationsOpen(false);
+            setSupportOpen(false);
+            setSearchOpen(false);
+            setCabinetMenuOpen(false);
+            setProfileOpen(false);
+          }}
+          title="À faire ensuite"
+          aria-label="Ouvrir À faire ensuite"
+          aria-expanded={nextStepsOpen}
+          aria-controls="mohasib-assistant-dock"
+          className={`flex h-10 w-10 items-center justify-center border text-[#C8924A] transition-colors md:-mr-[11px] ${
+            nextStepsOpen
               ? "border-[#C8924A] bg-[rgba(200,146,74,0.16)]"
               : "border-transparent bg-[rgba(200,146,74,0.08)] hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)]"
           }`}
         >
-          <Sparkles size={18} />
+          <ListTodo size={18} />
         </button>}
 
         {guestMode ? (
@@ -701,6 +759,7 @@ export default function AppTopBar({
               setSearchOpen(false);
               setCabinetMenuOpen(false);
               setChatOpen(false);
+              setNextStepsOpen(false);
             }}
             className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-[#F5F4EF]"
             aria-label="Ouvrir le menu du profil"
@@ -808,6 +867,8 @@ export default function AppTopBar({
           />
         </div>
       )}
+
+      {!invoicingOnly && <AssistantDock open={nextStepsOpen} onClose={() => setNextStepsOpen(false)} mode={assistantMode} dossierId={assistantMode === "client_portal" || assistantMode === "accountant" ? dossierId : undefined} />}
 
       <NotificationsDock open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useLayoutEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Transaction, TransactionVatStatus } from "@/types";
@@ -19,7 +19,7 @@ import { buildFinanceChartData } from "@/lib/finance-chart";
 import { periodForPreset } from "@/lib/global-period";
 import { BANK_STATEMENT_PDF_MAX_PAGES } from "@/lib/bank-import-limits";
 import { isValidAccountingAccountCode, normalizeAccountingSettings } from "@/lib/accounting-settings";
-import { takePendingBankStatement } from "@/lib/pending-bank-statement";
+import { peekPendingBankStatement, takePendingBankStatement } from "@/lib/pending-bank-statement";
 
 function fmt(n: number) { return n.toLocaleString("fr-MA") + " MAD"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("fr-MA"); }
@@ -39,14 +39,20 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const searchParams = useSearchParams();
   const requestedSearch = searchParams.get("search") ?? "";
   const requestedAction = searchParams.get("action");
+  const requestedBankUploadToken = searchParams.get("upload") === "bank-statement"
+    ? searchParams.get("token")
+    : null;
+  const pendingBankStatement = requestedBankUploadToken
+    ? peekPendingBankStatement(requestedBankUploadToken)
+    : null;
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addTransactionOpen, setAddTransactionOpen] = useState(requestedAction === "expense");
-  const [bankImportOpen, setBankImportOpen] = useState(false);
-  const [bankImportInitialFile, setBankImportInitialFile] = useState<File | null>(null);
+  const [bankImportOpen, setBankImportOpen] = useState(Boolean(pendingBankStatement));
+  const [bankImportInitialFile, setBankImportInitialFile] = useState<File | null>(pendingBankStatement);
   const [allocationTransaction, setAllocationTransaction] = useState<Transaction | null>(null);
   const [allocationCounts, setAllocationCounts] = useState<Record<string, number>>({});
   const [bookedTransactionIds, setBookedTransactionIds] = useState<Set<string>>(new Set());
@@ -76,21 +82,18 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const dossierId = propDossierId ?? searchParams.get("dossier_id");
   const supabase = createClient();
 
-  useEffect(() => {
-    const token = searchParams.get("token");
-    if (searchParams.get("upload") !== "bank-statement" || !token) return;
-    const timeout = window.setTimeout(() => {
-      const pendingFile = takePendingBankStatement(token);
-      if (!pendingFile) return;
-      setBankImportInitialFile(pendingFile);
-      setBankImportOpen(true);
-      const url = new URL(window.location.href);
-      url.searchParams.delete("upload");
-      url.searchParams.delete("token");
-      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-    }, 0);
-    return () => window.clearTimeout(timeout);
-  }, [searchParams]);
+  useLayoutEffect(() => {
+    if (!requestedBankUploadToken || !pendingBankStatement) return;
+    // The route may already be mounted; update before paint so the empty picker never flashes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBankImportInitialFile(pendingBankStatement);
+    setBankImportOpen(true);
+    takePendingBankStatement(requestedBankUploadToken);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("upload");
+    url.searchParams.delete("token");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [pendingBankStatement, requestedBankUploadToken]);
 
   const [form, setForm] = useState({
     date: today,

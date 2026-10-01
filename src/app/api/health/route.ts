@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { EXPECTED_SCHEMA_VERSION } from "../../../lib/schema-version";
 
 export const dynamic = "force-dynamic";
-const EXPECTED_SCHEMA_VERSION = 113;
 
 export async function GET() {
   const requiredConfiguration = {

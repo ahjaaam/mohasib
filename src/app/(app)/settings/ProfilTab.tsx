@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { PASSWORD_REQUIREMENTS, validatePassword } from "@/lib/password-policy";
 import { translateError } from "@/lib/errors";
+import Switch from "@/components/Switch";
 import { Camera } from "lucide-react";
 
 interface Props {
@@ -134,21 +135,12 @@ export default function ProfilTab({ userId, userEmail, profile, prefs }: Props) 
   }
 
   const Toggle = ({ value, onChange, label, sub }: { value: boolean; onChange: () => void; label: string; sub?: string }) => (
-    <div className="flex items-center justify-between py-2 border-b border-[rgba(0,0,0,0.05)] last:border-0">
-      <div>
+    <div className="flex min-h-14 items-center justify-between gap-4 border-b border-[rgba(0,0,0,0.05)] py-2 last:border-0">
+      <div className="min-w-0">
         <div className="text-[12.5px] text-[#1A1A2E]">{label}</div>
         {sub && <div className="text-[11px] text-[#9CA3AF]">{sub}</div>}
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={value}
-        aria-label={label}
-        onClick={onChange}
-        className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${value ? "bg-[#C8924A]" : "bg-[#D1D5DB]"}`}
-      >
-        <span className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? "translate-x-5" : "translate-x-0"}`} />
-      </button>
+      <Switch checked={value} onCheckedChange={onChange} label={label} />
     </div>
   );
 

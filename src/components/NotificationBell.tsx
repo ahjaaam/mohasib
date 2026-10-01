@@ -63,9 +63,10 @@ export default function NotificationBell({
     >
       <Mail size={18} />
       {messageCount > 0 && (
-        <span className="absolute -right-0.5 bottom-0 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#C8924A] px-1 text-[9px] font-bold leading-none text-white">
-          {messageCount > 99 ? "99+" : messageCount}
-        </span>
+        <span
+          aria-hidden="true"
+          className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#C8924A] shadow-[0_0_0_2px_white]"
+        />
       )}
     </button>
   );

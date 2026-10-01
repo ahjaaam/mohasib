@@ -26,6 +26,7 @@ import MohasibToaster from "@/components/MohasibToaster";
 import { CLIENT_DOSSIER_SETTINGS_TABS, DOSSIER_SETTINGS_TABS } from "@/lib/settings-navigation";
 
 const SIDEBAR_BACKGROUND = "#111621";
+const EXPORT_SLUG = "export-fiduciaire";
 const CLIENT_PORTAL_BLOCKED_SLUGS = ["tresorerie", "transactions", "rapprochement", "saisie", "ecritures", "grand-livre", "tva", "bilan", "export-fiduciaire"];
 
 // Keep dossier workspaces aligned with the default account navigation. Pages are
@@ -137,7 +138,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
         <SidebarLogo light={lightSidebar} compact={compact} />
       </div>
 
-      <nav className="flex-1 py-2 overflow-y-auto">
+      <nav className="-mt-3 flex-1 overflow-y-auto py-2">
         {isSettingsWorkspace ? (
           <>
             <Link
@@ -174,7 +175,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
           </>
         ) : (
           <>
-          {NAV_ITEMS.filter(item => entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
+          {NAV_ITEMS.filter(item => item.slug !== EXPORT_SLUG && entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
               const locked = !allowed(permission) || (isClientPortal && CLIENT_PORTAL_BLOCKED_SLUGS.includes(slug));
               return (
               <SidebarItemTooltip key={slug} enabled={compact} label={label}>
@@ -256,8 +257,11 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
               userEmail={userEmail}
               userId={userId}
               avatarUrl={userAvatar}
+              exportHref={entitled("export_fiduciaire") && !isClientPortal ? `${base}/${EXPORT_SLUG}` : undefined}
+              exportLocked={!allowed("report:export")}
               showBrand
               topBarTheme={sidebarTheme}
+              assistantMode={isClientPortal ? "client_portal" : "accountant"}
               workspaceLabel={dossier.raison_sociale}
               cabinetMenuItems={!isClientPortal ? [
                 { href: "/tableau-de-bord", label: userCompany?.trim() || "Mon entreprise", icon: LayoutDashboard },
@@ -325,7 +329,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
                 <div className="h-1 w-8 rounded-full bg-white/20" />
               </div>
               <div className="overflow-y-auto">
-                {NAV_ITEMS.filter(item => entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
+                {NAV_ITEMS.filter(item => item.slug !== EXPORT_SLUG && entitled(item.feature)).map(({ slug, icon: Icon, label, permission }) => {
                   const locked = !allowed(permission) || (isClientPortal && CLIENT_PORTAL_BLOCKED_SLUGS.includes(slug));
                   return (
                     <Link key={slug} href={`${base}/${slug}`} onClick={() => setDrawerOpen(false)}

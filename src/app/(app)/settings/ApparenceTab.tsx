@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
+import Switch from "@/components/Switch";
 
 interface Props {
   userId: string;
@@ -67,14 +68,9 @@ export default function ApparenceTab({ userId, company, prefs }: Props) {
   }
 
   const Toggle = ({ k, label }: { k: keyof typeof shows; label: string }) => (
-    <div className="flex items-center justify-between py-2 border-b border-[rgba(0,0,0,0.05)] last:border-0">
+    <div className="flex min-h-14 items-center justify-between gap-4 border-b border-[rgba(0,0,0,0.05)] py-2 last:border-0">
       <span className="text-[12.5px] text-[#1A1A2E]">{label}</span>
-      <button
-        onClick={() => toggleShow(k)}
-        className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${shows[k] ? "bg-[#C8924A]" : "bg-[#D1D5DB]"}`}
-      >
-        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${shows[k] ? "left-5" : "left-0.5"}`} />
-      </button>
+      <Switch checked={shows[k]} onCheckedChange={() => toggleShow(k)} label={label} />
     </div>
   );
 

@@ -16,7 +16,7 @@ import {
 } from "@/lib/accounting-engine";
 import { finalizeSupplierCreditNote } from "@/lib/supplier-credit-note-booking-client";
 import { evaluateInvoiceControls, highestInvoiceControlSeverity, type InvoiceControlCheck } from "@/lib/invoice-controls";
-import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Upload, CheckCircle, X, Loader2, Camera, FileText, Eye, Download, Inbox, Mail, RefreshCw, Search, FolderOpen, Clipboard, CalendarDays, AlertCircle, ShieldCheck, UserCheck, Clock3, Building2, Pencil, LayoutGrid, Rows3, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAccountOwnerId } from "@/hooks/useAccountOwner";
 import { useGlobalPeriod } from "@/hooks/useGlobalPeriod";
@@ -2200,6 +2200,8 @@ function ReceiptCard({ receipt: r, suppliers, originalPurchases, accountingSetti
   const amt = parseFloat(form.amount);
   const isExpense = isNaN(amt) ? true : amt < 0;
   const isAvoir = !expenseNotes && (ocr as any).document_type === "avoir";
+  const hasDiscount = Number(form.commercial_discount_amount || 0) > 0 || Number(form.settlement_discount_amount || 0) > 0;
+  const [showDiscounts, setShowDiscounts] = useState(hasDiscount);
   const emailProvider = (ocr as any).email_provider as string | undefined;
   const entryPreview = computeReviewAmounts(form, expenseNotes || isAvoir);
   const extractedTtc = Math.abs(Number(ocr.amount_ttc ?? ocr.amount ?? 0));
@@ -2212,6 +2214,10 @@ function ReceiptCard({ receipt: r, suppliers, originalPurchases, accountingSetti
     expenseAccount,
     accountingSettings,
   );
+
+  useEffect(() => {
+    if (hasDiscount) setShowDiscounts(true);
+  }, [hasDiscount]);
 
   return (
     <div
@@ -2283,7 +2289,7 @@ function ReceiptCard({ receipt: r, suppliers, originalPurchases, accountingSetti
         </div>
 
         <div className="lg:col-span-3">
-          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">{expenseNotes || isAvoir ? "Montant TTC net (MAD)" : "TOTAL HT"}</label>
+          <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">{expenseNotes || isAvoir ? "Montant TTC net (MAD)" : "Montant HT brut (MAD)"}</label>
           <div className="relative">
             <input
               type="number" step="0.01"
@@ -2357,34 +2363,64 @@ function ReceiptCard({ receipt: r, suppliers, originalPurchases, accountingSetti
         </div>
 
         {!isAvoir && (
-          <>
-            <div className="lg:col-span-2">
-              <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Réduction commerciale</label>
-              <select className="input" value={form.commercial_discount_type} onChange={(e) => onFormChange("commercial_discount_type", e.target.value)}>
-                <option value="remise_commerciale">Remise commerciale</option>
-                <option value="rabais">Rabais</option>
-                <option value="reduction">Réduction</option>
-                <option value="ristourne">Ristourne</option>
-              </select>
-            </div>
-            <div className="lg:col-span-2">
-              <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Montant commercial HT</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className="input"
-                value={form.commercial_discount_amount}
-                onChange={(e) => onFormChange("commercial_discount_amount", e.target.value)}
-                placeholder="0,00"
-              />
-            </div>
-
-            <div className="lg:col-span-2">
-              <label className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-[0.5px] mb-1 block">Escompte HT</label>
-              <input type="number" min="0" step="0.01" className="input" value={form.settlement_discount_amount} onChange={(e) => onFormChange("settlement_discount_amount", e.target.value)} placeholder="0,00" />
-            </div>
-          </>
+          <div className="col-span-2 lg:col-span-6">
+            {!showDiscounts ? (
+              <button
+                type="button"
+                aria-expanded="false"
+                aria-controls={`purchase-discounts-${r.id}`}
+                onClick={() => setShowDiscounts(true)}
+                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#6B7280] transition-colors hover:text-[#C8924A]"
+              >
+                <Plus size={13} /> Ajouter une réduction ou un escompte
+              </button>
+            ) : (
+              <div id={`purchase-discounts-${r.id}`} className="rounded-lg border border-[rgba(0,0,0,0.10)] bg-[#FAFAF6] p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold text-[#4B5563]">Réduction ou escompte</div>
+                    <div className="mt-0.5 text-[9.5px] text-[#8A909B]">Montants hors taxes figurant sur la facture fournisseur.</div>
+                  </div>
+                  <button
+                    type="button"
+                    aria-expanded="true"
+                    aria-controls={`purchase-discounts-${r.id}`}
+                    onClick={() => setShowDiscounts(false)}
+                    className="inline-flex items-center gap-1 text-[10.5px] font-medium text-[#8A909B] transition-colors hover:text-[#4B5563]"
+                  >
+                    Masquer <ChevronDown size={12} className="rotate-180" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9CA3AF]">Type de réduction commerciale</label>
+                    <select className="input" value={form.commercial_discount_type} onChange={(e) => onFormChange("commercial_discount_type", e.target.value)}>
+                      <option value="remise_commerciale">Remise commerciale</option>
+                      <option value="rabais">Rabais</option>
+                      <option value="reduction">Réduction</option>
+                      <option value="ristourne">Ristourne</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9CA3AF]">Réduction commerciale HT</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="input"
+                      value={form.commercial_discount_amount}
+                      onChange={(e) => onFormChange("commercial_discount_amount", e.target.value)}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9CA3AF]">Escompte de règlement HT</label>
+                    <input type="number" min="0" step="0.01" className="input" value={form.settlement_discount_amount} onChange={(e) => onFormChange("settlement_discount_amount", e.target.value)} placeholder="0,00" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {isAvoir && (
@@ -2428,6 +2464,20 @@ function ReceiptCard({ receipt: r, suppliers, originalPurchases, accountingSetti
           <CompteSelect value={form.compte_comptable} onChange={(val) => onFormChange("compte_comptable", val)} />
         </div>
       </div>
+
+      {!isAvoir && (
+        <div className="mx-4 mb-4 rounded-lg border border-[rgba(0,0,0,0.10)] bg-[#FAFAF6] px-3 py-2.5">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9CA3AF]">Calcul de la facture</div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] sm:grid-cols-3 lg:grid-cols-6">
+            <div><span className="block text-[#8A909B]">HT brut</span><span className="font-semibold text-[#1A1A2E]">{fmt(entryPreview.grossHt)} MAD</span></div>
+            <div><span className="block text-[#8A909B]">− Réduction</span><span className="font-semibold text-[#7C3AED]">{fmt(entryPreview.commercialDiscountAmount)} MAD</span></div>
+            <div><span className="block text-[#8A909B]">= Net commercial HT</span><span className="font-semibold text-[#1A1A2E]">{fmt(entryPreview.totalHt)} MAD</span></div>
+            <div><span className="block text-[#8A909B]">− Escompte</span><span className="font-semibold text-[#C8924A]">{fmt(entryPreview.settlementDiscountAmount)} MAD</span></div>
+            <div><span className="block text-[#8A909B]">+ TVA</span><span className="font-semibold text-[#1A1A2E]">{fmt(entryPreview.tvaAmount)} MAD</span></div>
+            <div><span className="block text-[#8A909B]">= TTC net</span><span className="font-bold text-[#059669]">{fmt(entryPreview.totalTtc)} MAD</span></div>
+          </div>
+        </div>
+      )}
 
       {!isAvoir && (
         <div className="mx-4 mb-4">
@@ -2474,6 +2524,9 @@ function ReceiptCard({ receipt: r, suppliers, originalPurchases, accountingSetti
               </tbody>
             </table>
           </div>
+          <p className="mt-1.5 text-[9.5px] leading-relaxed text-[#8A909B]">
+            La réduction commerciale est intégrée au montant net du compte d’achat ; elle ne crée pas de ligne comptable distincte. L’escompte de règlement est comptabilisé séparément.
+          </p>
         </div>
       )}
 

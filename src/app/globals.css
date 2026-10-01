@@ -200,12 +200,12 @@
   position: absolute;
   z-index: -1;
   inset: 4px 0;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   content: "";
 }
 
 .sidebar-nav-item--active::before {
-  background: rgba(200, 146, 74, 0.10);
+  background: transparent;
 }
 
 .sidebar-nav-item:not(.sidebar-nav-item--active):is(:hover, :focus-visible)::before {
@@ -804,6 +804,10 @@
 }
 
 .mohasib-app .sidebar-account-action {
+  border-radius: var(--radius-control) !important;
+}
+
+.mohasib-app .todo-action-link {
   border-radius: var(--radius-control) !important;
 }
 

@@ -49,14 +49,16 @@ const NAV_MAIN = [
     : { href: "/ecritures", icon: Scale, label: "Écritures", key: "ecritures", permission: "accounting:read" },
   { href: "/declarations-tva", icon: Calculator, label: "Déclarations TVA",   key: "tva", permission: "tva_declaration:read" },
   { href: "/paie",         icon: UserRoundCog,    label: "La paie",            key: "paie", permission: "bulletin_paie:read", feature: "paie" as PlanFeature },
-  { href: "/export-fiduciaire", icon: Download,  label: "Exports",            key: "export", permission: "report:export", feature: "export_fiduciaire" as PlanFeature },
   { href: "/archive",      icon: FolderOpen,      label: "Archive",            key: "archive", permission: "document:read" },
 ];
+
+const EXPORT_NAV_ITEM = { href: "/export-fiduciaire", icon: Download, label: "Exports", key: "export", permission: "report:export", feature: "export_fiduciaire" as PlanFeature };
 
 const NAV_SOON: typeof NAV_MAIN = [];
 
 const ALL_NAV = [
   ...NAV_MAIN,
+  EXPORT_NAV_ITEM,
   ...NAV_SOON,
   { href: "/rapports", icon: BarChart2,     label: "Rapports",     key: "rapports", soon: true, permission: "report:read" },
   { href: "/parametres", icon: Settings,    label: "Paramètres",   key: "settings", permission: "settings:update" },
@@ -210,7 +212,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
         <SidebarLogo light={lightSidebar} compact={sidebarCollapsed} />
       </div>
 
-      <nav className="flex-1 py-2 overflow-y-auto">
+      <nav className="-mt-3 flex-1 overflow-y-auto py-2">
         {isSettingsWorkspace ? (
           <>
             <Link
@@ -324,9 +326,14 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             userEmail={userEmail}
             userId={userId}
             avatarUrl={userAvatar}
+            exportHref={!freePlan && visibleOnPlan(EXPORT_NAV_ITEM.href) && entitled(EXPORT_NAV_ITEM.feature)
+              ? EXPORT_NAV_ITEM.href
+              : undefined}
+            exportLocked={!allowed(EXPORT_NAV_ITEM.permission)}
             invoicingOnly={freePlan}
             showBrand
             topBarTheme={sidebarTheme}
+            assistantMode={isFiduciaire && pathname.startsWith("/comptable-pro") ? "accountant" : "business"}
             workspaceLabel={pathname.startsWith("/comptable-pro") ? "Mon Cabinet" : businessWorkspaceLabel}
             cabinetMenuItems={!freePlan
               ? [

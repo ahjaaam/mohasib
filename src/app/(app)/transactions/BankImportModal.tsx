@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
@@ -151,17 +151,18 @@ function StepIndicator({ step }: { step: number }) {
 
 export default function BankImportModal({ open, onClose, userId, dossierId, onImported, initialFile = null, autoAnalyzeInitialFile = false }: Props) {
   const supabase = createClient();
+  const startsWithAutomaticAnalysis = Boolean(open && initialFile && autoAnalyzeInitialFile);
 
   // Flow state
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [file, setFile] = useState<File | null>(null);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(startsWithAutomaticAnalysis ? 2 : 1);
+  const [file, setFile] = useState<File | null>(initialFile);
   const [bank, setBank] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState<{ used: number; limit: number; resetDate: string } | null>(null);
 
   // Processing
-  const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(null);
+  const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(startsWithAutomaticAnalysis ? Date.now() : null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Review
@@ -199,6 +200,15 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
   const fileInputRef = useRef<HTMLInputElement>(null);
   const analysisAbortRef = useRef<AbortController | null>(null);
   const autoAnalyzeStartedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!open || !initialFile || !autoAnalyzeInitialFile || file === initialFile) return;
+    autoAnalyzeStartedRef.current = false;
+    setFile(initialFile);
+    setStep(2);
+    setElapsedSeconds(0);
+    setAnalysisStartedAt(Date.now());
+  }, [autoAnalyzeInitialFile, file, initialFile, open]);
 
   useEffect(() => {
     if (!file) {
@@ -238,18 +248,23 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
 
   const handleFile = useCallback(async (f: File) => {
     const name = f.name.toLowerCase();
-    const isPDF = f.type === "application/pdf";
-    const isImage = ["image/jpeg", "image/png", "image/webp", "image/jpg"].includes(f.type);
+    const isPDF = f.type === "application/pdf" || name.endsWith(".pdf");
+    const isImage = ["image/jpeg", "image/png", "image/webp", "image/jpg"].includes(f.type)
+      || [".jpg", ".jpeg", ".png", ".webp"].some((extension) => name.endsWith(extension));
     const isXLSX = f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || name.endsWith(".xlsx");
     const isXLS = f.type === "application/vnd.ms-excel" || name.endsWith(".xls");
     const isCSV = f.type === "text/csv" || f.type === "application/csv" || name.endsWith(".csv");
 
     if (!isPDF && !isImage && !isCSV && !isXLSX && !isXLS) {
       setApiError("Format non supporté. Utilisez PDF, CSV, Excel, JPG ou PNG.");
+      setAnalysisStartedAt(null);
+      setStep(1);
       return;
     }
     if (f.size > 10 * 1024 * 1024) {
       setApiError("Fichier trop volumineux. Maximum 10 MB.");
+      setAnalysisStartedAt(null);
+      setStep(1);
       return;
     }
     setApiError(null);
@@ -387,7 +402,12 @@ export default function BankImportModal({ open, onClose, userId, dossierId, onIm
   }
 
   useEffect(() => {
-    if (!open || !autoAnalyzeInitialFile || !initialFile || file !== initialFile || !fileValidation?.valid || validating || step !== 1 || autoAnalyzeStartedRef.current) return;
+    if (!open || !autoAnalyzeInitialFile || !initialFile || file !== initialFile || !fileValidation || validating || autoAnalyzeStartedRef.current) return;
+    if (!fileValidation.valid) {
+      setAnalysisStartedAt(null);
+      setStep(1);
+      return;
+    }
     autoAnalyzeStartedRef.current = true;
     void analyze();
   }, [autoAnalyzeInitialFile, file, fileValidation, initialFile, open, step, validating]); // eslint-disable-line react-hooks/exhaustive-deps

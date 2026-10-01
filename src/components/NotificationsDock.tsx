@@ -50,7 +50,6 @@ function fullDate(value: string) {
 }
 
 function senderLabel(type: string) {
-  if (type === "attention_action") return "Assistant Mohasib";
   if (type === "team_flag") return "Votre équipe";
   return "Équipe Mohasib";
 }
@@ -77,15 +76,16 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [, startTransition] = useTransition();
-  const unreadCount = messages.filter((message) => !message.is_read && !message.is_dismissed).length;
-  const priorityCount = messages.filter((message) => message.priority === "high" && !message.is_dismissed).length;
-  const archivedCount = messages.filter((message) => message.is_dismissed).length;
-  const filtered = useMemo(() => messages.filter((message) => {
+  const inboxMessages = messages.filter((message) => message.type !== "attention_action");
+  const unreadCount = inboxMessages.filter((message) => !message.is_read && !message.is_dismissed).length;
+  const priorityCount = inboxMessages.filter((message) => message.priority === "high" && !message.is_dismissed).length;
+  const archivedCount = inboxMessages.filter((message) => message.is_dismissed).length;
+  const filtered = useMemo(() => inboxMessages.filter((message) => {
     if (folder === "unread") return (!message.is_read || message.id === selectedId) && !message.is_dismissed;
     if (folder === "priority") return message.priority === "high" && !message.is_dismissed;
     if (folder === "archived") return message.is_dismissed;
     return !message.is_dismissed;
-  }), [folder, messages, selectedId]);
+  }), [folder, inboxMessages, selectedId]);
   const visibleMessages = filtered.slice(0, visibleCount);
   const selected = selectedId ? filtered.find((message) => message.id === selectedId) ?? null : null;
 
@@ -259,7 +259,7 @@ export default function NotificationsDock({ open, onClose }: { open: boolean; on
               <div className="flex h-full flex-col items-center justify-center px-6 text-center">
                 <MailOpen size={26} className="text-[#C8CBCF]" />
                 <p className="mt-3 text-[12px] font-semibold text-[#6B7280]">Aucun message</p>
-                <p className="mt-1 text-[10.5px] text-[#9CA3AF]">Ce dossier est vide.</p>
+                <p className="mt-1 text-[10.5px] text-[#9CA3AF]">Les annonces et messages de l’équipe apparaîtront ici.</p>
               </div>
             ) : visibleMessages.map((message) => (
               <button
