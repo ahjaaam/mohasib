@@ -501,7 +501,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
     <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px]">
       <div className="alert-blue">
-        <Lightbulb size={14} className="inline mr-1.5 -mt-0.5" />ICE, IF, RC, CNSS et mentions légales marocaines inclus automatiquement dans le PDF généré.
+        <Lightbulb size={14} className="inline mr-1.5 -mt-0.5" />Les informations activées dans Apparence et les identifiants renseignés dans les paramètres de l&apos;entreprise apparaissent dans le PDF.
       </div>
 
       {/* Header fields */}

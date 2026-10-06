@@ -21,6 +21,8 @@ async function resolveInvoiceBranding(inv: any) {
       ice: dossier.ice,
       if_number: dossier.if_fiscal,
       rc: dossier.rc,
+      cnss: dossier.cnss,
+      capital_social: dossier.capital_social,
       address: dossier.address,
       city: dossier.city,
       postal_code: dossier.postal_code,

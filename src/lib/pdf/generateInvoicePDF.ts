@@ -79,6 +79,8 @@ export interface GeneratePDFInput {
     ice?: string | null;
     if_number?: string | null;
     rc?: string | null;
+    cnss?: string | null;
+    capital_social?: number | string | null;
     address?: string | null;
     city?: string | null;
     postal_code?: string | null;
@@ -89,6 +91,12 @@ export interface GeneratePDFInput {
     invoice_mentions_legales?: string | null;
     invoice_payment_delay?: string | null;
     invoice_color?: string | null;
+    show_logo?: boolean | null;
+    show_cnss?: boolean | null;
+    show_capital?: boolean | null;
+    show_rib?: boolean | null;
+    show_mentions?: boolean | null;
+    show_page_number?: boolean | null;
   } | null;
   generatedAt: string;
 }
@@ -123,7 +131,7 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   doc.rect(0, 0, pageW, headerH, "F");
 
   // Logo or company name (left side)
-  if (company?.logoBase64) {
+  if (company?.logoBase64 && company.show_logo !== false) {
     try {
       const mimeRaw = company.logoMimeType ?? "image/png";
       // Normalize mime type to what jsPDF expects: PNG, JPEG, WEBP
@@ -184,10 +192,31 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   // ── FROM / TO ───────────────────────────────────────────────
   let y = headerH + 8;
   const boxW = (contentW - 4) / 2;
+  const fromLines: string[] = [];
+  if (company?.address) fromLines.push(company.address);
+  if (company?.city || company?.postal_code)
+    fromLines.push([company?.postal_code, company?.city].filter(Boolean).join(" "));
+  if (company?.ice) fromLines.push(`ICE : ${company.ice}`);
+  if (company?.if_number) fromLines.push(`IF : ${company.if_number}`);
+  if (company?.rc) fromLines.push(`RC : ${company.rc}`);
+  if (company?.show_cnss !== false && company?.cnss) fromLines.push(`CNSS : ${company.cnss}`);
+  if (company?.show_capital && Number(company.capital_social) > 0) {
+    fromLines.push(`Capital social : ${Number(company.capital_social).toLocaleString("fr-MA")} MAD`);
+  }
+  if (company?.phone) fromLines.push(`Tél : ${company.phone}`);
+  if (company?.email) fromLines.push(company.email);
+
+  const toLines: string[] = [];
+  if (client?.address) toLines.push(client.address);
+  if (client?.city) toLines.push(client.city);
+  if (client?.ice) toLines.push(`ICE : ${client.ice}`);
+  if (client?.email) toLines.push(client.email);
+  if (client?.phone) toLines.push(client.phone);
+  const partyBoxH = Math.max(42, 22 + Math.max(fromLines.length, toLines.length) * 4);
 
   // From box
   doc.setFillColor(...CREAM_BG);
-  doc.roundedRect(marginL, y, boxW, 42, 2, 2, "F");
+  doc.roundedRect(marginL, y, boxW, partyBoxH, 2, 2, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
@@ -201,16 +230,6 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     doc.text(companyName, marginL + 4, y + 12);
   }
 
-  const fromLines: string[] = [];
-  if (company?.address) fromLines.push(company.address);
-  if (company?.city || company?.postal_code)
-    fromLines.push([company?.postal_code, company?.city].filter(Boolean).join(" "));
-  if (company?.ice) fromLines.push(`ICE : ${company.ice}`);
-  if (company?.if_number) fromLines.push(`IF : ${company.if_number}`);
-  if (company?.rc) fromLines.push(`RC : ${company.rc}`);
-  if (company?.phone) fromLines.push(`Tél : ${company.phone}`);
-  if (company?.email) fromLines.push(company.email);
-
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(...MUTED_RGB);
@@ -219,7 +238,7 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   // To box
   const toX = marginL + boxW + 4;
   doc.setFillColor(...CREAM_BG);
-  doc.roundedRect(toX, y, boxW, 42, 2, 2, "F");
+  doc.roundedRect(toX, y, boxW, partyBoxH, 2, 2, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
@@ -232,20 +251,13 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     doc.setTextColor(...TEXT_RGB);
     doc.text(client.name, toX + 4, y + 12);
 
-    const toLines: string[] = [];
-    if (client.address) toLines.push(client.address);
-    if (client.city) toLines.push(client.city);
-    if (client.ice) toLines.push(`ICE : ${client.ice}`);
-    if (client.email) toLines.push(client.email);
-    if (client.phone) toLines.push(client.phone);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...MUTED_RGB);
-    toLines.forEach((line, i) => doc.text(line, toX + 4, y + 18 + i * 4));
   }
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...MUTED_RGB);
+  toLines.forEach((line, i) => doc.text(line, toX + 4, y + 18 + i * 4));
 
-  y += 48;
+  y += partyBoxH + 6;
 
   // ── LINE ITEMS TABLE ────────────────────────────────────────
   (doc as any).autoTable({
@@ -369,7 +381,8 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     y += 9 + condLines.length * 4 + 5;
   } else {
     const payDelay = company?.invoice_payment_delay ?? "30 jours";
-    if (payDelay || company?.rib || company?.bank_name) {
+    const hasVisibleBankDetails = company?.show_rib !== false && Boolean(company?.rib || company?.bank_name);
+    if (payDelay || hasVisibleBankDetails) {
       doc.setDrawColor(229, 231, 235);
       doc.line(marginL, y, pageW - marginR, y);
       y += 5;
@@ -384,7 +397,7 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
       doc.setTextColor(...MUTED_RGB);
       doc.text(`Paiement à ${payDelay} — Virement bancaire`, marginL, y + 9);
 
-      if (company?.bank_name || company?.rib) {
+      if (hasVisibleBankDetails) {
         const bX = marginL + contentW / 2;
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
@@ -417,28 +430,37 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
   }
 
   // ── MENTIONS LÉGALES ────────────────────────────────────────
-  const mentions =
-    company?.invoice_mentions_legales ??
-    "Tout retard de paiement entraînera des pénalités conformément à la loi marocaine n° 32-10.";
+  if (company?.show_mentions !== false) {
+    const mentions =
+      company?.invoice_mentions_legales ??
+      "Tout retard de paiement entraînera des pénalités conformément à la loi marocaine n° 32-10.";
 
-  doc.setFillColor(...CREAM_BG);
-  doc.roundedRect(marginL, y, contentW, 10, 2, 2, "F");
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6.5);
-  doc.setTextColor(...MUTED_RGB);
-  const wrapped = doc.splitTextToSize(mentions, contentW - 8);
-  doc.text(wrapped, marginL + 4, y + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    const wrapped = doc.splitTextToSize(mentions, contentW - 8);
+    const mentionsH = Math.max(10, wrapped.length * 3 + 5);
+    doc.setFillColor(...CREAM_BG);
+    doc.roundedRect(marginL, y, contentW, mentionsH, 2, 2, "F");
+    doc.setTextColor(...MUTED_RGB);
+    doc.text(wrapped, marginL + 4, y + 5);
+  }
 
   // ── FOOTER ──────────────────────────────────────────────────
-  const footerY = pageH - 10;
-  doc.setDrawColor(229, 231, 235);
-  doc.line(marginL, footerY - 3, pageW - marginR, footerY - 3);
+  const pageCount = doc.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page++) {
+    doc.setPage(page);
+    const footerY = pageH - 10;
+    doc.setDrawColor(229, 231, 235);
+    doc.line(marginL, footerY - 3, pageW - marginR, footerY - 3);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.setTextColor(...MUTED_RGB);
-  doc.text("Page 1 / 1", pageW / 2, footerY, { align: "center" });
-  doc.text(data.generatedAt, pageW - marginR, footerY, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(...MUTED_RGB);
+    if (company?.show_page_number !== false) {
+      doc.text(`Page ${page} / ${pageCount}`, pageW / 2, footerY, { align: "center" });
+    }
+    doc.text(data.generatedAt, pageW - marginR, footerY, { align: "right" });
+  }
 
   return doc.output("arraybuffer");
 }
