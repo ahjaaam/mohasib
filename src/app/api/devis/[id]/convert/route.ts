@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { authorizePermission } from "@/lib/api-permissions";
 import { createVersion, logAccountingEvent, logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
-import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
+import { getInvoiceNumberPrefix, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 
 export async function POST(
   req: NextRequest,
@@ -32,8 +32,12 @@ export async function POST(
       return NextResponse.json({ error: "Ce document n'est pas un devis" }, { status: 400 });
     }
 
+    const invoicePrefix = await getInvoiceNumberPrefix(supabase, {
+      userId: devis.user_id,
+      dossierId: devis.dossier_id,
+    });
     let invoiceNumber = await getNextInvoiceDocumentNumber(supabase, {
-      prefix: "FAC",
+      prefix: invoicePrefix,
       userId: devis.user_id,
       dossierId: devis.dossier_id,
     });
@@ -68,7 +72,7 @@ export async function POST(
 
     if (insertErr && (insertErr.code === "23505" || /duplicate key/i.test(insertErr.message ?? ""))) {
       invoiceNumber = await getNextInvoiceDocumentNumber(supabase, {
-        prefix: "FAC",
+        prefix: invoicePrefix,
         userId: devis.user_id,
         dossierId: devis.dossier_id,
       });

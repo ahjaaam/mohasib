@@ -5,7 +5,7 @@ import BackIconLink from "@/components/BackIconLink";
 import PageHeader from "@/components/PageHeader";
 import type { Client } from "@/types";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
-import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
+import { getInvoiceNumberPrefix, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 
 export const dynamic = "force-dynamic";
 
@@ -20,18 +20,19 @@ export default async function DossierNewInvoicePage({
   if (!user) notFound();
   const ownerId = await resolveAccountOwnerId(user.id);
 
-  const [clientsRes, nextNumber] = await Promise.all([
+  const [clientsRes, invoicePrefix] = await Promise.all([
     supabase
       .from("clients")
       .select("id, name, email")
       .eq("dossier_id", dossierId)
       .order("name"),
-    getNextInvoiceDocumentNumber(supabase, {
-      prefix: "FAC",
-      userId: ownerId,
-      dossierId,
-    }),
+    getInvoiceNumberPrefix(supabase, { userId: ownerId, dossierId }),
   ]);
+  const nextNumber = await getNextInvoiceDocumentNumber(supabase, {
+    prefix: invoicePrefix,
+    userId: ownerId,
+    dossierId,
+  });
 
   const backHref = `/comptable-pro/dossiers/${dossierId}/factures`;
 
@@ -48,6 +49,7 @@ export default async function DossierNewInvoicePage({
         nextNumber={nextNumber}
         userId={ownerId}
         dossierId={dossierId}
+        numberingPrefix={invoicePrefix}
         backHref={backHref}
       />
     </>

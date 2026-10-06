@@ -15,13 +15,10 @@ import {
   Download,
   Loader2,
   Lock,
-  ListTodo,
-  LogOut,
+  ListChecks,
   Menu,
   Phone,
   Search,
-  ScrollText,
-  Settings,
   Sparkles,
   Truck,
   Upload,
@@ -55,10 +52,8 @@ type Props = {
   items: TopBarSearchItem[];
   primaryNav?: Array<{ href: string; label: string; active?: boolean }>;
   userName?: string | null;
-  userEmail?: string | null;
   userId?: string | null;
   avatarUrl?: string | null;
-  settingsHref?: string;
   dossierId?: string;
   assistantMode?: "business" | "accountant" | "client_portal";
   exportHref?: string;
@@ -77,7 +72,6 @@ type Props = {
   cabinetCreateHref?: string;
   guestMode?: boolean;
   onOpenMobileMenu?: () => void;
-  onSignOut: () => void | Promise<void>;
 };
 
 function normalize(value: string) {
@@ -102,10 +96,8 @@ export default function AppTopBar({
   items,
   primaryNav = [],
   userName,
-  userEmail,
   userId,
   avatarUrl,
-  settingsHref = "/parametres",
   dossierId,
   assistantMode = "business",
   exportHref,
@@ -118,10 +110,9 @@ export default function AppTopBar({
   cabinetCreateHref,
   guestMode = false,
   onOpenMobileMenu,
-  onSignOut,
 }: Props) {
   const router = useRouter();
-  const { can, isOwner } = usePermissions();
+  const { can } = usePermissions();
   const entitlements = usePlanEntitlements();
   const darkTopBar = topBarTheme === "dark";
   const rootRef = useRef<HTMLDivElement>(null);
@@ -130,7 +121,6 @@ export default function AppTopBar({
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [cabinetMenuOpen, setCabinetMenuOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [nextStepsOpen, setNextStepsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -204,7 +194,6 @@ export default function AppTopBar({
       if (!rootRef.current?.contains(event.target as Node)) {
         setSearchOpen(false);
         setCabinetMenuOpen(false);
-        setProfileOpen(false);
       }
     }
 
@@ -216,7 +205,6 @@ export default function AppTopBar({
         setNotificationsOpen(false);
         setSupportOpen(false);
         setCabinetMenuOpen(false);
-        setProfileOpen(false);
         setSearchOpen(true);
         inputRef.current?.focus();
       }
@@ -345,8 +333,7 @@ export default function AppTopBar({
               onClick={() => {
                 setCabinetMenuOpen((open) => !open);
                 setSearchOpen(false);
-                setProfileOpen(false);
-                setChatOpen(false);
+                        setChatOpen(false);
                 setNextStepsOpen(false);
               }}
               className={`app-topbar-workspace flex h-10 items-center gap-2 border px-3 text-[13px] font-semibold transition-colors ${
@@ -434,8 +421,7 @@ export default function AppTopBar({
             onOpen={() => {
               setSearchOpen(false);
               setCabinetMenuOpen(false);
-              setProfileOpen(false);
-              setChatOpen(false);
+                    setChatOpen(false);
               setNextStepsOpen(false);
             }}
           />
@@ -490,8 +476,7 @@ export default function AppTopBar({
             onFocus={() => {
               setSearchOpen(true);
               setCabinetMenuOpen(false);
-              setProfileOpen(false);
-              setChatOpen(false);
+                    setChatOpen(false);
               setNextStepsOpen(false);
             }}
             onChange={(event) => {
@@ -661,8 +646,7 @@ export default function AppTopBar({
               setNextStepsOpen(false);
               setSearchOpen(false);
               setCabinetMenuOpen(false);
-              setProfileOpen(false);
-            }}
+                  }}
           />
         )}
 
@@ -677,8 +661,7 @@ export default function AppTopBar({
               setNextStepsOpen(false);
               setSearchOpen(false);
               setCabinetMenuOpen(false);
-              setProfileOpen(false);
-            }}
+                  }}
             onClose={() => setSupportOpen(false)}
           />
         )}
@@ -692,8 +675,7 @@ export default function AppTopBar({
             setSupportOpen(false);
             setSearchOpen(false);
             setCabinetMenuOpen(false);
-            setProfileOpen(false);
-          }}
+              }}
           title="Mohasib Agent"
           aria-label="Ouvrir Mohasib Agent"
           aria-expanded={chatOpen}
@@ -711,8 +693,7 @@ export default function AppTopBar({
             setSupportOpen(false);
             setSearchOpen(false);
             setCabinetMenuOpen(false);
-            setProfileOpen(false);
-          }}
+              }}
           title="À faire ensuite"
           aria-label="Ouvrir À faire ensuite"
           aria-expanded={nextStepsOpen}
@@ -723,7 +704,7 @@ export default function AppTopBar({
               : "border-transparent bg-[rgba(200,146,74,0.08)] hover:border-[#D8C19D] hover:bg-[rgba(200,146,74,0.14)]"
           }`}
         >
-          <ListTodo size={18} />
+          <ListChecks size={18} />
         </button>}
 
         {guestMode ? (
@@ -744,103 +725,7 @@ export default function AppTopBar({
               Se connecter
             </Link>
           </>
-        ) : <div className={`relative ml-0.5 flex-shrink-0 border-l border-[#E6E6E1] pl-1.5 sm:ml-2 sm:pl-3 ${invoicingOnly ? "" : "md:hidden"}`}>
-          <button
-            type="button"
-            onClick={() => {
-              setProfileOpen((open) => !open);
-              setSearchOpen(false);
-              setCabinetMenuOpen(false);
-              setChatOpen(false);
-              setNextStepsOpen(false);
-            }}
-            className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-[#F5F4EF]"
-            aria-label="Ouvrir le menu du profil"
-            aria-expanded={profileOpen}
-          >
-            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-[#D6D5CF] bg-[#F3F3EF] text-[#5F6672]">
-              <UserRound size={16} strokeWidth={1.8} aria-hidden="true" />
-            </span>
-          </button>
-
-          {profileOpen && (
-            <div className="app-topbar-dropdown absolute right-0 top-[calc(100%+9px)] w-[270px] overflow-hidden border border-[#DADAD5] bg-white p-2 shadow-[0_18px_42px_rgba(13,21,38,0.15)]">
-              <div className="flex items-center gap-3 border-b border-[#ECECE8] px-2 py-2.5">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[#D6D5CF] bg-[#F3F3EF] text-[#5F6672]">
-                  <UserRound size={17} strokeWidth={1.8} aria-hidden="true" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[12.5px] font-bold text-[#1A1A2E]">{userName || userEmail || "Utilisateur"}</span>
-                  {userEmail && <span className="mt-0.5 block truncate text-[10.5px] text-[#777E8B]">{userEmail}</span>}
-                </span>
-              </div>
-              <Link
-                href={settingsHref}
-                onClick={() => setProfileOpen(false)}
-                className="mt-1.5 flex items-center gap-2.5 px-2 py-2 text-[12.5px] text-[#303644] transition-colors hover:bg-[#F4F3ED]"
-              >
-                <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
-                  <Settings size={13} />
-                </span>
-                <span>
-                  <span className="block font-semibold">Paramètres</span>
-                  <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Profil, entreprise et préférences</span>
-                </span>
-              </Link>
-              {isOwner && entitlements.plan !== "free" && <Link
-                href="/journal-audit"
-                onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2.5 px-2 py-2 text-[12.5px] text-[#303644] transition-colors hover:bg-[#F4F3ED]"
-              >
-                <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
-                  <ScrollText size={13} />
-                </span>
-                <span>
-                  <span className="block font-semibold">Journal d&apos;audit</span>
-                  <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Activité et traçabilité du compte</span>
-                </span>
-              </Link>}
-              {cabinetMenuItems.length > 0 && (
-                <Link
-                  href="/comptable-pro/dossiers"
-                  onClick={() => setProfileOpen(false)}
-                  className="flex items-center gap-2.5 px-2 py-2 text-[12.5px] text-[#303644] transition-colors hover:bg-[#F4F3ED]"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center border border-[#E5E5E0] bg-[#FAFAF7] text-[#777E8B]">
-                    <BriefcaseBusiness size={13} />
-                  </span>
-                  <span>
-                    <span className="block font-semibold">Dossiers</span>
-                    <span className="mt-0.5 block text-[9.5px] text-[#9297A0]">Gérer les dossiers clients</span>
-                  </span>
-                </Link>
-              )}
-              {cabinetCreateHref && (
-                <Link
-                  href={cabinetCreateHref}
-                  onClick={() => setProfileOpen(false)}
-                  className="flex items-center gap-2.5 px-2 py-2 text-[12.5px] font-semibold text-[#A56F2D] transition-colors hover:bg-[rgba(200,146,74,0.10)]"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center border border-[#D8C19D] bg-[#FFF9EF] text-[17px] leading-none text-[#A56F2D]" aria-hidden="true">
-                    +
-                  </span>
-                  Nouveau dossier
-                </Link>
-              )}
-              <div className="my-1 border-t border-[#ECECE8]" />
-              <button
-                type="button"
-                onClick={() => void onSignOut()}
-                className="flex w-full items-center gap-2.5 px-2 py-2 text-left text-[12px] text-[#B42318] transition-colors hover:bg-[#FFF1F0]"
-              >
-                <span className="flex h-7 w-7 items-center justify-center">
-                  <LogOut size={13} />
-                </span>
-                Se déconnecter
-              </button>
-            </div>
-          )}
-        </div>}
+        ) : null}
       </div>
       </header>
 

@@ -22,6 +22,7 @@ export interface InvoicePDFData {
     invoice_number: string;
     issue_date: string;
     due_date?: string | null;
+    payment_method?: string | null;
     subtotal: number;
     tax_rate: number;
     tax_amount: number;
@@ -56,6 +57,7 @@ export interface InvoicePDFData {
     bank_name?: string | null;
     invoice_mentions_legales?: string | null;
     invoice_payment_delay?: string | null;
+    invoice_payment_method?: string | null;
     invoice_color?: string | null;
   } | null;
   generatedAt: string;
@@ -313,6 +315,7 @@ export function createInvoicePDF({ invoice, client, company, generatedAt }: Invo
     "Tout retard de paiement entraînera des pénalités conformément à la loi marocaine n° 32-10.";
 
   const paymentDelay = company?.invoice_payment_delay ?? "30 jours";
+  const paymentMethod = invoice.payment_method ?? company?.invoice_payment_method ?? "Virement bancaire";
 
   return (
     <Document>
@@ -454,7 +457,7 @@ export function createInvoicePDF({ invoice, client, company, generatedAt }: Invo
                 <Text style={styles.paymentLine}>
                   <Text style={styles.paymentValue}>Paiement à {paymentDelay}</Text>
                 </Text>
-                <Text style={styles.paymentLine}>Mode : Virement bancaire</Text>
+                {paymentMethod && <Text style={styles.paymentLine}>Mode : {paymentMethod}</Text>}
               </View>
               {(company?.rib || company?.bank_name) && (
                 <View style={styles.paymentBox}>

@@ -19,7 +19,6 @@ export default async function NewDevisPage() {
     .order("name");
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];
-
   const nextNumber = await getNextInvoiceDocumentNumber(supabase, {
     prefix: "DEV",
     userId: ownerId,
@@ -27,7 +26,12 @@ export default async function NewDevisPage() {
 
   return (
     <>
-      <PageHeader title="Nouveau devis" subtitle="Créez un devis commercial pour votre client" icon={<BackIconLink href="/factures?mode=devis" label="Retour aux devis" />} iconBare />
+      <PageHeader
+        title="Nouveau devis"
+        subtitle="Créez un devis commercial pour votre client"
+        icon={<BackIconLink href="/devis" label="Retour aux devis" />}
+        iconBare
+      />
       <NewDevisForm clients={clients} nextNumber={nextNumber} userId={ownerId} />
     </>
   );

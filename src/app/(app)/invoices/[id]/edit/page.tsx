@@ -27,12 +27,15 @@ export default async function EditInvoicePage({
   if (!inv) notFound();
   if (inv.status !== "draft") redirect(`/factures/${id}`);
 
-  const { data } = await supabase
-    .from("clients")
-    .select("id, name, email")
-    .eq("user_id", ownerId)
-    .is("dossier_id", null)
-    .order("name");
+  const [{ data }, { data: company }] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, name, email")
+      .eq("user_id", ownerId)
+      .is("dossier_id", null)
+      .order("name"),
+    supabase.from("companies").select("invoice_payment_method").eq("user_id", ownerId).maybeSingle(),
+  ]);
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];
 
@@ -44,7 +47,7 @@ export default async function EditInvoicePage({
         icon={<BackIconLink href={`/factures/${id}`} label="Retour à la facture" />}
         iconBare
       />
-      <EditInvoiceForm invoice={inv} clients={clients} />
+      <EditInvoiceForm invoice={inv} clients={clients} defaultPaymentMethod={company?.invoice_payment_method ?? undefined} />
     </>
   );
 }

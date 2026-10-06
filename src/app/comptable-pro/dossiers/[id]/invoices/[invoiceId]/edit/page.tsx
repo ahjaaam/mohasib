@@ -27,14 +27,17 @@ export default async function DossierEditInvoicePage({
   if (!inv) notFound();
   if (inv.status !== "draft") redirect(`/comptable-pro/dossiers/${dossierId}/factures/${invoiceId}`);
 
-  const { data } = await supabase
-    .from("clients")
-    .select("id, name, email")
-    .eq("dossier_id", dossierId)
-    .order("name");
+  const [{ data }, { data: dossier }] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, name, email")
+      .eq("dossier_id", dossierId)
+      .order("name"),
+    supabase.from("dossiers").select("invoice_payment_method").eq("id", dossierId).maybeSingle(),
+  ]);
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];
   const backHref = `/comptable-pro/dossiers/${dossierId}/factures`;
 
-  return <EditInvoiceForm invoice={inv} clients={clients} backHref={backHref} />;
+  return <EditInvoiceForm invoice={inv} clients={clients} backHref={backHref} defaultPaymentMethod={dossier?.invoice_payment_method ?? undefined} />;
 }

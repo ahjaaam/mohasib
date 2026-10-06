@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import InvoiceActions from "./InvoiceActions";
 import PageHeader from "@/components/PageHeader";
 import { DISCOUNT_LABELS, type DiscountType } from "@/lib/invoice-discounts";
+import { invoiceVatBreakdown } from "@/lib/tva-invoice-aggregation";
 
 function fmt(n: number) {
   return n.toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD";
@@ -58,6 +59,7 @@ export default async function InvoiceDetailPage({
   const montantPaye = Math.max(Number((inv as any).montant_recu ?? 0), Number((inv as any).montant_paye ?? 0));
   const resteAPayer = Math.max(Number(inv.total) - montantPaye, 0);
   const totalTtc = Number(inv.total);
+  const vatBreakdown = invoiceVatBreakdown(inv);
 
   return (
     <div>
@@ -100,6 +102,10 @@ export default async function InvoiceDetailPage({
                     <div className="text-[12.5px] font-medium text-[#1A1A2E]">{formatDate(inv.due_date)}</div>
                   </div>
                 )}
+                <div>
+                  <div className="text-[10.5px] text-[#6B7280] uppercase tracking-[0.5px] mb-0.5">Mode de paiement</div>
+                  <div className="text-[12.5px] font-medium text-[#1A1A2E]">{inv.payment_method ?? "Virement bancaire"}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -112,6 +118,7 @@ export default async function InvoiceDetailPage({
                   <th>Description</th>
                   <th className="text-right">Qté</th>
                   <th className="text-right">P.U. HT</th>
+                  <th className="text-right">TVA %</th>
                   <th className="text-right">Total HT</th>
                 </tr>
               </thead>
@@ -121,6 +128,7 @@ export default async function InvoiceDetailPage({
                     <td>{item.description}</td>
                     <td className="text-right text-[#6B7280]">{item.quantity}</td>
                     <td className="text-right text-[#6B7280]">{fmt(item.unit_price)}</td>
+                    <td className="text-right text-[#6B7280]">{Number(item.tva_rate ?? inv.tax_rate)}%</td>
                     <td className="text-right font-medium">{fmt(item.amount)}</td>
                   </tr>
                 ))}
@@ -135,7 +143,15 @@ export default async function InvoiceDetailPage({
                   <div className="total-row"><span>Net HT</span><span>{fmt(Number(inv.subtotal) - Number(inv.discount_amount))}</span></div>
                 </>
               )}
-              <div className="total-row"><span>TVA ({inv.tax_rate}%)</span><span>{fmt(Number(inv.tax_amount))}</span></div>
+              {vatBreakdown.map((line, index) => (
+                <div key={`${line.rate}-${line.treatment ?? "taxable"}-${index}`} className="total-row">
+                  <span>{line.rate === 0 ? "Base HT 0%" : `Base HT ${line.rate}%`}</span>
+                  <span>{fmt(line.base)}</span>
+                </div>
+              ))}
+              {vatBreakdown.filter((line) => line.rate > 0).map((line) => (
+                <div key={`tax-${line.rate}`} className="total-row"><span>TVA {line.rate}%</span><span>{fmt(line.tax)}</span></div>
+              ))}
               <div className="total-row grand"><span>Total TTC</span><span>{fmt(totalTtc)}</span></div>
             </div>
           </div>

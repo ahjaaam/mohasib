@@ -8,7 +8,7 @@ import { getUserAccessProfile } from "@/lib/team";
 import { can } from "@/lib/rbac";
 import { createVersion, logAudit } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request-meta";
-import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
+import { getInvoiceNumberPrefix, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 import {
   calculateAgentDueDate,
   calculateAgentInvoiceAmounts,
@@ -347,8 +347,9 @@ async function executeTool(name: string, input: any, ctx: ToolContext): Promise<
         ? input.description.trim().slice(0, 500)
         : "Prestation de services";
 
+      const invoicePrefix = await getInvoiceNumberPrefix(admin, { userId: ownerId, dossierId });
       let invoiceNumber = await getNextInvoiceDocumentNumber(admin, {
-        prefix: "FAC",
+        prefix: invoicePrefix,
         userId: ownerId,
         dossierId,
       });
@@ -379,7 +380,7 @@ async function executeTool(name: string, input: any, ctx: ToolContext): Promise<
       let { data: invoice, error: insertError } = await insertInvoice(invoiceNumber);
       if (insertError && (insertError.code === "23505" || /duplicate key/i.test(insertError.message ?? ""))) {
         invoiceNumber = await getNextInvoiceDocumentNumber(admin, {
-          prefix: "FAC",
+          prefix: invoicePrefix,
           userId: ownerId,
           dossierId,
         });

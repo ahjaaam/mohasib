@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
-import sharp from "sharp";
+import { loadInvoiceLogo } from "@/lib/pdf/loadInvoiceLogo";
+import { getInvoiceDocumentFilename } from "@/lib/pdf/document-label";
+import { contentDisposition } from "../../../lib/content-disposition";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,30 +42,7 @@ export async function GET(
       .eq("user_id", inv.user_id)
       .single();
 
-    // Fetch logo as base64
-    let logoBase64: string | null = null;
-    let logoMimeType: string | null = null;
-    let logoWidthPx: number | null = null;
-    let logoHeightPx: number | null = null;
-
-    if (company?.logo_url) {
-      try {
-        const res = await fetch(company.logo_url);
-        if (res.ok) {
-          const buffer = Buffer.from(await res.arrayBuffer());
-          logoBase64 = buffer.toString("base64");
-          logoMimeType = res.headers.get("content-type") ?? "image/png";
-          try {
-            const dims = await sharp(buffer).metadata();
-            if (dims.width && dims.height) {
-              const ratio = Math.min(180 / dims.width, 80 / dims.height, 1);
-              logoWidthPx = Math.round(dims.width * ratio);
-              logoHeightPx = Math.round(dims.height * ratio);
-            }
-          } catch {}
-        }
-      } catch {}
-    }
+    const logo = await loadInvoiceLogo(company?.logo_url);
 
     const client = inv.clients ?? null;
     const generatedAt = new Date().toLocaleDateString("fr-MA", {
@@ -92,22 +71,20 @@ export async function GET(
         items: (inv.items ?? []) as any[],
       },
       client,
-      company: company
-        ? { ...company, logoBase64, logoMimeType, logoWidthPx, logoHeightPx }
-        : null,
+      company: company ? { ...company, ...logo } : null,
       generatedAt,
     });
 
     const clientName = client?.name
       ? client.name.replace(/[^a-zA-Z0-9À-ɏ\s-]/g, "").trim().replace(/\s+/g, "-")
       : "Client";
-    const filename = `Facture-${inv.invoice_number}-${clientName}.pdf`;
+    const filename = getInvoiceDocumentFilename(inv.invoice_type, inv.invoice_number, clientName);
 
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${filename}"`,
+        "Content-Disposition": contentDisposition("inline", filename, "Document.pdf"),
         "Cache-Control": "no-store",
       },
     });

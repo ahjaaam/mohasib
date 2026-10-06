@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { authorizePermission } from "@/lib/api-permissions";
 import { resolveAccountOwnerId } from "@/lib/account-owner";
 import { extractClientInvoiceData } from "@/lib/client-invoice-import";
-import { getAvailableInvoiceDocumentNumber } from "@/lib/document-numbers";
+import { getAvailableInvoiceDocumentNumber, getInvoiceNumberPrefix } from "@/lib/document-numbers";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["pdf", "jpg", "jpeg", "png", "webp", "xls", "xlsx", "docx"]);
@@ -53,9 +53,10 @@ export async function POST(request: NextRequest) {
   try {
     const extracted = await extractClientInvoiceData(bytes, mimeType, file.name).catch(() => null);
     const preferredNumber = extracted?.invoiceNumber || fileStem(file.name);
+    const invoicePrefix = isAvoir ? "AV" : await getInvoiceNumberPrefix(admin, { userId: ownerId, dossierId });
     const invoiceNumber = await getAvailableInvoiceDocumentNumber(admin, {
       preferredNumber,
-      prefix: isAvoir ? "AV" : "FAC",
+      prefix: invoicePrefix,
       userId: ownerId,
       dossierId,
     });

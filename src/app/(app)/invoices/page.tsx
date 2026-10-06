@@ -20,6 +20,7 @@ import TableSelectionCheckbox from "@/components/TableSelectionCheckbox";
 import BulkInvoiceImportModal from "./BulkInvoiceImportModal";
 import { finalizeDraftInvoice } from "@/lib/invoice-booking-client";
 import { canPermanentlyDeleteInvoice } from "@/lib/invoice-accounting-lifecycle";
+import { invoiceVatBreakdown } from "@/lib/tva-invoice-aggregation";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -814,7 +815,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
             </Link>
           </div>
         ) : mode === "devis" ? (
-          <Link data-permission="invoice:create" href="/factures/devis/nouveau"
+          <Link data-permission="invoice:create" href="/devis/nouveau"
             className="ui-control inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-auto border-[#111621] bg-[#111621] text-white hover:border-[#25334B] hover:bg-[#25334B]">
             <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouveau Devis
           </Link>
@@ -831,7 +832,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
       </div>
 
       {/* ─── Mode tabs ────────────────────────────────────────────────────── */}
-      <div className="tabs mb-5 overflow-x-auto">
+      {mode !== "devis" && <div className="tabs mb-5 overflow-x-auto">
         {([
           { key: "factures", label: "Factures",       count: factures.length },
           { key: "avoirs",   label: "Avoirs clients",  count: avoirs.length },
@@ -856,7 +857,7 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
             )}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* ─── Search, dates and status filters ─────────────────────────────── */}
       <div className="mb-4 flex flex-col gap-2 border border-[#E6E5DF] bg-[#FAFAF7] px-3 py-2.5 xl:flex-row xl:items-center xl:justify-between">
@@ -1128,6 +1129,9 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
                   </td>
                   <td className="whitespace-nowrap text-left text-[#6B7280]">
                     {mode === "avoirs" ? "- " : ""}{fmt(Number(inv.tax_amount))}
+                    <div className="mt-0.5 text-[9.5px] text-[#9CA3AF]">
+                      {invoiceVatBreakdown(inv).map((line) => `TVA ${line.rate}% ${mode === "avoirs" ? "- " : ""}${fmt(line.tax)}`).join(" · ") || "—"}
+                    </div>
                   </td>
                   <td className="text-left">
                     {mode === "avoirs" ? (

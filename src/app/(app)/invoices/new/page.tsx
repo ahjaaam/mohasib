@@ -4,7 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import BackIconLink from "@/components/BackIconLink";
 import NewInvoiceForm from "./NewInvoiceForm";
 import type { Client } from "@/types";
-import { getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
+import { getInvoiceNumberPrefix, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
 
 export default async function NewInvoicePage() {
   const supabase = await createClient();
@@ -20,15 +20,16 @@ export default async function NewInvoicePage() {
 
   const clients: Pick<Client, "id" | "name" | "email">[] = data ?? [];
 
+  const invoicePrefix = await getInvoiceNumberPrefix(supabase, { userId: ownerId });
   const nextNumber = await getNextInvoiceDocumentNumber(supabase, {
-    prefix: "FAC",
+    prefix: invoicePrefix,
     userId: ownerId,
   });
 
   return (
     <>
       <PageHeader title="Nouvelle facture" subtitle="Créer et envoyer une facture" icon={<BackIconLink href="/factures" label="Retour aux factures" />} iconBare />
-      <NewInvoiceForm clients={clients} nextNumber={nextNumber} userId={ownerId} />
+      <NewInvoiceForm clients={clients} nextNumber={nextNumber} userId={ownerId} numberingPrefix={invoicePrefix} />
     </>
   );
 }

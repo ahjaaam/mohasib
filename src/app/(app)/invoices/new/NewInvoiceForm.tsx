@@ -40,6 +40,7 @@ interface Props {
   clients: Pick<Client, "id" | "name" | "email">[];
   nextNumber: string;
   userId: string;
+  numberingPrefix: string;
   dossierId?: string;
   backHref?: string;
 }
@@ -52,7 +53,7 @@ function emptyLine(): LineItem {
 
 function fmt(n: number) { return n.toLocaleString("fr-MA", { minimumFractionDigits: 2 }) + " MAD"; }
 
-export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId, backHref }: Props) {
+export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId, backHref, numberingPrefix }: Props) {
   const router = useRouter();
   const supabase = createClient();
   const [saving, setSaving] = useState(false);
@@ -107,15 +108,20 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
     client_id: "",
     date: today,
     due: calcDueDate(null), // will be updated by useEffect
+    payment_method: "Virement bancaire",
   });
 
   useEffect(() => {
     const query = dossierId
-      ? supabase.from("dossiers").select("invoice_payment_delay").eq("id", dossierId).single()
-      : supabase.from("companies").select("invoice_payment_delay").eq("user_id", userId).single();
+      ? supabase.from("dossiers").select("invoice_payment_delay, invoice_payment_method").eq("id", dossierId).single()
+      : supabase.from("companies").select("invoice_payment_delay, invoice_payment_method").eq("user_id", userId).single();
     query.then(({ data }) => {
-      if (data?.invoice_payment_delay) {
-        setForm(f => ({ ...f, due: calcDueDate(data.invoice_payment_delay) }));
+      if (data) {
+        setForm(f => ({
+          ...f,
+          ...(data.invoice_payment_delay ? { due: calcDueDate(data.invoice_payment_delay) } : {}),
+          payment_method: data.invoice_payment_method || "Virement bancaire",
+        }));
       }
     });
   }, [userId, dossierId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -287,7 +293,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
 
     let invoiceNumber = await getAvailableInvoiceDocumentNumber(supabase, {
       preferredNumber: form.num,
-      prefix: "FAC",
+      prefix: numberingPrefix,
       userId,
       dossierId,
     });
@@ -308,6 +314,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
           status: "draft",
           issue_date: form.date,
           due_date: form.due || null,
+          payment_method: form.payment_method.trim(),
           subtotal: totalHT,
           tax_rate: Math.round(avgTVA * 100) / 100,
           tax_amount: totalTVA,
@@ -327,7 +334,7 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
 
     if (err && isDuplicateInvoiceNumberError(err)) {
       invoiceNumber = await getNextInvoiceDocumentNumber(supabase, {
-        prefix: "FAC",
+        prefix: numberingPrefix,
         userId,
         dossierId,
       });
@@ -539,6 +546,10 @@ export default function NewInvoiceForm({ clients, nextNumber, userId, dossierId,
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-medium text-[#6B7280]">Date d&apos;échéance</label>
           <input type="date" className="input" value={form.due} onChange={(e) => setForm((f) => ({ ...f, due: e.target.value }))} />
+        </div>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <label className="text-[11px] font-medium text-[#6B7280]">Mode de paiement indiqué sur cette facture</label>
+          <input className="input" value={form.payment_method} onChange={(e) => setForm((f) => ({ ...f, payment_method: e.target.value }))} placeholder="Virement bancaire" maxLength={120} />
         </div>
       </div>
 

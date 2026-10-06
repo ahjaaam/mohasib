@@ -252,7 +252,7 @@
 
 @media (min-width: 768px) {
   .app-content-frame {
-    padding: 0 14px 14px;
+    padding: 0 14px 14px 0;
   }
 
   .app-content-surface {

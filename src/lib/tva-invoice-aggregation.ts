@@ -42,6 +42,13 @@ export interface VatInvoiceAggregation {
   netSubtotal: number;
 }
 
+export interface InvoiceVatBreakdownLine {
+  rate: number;
+  base: number;
+  tax: number;
+  treatment?: InvoiceVatTreatment | "unclassified";
+}
+
 const SUPPORTED_RATES = new Set<VatRateBucket>([7, 10, 14, 20]);
 
 function finiteNonNegative(value: unknown) {
@@ -122,6 +129,42 @@ export function netInvoiceSubtotal(invoice: VatInvoiceRecord) {
   const grossSubtotal = finiteNonNegative(invoice.subtotal);
   const discountAmount = Math.min(grossSubtotal, finiteNonNegative(invoice.discount_amount));
   return grossSubtotal - discountAmount;
+}
+
+function roundBreakdownToTotal(lines: InvoiceVatBreakdownLine[], key: "base" | "tax", total: number) {
+  const targetCents = Math.round(Math.max(0, Number(total) || 0) * 100);
+  const rounded = lines.map((line) => Math.round(Math.max(0, line[key]) * 100));
+  const difference = targetCents - rounded.reduce((sum, cents) => sum + cents, 0);
+  if (difference !== 0 && rounded.length > 0) {
+    const largest = rounded.reduce((best, value, index) => value > rounded[best] ? index : best, 0);
+    rounded[largest] += difference;
+  }
+  lines.forEach((line, index) => { line[key] = rounded[index] / 100; });
+}
+
+/** Returns per-rate amounts reconciled to the saved invoice HT and VAT totals. */
+export function invoiceVatBreakdown(invoice: VatInvoiceRecord): InvoiceVatBreakdownLine[] {
+  const aggregation = aggregateInvoiceVat(invoice);
+  const lines: InvoiceVatBreakdownLine[] = [];
+
+  for (const rate of [7, 10, 14, 20] as const) {
+    if (aggregation.bases[rate] > 0 || aggregation.taxes[rate] > 0) {
+      lines.push({ rate, base: aggregation.bases[rate], tax: aggregation.taxes[rate] });
+    }
+  }
+
+  const zeroRated = Object.entries(aggregation.zeroRatedBases) as Array<[InvoiceVatTreatment | "unclassified", number]>;
+  for (const [treatment, base] of zeroRated) {
+    if (base > 0) lines.push({ rate: 0, base, tax: 0, treatment });
+  }
+
+  if (lines.length === 0 && aggregation.netSubtotal > 0) {
+    lines.push({ rate: Number(invoice.tax_rate) || 0, base: aggregation.netSubtotal, tax: finiteNonNegative(invoice.tax_amount) });
+  }
+
+  roundBreakdownToTotal(lines, "base", aggregation.netSubtotal);
+  roundBreakdownToTotal(lines.filter((line) => line.rate > 0), "tax", finiteNonNegative(invoice.tax_amount));
+  return lines;
 }
 
 export function aggregateInvoiceVat(invoice: VatInvoiceRecord): VatInvoiceAggregation {

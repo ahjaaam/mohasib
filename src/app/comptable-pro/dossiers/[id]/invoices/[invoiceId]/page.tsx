@@ -98,6 +98,10 @@ export default async function DossierInvoiceDetailPage({
                     <div className="text-[12.5px] font-medium text-[#1A1A2E]">{formatDate(inv.due_date)}</div>
                   </div>
                 )}
+                <div>
+                  <div className="text-[10.5px] text-[#6B7280] uppercase tracking-[0.5px] mb-0.5">Mode de paiement</div>
+                  <div className="text-[12.5px] font-medium text-[#1A1A2E]">{inv.payment_method ?? "Virement bancaire"}</div>
+                </div>
               </div>
             </div>
           </div>

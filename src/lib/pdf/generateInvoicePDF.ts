@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { applyPlugin } from "jspdf-autotable";
 import { INVOICE_VAT_TREATMENT_OPTIONS, normalizeInvoiceVatTreatment } from "@/lib/invoice-vat-treatment";
+import { invoiceVatBreakdown } from "@/lib/tva-invoice-aggregation";
 
 // Attach autoTable plugin to jsPDF
 applyPlugin(jsPDF);
@@ -44,6 +45,7 @@ export interface GeneratePDFInput {
     devis_conditions?: string | null;
     issue_date: string;
     due_date?: string | null;
+    payment_method?: string | null;
     subtotal: number;
     tax_rate: number;
     tax_amount: number;
@@ -90,6 +92,7 @@ export interface GeneratePDFInput {
     bank_name?: string | null;
     invoice_mentions_legales?: string | null;
     invoice_payment_delay?: string | null;
+    invoice_payment_method?: string | null;
     invoice_color?: string | null;
     show_logo?: boolean | null;
     show_cnss?: boolean | null;
@@ -304,7 +307,9 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
 
   doc.setFillColor(...CREAM_BG);
   const hasDiscount = Number(invoice.discount_amount ?? 0) > 0;
-  const totalsHeight = hasDiscount ? 36 : 24;
+  const vatBreakdown = invoiceVatBreakdown(invoice);
+  const vatSummaryRows = vatBreakdown.reduce((count, line) => count + (line.rate === 0 ? 1 : 2), 0);
+  const totalsHeight = (hasDiscount ? 36 : 24) + Math.max(0, vatSummaryRows - 1) * 6;
   doc.roundedRect(totX, y, totW, totalsHeight, 2, 2, "F");
 
   doc.setFont("helvetica", "normal");
@@ -330,12 +335,31 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     doc.text(fmtAmt(Number(invoice.subtotal) - Number(invoice.discount_amount)), totX + totW - 4, totalsRowY, { align: "right" });
     totalsRowY += 6;
   }
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...MUTED_RGB);
-  doc.text(`TVA (${invoice.tax_rate}%)`, totX + 4, totalsRowY);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...TEXT_RGB);
-  doc.text(fmtAmt(invoice.tax_amount), totX + totW - 4, totalsRowY, { align: "right" });
+  for (const line of vatBreakdown) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED_RGB);
+    if (line.rate === 0) {
+      doc.text("Base HT 0%", totX + 4, totalsRowY);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...TEXT_RGB);
+      doc.text(fmtAmt(line.base), totX + totW - 4, totalsRowY, { align: "right" });
+      totalsRowY += 6;
+      continue;
+    }
+    doc.text(`Base HT ${line.rate}%`, totX + 4, totalsRowY);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...TEXT_RGB);
+    doc.text(fmtAmt(line.base), totX + totW - 4, totalsRowY, { align: "right" });
+    totalsRowY += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...MUTED_RGB);
+    doc.text(`TVA ${line.rate}%`, totX + 4, totalsRowY);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...TEXT_RGB);
+    doc.text(fmtAmt(line.tax), totX + totW - 4, totalsRowY, { align: "right" });
+    totalsRowY += 6;
+  }
 
   // Divider
   doc.setDrawColor(229, 231, 235);
@@ -381,8 +405,9 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
     y += 9 + condLines.length * 4 + 5;
   } else {
     const payDelay = company?.invoice_payment_delay ?? "30 jours";
+    const payMethod = invoice.payment_method ?? company?.invoice_payment_method ?? "Virement bancaire";
     const hasVisibleBankDetails = company?.show_rib !== false && Boolean(company?.rib || company?.bank_name);
-    if (payDelay || hasVisibleBankDetails) {
+    if (payDelay || payMethod || hasVisibleBankDetails) {
       doc.setDrawColor(229, 231, 235);
       doc.line(marginL, y, pageW - marginR, y);
       y += 5;
@@ -395,7 +420,8 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
       doc.setTextColor(...MUTED_RGB);
-      doc.text(`Paiement à ${payDelay} — Virement bancaire`, marginL, y + 9);
+      doc.text(`Paiement à ${payDelay}`, marginL, y + 9);
+      if (payMethod) doc.text(`Mode : ${payMethod}`, marginL, y + 13);
 
       if (hasVisibleBankDetails) {
         const bX = marginL + contentW / 2;
@@ -410,7 +436,7 @@ export function generateInvoicePDF(data: GeneratePDFInput): ArrayBuffer {
         if (company?.rib) doc.text(`RIB : ${company.rib}`, bX, y + 13);
       }
 
-      y += 18;
+      y += 22;
     }
   }
 

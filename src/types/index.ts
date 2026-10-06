@@ -67,6 +67,7 @@ export interface Invoice {
   status: InvoiceStatus;
   issue_date: string;
   due_date: string | null;
+  payment_method?: string | null;
   subtotal: number;
   tax_rate: number;
   tax_amount: number;

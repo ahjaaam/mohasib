@@ -6,9 +6,25 @@ function currentYear() {
   return new Date().getFullYear();
 }
 
+function normalizedPrefix(prefix: string) {
+  return prefix.trim().replace(/-+$/, "") || "FAC";
+}
+
 function sequenceFromNumber(value: string | null | undefined, prefix: string, year: number) {
-  const match = String(value ?? "").match(new RegExp(`^${prefix}-${year}-(\\d+)$`, "i"));
+  const escapedPrefix = normalizedPrefix(prefix).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = String(value ?? "").match(new RegExp(`^${escapedPrefix}-${year}-(\\d+)$`, "i"));
   return match ? Number.parseInt(match[1] ?? "0", 10) || 0 : 0;
+}
+
+export async function getInvoiceNumberPrefix(
+  supabase: SupabaseLike,
+  { userId, dossierId }: { userId: string; dossierId?: string | null },
+) {
+  const table = dossierId ? "dossiers" : "companies";
+  const scopeId = dossierId ?? userId;
+  const scopeColumn = dossierId ? "id" : "user_id";
+  const { data } = await supabase.from(table).select("invoice_prefix").eq(scopeColumn, scopeId).maybeSingle();
+  return normalizedPrefix(data?.invoice_prefix || "F-");
 }
 
 function scopedInvoiceQuery(supabase: SupabaseLike, userId: string, dossierId?: string | null) {
@@ -26,21 +42,22 @@ export async function getNextInvoiceDocumentNumber(
     dossierId,
     year = currentYear(),
   }: {
-    prefix: "FAC" | "DEV" | "AV";
+    prefix: string;
     userId: string;
     dossierId?: string | null;
     year?: number;
   },
 ) {
+  const normalized = normalizedPrefix(prefix);
   const { data } = await scopedInvoiceQuery(supabase, userId, dossierId)
-    .ilike("invoice_number", `${prefix}-${year}-%`)
+    .ilike("invoice_number", `${normalized}-${year}-%`)
     .range(0, 9999);
 
   const max = (data ?? []).reduce((highest: number, row: { invoice_number?: string | null }) => {
-    return Math.max(highest, sequenceFromNumber(row.invoice_number, prefix, year));
+    return Math.max(highest, sequenceFromNumber(row.invoice_number, normalized, year));
   }, 0);
 
-  return `${prefix}-${year}-${String(max + 1).padStart(4, "0")}`;
+  return `${normalized}-${year}-${String(max + 1).padStart(4, "0")}`;
 }
 
 export async function invoiceDocumentNumberExists(
@@ -71,7 +88,7 @@ export async function getAvailableInvoiceDocumentNumber(
     dossierId,
   }: {
     preferredNumber: string;
-    prefix: "FAC" | "DEV" | "AV";
+    prefix: string;
     userId: string;
     dossierId?: string | null;
   },
@@ -83,4 +100,3 @@ export async function getAvailableInvoiceDocumentNumber(
 
   return getNextInvoiceDocumentNumber(supabase, { prefix, userId, dossierId });
 }
-

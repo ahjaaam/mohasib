@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateInvoicePDF } from "@/lib/pdf/generateInvoicePDF";
-import sharp from "sharp";
+import { loadInvoiceLogo } from "@/lib/pdf/loadInvoiceLogo";
 import { requirePlanFeature } from "@/lib/api-plan";
 import { contentDisposition } from "../../../../../lib/content-disposition";
+import { getInvoiceDocumentFilename, getInvoiceDocumentLabel } from "@/lib/pdf/document-label";
 
 // Invoices created inside a dossier are owned (invoices.user_id) by the
 // cabinet's own account, never by the dossier's client_portal member — so
@@ -32,6 +33,7 @@ async function resolveInvoiceBranding(inv: any) {
       rib: dossier.rib,
       invoice_mentions_legales: dossier.invoice_mentions_legales,
       invoice_payment_delay: dossier.invoice_payment_delay,
+      invoice_payment_method: dossier.invoice_payment_method,
       invoice_color: dossier.invoice_color,
       whatsapp_template: null,
     };
@@ -43,37 +45,7 @@ async function resolveInvoiceBranding(inv: any) {
 async function buildInput(inv: any, company: any) {
   const client = inv.clients ?? null;
 
-  // Fetch logo as base64 and compute proportional dimensions
-  let logoBase64: string | null = null;
-  let logoMimeType: string | null = null;
-  let logoWidthPx: number | null = null;
-  let logoHeightPx: number | null = null;
-
-  if (company?.logo_url) {
-    try {
-      const res = await fetch(company.logo_url);
-      if (res.ok) {
-        const buf = await res.arrayBuffer();
-        const buffer = Buffer.from(buf);
-        logoBase64 = buffer.toString("base64");
-        logoMimeType = res.headers.get("content-type") ?? "image/png";
-
-        // Get natural dimensions and scale to fit max bounding box
-        try {
-          const dims = await sharp(buffer).metadata();
-          if (dims.width && dims.height) {
-            const MAX_WIDTH = 180;
-            const MAX_HEIGHT = 80;
-            const ratio = Math.min(MAX_WIDTH / dims.width, MAX_HEIGHT / dims.height, 1);
-            logoWidthPx = Math.round(dims.width * ratio);
-            logoHeightPx = Math.round(dims.height * ratio);
-          }
-        } catch (sizeErr) {
-          console.error("[PDF] image-size failed:", sizeErr);
-        }
-      }
-    } catch {}
-  }
+  const logo = await loadInvoiceLogo(company?.logo_url);
 
   const generatedAt = new Date().toLocaleDateString("fr-MA", {
     day: "2-digit", month: "2-digit", year: "numeric",
@@ -90,6 +62,7 @@ async function buildInput(inv: any, company: any) {
         devis_conditions: (inv as any).devis_conditions ?? null,
         issue_date: inv.issue_date,
         due_date: inv.due_date ?? null,
+        payment_method: inv.payment_method ?? null,
         subtotal: Number(inv.subtotal),
         tax_rate: Number(inv.tax_rate),
         tax_amount: Number(inv.tax_amount),
@@ -103,7 +76,7 @@ async function buildInput(inv: any, company: any) {
         items: (inv.items ?? []) as any[],
       },
       client,
-      company: company ? { ...company, logoBase64, logoMimeType, logoWidthPx, logoHeightPx } : null,
+      company: company ? { ...company, ...logo } : null,
       generatedAt,
     },
     client,
@@ -141,14 +114,14 @@ export async function GET(
     const clientName = client?.name
       ? client.name.replace(/[^a-zA-Z0-9\u00C0-\u024F\s-]/g, "").trim().replace(/\s+/g, "-")
       : "Client";
-    const filename = `Facture-${inv.invoice_number}-${clientName}.pdf`;
+    const filename = getInvoiceDocumentFilename(inv.invoice_type, inv.invoice_number, clientName);
     const disposition = request.nextUrl.searchParams.get("preview") === "1" ? "inline" : "attachment";
 
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": contentDisposition(disposition, filename, "Facture.pdf"),
+        "Content-Disposition": contentDisposition(disposition, filename, `${getInvoiceDocumentLabel(inv.invoice_type)}.pdf`),
         "Cache-Control": "no-store",
       },
     });

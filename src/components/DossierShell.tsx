@@ -254,7 +254,6 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
             <AppTopBar
               items={topBarItems}
               userName={userName}
-              userEmail={userEmail}
               userId={userId}
               avatarUrl={userAvatar}
               exportHref={entitled("export_fiduciaire") && !isClientPortal ? `${base}/${EXPORT_SLUG}` : undefined}
@@ -276,8 +275,6 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
                 ? "/comptable-pro/dossiers/nouveau"
                 : undefined}
               onOpenMobileMenu={() => setDrawerOpen(true)}
-              onSignOut={signOut}
-              settingsHref="/parametres"
               dossierId={dossier.id}
             />
             <div className="h-16 flex-shrink-0" aria-hidden="true" />

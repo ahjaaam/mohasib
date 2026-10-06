@@ -34,10 +34,12 @@ export default function EditInvoiceForm({
   invoice,
   clients,
   backHref,
+  defaultPaymentMethod,
 }: {
   invoice: any;
   clients: Pick<Client, "id" | "name" | "email">[];
   backHref?: string;
+  defaultPaymentMethod?: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -49,6 +51,7 @@ export default function EditInvoiceForm({
     client_id: invoice.client_id ?? "",
     date: invoice.issue_date ?? "",
     due: invoice.due_date ?? "",
+    payment_method: invoice.payment_method ?? defaultPaymentMethod ?? "Virement bancaire",
   });
 
   const [lines, setLines] = useState<LineItem[]>(
@@ -116,6 +119,7 @@ export default function EditInvoiceForm({
       status: "draft",
       issue_date: form.date,
       due_date: form.due || null,
+      payment_method: form.payment_method.trim(),
       subtotal: totalHT,
       tax_rate: Math.round(avgTVA * 100) / 100,
       tax_amount: totalTVA,
@@ -169,6 +173,10 @@ export default function EditInvoiceForm({
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-medium text-[#6B7280]">Date d&apos;échéance</label>
           <input type="date" className="input" value={form.due} onChange={(e) => setForm((f) => ({ ...f, due: e.target.value }))} />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <label className="text-[11px] font-medium text-[#6B7280]">Mode de paiement indiqué sur cette facture</label>
+          <input className="input" value={form.payment_method} onChange={(e) => setForm((f) => ({ ...f, payment_method: e.target.value }))} placeholder="Virement bancaire" maxLength={120} />
         </div>
       </div>
 

@@ -71,6 +71,7 @@ export function featureForPath(pathname: string, routes = MAIN_ROUTE_FEATURES) {
 const FREE_PLAN_ROUTES = [
   "/factures",
   "/invoices",
+  "/devis",
   "/clients",
   "/parametres",
   "/settings",

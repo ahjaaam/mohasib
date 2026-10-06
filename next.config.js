@@ -64,7 +64,8 @@ const nextConfig = {
   async redirects() {
     return [
       { source: "/invoices/new", destination: "/factures/nouvelle", permanent: false },
-      { source: "/invoices/devis/new", destination: "/factures/devis/nouveau", permanent: false },
+      { source: "/invoices/devis/new", destination: "/devis/nouveau", permanent: false },
+      { source: "/factures/devis/nouveau", destination: "/devis/nouveau", permanent: false },
       { source: "/invoices/avoir/new", destination: "/factures/avoirs/nouveau", permanent: false },
       { source: "/invoices/:id/edit", destination: "/factures/:id/modifier", permanent: false },
       { source: "/invoices/:path*", destination: "/factures/:path*", permanent: false },
@@ -104,7 +105,6 @@ const nextConfig = {
       { source: "/tableau-de-bord", destination: "/dashboard" },
       { source: "/factures", destination: "/invoices" },
       { source: "/factures/nouvelle", destination: "/invoices/new" },
-      { source: "/factures/devis/nouveau", destination: "/invoices/devis/new" },
       { source: "/factures/avoirs/nouveau", destination: "/invoices/avoir/new" },
       { source: "/factures/:id/modifier", destination: "/invoices/:id/edit" },
       { source: "/factures/:id", destination: "/invoices/:id" },

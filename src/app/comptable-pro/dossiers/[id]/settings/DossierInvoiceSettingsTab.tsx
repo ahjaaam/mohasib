@@ -17,6 +17,7 @@ interface Props {
     rib?: string | null;
     invoice_prefix?: string | null;
     invoice_payment_delay?: string | null;
+    invoice_payment_method?: string | null;
     invoice_mentions_legales?: string | null;
     invoice_color?: string | null;
   };
@@ -47,6 +48,7 @@ export default function DossierInvoiceSettingsTab({ dossierId, dossier }: Props)
     rib: dossier.rib ?? "",
     invoice_prefix: dossier.invoice_prefix ?? "F-",
     invoice_payment_delay: dossier.invoice_payment_delay ?? "30 jours",
+    invoice_payment_method: dossier.invoice_payment_method ?? "Virement bancaire",
     invoice_mentions_legales: dossier.invoice_mentions_legales ?? "Paiement à 30 jours. Tout retard de paiement entraînera des pénalités conformément à la loi marocaine.",
     invoice_color: dossier.invoice_color ?? "#C8924A",
   });
@@ -54,16 +56,30 @@ export default function DossierInvoiceSettingsTab({ dossierId, dossier }: Props)
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
 
   async function uploadLogo(file: File) {
+    if (!["image/png", "image/jpeg", "image/svg+xml"].includes(file.type)) {
+      toast.error("Format non pris en charge. Choisissez un fichier PNG, JPG ou SVG.");
+      return;
+    }
     if (file.size > 2 * 1024 * 1024) { toast.error("Logo trop lourd (max 2MB)"); return; }
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `dossier-${dossierId}/logo.${ext}`;
-    const { error } = await supabase.storage.from("logos").upload(path, file, { upsert: true });
-    if (error) { toast.error("Erreur upload logo"); setUploading(false); return; }
-    const { data } = supabase.storage.from("logos").getPublicUrl(path);
-    set("logo_url", data.publicUrl);
-    setUploading(false);
-    toast.success("Logo mis à jour");
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      const path = `dossier-${dossierId}/logo.${ext}`;
+      const { data, error } = await supabase.storage.from("logos").upload(path, file, { upsert: true, contentType: file.type });
+      if (error) {
+        console.error("[dossier-logo-upload] Supabase Storage upload failed:", error);
+        toast.error(translateError(error));
+        return;
+      }
+      const { data: publicUrl } = supabase.storage.from("logos").getPublicUrl(data.path);
+      set("logo_url", publicUrl.publicUrl);
+      toast.success("Logo mis à jour");
+    } catch (error) {
+      console.error("[dossier-logo-upload] Unexpected upload failure:", error);
+      toast.error(translateError(error));
+    } finally {
+      setUploading(false);
+    }
   }
 
   function validate() {
@@ -81,8 +97,8 @@ export default function DossierInvoiceSettingsTab({ dossierId, dossier }: Props)
     else toast.success("Paramètres de facturation enregistrés");
   }
 
-  const previewPrefix = form.invoice_prefix || "F-";
-  const previewNumber = `${previewPrefix}${new Date().getFullYear()}-001`;
+  const previewPrefix = (form.invoice_prefix || "F-").trim();
+  const previewNumber = `${previewPrefix}${previewPrefix.endsWith("-") ? "" : "-"}${new Date().getFullYear()}-001`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -152,6 +168,10 @@ export default function DossierInvoiceSettingsTab({ dossierId, dossier }: Props)
             <select className="input" value={form.invoice_payment_delay} onChange={e => set("invoice_payment_delay", e.target.value)}>
               {DELAIS.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-medium text-[#6B7280]">Mode de paiement par défaut</label>
+            <input className="input" value={form.invoice_payment_method ?? "Virement bancaire"} onChange={e => set("invoice_payment_method", e.target.value)} placeholder="Virement bancaire" maxLength={120} />
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label className="text-[11px] font-medium text-[#6B7280]">Mentions légales personnalisées</label>

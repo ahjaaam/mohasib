@@ -25,7 +25,7 @@ export default async function DossierSettingsPage({ params }: { params: Promise<
             gmail_token_encrypted, gmail_email, gmail_last_sync, gmail_import_count,
             outlook_token_encrypted, outlook_email, outlook_last_sync, outlook_import_count,
             logo_url, address, city, postal_code, bank_name, rib,
-            invoice_prefix, invoice_payment_delay, invoice_mentions_legales, invoice_color,
+            invoice_prefix, invoice_payment_delay, invoice_payment_method, invoice_mentions_legales, invoice_color,
             accounting_settings
           `)
           .eq("id", id)

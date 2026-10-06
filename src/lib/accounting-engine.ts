@@ -10,6 +10,7 @@ import {
   DISCOUNT_LABELS,
   type DiscountType,
 } from "./invoice-discounts";
+import { invoiceVatBreakdown } from "./tva-invoice-aggregation";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -239,14 +240,15 @@ export async function bookSalesInvoice(
   }
 
   // 3 — Credit the configured collected-TVA account
-  if (invoice.tax_amount > 0) {
+  for (const line of invoiceVatBreakdown(invoice)) {
+    if (line.tax <= 0) continue;
     entries.push({
       journal: "VT",
       compte: accounts.collectedTvaAccount,
       compte_label: getAccountLabel(accounts.collectedTvaAccount),
       debit: 0,
-      credit: invoice.tax_amount,
-      libelle: `TVA collectée — ${invoice.invoice_number}`,
+      credit: line.tax,
+      libelle: `TVA collectée ${line.rate}% — ${invoice.invoice_number}`,
       source_type: "invoice",
       source_id: invoice.id,
       date_ecriture: invoice.issue_date,
@@ -605,14 +607,15 @@ export async function bookAvoirClient(
   }
 
   // 3 — Debit the configured collected-TVA account
-  if (avoir.tax_amount > 0) {
+  for (const line of invoiceVatBreakdown(avoir)) {
+    if (line.tax <= 0) continue;
     entries.push({
       journal: "VT",
       compte: accounts.collectedTvaAccount,
       compte_label: getAccountLabel(accounts.collectedTvaAccount),
-      debit: avoir.tax_amount,
+      debit: line.tax,
       credit: 0,
-      libelle: `TVA collectée annulée — ${avoir.invoice_number}`,
+      libelle: `TVA collectée annulée ${line.rate}% — ${avoir.invoice_number}`,
       source_type: "avoir_client",
       source_id: avoir.id,
       date_ecriture: avoir.issue_date,

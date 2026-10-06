@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { Lock } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function AccessRestricted({
   backHref = "/tableau-de-bord",
@@ -12,6 +14,19 @@ export default function AccessRestricted({
   reason?: "permission" | "plan" | "suspended";
   message?: string;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (reason !== "suspended" && pathname !== "/factures") {
+      router.replace("/factures");
+    }
+  }, [pathname, reason, router]);
+
+  if (reason !== "suspended" && pathname !== "/factures") {
+    return <div className="min-h-[55vh]" aria-busy="true" />;
+  }
+
   const copy = message ?? (reason === "plan"
     ? "Cette fonctionnalité n'est pas incluse dans le plan actuel du compte."
     : reason === "suspended"

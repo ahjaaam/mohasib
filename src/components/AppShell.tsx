@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, ChartNoAxesCombined, FileText, ClipboardList, Users, ArrowLeft, ArrowLeftRight,
-  LogOut, Menu, Inbox, Download,
+  LogOut, Menu, Inbox, Download, ChevronLeft, ChevronRight,
   Settings, Calculator, FolderOpen, BarChart2, UserRoundCog, Building2, CreditCard, PenLine, Scale,
   GitMerge, Landmark, Lock, ReceiptText, FileQuestion,
 } from "lucide-react";
@@ -196,6 +196,29 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
   } : null;
   const lightSidebar = sidebarTheme === "cream";
   const sidebarBackground = lightSidebar ? "#FFFFFF" : SIDEBAR_BACKGROUND;
+  const freeInvoiceNav = [
+    {
+      href: "/factures",
+      icon: FileText,
+      label: "Factures",
+      active: isActive("/factures") && searchParams.get("mode") !== "devis"
+        && !(guestMode && pathname.startsWith("/facturation/devis")),
+    },
+    {
+      href: guestMode ? "/facturation/devis" : "/devis",
+      icon: ClipboardList,
+      label: "Devis",
+      active: guestMode
+        ? pathname.startsWith("/facturation/devis") || pathname === "/devis"
+        : pathname === "/devis" || (pathname === "/factures" && searchParams.get("mode") === "devis"),
+    },
+    {
+      href: "/clients",
+      icon: Users,
+      label: "Clients",
+      active: isActive("/clients"),
+    },
+  ];
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -209,11 +232,31 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
     <>
       {/* Header */}
       <div className={`h-16 flex-shrink-0 border-b flex items-center ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"} ${sidebarCollapsed ? "justify-center px-0" : "px-[18px]"}`}>
-        <SidebarLogo light={lightSidebar} compact={sidebarCollapsed} />
+        <SidebarLogo light={lightSidebar} compact={sidebarCollapsed || guestMode} color={guestMode ? "#C8924A" : undefined} />
       </div>
 
       <nav className="-mt-3 flex-1 overflow-y-auto py-2">
-        {isSettingsWorkspace ? (
+        {freePlan && !isSettingsWorkspace ? freeInvoiceNav.map(({ href, icon: Icon, label, active }) => (
+          <SidebarItemTooltip key={href} enabled={sidebarCollapsed} label={label}>
+            <Link
+              href={href}
+              aria-label={sidebarCollapsed ? label : undefined}
+              aria-current={active ? "page" : undefined}
+              className={`sidebar-nav-item mx-2 flex items-center py-[13px] text-[14px] transition-all ${
+                sidebarCollapsed ? "justify-center px-0" : "gap-3 px-[10px]"
+              } ${
+                active
+                  ? "sidebar-nav-item--active text-[#C8924A]"
+                  : lightSidebar
+                    ? "text-[#5F5A50] hover:text-[#1A1A2E]"
+                    : "text-white/80 hover:text-white"
+              }`}
+            >
+              <Icon size={sidebarCollapsed ? 19 : 16} />
+              {!sidebarCollapsed && label}
+            </Link>
+          </SidebarItemTooltip>
+        )) : isSettingsWorkspace ? (
           <>
             <Link
               href="/tableau-de-bord"
@@ -277,16 +320,33 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
 
       </nav>
 
-      <SidebarAccountMenu
-        collapsed={sidebarCollapsed}
-        light={lightSidebar}
-        userName={userName}
-        userEmail={userEmail}
-        roleLabel={roleLabel}
-        dossiersHref={isFiduciaire && accessScope !== "business_only" ? "/comptable-pro/dossiers" : undefined}
-        onSignOut={signOut}
-        onToggleSidebar={toggleSidebarCollapsed}
-      />
+      {guestMode ? (
+        <div className={`flex flex-shrink-0 items-center gap-1.5 border-t p-3 ${lightSidebar ? "border-black/[0.08]" : "border-white/[0.07]"}`}>
+          <Link href="/inscription?mode=invoicing" aria-label="Créer un compte gratuit" className="flex min-h-10 min-w-0 flex-1 items-center justify-center border border-[#C8924A] bg-[#C8924A] px-2 text-center text-[12px] font-semibold text-white transition-colors hover:bg-[#B8823A]">
+            {sidebarCollapsed ? "+" : "Créer un compte gratuit"}
+          </Link>
+          <button
+            type="button"
+            onClick={toggleSidebarCollapsed}
+            aria-label={sidebarCollapsed ? "Développer la navigation" : "Réduire la navigation"}
+            title={sidebarCollapsed ? "Développer la navigation" : "Réduire la navigation"}
+            className={`flex h-9 w-8 flex-shrink-0 items-center justify-center border transition-colors ${lightSidebar ? "border-[#D8D2C2] bg-white text-[#5D584E] hover:bg-[#F7F7F7]" : "border-white/[0.12] bg-white/[0.04] text-white/70 hover:bg-white/[0.08]"}`}
+          >
+            {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+          </button>
+        </div>
+      ) : (
+        <SidebarAccountMenu
+          collapsed={sidebarCollapsed}
+          light={lightSidebar}
+          userName={userName}
+          userEmail={userEmail}
+          roleLabel={roleLabel}
+          dossiersHref={isFiduciaire && accessScope !== "business_only" ? "/comptable-pro/dossiers" : undefined}
+          onSignOut={signOut}
+          onToggleSidebar={toggleSidebarCollapsed}
+        />
+      )}
 
     </>
   );
@@ -303,39 +363,22 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
       >
 
         {/* Desktop sidebar */}
-        {!freePlan && <aside
+        <aside
           className="hidden md:flex fixed top-0 left-0 h-full flex-col z-20 transition-[width] duration-200 overflow-visible"
           style={{ width: sidebarCollapsed ? 56 : 210, background: sidebarBackground }}
         >
           <SidebarContent />
-        </aside>}
+        </aside>
 
         {/* Main */}
         <div
           className={`mohasib-main-column flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-[margin] duration-200 ${
-            freePlan ? "md:ml-0" : sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[210px]"
+            sidebarCollapsed ? "md:ml-[56px]" : "md:ml-[210px]"
           }`}
         >
           <AppTopBar
             items={topBarItems}
-            primaryNav={freePlan ? [
-              {
-                href: "/factures",
-                label: "Factures",
-                active: isActive("/factures") && searchParams.get("mode") !== "devis"
-                  && !(guestMode && pathname.startsWith("/facturation/devis")),
-              },
-              {
-                href: guestMode ? "/devis" : "/factures?mode=devis",
-                label: "Devis",
-                active: guestMode
-                  ? pathname.startsWith("/facturation/devis")
-                  : pathname === "/factures" && searchParams.get("mode") === "devis",
-              },
-              { href: "/clients", label: "Clients", active: isActive("/clients") },
-            ] : undefined}
             userName={userName}
-            userEmail={userEmail}
             userId={userId}
             avatarUrl={userAvatar}
             exportHref={!freePlan && visibleOnPlan(EXPORT_NAV_ITEM.href) && entitled(EXPORT_NAV_ITEM.feature)
@@ -347,8 +390,16 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             topBarTheme={sidebarTheme}
             assistantMode={isFiduciaire && pathname.startsWith("/comptable-pro") ? "accountant" : "business"}
             workspaceLabel={pathname.startsWith("/comptable-pro") ? "Mon Cabinet" : businessWorkspaceLabel}
-            cabinetMenuItems={!freePlan
-              ? [
+            cabinetMenuItems={freePlan
+              ? !guestMode
+                ? [{
+                    href: "/factures",
+                    label: businessWorkspaceLabel,
+                    icon: LayoutDashboard,
+                    active: true,
+                  }]
+                : undefined
+              : [
                   {
                     href: "/tableau-de-bord",
                     label: businessWorkspaceLabel,
@@ -363,13 +414,11 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                         active: pathname.startsWith(`/comptable-pro/dossiers/${company.id}`),
                       }))
                     : []),
-                ]
-              : undefined}
+                ]}
             cabinetCreateHref={!freePlan && isFiduciaire && accessScope !== "business_only" && isOwner
               ? "/comptable-pro/dossiers/nouveau"
               : undefined}
             guestMode={guestMode}
-            onSignOut={signOut}
           />
           <div className="h-16 flex-shrink-0" aria-hidden="true" />
 
@@ -410,8 +459,8 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
                 <FileText size={19} />
                 <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
               </Link>
-              <Link href={guestMode ? "/devis" : "/factures?mode=devis"} className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-                style={{ color: (guestMode ? pathname.startsWith("/facturation/devis") : pathname === "/factures" && searchParams.get("mode") === "devis") ? "#C8924A" : lightSidebar ? "rgba(13,21,38,0.62)" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              <Link href={guestMode ? "/facturation/devis" : "/devis"} className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+                style={{ color: (guestMode ? pathname.startsWith("/facturation/devis") : pathname === "/devis" || (pathname === "/factures" && searchParams.get("mode") === "devis")) ? "#C8924A" : lightSidebar ? "rgba(13,21,38,0.62)" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
                 <ClipboardList size={19} />
                 <span style={{ fontSize: 10, fontWeight: 500 }}>Devis</span>
               </Link>

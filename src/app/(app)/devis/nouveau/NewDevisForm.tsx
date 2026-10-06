@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import { translateError } from "@/lib/errors";
 import { getAvailableInvoiceDocumentNumber, getNextInvoiceDocumentNumber } from "@/lib/document-numbers";
-import { Check, Trash2, Plus, Loader2, Send, Mail, Download, Save, PartyPopper, XCircle, Lightbulb } from "lucide-react";
+import { Check, Trash2, Plus, Loader2, Send, Mail, Download, Save, PartyPopper, XCircle, Lightbulb, LayoutTemplate } from "lucide-react";
 import type { Client } from "@/types";
 
 interface LineItem {
@@ -23,6 +23,17 @@ interface CatalogItem {
   unit_price: number | string;
   tva_rate: number | string;
   is_active: boolean;
+}
+
+interface DevisTemplate {
+  id: string;
+  name: string;
+  client_id: string | null;
+  objet: string | null;
+  validity_days: number | null;
+  conditions: string | null;
+  notes: string | null;
+  items: LineItem[];
 }
 
 interface Props {
@@ -58,6 +69,9 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
   const [pdfState, setPdfState] = useState<"idle" | "loading" | "error">("idle");
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [selectedCatalogItem, setSelectedCatalogItem] = useState("");
+  const [templates, setTemplates] = useState<DevisTemplate[]>([]);
+  const [templateName, setTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -89,6 +103,18 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
         }
       });
   }, [userId]);
+
+  function loadTemplates() {
+    supabase
+      .from("devis_templates")
+      .select("id, name, client_id, objet, validity_days, conditions, notes, items")
+      .eq("user_id", userId)
+      .is("dossier_id", null)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setTemplates((data ?? []) as DevisTemplate[]));
+  }
+
+  useEffect(() => { loadTemplates(); }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     supabase
@@ -155,6 +181,61 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
         .eq("is_active", true)
         .order("name");
       setCatalogItems((data ?? []) as CatalogItem[]);
+    }
+  }
+
+  function applyTemplate(template: DevisTemplate) {
+    setForm((current) => ({
+      ...current,
+      client_id: template.client_id ?? "",
+      objet: template.objet ?? "",
+      validity_days: Math.max(1, Number(template.validity_days) || 30),
+      conditions: template.conditions ?? "",
+      notes: template.notes ?? "",
+    }));
+    setLines(template.items?.length ? template.items : [emptyLine()]);
+    toast.success(`Modèle "${template.name}" appliqué`);
+  }
+
+  async function saveAsTemplate() {
+    const name = templateName.trim();
+    if (!name) {
+      toast.error("Donnez un nom au modèle");
+      return;
+    }
+    if (!lines.some((line) => line.desc.trim() || Number(line.pu || 0) > 0)) {
+      toast.error("Ajoutez au moins une ligne avant d’enregistrer un modèle");
+      return;
+    }
+
+    setSavingTemplate(true);
+    const { error } = await supabase.from("devis_templates").insert({
+      user_id: userId,
+      dossier_id: null,
+      name,
+      client_id: form.client_id || null,
+      objet: form.objet.trim() || null,
+      validity_days: form.validity_days,
+      conditions: form.conditions.trim() || null,
+      notes: form.notes.trim() || null,
+      items: lines,
+    });
+    setSavingTemplate(false);
+    if (error) {
+      toast.error(translateError(error));
+    } else {
+      toast.success("Modèle enregistré");
+      setTemplateName("");
+      loadTemplates();
+    }
+  }
+
+  async function deleteTemplate(id: string) {
+    const { error } = await supabase.from("devis_templates").delete().eq("id", id);
+    if (error) toast.error(translateError(error));
+    else {
+      setTemplates((current) => current.filter((template) => template.id !== id));
+      toast.success("Modèle supprimé");
     }
   }
 
@@ -242,7 +323,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
     } else {
       const clientEmail = (row as any).clients?.email ?? null;
       if (devisStatus === "brouillon") {
-        router.push("/factures?mode=devis");
+        router.push("/devis");
         router.refresh();
       } else {
         setCreated({ id: row.id, number: row.invoice_number, clientEmail });
@@ -262,7 +343,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
       window.open(whatsappUrl, "_blank");
       setWaState("success");
       toast.success("WhatsApp ouvert avec le devis");
-      setTimeout(() => { router.push("/factures?mode=devis"); router.refresh(); }, 1500);
+      setTimeout(() => { router.push("/devis"); router.refresh(); }, 1500);
     } catch (e: any) {
       setWaState("error");
       toast.error(translateError(e), { duration: 5000 });
@@ -278,7 +359,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
       if (!res.ok) throw new Error(json.message || json.error || `HTTP ${res.status}`);
       setEmailState("success");
       toast.success("Email envoyé avec succès");
-      setTimeout(() => { router.push("/factures?mode=devis"); router.refresh(); }, 1500);
+      setTimeout(() => { router.push("/devis"); router.refresh(); }, 1500);
     } catch (e: any) {
       setEmailState("error");
       toast.error(translateError(e), { duration: 5000 });
@@ -366,7 +447,7 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
           </button>
         </div>
         <button
-          onClick={() => { router.push("/factures?mode=devis"); router.refresh(); }}
+          onClick={() => { router.push("/devis"); router.refresh(); }}
           className="text-[11.5px] text-[#6B7280] hover:text-[#1A1A2E] underline"
         >
           Retour aux devis
@@ -376,7 +457,8 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
   }
 
   return (
-    <div className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px]">
+    <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+    <div className="min-w-0 bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-[18px]">
       <div className="alert-blue">
         <Lightbulb size={14} className="inline mr-1.5 -mt-0.5" />Le devis ne génère aucune écriture comptable. Une fois accepté, vous pourrez le convertir en facture.
       </div>
@@ -537,6 +619,69 @@ export default function NewDevisForm({ clients, nextNumber, userId }: Props) {
           {saving ? "..." : <><Check size={13} /> Créer et envoyer</>}
         </button>
       </div>
+    </div>
+    <aside className="bg-white border border-[rgba(0,0,0,0.08)] rounded-xl p-4">
+      <div className="flex items-center gap-1.5 text-[10.5px] font-semibold text-[#6B7280] uppercase tracking-[0.6px] pb-2 mb-3 border-b border-[rgba(0,0,0,0.08)]">
+        <LayoutTemplate size={13} /> Modèles de devis
+      </div>
+
+      {templates.length === 0 ? (
+        <p className="text-[11.5px] text-[#6B7280] mb-4">
+          Aucun modèle enregistré. Préparez un devis puis enregistrez-le pour le réutiliser rapidement.
+        </p>
+      ) : (
+        <div className="mb-4 flex flex-col gap-2">
+          {templates.map((template) => {
+            const clientName = clients.find((client) => client.id === template.client_id)?.name;
+            const itemCount = template.items?.length ?? 0;
+            return (
+              <div
+                key={template.id}
+                className="group flex cursor-pointer items-start gap-2 rounded-lg border border-[rgba(0,0,0,0.08)] p-2.5 transition-colors hover:border-[rgba(200,146,74,0.42)] hover:bg-[#FFF7ED]"
+                onClick={() => applyTemplate(template)}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-semibold text-[#1A1A2E]">{template.name}</p>
+                  <p className="truncate text-[11px] text-[#6B7280]">
+                    {clientName ?? "Sans client"} · {itemCount} ligne{itemCount > 1 ? "s" : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); deleteTemplate(template.id); }}
+                  className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-[#9CA3AF] opacity-0 transition-colors hover:bg-[#FEE2E2] hover:text-[#DC2626] group-hover:opacity-100"
+                  aria-label="Supprimer le modèle"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="border-t border-[rgba(0,0,0,0.08)] pt-3">
+        <label className="mb-1.5 block text-[11px] font-medium text-[#6B7280]">Enregistrer le devis actuel comme modèle</label>
+        <div className="flex gap-1.5">
+          <input
+            className="input"
+            placeholder="Nom du modèle..."
+            value={templateName}
+            onChange={(event) => setTemplateName(event.target.value)}
+          />
+          <button
+            type="button"
+            onClick={saveAsTemplate}
+            disabled={savingTemplate}
+            style={{ minHeight: "var(--control-height)" }}
+            className="flex w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#0D1526] text-white transition-colors hover:bg-[#1A2540] disabled:opacity-60"
+            aria-label="Enregistrer comme modèle"
+          >
+            {savingTemplate ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          </button>
+        </div>
+      </div>
+    </aside>
     </div>
   );
 }

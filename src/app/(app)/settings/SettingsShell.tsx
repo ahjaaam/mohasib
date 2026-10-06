@@ -1,7 +1,7 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Settings, Lock } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Settings } from "lucide-react";
 import EntrepriseTab from "./EntrepriseTab";
 import ProfilTab from "./ProfilTab";
 import ApparenceTab from "./ApparenceTab";
@@ -29,8 +29,6 @@ interface Props {
 }
 
 export default function SettingsShell({ userId, accountOwnerId, userEmail, companyId, profile, company, prefs }: Props) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const entitlements = usePlanEntitlements();
   const { can, isOwner } = usePermissions();
@@ -41,12 +39,6 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
   const activeTab = SETTINGS_TABS.find(item => item.id === tab);
   const tabAllowedByPlan = planAllowsTab(tab);
   const tabAllowed = tabAllowedByPlan && (isOwner || (!activeTab?.ownerOnly && (!activeTab?.permission || can(...activeTab.permission.split(":") as [string, string]))));
-
-  function selectTab(nextTab: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", nextTab);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }
 
   return (
     <>
@@ -60,25 +52,6 @@ export default function SettingsShell({ userId, accountOwnerId, userEmail, compa
           <h1 className="text-[18px] font-bold text-[#1A1A2E] leading-none">Paramètres</h1>
           <p className="text-[11px] text-[#9CA3AF] mt-0.5">Gérez votre profil, entreprise et préférences</p>
         </div>
-      </div>
-
-      {/* Mobile settings navigation; desktop navigation replaces the app sidebar. */}
-      <div className="md:hidden flex gap-1 overflow-x-auto pb-3">
-        {visibleTabs.map(t => (
-          <button
-            key={t.id}
-            onClick={() => selectTab(t.id)}
-            className={`flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-[12px] transition-all ${
-              tab === t.id
-                ? "bg-[#0D1526] text-white font-medium"
-                : "bg-white text-[#6B7280] border border-[rgba(0,0,0,0.08)] hover:text-[#1A1A2E]"
-            }`}
-          >
-            <t.icon size={13} />
-            {t.label}
-            {!isOwner && (t.ownerOnly || (t.permission && !can(...t.permission.split(":") as [string, string]))) && <Lock size={10} />}
-          </button>
-        ))}
       </div>
 
       {/* Tab content */}
