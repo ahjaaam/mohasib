@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -330,26 +329,13 @@ export default function AppTopBar({
           <Link
             href="/tableau-de-bord"
             className={`flex-shrink-0 items-center ${
-              guestMode
-                ? "flex w-[120px]"
-                : invoicingOnly
-                  ? "flex w-7 justify-center"
+              guestMode || invoicingOnly
+                ? "flex w-7 justify-center"
                 : `hidden sm:flex md:-ml-2.5 ${cabinetMenuItems.length > 0 ? "w-7" : "w-20"}`
             }`}
             aria-label="Mohasib"
           >
-            {guestMode ? (
-              <Image
-                src="/logo2.png"
-                alt="Mohasib AI"
-                width={132}
-                height={32}
-                className="h-auto w-[120px] object-contain"
-                priority
-              />
-            ) : (
-              <SidebarLogo light={!darkTopBar} compact color="#C8924A" />
-            )}
+            <SidebarLogo light={!darkTopBar} compact color="#C8924A" />
           </Link>
         )}
         {cabinetMenuItems.length > 0 && (
