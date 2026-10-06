@@ -41,7 +41,7 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
-  serverExternalPackages: ["@react-pdf/renderer"],
+  serverExternalPackages: ["@react-pdf/renderer", "pdf-parse", "pdfjs-dist"],
   // Type checking runs before `next build` in the build script. Keeping it out
   // of Next's post-compilation phase prevents Vercel from stalling there after
   // webpack and Sentry have already consumed most of the build resources.

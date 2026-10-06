@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Transaction, TransactionVatStatus } from "@/types";
@@ -51,6 +51,10 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addTransactionOpen, setAddTransactionOpen] = useState(requestedAction === "expense");
+  const addTransactionDialogRef = useRef<HTMLDivElement>(null);
+  const addTransactionTriggerRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const transactionDialogWasOpenRef = useRef(false);
   const [bankImportOpen, setBankImportOpen] = useState(Boolean(pendingBankStatement));
   const [bankImportInitialFile, setBankImportInitialFile] = useState<File | null>(pendingBankStatement);
   const [allocationTransaction, setAllocationTransaction] = useState<Transaction | null>(null);
@@ -102,6 +106,68 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
     amount: "",
     piece: "",
   });
+
+  const openAddTransactionModal = useCallback(() => {
+    returnFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : addTransactionTriggerRef.current;
+    setError(null);
+    setAddTransactionOpen(true);
+  }, []);
+
+  const closeAddTransactionModal = useCallback(() => {
+    if (saving) return;
+    setAddTransactionOpen(false);
+    setError(null);
+  }, [saving]);
+
+  useEffect(() => {
+    if (!addTransactionOpen) {
+      if (transactionDialogWasOpenRef.current) {
+        const returnTarget = returnFocusRef.current ?? addTransactionTriggerRef.current;
+        if (returnTarget?.isConnected) returnTarget.focus();
+      }
+      transactionDialogWasOpenRef.current = false;
+      returnFocusRef.current = null;
+      return;
+    }
+
+    transactionDialogWasOpenRef.current = true;
+    const dialog = addTransactionDialogRef.current;
+    const initialFocus = dialog?.querySelector<HTMLElement>("[autofocus]");
+    (initialFocus ?? dialog)?.focus();
+
+    function handleDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeAddTransactionModal();
+        return;
+      }
+
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter((element) => element.getClientRects().length > 0);
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleDialogKeyDown);
+    return () => document.removeEventListener("keydown", handleDialogKeyDown);
+  }, [addTransactionOpen, closeAddTransactionModal]);
 
   async function load(runAutoMatch = true) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -169,7 +235,13 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
 
   // Open the modal when the topbar "+ Transaction" action is clicked.
   useEffect(() => {
-    const handler = () => setAddTransactionOpen(true);
+    const handler = () => {
+      returnFocusRef.current = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : addTransactionTriggerRef.current;
+      setError(null);
+      setAddTransactionOpen(true);
+    };
     document.addEventListener("focus-tx-form", handler);
     return () => document.removeEventListener("focus-tx-form", handler);
   }, []);
@@ -208,12 +280,6 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
       setAddTransactionOpen(false);
       load();
     }
-  }
-
-  function closeAddTransactionModal() {
-    if (saving) return;
-    setAddTransactionOpen(false);
-    setError(null);
   }
 
   async function confirmTransactionBooking() {
@@ -453,11 +519,19 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
             if (event.target === event.currentTarget) closeAddTransactionModal();
           }}
         >
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
+          <div
+            ref={addTransactionDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-transaction-title"
+            aria-describedby="new-transaction-description"
+            tabIndex={-1}
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl"
+          >
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
               <div>
-                <h2 className="font-semibold text-[#1A1A2E]">Nouvelle transaction</h2>
-                <p className="mt-0.5 text-[11px] text-[#9CA3AF]">Enregistrez un nouveau mouvement financier</p>
+                <h2 id="new-transaction-title" className="font-semibold text-[#1A1A2E]">Nouvelle transaction</h2>
+                <p id="new-transaction-description" className="mt-0.5 text-[11px] text-[#9CA3AF]">Enregistrez un nouveau mouvement financier</p>
               </div>
               <button
                 type="button"
@@ -478,41 +552,41 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
             >
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
-                  <label className="label">Date</label>
-                  <input type="date" className="input" value={form.date}
+                  <label className="label" htmlFor="new-transaction-date">Date</label>
+                  <input id="new-transaction-date" type="date" className="input" value={form.date}
                     onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="label">N° de pièce</label>
-                  <input className="input" placeholder="Virement, chèque..." value={form.piece}
+                  <label className="label" htmlFor="new-transaction-reference">N° de pièce</label>
+                  <input id="new-transaction-reference" className="input" placeholder="Virement, chèque..." value={form.piece}
                     onChange={(e) => setForm((f) => ({ ...f, piece: e.target.value }))} />
                 </div>
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="label">Description</label>
-                <input autoFocus className="input" placeholder="ex: Loyer bureau..." value={form.desc}
+                <label className="label" htmlFor="new-transaction-description-input">Description</label>
+                <input id="new-transaction-description-input" autoFocus className="input" placeholder="ex: Loyer bureau..." value={form.desc}
                   onChange={(e) => setForm((f) => ({ ...f, desc: e.target.value }))} />
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
-                  <label className="label">Catégorie</label>
-                  <select className="input" value={form.cat}
+                  <label className="label" htmlFor="new-transaction-category">Catégorie</label>
+                  <select id="new-transaction-category" className="input" value={form.cat}
                     onChange={(e) => setForm((f) => ({ ...f, cat: e.target.value }))}>
                     {allFormCats.map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="label">Montant (MAD)</label>
-                  <input type="number" step="0.01" className="input" placeholder="-500 ou 5000"
+                  <label className="label" htmlFor="new-transaction-amount">Montant (MAD)</label>
+                  <input id="new-transaction-amount" type="number" step="0.01" className="input" placeholder="-500 ou 5000"
                     value={form.amount}
                     onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
                   <p className="text-[10.5px] text-[#9CA3AF]">Utilisez un montant négatif pour une dépense.</p>
                 </div>
               </div>
 
-              {error && <p className="rounded-lg bg-[#FEE2E2] px-3 py-2 text-[12px] text-[#DC2626]">{error}</p>}
+              {error && <p role="alert" className="rounded-lg bg-[#FEE2E2] px-3 py-2 text-[12px] text-[#DC2626]">{error}</p>}
 
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={closeAddTransactionModal} className="btn btn-outline">
@@ -546,13 +620,11 @@ export default function TransactionsPage({ dossierId: propDossierId }: { dossier
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:shrink-0">
           <button
+            ref={addTransactionTriggerRef}
             type="button"
             data-permission="accounting:create"
             className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#D7DADF] bg-white px-3.5 text-[12px] font-medium text-[#374151] transition-colors hover:border-[#B8BEC8] hover:bg-[#F8F9FB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8924A] sm:h-9 sm:w-[184px]"
-            onClick={() => {
-              setError(null);
-              setAddTransactionOpen(true);
-            }}
+            onClick={openAddTransactionModal}
           >
             <Plus size={15} strokeWidth={1.75} aria-hidden="true" /> Nouvelle transaction
           </button>

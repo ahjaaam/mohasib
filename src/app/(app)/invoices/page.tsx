@@ -569,6 +569,12 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
 
   useEffect(() => { load(); }, []);
   useEffect(() => {
+    const requestedMode = searchParams.get("mode");
+    setMode(requestedMode === "avoirs" || requestedMode === "devis"
+      ? requestedMode
+      : initialMode ?? "factures");
+  }, [initialMode, searchParams]);
+  useEffect(() => {
     if (!entitlements.features.avoirs && mode === "avoirs") setMode("factures");
   }, [entitlements.features.avoirs, mode]);
 
@@ -765,11 +771,6 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
   }
 
   const hasFilters = search || dateFrom || dateTo;
-  const emptyTableActionClass = `btn btn-gold ${
-    entitlements.plan === "free"
-      ? "!bg-[#C8924A] !text-white hover:!bg-[#B8823A]"
-      : ""
-  }`;
 
   return (
     <div>
@@ -1042,30 +1043,13 @@ export default function InvoicesPage({ dossierId: propDossierId, initialMode, fa
             {!loading && filtered.length === 0 && (
               <tr>
                 <td colSpan={10} className="empty-cell">
-                  <p className="text-[#6B7280] text-[12.5px] mb-3">
+                  <p className="text-[#6B7280] text-[12.5px]">
                     {mode === "avoirs"
                       ? "Aucun avoir client. Créez votre premier avoir lorsque vous devez corriger une facture."
                       : mode === "devis"
                         ? "Aucun devis. Créez votre première proposition commerciale."
                         : "Aucune facture. Créez votre première facture et envoyez-la à votre client."}
                   </p>
-                  {mode === "avoirs" ? (
-                    <Link data-permission="invoice:create" href={`${basePath}/avoirs/nouveau`} className={emptyTableActionClass}>
-                      + Nouvel Avoir
-                    </Link>
-                  ) : mode === "devis" ? (
-                    <Link data-permission="invoice:create" href="/factures/devis/nouveau" className={emptyTableActionClass}>
-                      + Nouveau Devis
-                    </Link>
-                  ) : (
-                    <Link
-                      data-permission="invoice:create"
-                      href={`${basePath}/nouvelle`}
-                      className={emptyTableActionClass}
-                    >
-                      + Nouvelle Facture
-                    </Link>
-                  )}
                 </td>
               </tr>
             )}

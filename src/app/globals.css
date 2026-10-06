@@ -54,16 +54,11 @@
   }
   * { box-sizing: border-box; }
 
-  /* Keep scroll interactions available without showing persistent scrollbars. */
+  /* Keep scrollable areas discoverable while giving scrollbars a quiet style. */
   * {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  *::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-    display: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(13, 21, 38, 0.22) transparent;
+    -ms-overflow-style: auto;
   }
 
   /*
@@ -175,11 +170,46 @@
   --expense-chart-color: #C58B78;
 }
 
-/* Cream top-bar controls need a quiet edge against the white shell. */
+/* Cream top-bar controls need a quiet edge against the cream shell. */
 [data-sidebar-theme="cream"] .app-topbar-workspace[aria-expanded="false"],
 [data-sidebar-theme="cream"] .app-topbar-period[aria-expanded="false"],
 [data-sidebar-theme="cream"] #app-global-search:not(:focus) {
   border-color: rgba(13, 21, 38, 0.10) !important;
+}
+
+.app-topbar--cream .app-topbar-workspace,
+.app-topbar--cream .app-topbar-period,
+.app-topbar--cream #app-global-search {
+  background: #FFFFFF !important;
+}
+
+/* Keep the cream top-bar actions quiet and consistent with sidebar icons. */
+.app-topbar--cream :is(
+  button[aria-label="Importer un document"],
+  a[aria-label="Exports"],
+  a[aria-label="Exports — accès restreint"],
+  button[aria-label^="Ouvrir la boîte de réception"],
+  button[aria-label="Besoin d'aide"],
+  button[aria-label="Ouvrir Mohasib Agent"],
+  button[aria-label="Ouvrir À faire ensuite"]
+) {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: #4F514C !important;
+}
+
+.app-topbar--cream :is(
+  button[aria-label="Importer un document"],
+  a[aria-label="Exports"],
+  a[aria-label="Exports — accès restreint"],
+  button[aria-label^="Ouvrir la boîte de réception"],
+  button[aria-label="Besoin d'aide"],
+  button[aria-label="Ouvrir Mohasib Agent"],
+  button[aria-label="Ouvrir À faire ensuite"]
+):is(:hover, [aria-expanded="true"]) {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: #4F514C !important;
 }
 
 /* The page reads as one calm, elevated surface inside the application shell. */
@@ -222,7 +252,7 @@
 
 @media (min-width: 768px) {
   .app-content-frame {
-    padding: 0 14px 14px 0;
+    padding: 0 14px 14px;
   }
 
   .app-content-surface {
@@ -985,8 +1015,10 @@ tr:hover td { background: #FAFAF6; }
 @keyframes page-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 .page-fade { animation: page-in 0.18s ease; }
 
-::-webkit-scrollbar { width: 3px; height: 3px; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: var(--radius-interface); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(13,21,38,0.22); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(13,21,38,0.36); }
 
 /*
  * Native select arrows have inconsistent alignment and edge spacing across
@@ -1025,4 +1057,10 @@ select.select-arrow-none {
 input[type="range"]::-webkit-slider-thumb,
 input[type="range"]::-moz-range-thumb {
   box-shadow: none !important;
+}
+
+/* Top-bar dropdown panels retain the soft, raised shape used by app menus. */
+.app-topbar-dropdown {
+  border-radius: 8px !important;
+  box-shadow: 0 12px 30px rgba(13, 21, 38, 0.14) !important;
 }

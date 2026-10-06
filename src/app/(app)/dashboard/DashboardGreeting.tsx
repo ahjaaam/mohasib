@@ -1,20 +1,32 @@
 "use client";
 
-function getGreeting(firstName: string): string {
-  const hour = new Date().getHours();
-  return hour >= 18 || hour < 5
-    ? `Bonsoir, ${firstName}`
-    : `Bonjour, ${firstName}`;
-}
+import { useEffect, useState } from "react";
 
 export default function DashboardGreeting({ firstName }: { firstName: string }) {
+  const [localDate, setLocalDate] = useState<string | null>(null);
+  const [greeting, setGreeting] = useState("Bonjour");
+
+  useEffect(() => {
+    const now = new Date();
+    const hour = now.getHours();
+    setGreeting(hour >= 18 || hour < 5 ? "Bonsoir" : "Bonjour");
+
+    const date = now.toLocaleDateString("fr-MA", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    setLocalDate(date.charAt(0).toUpperCase() + date.slice(1));
+  }, []);
+
   return (
     <div className="mb-7">
       <h1 className="text-[22px] font-semibold text-[#1A1A2E] leading-tight">
-        {getGreeting(firstName)}
+        {greeting}, {firstName}
       </h1>
-      <p className="text-[12.5px] text-[#6B7280] mt-0.5">
-        {(() => { const d = new Date().toLocaleDateString("fr-MA", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); return d.charAt(0).toUpperCase() + d.slice(1); })()}
+      <p aria-live="off" className="text-[12.5px] text-[#6B7280] mt-0.5 min-h-[18px]">
+        {localDate}
       </p>
     </div>
   );

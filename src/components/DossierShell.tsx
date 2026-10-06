@@ -96,7 +96,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
   const allowed = (permission?: string) => !permission || can(...permission.split(":") as [string, string]);
   const entitled = (feature?: PlanFeature) => !feature || entitlements.features[feature];
   const lightSidebar = sidebarTheme === "cream";
-  const sidebarBackground = lightSidebar ? "#FFF" : SIDEBAR_BACKGROUND;
+  const sidebarBackground = lightSidebar ? "#FFFFFF" : SIDEBAR_BACKGROUND;
 
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
   useEffect(() => {
@@ -237,7 +237,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
       <MohasibToaster />
       <PermissionBoundary permissions={permissions}>
       <div
-        className={`mohasib-app flex h-screen overflow-hidden ${lightSidebar ? "bg-white" : "bg-[#111621]"}`}
+        className={`mohasib-app flex h-screen overflow-hidden ${lightSidebar ? "bg-[#FAFAF6]" : "bg-[#111621]"}`}
         data-sidebar-theme={sidebarTheme}
       >
 
@@ -292,7 +292,7 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
 
         <nav
           className="pwa-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
-          style={{ height: "calc(56px + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)", background: SIDEBAR_BACKGROUND, borderTop: "1px solid rgba(255,255,255,0.1)" }}
+          style={{ height: "calc(56px + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)", background: lightSidebar ? "#FFFFFF" : SIDEBAR_BACKGROUND, borderTop: lightSidebar ? "1px solid rgba(13,21,38,0.10)" : "1px solid rgba(255,255,255,0.1)" }}
         >
           {[
             { slug: "tableau-de-bord", icon: ChartNoAxesCombined, label: "Accueil", permission: "report:read" },
@@ -300,14 +300,14 @@ export default function DossierShell({ children, dossier, dossiers = [dossier], 
             { slug: "archive", icon: Download, label: "Archive", permission: "document:read" },
           ].map(({ slug, icon: Icon, label, permission }) => (
             <Link key={slug} href={`${base}/${slug}`} className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-              style={{ color: isActive(slug) ? "#C8924A" : allowed(permission) ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              style={{ color: isActive(slug) ? "#C8924A" : lightSidebar ? (allowed(permission) ? "rgba(13,21,38,0.62)" : "rgba(13,21,38,0.32)") : allowed(permission) ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
               <Icon size={19} />
               <span style={{ fontSize: 10, fontWeight: 500 }}>{label}</span>
               {!allowed(permission) && <Lock size={9} className="absolute right-[24%] top-2" />}
             </Link>
           ))}
           <button onClick={() => setDrawerOpen(true)} className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-            style={{ background: "none", border: "none", color: drawerOpen ? "#C8924A" : "rgba(255,255,255,0.45)" }}>
+            style={{ background: "none", border: "none", color: drawerOpen ? "#C8924A" : lightSidebar ? "rgba(13,21,38,0.62)" : "rgba(255,255,255,0.45)" }}>
             <Menu size={19} />
             <span style={{ fontSize: 10, fontWeight: 500 }}>Menu</span>
           </button>

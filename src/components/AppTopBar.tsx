@@ -322,7 +322,7 @@ export default function AppTopBar({
         className={`fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between gap-2 px-2 transition-colors sm:gap-4 sm:px-4 md:px-6 ${
           darkTopBar
             ? "app-topbar--dark bg-[#111621]"
-            : "bg-white"
+            : "app-topbar--cream bg-white"
         }`}
       >
       <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
@@ -332,6 +332,8 @@ export default function AppTopBar({
             className={`flex-shrink-0 items-center ${
               guestMode
                 ? "flex w-[120px]"
+                : invoicingOnly
+                  ? "flex w-7 justify-center"
                 : `hidden sm:flex md:-ml-2.5 ${cabinetMenuItems.length > 0 ? "w-7" : "w-20"}`
             }`}
             aria-label="Mohasib"
@@ -440,7 +442,7 @@ export default function AppTopBar({
             )}
           </div>
         )}
-        {!guestMode && (
+        {!guestMode && !invoicingOnly && (
           <GlobalPeriodSelector
             align="left"
             onOpen={() => {
@@ -453,15 +455,20 @@ export default function AppTopBar({
           />
         )}
         {primaryNav.length > 0 && (
-          <nav className="hidden h-16 flex-shrink-0 items-center md:flex" aria-label="Navigation principale">
+          <nav className="hidden h-16 flex-shrink-0 items-center gap-1.5 md:flex" aria-label="Navigation principale">
             {primaryNav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex h-full items-center border-b-2 px-4 text-[13px] font-semibold transition-colors ${
+                aria-current={item.active ? "page" : undefined}
+                className={`ui-control flex h-9 items-center justify-center rounded-md border px-3 text-[12.5px] font-semibold transition-colors ${
                   item.active
-                    ? "border-[#C8924A] text-[#0D1526]"
-                    : "border-transparent text-[#777E8B] hover:text-[#0D1526]"
+                    ? darkTopBar
+                      ? "border-white/15 bg-white/10 text-white shadow-sm"
+                      : "border-[#DDD8CC] bg-[#F5F3ED] text-[#0D1526] shadow-sm"
+                    : darkTopBar
+                      ? "border-transparent text-[#C8CDD5] hover:border-white/10 hover:bg-white/5 hover:text-white"
+                      : "border-transparent text-[#4B5563] hover:border-[#E8E5DE] hover:bg-[#FAFAF7] hover:text-[#0D1526]"
                 }`}
               >
                 {item.label}
@@ -771,7 +778,7 @@ export default function AppTopBar({
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 top-[calc(100%+9px)] w-[270px] border border-[#DADAD5] border-t-2 border-t-[#C8924A] bg-white p-2 shadow-[0_18px_42px_rgba(13,21,38,0.15)]">
+            <div className="app-topbar-dropdown absolute right-0 top-[calc(100%+9px)] w-[270px] overflow-hidden border border-[#DADAD5] bg-white p-2 shadow-[0_18px_42px_rgba(13,21,38,0.15)]">
               <div className="flex items-center gap-3 border-b border-[#ECECE8] px-2 py-2.5">
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[#D6D5CF] bg-[#F3F3EF] text-[#5F6672]">
                   <UserRound size={17} strokeWidth={1.8} aria-hidden="true" />

@@ -218,29 +218,30 @@ export default function AssistantDock({ open, onClose, mode = "business", dossie
         <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-md text-[#6B7280] hover:bg-black/[0.04]" aria-label="Fermer À faire ensuite"><X size={16} /></button>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-white">
+      <div className="flex-1 overflow-y-auto bg-[#F7F7F3]">
         {loading ? (
           <div className="flex items-center gap-2 border-b border-black/[0.06] px-4 py-4 text-[12px] text-[#777E8B]"><Loader2 size={15} className="animate-spin" />Recherche des prochaines étapes…</div>
         ) : loadFailed ? (
           <div className="px-4 py-5 text-[12px] leading-5 text-[#6B7280]">Certaines informations n’ont pas pu être chargées. Vérifiez vos accès ou réessayez plus tard.</div>
         ) : sections.length ? sections.map(({ title: sectionTitle, items }) => (
           <section key={sectionTitle} aria-labelledby={`todo-section-${sectionTitle}`}>
-            <header className="flex h-9 items-center justify-between border-b border-black/[0.06] bg-[#F7F7F3] px-4">
-              <h3 id={`todo-section-${sectionTitle}`} className="text-[10px] font-bold uppercase tracking-[0.7px] text-[#6B7280]">{sectionTitle}</h3>
-              <span className="text-[9px] font-semibold text-[#9A9FA8]">{items.length}</span>
+            <header className="sticky top-0 z-10 flex h-9 items-center border-b border-black/[0.06] bg-[#F7F7F3] px-4">
+              <h3 id={`todo-section-${sectionTitle}`} className="text-[10px] font-bold uppercase tracking-[0.7px] text-[#6B7280]">{sectionTitle} ({items.length})</h3>
             </header>
-            {items.map(({ title, description, href, button, icon: Icon }) => (
-              <article key={href} className="border-b border-black/[0.06] px-4 py-4">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center bg-[#F7F7F3] text-[#C8924A]"><Icon size={16} /></span>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-[12px] font-bold text-[#1A1A2E]">{title}</h4>
-                    <p className="mt-1 text-[11px] leading-5 text-[#6B7280]">{description}</p>
-                    <Link href={href} onClick={onClose} className="todo-action-link mt-3 inline-flex h-8 items-center gap-2 rounded-md bg-[#0D1526] px-3 text-[10.5px] font-bold text-white hover:bg-[#1C2940]">{button}<ArrowRight size={13} /></Link>
+            <div className="space-y-3 bg-[#F7F7F3] p-3">
+              {items.map(({ title, description, href, button, icon: Icon }) => (
+                <article key={href} className="rounded-xl border border-[#E9E8E2] bg-white p-3.5 shadow-[0_2px_8px_rgba(26,26,46,0.035)] transition-shadow hover:shadow-[0_5px_14px_rgba(26,26,46,0.075)]">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#F7F3EA] text-[#B9853F]"><Icon size={17} /></span>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-[12px] font-bold leading-5 text-[#1A1A2E]">{title}</h4>
+                      <p className="mt-1 text-[11px] leading-[1.55] text-[#6B7280]">{description}</p>
+                      <Link href={href} onClick={onClose} className="todo-action-link mt-3 inline-flex h-8 items-center gap-2 rounded-md bg-[#0D1526] px-3 text-[10.5px] font-bold text-white hover:bg-[#1C2940]">{button}<ArrowRight size={13} /></Link>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
+            </div>
           </section>
         )) : (
           <div className="flex min-h-48 flex-col items-center justify-center px-6 py-8 text-center">

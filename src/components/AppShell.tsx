@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
-  LayoutDashboard, ChartNoAxesCombined, FileText, Users, ArrowLeft, ArrowLeftRight,
+  LayoutDashboard, ChartNoAxesCombined, FileText, ClipboardList, Users, ArrowLeft, ArrowLeftRight,
   LogOut, Menu, Inbox, Download,
   Settings, Calculator, FolderOpen, BarChart2, UserRoundCog, Building2, CreditCard, PenLine, Scale,
   GitMerge, Landmark, Lock, ReceiptText, FileQuestion,
@@ -195,7 +195,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
     rapprochement: Number(accountState.trial_rapprochement_sessions_used ?? 0),
   } : null;
   const lightSidebar = sidebarTheme === "cream";
-  const sidebarBackground = lightSidebar ? "#FFF" : SIDEBAR_BACKGROUND;
+  const sidebarBackground = lightSidebar ? "#FFFFFF" : SIDEBAR_BACKGROUND;
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -298,7 +298,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
       <TrialLimitModal />
       <PermissionBoundary permissions={permissions}>
       <div
-        className={`mohasib-app flex h-screen overflow-hidden ${lightSidebar ? "bg-white" : "bg-[#111621]"}`}
+        className={`mohasib-app flex h-screen overflow-hidden ${lightSidebar ? "bg-[#FAFAF6]" : "bg-[#111621]"}`}
         data-sidebar-theme={sidebarTheme}
       >
 
@@ -319,7 +319,19 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
           <AppTopBar
             items={topBarItems}
             primaryNav={freePlan ? [
-              { href: "/factures", label: "Factures", active: isActive("/factures") },
+              {
+                href: "/factures",
+                label: "Factures",
+                active: isActive("/factures") && searchParams.get("mode") !== "devis"
+                  && !(guestMode && pathname.startsWith("/facturation/devis")),
+              },
+              {
+                href: guestMode ? "/devis" : "/factures?mode=devis",
+                label: "Devis",
+                active: guestMode
+                  ? pathname.startsWith("/facturation/devis")
+                  : pathname === "/factures" && searchParams.get("mode") === "devis",
+              },
               { href: "/clients", label: "Clients", active: isActive("/clients") },
             ] : undefined}
             userName={userName}
@@ -387,40 +399,45 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
           style={{
             height: "calc(56px + env(safe-area-inset-bottom))",
             paddingBottom: "env(safe-area-inset-bottom)",
-            background: SIDEBAR_BACKGROUND,
-            borderTop: "1px solid rgba(255,255,255,0.1)",
+            background: lightSidebar ? "#FFFFFF" : SIDEBAR_BACKGROUND,
+            borderTop: lightSidebar ? "1px solid rgba(13,21,38,0.10)" : "1px solid rgba(255,255,255,0.1)",
           }}
         >
           {freePlan ? (
             <>
               <Link href="/factures" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-                style={{ color: isActive("/factures") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+                style={{ color: isActive("/factures") && searchParams.get("mode") !== "devis" && !(guestMode && pathname.startsWith("/facturation/devis")) ? "#C8924A" : lightSidebar ? "rgba(13,21,38,0.62)" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
                 <FileText size={19} />
                 <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
               </Link>
+              <Link href={guestMode ? "/devis" : "/factures?mode=devis"} className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+                style={{ color: (guestMode ? pathname.startsWith("/facturation/devis") : pathname === "/factures" && searchParams.get("mode") === "devis") ? "#C8924A" : lightSidebar ? "rgba(13,21,38,0.62)" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+                <ClipboardList size={19} />
+                <span style={{ fontSize: 10, fontWeight: 500 }}>Devis</span>
+              </Link>
               <Link href="/clients" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-                style={{ color: isActive("/clients") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+                style={{ color: isActive("/clients") ? "#C8924A" : lightSidebar ? "rgba(13,21,38,0.62)" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
                 <Users size={19} />
                 <span style={{ fontSize: 10, fontWeight: 500 }}>Clients</span>
               </Link>
             </>
           ) : <>
             <Link href="/tableau-de-bord" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-              style={{ color: isActive("/tableau-de-bord") ? "#C8924A" : allowed("report:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              style={{ color: isActive("/tableau-de-bord") ? "#C8924A" : lightSidebar ? (allowed("report:read") ? "rgba(13,21,38,0.62)" : "rgba(13,21,38,0.32)") : allowed("report:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
               <ChartNoAxesCombined size={19} />
               <span style={{ fontSize: 10, fontWeight: 500 }}>Accueil</span>
               {!allowed("report:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
             </Link>
 
             <Link href="/factures" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-              style={{ color: isActive("/factures") ? "#C8924A" : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              style={{ color: isActive("/factures") ? "#C8924A" : lightSidebar ? (allowed("invoice:read") ? "rgba(13,21,38,0.62)" : "rgba(13,21,38,0.32)") : allowed("invoice:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
               <FileText size={19} />
               <span style={{ fontSize: 10, fontWeight: 500 }}>Factures</span>
               {!allowed("invoice:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
             </Link>
 
             <Link href="/archive" className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-              style={{ color: isActive("/archive") ? "#C8924A" : allowed("document:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
+              style={{ color: isActive("/archive") ? "#C8924A" : lightSidebar ? (allowed("document:read") ? "rgba(13,21,38,0.62)" : "rgba(13,21,38,0.32)") : allowed("document:read") ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)" }}>
               <Download size={19} />
               <span style={{ fontSize: 10, fontWeight: 500 }}>Archive</span>
               {!allowed("document:read") && <Lock size={9} className="absolute right-[24%] top-2" />}
@@ -429,7 +446,7 @@ export default function AppShell({ children, userId, ownerId, userEmail, userNam
             <button
               onClick={() => setDrawerOpen(true)}
               className="flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
-              style={{ background: "none", border: "none", color: drawerOpen ? "#C8924A" : "rgba(255,255,255,0.45)" }}
+              style={{ background: "none", border: "none", color: drawerOpen ? "#C8924A" : lightSidebar ? "rgba(13,21,38,0.62)" : "rgba(255,255,255,0.45)" }}
             >
               <Menu size={19} />
               <span style={{ fontSize: 10, fontWeight: 500 }}>Menu</span>

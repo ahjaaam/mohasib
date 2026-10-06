@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Bell, CreditCard, FileText, Gauge, Inbox, LifeBuoy, ListChecks, UserCheck, UserCog, Users } from "lucide-react";
+import { BarChart3, Bell, BookOpenText, CreditCard, FileText, Gauge, Inbox, LifeBuoy, ListChecks, UserCheck, UserCog, Users } from "lucide-react";
 import type { AdminNavigationCounts } from "@/lib/admin-data";
 
 const NAV = [
@@ -17,6 +17,7 @@ const NAV = [
   { href: "/admin/support", label: "Support rapide", icon: LifeBuoy, countKey: "support" },
   { href: "/admin/liste-attente", label: "Liste d'attente", icon: ListChecks, countKey: "waitlist" },
   { href: "/admin/leads", label: "Leads documents", icon: FileText },
+  { href: "/admin/assistant-sources", label: "Bibliothèque Mohasib", icon: BookOpenText },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
 ] satisfies ReadonlyArray<{
   href: string;

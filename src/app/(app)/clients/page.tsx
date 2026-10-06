@@ -375,12 +375,9 @@ export default function ClientsPage({ dossierId: propDossierId }: { dossierId?: 
           <p className="text-[#6B7280] font-medium text-[13px] mb-1">
             Aucun client pour l&apos;instant
           </p>
-          <p className="text-[11.5px] text-[#9CA3AF] mb-4">
+          <p className="text-[11.5px] text-[#9CA3AF]">
             Ajoutez vos clients pour les associer à vos factures.
           </p>
-          <button data-permission="invoice:create" onClick={openAdd} className="btn btn-gold">
-            + Nouveau client
-          </button>
         </div>
       </>
     );

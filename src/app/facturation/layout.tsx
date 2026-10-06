@@ -69,7 +69,7 @@ export default function GuestFacturationLayout({ children }: { children: React.R
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationJsonLd) }} />
       <GuestAuthGate>
-        <AppShell ownerId="" entitlements={GUEST_INVOICING_ENTITLEMENTS} guestMode>
+        <AppShell ownerId="" entitlements={GUEST_INVOICING_ENTITLEMENTS} guestMode sidebarTheme="cream">
           {children}
         </AppShell>
       </GuestAuthGate>
